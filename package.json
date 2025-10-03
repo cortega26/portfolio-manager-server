@@ -1,0 +1,30 @@
+{
+  "name": "portfolio-manager-server",
+  "version": "1.0.0",
+  "description": "Full-stack portfolio manager with server-side storage and data fetching",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.1",
+    "cors": "^2.8.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.1",
+    "recharts": "^2.7.2",
+    "clsx": "^1.2.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.3.5",
+    "vite": "^5.0.0"
+  },
+  "type": "module"
+}
