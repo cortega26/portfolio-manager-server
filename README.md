@@ -27,7 +27,17 @@ This project provides a full‑stack portfolio manager that runs client‑side i
    npm run server
    ```
 
-   By default the server listens on port `3000` and creates a `data/` directory for saved portfolios.  Price data is fetched from [Stooq](https://stooq.com/).  You can change the port by setting the `PORT` environment variable.
+   The server validates portfolio identifiers to the pattern `[A-Za-z0-9_-]{1,64}` to prevent path traversal.  Requests with invalid identifiers return `400`.
+
+   Configuration is provided via environment variables:
+
+   | Name | Type | Default | Required | Description |
+   | ---- | ---- | ------- | -------- | ----------- |
+   | `PORT` | number | `3000` | No | TCP port for the Express server. |
+   | `DATA_DIR` | string (path) | `./data` | No | Directory for persisted portfolio files. |
+   | `PRICE_FETCH_TIMEOUT_MS` | number | `5000` | No | Timeout in milliseconds for upstream price fetches. |
+
+   Price data is fetched from [Stooq](https://stooq.com/).
 
 3. **Start the frontend:**
 
@@ -77,11 +87,11 @@ Example response:
 
 ### `GET /api/portfolio/:id`
 
-Loads a saved portfolio with the given `id` from the `data` folder.  Returns an empty object if it doesn’t exist.
+Loads a saved portfolio with the given `id` from the `data` folder.  The identifier must match `[A-Za-z0-9_-]{1,64}`; otherwise the request is rejected with HTTP `400`.  Returns an empty object if the portfolio does not exist.
 
 ### `POST /api/portfolio/:id`
 
-Saves a portfolio to the backend.  The request body should be a JSON object representing your portfolio state.  The server writes it to `data/portfolio_<id>.json`.
+Saves a portfolio to the backend.  The request body must be a JSON object representing your portfolio state.  The identifier is validated using the same `[A-Za-z0-9_-]{1,64}` rule, and payloads that are not plain JSON objects return HTTP `400`.  Valid portfolios are stored as `data/portfolio_<id>.json`.
 
 ## Contributing
 
