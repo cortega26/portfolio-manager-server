@@ -25,6 +25,19 @@ function parseNumber(value, defaultValue) {
   return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
+function parseList(value, defaultValue = []) {
+  if (value === undefined || value === null) {
+    return defaultValue;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  return String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function loadConfig(env = process.env) {
   const dataDir = path.resolve(env.DATA_DIR ?? './data');
   const fetchTimeoutMs = parseNumber(env.PRICE_FETCH_TIMEOUT_MS, 5000);
@@ -32,6 +45,8 @@ export function loadConfig(env = process.env) {
     env.FEATURES_CASH_BENCHMARKS,
     true,
   );
+  const allowedOrigins = parseList(env.CORS_ALLOWED_ORIGINS, []);
+  const nightlyHour = parseNumber(env.JOB_NIGHTLY_HOUR, 4);
 
   return {
     dataDir,
@@ -40,7 +55,10 @@ export function loadConfig(env = process.env) {
       cashBenchmarks: featureFlagCashBenchmarks,
     },
     jobs: {
-      nightlyHour: parseNumber(env.JOB_NIGHTLY_HOUR, 1),
+      nightlyHour,
+    },
+    cors: {
+      allowedOrigins,
     },
   };
 }
