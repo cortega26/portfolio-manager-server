@@ -7,9 +7,17 @@ const formatCurrency = (num) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
 };
 
+// Base URL for API endpoints. This allows the frontend to run against a remote
+// Cloudflare Worker or local development server. When the environment variable
+// VITE_API_BASE is defined at build time, that value will be used; otherwise
+// it falls back to the deployed workers.dev endpoint. Adjust the fallback URL
+// to match your own Worker subdomain.
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://portfolio-api.carlosortega77.workers.dev';
+
 // Fetch prices from backend; returns array [{date, close}]
 async function fetchPrices(symbol) {
-  const res = await fetch(`/api/prices/${symbol}?range=1y`);
+  // Prepend the API base to ensure requests go to the correct backend.
+  const res = await fetch(`${API_BASE}/api/prices/${symbol}?range=1y`);
   const data = await res.json();
   return data;
 }
@@ -180,7 +188,8 @@ export default function App() {
       transactions,
       signals,
     };
-    await fetch(`/api/portfolio/${portfolioId}`, {
+    // Persist the portfolio to the backend using the API base.
+    await fetch(`${API_BASE}/api/portfolio/${portfolioId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -191,7 +200,8 @@ export default function App() {
   // Load portfolio
   const loadPortfolio = async () => {
     if (!portfolioId) return;
-    const res = await fetch(`/api/portfolio/${portfolioId}`);
+    // Load the portfolio from the backend using the API base.
+    const res = await fetch(`${API_BASE}/api/portfolio/${portfolioId}`);
     const data = await res.json();
     if (data.transactions) setTransactions(data.transactions);
     if (data.signals) setSignals(data.signals);
