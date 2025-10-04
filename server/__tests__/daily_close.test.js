@@ -122,22 +122,64 @@ test('API endpoints expose computed series', async () => {
     logger: noopLogger,
     config: { featureFlags: { cashBenchmarks: true } },
   });
-  const returnsResponse = await request(app).get('/returns/daily?from=2024-01-01&to=2024-01-02');
+  const returnsResponse = await request(app).get(
+    '/api/returns/daily?from=2024-01-01&to=2024-01-02&views=port,bench',
+  );
   assert.equal(returnsResponse.status, 200);
   assert.ok(Array.isArray(returnsResponse.body.series.r_port));
 
-  const navResponse = await request(app).get('/nav/daily?from=2024-01-02&to=2024-01-02');
+  const navResponse = await request(app).get(
+    '/api/nav/daily?from=2024-01-02&to=2024-01-02',
+  );
   assert.equal(navResponse.status, 200);
   assert.ok(Array.isArray(navResponse.body.data));
+  assert.equal(navResponse.body.data[0].stale_price, false);
 
   const summaryResponse = await request(app).get(
-    '/benchmarks/summary?from=2024-01-01&to=2024-01-02',
+    '/api/benchmarks/summary?from=2024-01-01&to=2024-01-02',
   );
   assert.equal(summaryResponse.status, 200);
   assert.ok(summaryResponse.body.summary);
 
   const postRate = await request(app)
-    .post('/admin/cash-rate')
+    .post('/api/admin/cash-rate')
     .send({ effective_date: '2024-01-15', apy: 0.04 });
   assert.equal(postRate.status, 200);
+});
+
+test('stale prices set flag when latest close missing', async () => {
+  await storage.upsertRow(
+    'cash_rates',
+    { effective_date: '2023-12-01', apy: 0.02 },
+    ['effective_date'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
+    ['id'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    { id: 'b1', type: 'BUY', ticker: 'SPY', date: '2024-01-01', quantity: 5, amount: 500 },
+    ['id'],
+  );
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-01', adjClose: 100 },
+      // intentionally missing 2024-01-02 to force carry forward
+    ],
+  });
+
+  await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-02T00:00:00Z'),
+    priceProvider: provider,
+  });
+
+  const navSnapshots = await storage.readTable('nav_snapshots');
+  const target = navSnapshots.find((row) => row.date === '2024-01-02');
+  assert.ok(target);
+  assert.equal(target.stale_price, true);
 });

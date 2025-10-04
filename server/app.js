@@ -1,8 +1,15 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import fetch from 'node-fetch';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
+
+import pino from 'pino';
+import pinoHttp from 'pino-http';
+import { z } from 'zod';
 
 import { runMigrations } from './migrations/index.js';
 import { summarizeReturns } from './finance/returns.js';
@@ -14,35 +21,45 @@ const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
   10,
 );
 
-const DEFAULT_LOGGER = console;
+const DEFAULT_LOGGER = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
 const PORTFOLIO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SYMBOL_PATTERN = /^[A-Za-z0-9._-]{1,32}$/;
 
-function createLogger(logger = DEFAULT_LOGGER) {
-  return {
+function adaptLogger(logger) {
+  if (!logger) {
+    return null;
+  }
+  if (typeof logger.child === 'function') {
+    return logger;
+  }
+  const safe = {
     info(message, meta = {}) {
       if (typeof logger.info === 'function') {
-        logger.info(JSON.stringify({ level: 'info', message, ...meta }));
+        logger.info({ message, ...meta });
       } else if (typeof logger.log === 'function') {
-        logger.log(JSON.stringify({ level: 'info', message, ...meta }));
+        logger.log({ level: 'info', message, ...meta });
       }
     },
     warn(message, meta = {}) {
       if (typeof logger.warn === 'function') {
-        logger.warn(JSON.stringify({ level: 'warn', message, ...meta }));
+        logger.warn({ message, ...meta });
       } else if (typeof logger.log === 'function') {
-        logger.log(JSON.stringify({ level: 'warn', message, ...meta }));
+        logger.log({ level: 'warn', message, ...meta });
       }
     },
     error(message, meta = {}) {
       if (typeof logger.error === 'function') {
-        logger.error(JSON.stringify({ level: 'error', message, ...meta }));
+        logger.error({ message, ...meta });
       } else if (typeof logger.log === 'function') {
-        logger.log(JSON.stringify({ level: 'error', message, ...meta }));
+        logger.log({ level: 'error', message, ...meta });
       }
     },
+    child() {
+      return safe;
+    },
   };
+  return safe;
 }
 
 function isPlainObject(value) {
@@ -57,14 +74,41 @@ export function isValidPortfolioId(id) {
   return PORTFOLIO_ID_PATTERN.test(id);
 }
 
-function parseDateInput(value, name) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const error = new Error(`${name} must be YYYY-MM-DD`);
-    error.statusCode = 400;
-    throw error;
-  }
-  return value;
-}
+const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/u, 'Must be ISO date (YYYY-MM-DD)');
+
+const returnsQuerySchema = z
+  .object({
+    from: dateSchema.optional(),
+    to: dateSchema.optional(),
+    views: z
+      .string()
+      .optional()
+      .transform((value) => {
+        if (!value) {
+          return ['port', 'excash', 'spy', 'bench'];
+        }
+        return value
+          .split(',')
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean);
+      }),
+  })
+  .transform((query) => ({
+    ...query,
+    views: Array.from(new Set(query.views)),
+  }));
+
+const rangeQuerySchema = z.object({
+  from: dateSchema.optional(),
+  to: dateSchema.optional(),
+});
+
+const cashRateSchema = z.object({
+  effective_date: dateSchema,
+  apy: z.number({ invalid_type_error: 'apy must be numeric' }),
+});
 
 function filterRowsByRange(rows, from, to) {
   return rows.filter((row) => {
@@ -85,8 +129,12 @@ export function createApp({
   fetchTimeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
   config = null,
 } = {}) {
-  const log = createLogger(logger);
+  const baseLogger = adaptLogger(logger) ?? DEFAULT_LOGGER;
+  const log = typeof baseLogger.child === 'function'
+    ? baseLogger.child({ module: 'app' })
+    : baseLogger;
   const featureFlags = config?.featureFlags ?? { cashBenchmarks: true };
+  const allowedOrigins = config?.cors?.allowedOrigins ?? [];
 
   fs.mkdir(dataDir, { recursive: true }).catch((error) => {
     log.error('failed_to_ensure_data_directory', {
@@ -105,8 +153,46 @@ export function createApp({
 
   const app = express();
 
-  app.use(cors());
+  const httpLogger = pinoHttp({
+    logger: DEFAULT_LOGGER,
+    genReqId(req) {
+      return req.headers['x-request-id'] ?? randomUUID();
+    },
+    customSuccessMessage() {
+      return 'request_complete';
+    },
+    customErrorMessage() {
+      return 'request_error';
+    },
+  });
+
+  app.use(httpLogger);
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
+  app.use(
+    cors({
+      origin(origin, callback) {
+        if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error('Not allowed by CORS'));
+      },
+      credentials: true,
+    }),
+  );
   app.use(express.json({ limit: '10mb' }));
+
+  const priceLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use('/api/prices', priceLimiter);
 
   async function fetchHistoricalPrices(symbol, range = '1y') {
     if (!SYMBOL_PATTERN.test(symbol)) {
@@ -223,37 +309,43 @@ export function createApp({
     next();
   }
 
-  app.get('/returns/daily', ensureCashFeature, async (req, res) => {
+  app.get('/api/returns/daily', ensureCashFeature, async (req, res) => {
     try {
-      const from = req.query.from ? parseDateInput(req.query.from, 'from') : null;
-      const to = req.query.to ? parseDateInput(req.query.to, 'to') : null;
+      const parsed = returnsQuerySchema.parse(req.query ?? {});
+      const { from = null, to = null, views } = parsed;
       const storage = await getStorage();
       const rows = filterRowsByRange(await storage.readTable('returns_daily'), from, to);
-      const series = {
-        r_port: [],
-        r_ex_cash: [],
-        r_spy_100: [],
-        r_bench_blended: [],
-        r_cash: [],
+      const mapping = {
+        port: 'r_port',
+        excash: 'r_ex_cash',
+        spy: 'r_spy_100',
+        bench: 'r_bench_blended',
       };
-      for (const row of rows) {
-        series.r_port.push({ date: row.date, value: row.r_port });
-        series.r_ex_cash.push({ date: row.date, value: row.r_ex_cash });
-        series.r_spy_100.push({ date: row.date, value: row.r_spy_100 });
-        series.r_bench_blended.push({ date: row.date, value: row.r_bench_blended });
-        series.r_cash.push({ date: row.date, value: row.r_cash });
+      const series = {};
+      for (const view of views) {
+        const key = mapping[view];
+        if (!key) {
+          continue;
+        }
+        series[key] = rows.map((row) => ({ date: row.date, value: row[key] }));
+      }
+      series.r_cash = rows.map((row) => ({ date: row.date, value: row.r_cash }));
+      if (!Object.keys(series).length) {
+        series.r_port = rows.map((row) => ({ date: row.date, value: row.r_port }));
       }
       res.json({ series });
     } catch (error) {
-      log.error('returns_fetch_failed', { error: error.message });
-      res.status(error.statusCode ?? 500).json({ error: error.message });
+      const message = error instanceof z.ZodError ? 'validation_failed' : 'returns_fetch_failed';
+      log.error(message, { error: error.message });
+      res.status(error instanceof z.ZodError ? 400 : error.statusCode ?? 500).json({
+        error: error instanceof z.ZodError ? error.errors : error.message,
+      });
     }
   });
 
-  app.get('/nav/daily', ensureCashFeature, async (req, res) => {
+  app.get('/api/nav/daily', ensureCashFeature, async (req, res) => {
     try {
-      const from = req.query.from ? parseDateInput(req.query.from, 'from') : null;
-      const to = req.query.to ? parseDateInput(req.query.to, 'to') : null;
+      const { from = null, to = null } = rangeQuerySchema.parse(req.query ?? {});
       const storage = await getStorage();
       const rows = filterRowsByRange(await storage.readTable('nav_snapshots'), from, to);
       const data = rows.map((row) => {
@@ -268,20 +360,23 @@ export function createApp({
           ex_cash_nav: row.ex_cash_nav,
           cash_balance: row.cash_balance,
           risk_assets_value: row.risk_assets_value,
+          stale_price: Boolean(row.stale_price),
           weights,
         };
       });
       res.json({ data });
     } catch (error) {
-      log.error('nav_fetch_failed', { error: error.message });
-      res.status(error.statusCode ?? 500).json({ error: error.message });
+      const message = error instanceof z.ZodError ? 'validation_failed' : 'nav_fetch_failed';
+      log.error(message, { error: error.message });
+      res.status(error instanceof z.ZodError ? 400 : error.statusCode ?? 500).json({
+        error: error instanceof z.ZodError ? error.errors : error.message,
+      });
     }
   });
 
-  app.get('/benchmarks/summary', ensureCashFeature, async (req, res) => {
+  app.get('/api/benchmarks/summary', ensureCashFeature, async (req, res) => {
     try {
-      const from = req.query.from ? parseDateInput(req.query.from, 'from') : null;
-      const to = req.query.to ? parseDateInput(req.query.to, 'to') : null;
+      const { from = null, to = null } = rangeQuerySchema.parse(req.query ?? {});
       const storage = await getStorage();
       const rows = filterRowsByRange(await storage.readTable('returns_daily'), from, to);
       const summary = summarizeReturns(rows);
@@ -297,24 +392,20 @@ export function createApp({
         },
       });
     } catch (error) {
-      log.error('benchmarks_fetch_failed', { error: error.message });
-      res.status(error.statusCode ?? 500).json({ error: error.message });
+      const message = error instanceof z.ZodError
+        ? 'validation_failed'
+        : 'benchmarks_fetch_failed';
+      log.error(message, { error: error.message });
+      res.status(error instanceof z.ZodError ? 400 : error.statusCode ?? 500).json({
+        error: error instanceof z.ZodError ? error.errors : error.message,
+      });
     }
   });
 
-  app.post('/admin/cash-rate', ensureCashFeature, async (req, res) => {
+  app.post('/api/admin/cash-rate', ensureCashFeature, async (req, res) => {
     try {
-      const payload = req.body;
-      if (!isPlainObject(payload)) {
-        throw new Error('Payload must be an object');
-      }
-      const effectiveDate = parseDateInput(payload.effective_date, 'effective_date');
-      const apy = Number.parseFloat(payload.apy);
-      if (!Number.isFinite(apy)) {
-        const error = new Error('apy must be numeric');
-        error.statusCode = 400;
-        throw error;
-      }
+      const payload = isPlainObject(req.body) ? req.body : {};
+      const { effective_date: effectiveDate, apy } = cashRateSchema.parse(payload);
       const storage = await getStorage();
       await storage.upsertRow(
         'cash_rates',
@@ -323,9 +414,22 @@ export function createApp({
       );
       res.json({ status: 'ok' });
     } catch (error) {
-      log.error('cash_rate_upsert_failed', { error: error.message });
-      res.status(error.statusCode ?? 500).json({ error: error.message });
+      const message = error instanceof z.ZodError
+        ? 'validation_failed'
+        : 'cash_rate_upsert_failed';
+      log.error(message, { error: error.message });
+      res.status(error instanceof z.ZodError ? 400 : error.statusCode ?? 500).json({
+        error: error instanceof z.ZodError ? error.errors : error.message,
+      });
     }
+  });
+
+  app.use((error, req, res, next) => {
+    if (error?.message === 'Not allowed by CORS') {
+      res.status(403).json({ error: 'cors_not_allowed' });
+      return;
+    }
+    next(error);
   });
 
   return app;
