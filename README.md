@@ -1,15 +1,30 @@
 # Portfolio Manager (Server Edition)
 
-This project provides a full‑stack portfolio manager that runs client‑side in the browser but persists data on the server.  It allows you to record transactions (buy, sell, dividends, deposits and withdrawals) using amounts and exact prices, computes holdings and portfolio value, tracks return on investment (ROI) relative to the S&P 500 (SPY) and displays configurable trading signals for each ticker.
+This project provides a full‑stack portfolio manager that runs client‑side in the browser but persists data on the server. It allows you to record transactions (buy, sell, dividends, deposits and withdrawals) using amounts and exact prices, computes holdings and portfolio value, tracks return on investment (ROI) relative to the S&P 500 (SPY) and displays configurable trading signals for each ticker.
 
 ## Features
 
 - **Server‑side persistence** – save and load your portfolio on any device via REST endpoints.
+- **Tabbed workspace** – switch between Dashboard, Holdings and Transactions views without losing context.
 - **Transaction entry** – enter date, ticker, transaction type, amount invested and price; the app calculates shares automatically.
 - **Holdings dashboard** – see average cost, current value, unrealised/realised PnL, ROI and position weights.
 - **Signals per ticker** – define a percentage band around the last price to trigger buy/trim/hold signals.
 - **ROI vs SPY** – chart your portfolio’s performance against SPY using daily price data from Stooq (no API key required).
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
+
+### Frontend configuration
+
+| Name            | Type         | Default                                            | Required | Description                                                                   |
+| --------------- | ------------ | -------------------------------------------------- | -------- | ----------------------------------------------------------------------------- |
+| `VITE_API_BASE` | string (URL) | `https://portfolio-api.carlosortega77.workers.dev` | No       | Overrides the API host used by the Dashboard, Holdings and Transactions tabs. |
+
+### Tabbed navigation
+
+The interface organises the experience across three focused tabs:
+
+- **Dashboard** – portfolio KPIs, ROI vs. SPY line chart, and quick actions to refresh analytics or open reference material.
+- **Holdings** – consolidated holdings table plus configurable buy/trim signal bands for each ticker.
+- **Transactions** – dedicated form for capturing trades and a chronological activity table.
 
 ## Getting Started
 
@@ -27,15 +42,15 @@ This project provides a full‑stack portfolio manager that runs client‑side i
    npm run server
    ```
 
-   The server validates portfolio identifiers to the pattern `[A-Za-z0-9_-]{1,64}` to prevent path traversal.  Requests with invalid identifiers return `400`.
+   The server validates portfolio identifiers to the pattern `[A-Za-z0-9_-]{1,64}` to prevent path traversal. Requests with invalid identifiers return `400`.
 
    Configuration is provided via environment variables:
 
-   | Name | Type | Default | Required | Description |
-   | ---- | ---- | ------- | -------- | ----------- |
-   | `PORT` | number | `3000` | No | TCP port for the Express server. |
-   | `DATA_DIR` | string (path) | `./data` | No | Directory for persisted portfolio files. |
-   | `PRICE_FETCH_TIMEOUT_MS` | number | `5000` | No | Timeout in milliseconds for upstream price fetches. |
+   | Name                     | Type          | Default  | Required | Description                                         |
+   | ------------------------ | ------------- | -------- | -------- | --------------------------------------------------- |
+   | `PORT`                   | number        | `3000`   | No       | TCP port for the Express server.                    |
+   | `DATA_DIR`               | string (path) | `./data` | No       | Directory for persisted portfolio files.            |
+   | `PRICE_FETCH_TIMEOUT_MS` | number        | `5000`   | No       | Timeout in milliseconds for upstream price fetches. |
 
    Price data is fetched from [Stooq](https://stooq.com/).
 
@@ -48,10 +63,11 @@ This project provides a full‑stack portfolio manager that runs client‑side i
    Vite runs on port `5173` and proxies `/api` calls to the backend.
 
 4. **Usage:**
-
-   - Add transactions via the form.  Enter **amount** and **price**; shares are computed automatically.
-   - Configure signals for each ticker by clicking the **Signals** tab.  Percentage windows determine when the last price falls below or above your buy/trim zones.
-   - Save/load your portfolio by choosing a portfolio ID and pressing **Save** or **Load**.  Portfolios are stored in the backend’s `data/` folder.
+   - Navigate using the tab bar at the top of the workspace. The active tab is persisted while you save or load data.
+   - Add transactions via the **Transactions** tab. Enter **amount** and **price**; shares are computed automatically before submission.
+   - Review metrics, ROI performance and quick actions from the **Dashboard** tab.
+   - Configure signals and monitor allocation details from the **Holdings** tab. Percentage windows determine when the last price falls below or above your buy/trim zones.
+   - Save or load your portfolio by choosing a portfolio ID and pressing **Save** or **Load**. Portfolios are stored in the backend’s `data/` folder.
 
 ### Production Deployment
 
@@ -63,15 +79,15 @@ To deploy the static frontend to GitHub Pages and run the backend separately:
    npm run build
    ```
 
-2. Serve the files in `dist/` from your static host (GitHub Pages, Netlify, etc.).  If using GitHub Pages, set the `base` path in `vite.config.js` or define `VITE_BASE=/your-repo/` at build time.
+2. Serve the files in `dist/` from your static host (GitHub Pages, Netlify, etc.). If using GitHub Pages, set the `base` path in `vite.config.js` or define `VITE_BASE=/your-repo/` at build time.
 
-3. Deploy the backend to your preferred host (Heroku, Railway, Cloudflare Workers with minimal adjustments).  For Cloudflare Workers, you can port the express logic to `fetch` handlers and use KV for storage.
+3. Deploy the backend to your preferred host (Heroku, Railway, Cloudflare Workers with minimal adjustments). For Cloudflare Workers, you can port the express logic to `fetch` handlers and use KV for storage.
 
 ## API
 
 ### `GET /api/prices/:symbol?range=1y`
 
-Returns an array of historical prices for a US ticker using Stooq.  Supported query parameters:
+Returns an array of historical prices for a US ticker using Stooq. Supported query parameters:
 
 - `range` – currently only `1y` (one year of daily data) is supported.
 
@@ -87,12 +103,12 @@ Example response:
 
 ### `GET /api/portfolio/:id`
 
-Loads a saved portfolio with the given `id` from the `data` folder.  The identifier must match `[A-Za-z0-9_-]{1,64}`; otherwise the request is rejected with HTTP `400`.  Returns an empty object if the portfolio does not exist.
+Loads a saved portfolio with the given `id` from the `data` folder. The identifier must match `[A-Za-z0-9_-]{1,64}`; otherwise the request is rejected with HTTP `400`. Returns an empty object if the portfolio does not exist.
 
 ### `POST /api/portfolio/:id`
 
-Saves a portfolio to the backend.  The request body must be a JSON object representing your portfolio state.  The identifier is validated using the same `[A-Za-z0-9_-]{1,64}` rule, and payloads that are not plain JSON objects return HTTP `400`.  Valid portfolios are stored as `data/portfolio_<id>.json`.
+Saves a portfolio to the backend. The request body must be a JSON object representing your portfolio state. The identifier is validated using the same `[A-Za-z0-9_-]{1,64}` rule, and payloads that are not plain JSON objects return HTTP `400`. Valid portfolios are stored as `data/portfolio_<id>.json`.
 
 ## Contributing
 
-Feel free to fork this repository and customise it to your needs.  Pull requests are welcome!
+Feel free to fork this repository and customise it to your needs. Pull requests are welcome!
