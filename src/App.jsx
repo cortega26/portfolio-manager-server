@@ -157,6 +157,12 @@ export default function App() {
     setTransactions((prev) => [...prev, transaction]);
   }, []);
 
+  const handleDeleteTransaction = useCallback((indexToRemove) => {
+    setTransactions((prev) =>
+      prev.filter((_, index) => index !== indexToRemove),
+    );
+  }, []);
+
   const handleSignalChange = useCallback((ticker, pct) => {
     const pctValue = Number.parseFloat(pct);
     if (!Number.isFinite(pctValue)) {
@@ -259,6 +265,7 @@ export default function App() {
             <TransactionsTab
               transactions={transactions}
               onAddTransaction={handleAddTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
             />
           )}
 
