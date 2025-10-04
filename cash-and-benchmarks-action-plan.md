@@ -1,4 +1,4 @@
-
+<!-- markdownlint-disable -->
 # Cash & Benchmarks Implementation Plan — Portfolio Manager (Server)
 
 **Goal:** Implement cash as a first‑class position with daily interest accrual and add three comparable return views plus fair benchmarks:
