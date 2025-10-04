@@ -161,4 +161,39 @@ describe("App tab navigation", () => {
     assert.ok(await screen.findByText("AAPL"));
     assert.ok(await screen.findByText("$1,000.00"));
   });
+
+  it("allows undoing a transaction from the transactions table", async () => {
+    render(<App />);
+
+    const transactionsTab = screen.getByRole("button", {
+      name: /transactions/i,
+    });
+    await userEvent.click(transactionsTab);
+
+    const dateInput = screen.getByLabelText("Date");
+    fireEvent.input(dateInput, { target: { value: "2024-01-03" } });
+
+    const tickerInput = screen.getByLabelText("Ticker");
+    await userEvent.type(tickerInput, "msft");
+
+    const amountInput = screen.getByLabelText("Amount (USD)");
+    await userEvent.type(amountInput, "1500");
+
+    const priceInput = screen.getByLabelText("Price (USD)");
+    await userEvent.type(priceInput, "250");
+
+    const submitButton = screen.getByRole("button", {
+      name: /add transaction/i,
+    });
+    await userEvent.click(submitButton);
+
+    const undoButton = await screen.findByRole("button", {
+      name: /undo transaction for MSFT on 2024-01-03/i,
+    });
+    await userEvent.click(undoButton);
+
+    assert.ok(
+      await screen.findByText("No transactions recorded yet."),
+    );
+  });
 });
