@@ -3,6 +3,18 @@
 @tailwind utilities;
 
 /* Custom global styles */
+:root {
+  color-scheme: light dark;
+}
+
 body {
-  @apply font-sans;
+  @apply min-h-screen bg-slate-100 font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+table {
+  @apply w-full;
 }
