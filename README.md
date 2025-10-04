@@ -5,7 +5,7 @@ This project provides a full‑stack portfolio manager that runs client‑side i
 ## Features
 
 - **Server‑side persistence** – save and load your portfolio on any device via REST endpoints.
-- **Tabbed workspace** – switch between Dashboard, Holdings and Transactions views without losing context.
+- **Tabbed workspace** – switch between Dashboard, Holdings, Transactions, History, Metrics, Reports, and Settings views without losing context.
 - **Transaction entry** – enter date, ticker, transaction type, amount invested and price; the app calculates shares automatically.
 - **Holdings dashboard** – see average cost, current value, unrealised/realised PnL, ROI and position weights.
 - **Signals per ticker** – define a percentage band around the last price to trigger buy/trim/hold signals.
@@ -20,11 +20,15 @@ This project provides a full‑stack portfolio manager that runs client‑side i
 
 ### Tabbed navigation
 
-The interface organises the experience across three focused tabs:
+The interface organises the experience across focused tabs:
 
 - **Dashboard** – portfolio KPIs, ROI vs. SPY line chart, and quick actions to refresh analytics or open reference material.
 - **Holdings** – consolidated holdings table plus configurable buy/trim signal bands for each ticker.
 - **Transactions** – dedicated form for capturing trades and a chronological activity table.
+- **History** – contribution trends and a chronological timeline of activity, grouped by calendar month.
+- **Metrics** – allocation concentration, return ratios, and performance highlights derived from the ROI series.
+- **Reports** – CSV export hub covering transactions, holdings, and ROI comparisons for downstream analysis.
+- **Settings** – privacy, notification, and display preferences persisted to the browser for future sessions.
 
 ## Getting Started
 
@@ -67,6 +71,10 @@ The interface organises the experience across three focused tabs:
    - Add transactions via the **Transactions** tab. Enter **amount** and **price**; shares are computed automatically before submission.
    - Review metrics, ROI performance and quick actions from the **Dashboard** tab.
    - Configure signals and monitor allocation details from the **Holdings** tab. Percentage windows determine when the last price falls below or above your buy/trim zones.
+   - Audit deposits, withdrawals, and realised cash flow via the **History** tab’s contribution trends and timeline.
+   - Inspect diversification, return ratios, and ROI highlights through the **Metrics** tab.
+   - Export ledger, holdings, and ROI data from the **Reports** tab for compliance or reporting workflows.
+   - Adjust notification, privacy, and workspace preferences from the **Settings** tab; values persist locally.
    - Save or load your portfolio by choosing a portfolio ID and pressing **Save** or **Load**. Portfolios are stored in the backend’s `data/` folder.
 
 ### Production Deployment
