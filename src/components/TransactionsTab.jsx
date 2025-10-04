@@ -9,7 +9,7 @@ const defaultForm = {
   price: "",
 };
 
-function TransactionsTable({ transactions }) {
+function TransactionsTable({ transactions, onDeleteTransaction }) {
   if (transactions.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -29,6 +29,7 @@ function TransactionsTable({ transactions }) {
             <th className="px-3 py-2">Amount</th>
             <th className="px-3 py-2">Price</th>
             <th className="px-3 py-2">Shares</th>
+            <th className="px-3 py-2 text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -45,6 +46,16 @@ function TransactionsTable({ transactions }) {
               </td>
               <td className="px-3 py-2">{formatCurrency(transaction.price)}</td>
               <td className="px-3 py-2">{transaction.shares.toFixed(4)}</td>
+              <td className="px-3 py-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => onDeleteTransaction?.(index)}
+                  className="rounded-md border border-transparent px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10"
+                  aria-label={`Undo transaction for ${transaction.ticker} on ${transaction.date}`}
+                >
+                  Undo
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -53,7 +64,11 @@ function TransactionsTable({ transactions }) {
   );
 }
 
-export default function TransactionsTab({ onAddTransaction, transactions }) {
+export default function TransactionsTab({
+  onAddTransaction,
+  onDeleteTransaction,
+  transactions,
+}) {
   const [form, setForm] = useState(defaultForm);
   const [error, setError] = useState(null);
 
@@ -186,7 +201,10 @@ export default function TransactionsTab({ onAddTransaction, transactions }) {
           Recent Activity
         </h2>
         <div className="mt-4">
-          <TransactionsTable transactions={transactions} />
+          <TransactionsTable
+            transactions={transactions}
+            onDeleteTransaction={onDeleteTransaction}
+          />
         </div>
       </div>
     </div>
