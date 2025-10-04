@@ -1,6 +1,14 @@
 import TabButton from "./TabButton.jsx";
 
-const tabs = ["Dashboard", "Holdings", "Transactions"];
+const tabs = [
+  "Dashboard",
+  "Holdings",
+  "Transactions",
+  "History",
+  "Metrics",
+  "Reports",
+  "Settings",
+];
 
 export default function TabBar({ activeTab, onTabChange }) {
   return (
