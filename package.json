@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "server": "node server/index.js",
     "lint": "eslint \"server/**/*.{js,jsx}\" \"src/**/*.{js,jsx}\"",
-    "test": "node --test --experimental-test-coverage"
+    "test": "node --test --experimental-test-coverage",
+    "backfill": "node server/cli/backfill.js"
   },
   "dependencies": {
     "clsx": "^1.2.1",
@@ -19,19 +20,20 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
-    "recharts": "^2.7.2"
+    "recharts": "^2.7.2",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.11.1",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.4.3",
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.4.15",
-    "@eslint/js": "^9.11.1",
     "eslint": "^9.11.1",
     "globals": "^15.9.0",
     "jsdom": "^24.0.0",
-    "prettier": "^3.2.5",
     "postcss": "^8.4.33",
+    "prettier": "^3.2.5",
     "supertest": "^7.0.0",
     "tailwindcss": "^3.3.5",
     "vite": "^5.0.0"
