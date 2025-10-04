@@ -10,6 +10,7 @@ This project provides a full‑stack portfolio manager that runs client‑side i
 - **Holdings dashboard** – see average cost, current value, unrealised/realised PnL, ROI and position weights.
 - **Signals per ticker** – define a percentage band around the last price to trigger buy/trim/hold signals.
 - **ROI vs SPY** – chart your portfolio’s performance against SPY using daily price data from Stooq (no API key required).
+- **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management.
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
 
 ### Frontend configuration
@@ -53,10 +54,12 @@ The interface organises the experience across focused tabs:
    | Name                     | Type          | Default  | Required | Description                                         |
    | ------------------------ | ------------- | -------- | -------- | --------------------------------------------------- |
    | `PORT`                   | number        | `3000`   | No       | TCP port for the Express server.                    |
-   | `DATA_DIR`               | string (path) | `./data` | No       | Directory for persisted portfolio files.            |
-   | `PRICE_FETCH_TIMEOUT_MS` | number        | `5000`   | No       | Timeout in milliseconds for upstream price fetches. |
+   | `DATA_DIR`               | string (path) | `./data` | No       | Directory for persisted portfolio files and JSON tables. |
+   | `PRICE_FETCH_TIMEOUT_MS` | number        | `5000`   | No       | Timeout in milliseconds for legacy upstream price fetches. |
+   | `FEATURES_CASH_BENCHMARKS` | boolean     | `true`   | No       | Enables cash accrual, NAV/return endpoints, and nightly job. |
+   | `JOB_NIGHTLY_HOUR`       | number        | `1`      | No       | UTC hour to execute the nightly close pipeline.     |
 
-   Price data is fetched from [Stooq](https://stooq.com/).
+Price data for interactive queries is fetched from [Stooq](https://stooq.com/). Benchmark processing uses the Yahoo Finance adjusted-close feed via the provider interface documented in [`docs/cash-benchmarks.md`](docs/cash-benchmarks.md).
 
 3. **Start the frontend:**
 
@@ -116,6 +119,28 @@ Loads a saved portfolio with the given `id` from the `data` folder. The identifi
 ### `POST /api/portfolio/:id`
 
 Saves a portfolio to the backend. The request body must be a JSON object representing your portfolio state. The identifier is validated using the same `[A-Za-z0-9_-]{1,64}` rule, and payloads that are not plain JSON objects return HTTP `400`. Valid portfolios are stored as `data/portfolio_<id>.json`.
+
+### Cash & benchmark endpoints
+
+When the `features.cash_benchmarks` flag is active the API also exposes:
+
+- `GET /returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `POST /admin/cash-rate` accepting `{ "effective_date": "YYYY-MM-DD", "apy": 0.04 }`
+
+Refer to [`docs/openapi.yaml`](docs/openapi.yaml) for detailed schemas and sample responses.
+
+### Nightly job & backfill CLI
+
+- The Express entry point schedules `runDailyClose` once per UTC day according to `JOB_NIGHTLY_HOUR`. The job accrues cash interest, refreshes adjusted-close prices (SPY + held tickers), rebuilds NAV snapshots, and stores daily return rows.
+- Historical recomputations can be triggered manually:
+
+  ```bash
+  npm run backfill -- --from=2024-01-01 --to=2024-01-31
+  ```
+
+  The command is idempotent and safe to rerun; it reuses the same price provider infrastructure as the nightly pipeline.
 
 ## Contributing
 

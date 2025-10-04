@@ -1,0 +1,170 @@
+openapi: 3.1.0
+info:
+  title: Portfolio Manager API
+  version: '1.0.0'
+  description: Cash and benchmark endpoints behind the `features.cash_benchmarks` flag.
+servers:
+  - url: http://localhost:3000
+paths:
+  /returns/daily:
+    get:
+      summary: Daily time-weighted returns
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Daily return series
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  series:
+                    type: object
+                    properties:
+                      r_port:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_ex_cash:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_spy_100:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_bench_blended:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_cash:
+                        $ref: '#/components/schemas/DateValueSeries'
+  /nav/daily:
+    get:
+      summary: Daily NAV snapshots and sleeve weights
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: NAV series
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        portfolio_nav:
+                          type: number
+                        ex_cash_nav:
+                          type: number
+                        cash_balance:
+                          type: number
+                        risk_assets_value:
+                          type: number
+                        weights:
+                          type: object
+                          properties:
+                            cash:
+                              type: number
+                            risk:
+                              type: number
+  /benchmarks/summary:
+    get:
+      summary: Cumulative returns and drag metrics
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Summary totals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    $ref: '#/components/schemas/ReturnSummary'
+                  drag:
+                    type: object
+                    properties:
+                      vs_self:
+                        type: number
+                      allocation:
+                        type: number
+  /admin/cash-rate:
+    post:
+      summary: Upsert a cash APY effective date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [effective_date, apy]
+              properties:
+                effective_date:
+                  type: string
+                  format: date
+                apy:
+                  type: number
+      responses:
+        '200':
+          description: Upsert acknowledgement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+components:
+  schemas:
+    DateValueSeries:
+      type: array
+      items:
+        type: object
+        properties:
+          date:
+            type: string
+            format: date
+          value:
+            type: number
+    ReturnSummary:
+      type: object
+      properties:
+        r_port:
+          type: number
+        r_ex_cash:
+          type: number
+        r_bench_blended:
+          type: number
+        r_spy_100:
+          type: number
+        r_cash:
+          type: number
