@@ -6,7 +6,7 @@ info:
 servers:
   - url: http://localhost:3000
 paths:
-  /returns/daily:
+  /api/returns/daily:
     get:
       summary: Daily time-weighted returns
       parameters:
@@ -20,6 +20,11 @@ paths:
           schema:
             type: string
             format: date
+        - in: query
+          name: views
+          schema:
+            type: string
+          description: Comma separated list of views (port, excash, spy, bench)
       responses:
         '200':
           description: Daily return series
@@ -41,7 +46,7 @@ paths:
                         $ref: '#/components/schemas/DateValueSeries'
                       r_cash:
                         $ref: '#/components/schemas/DateValueSeries'
-  /nav/daily:
+  /api/nav/daily:
     get:
       summary: Daily NAV snapshots and sleeve weights
       parameters:
@@ -79,6 +84,8 @@ paths:
                           type: number
                         risk_assets_value:
                           type: number
+                        stale_price:
+                          type: boolean
                         weights:
                           type: object
                           properties:
@@ -86,7 +93,7 @@ paths:
                               type: number
                             risk:
                               type: number
-  /benchmarks/summary:
+  /api/benchmarks/summary:
     get:
       summary: Cumulative returns and drag metrics
       parameters:
@@ -117,7 +124,7 @@ paths:
                         type: number
                       allocation:
                         type: number
-  /admin/cash-rate:
+  /api/admin/cash-rate:
     post:
       summary: Upsert a cash APY effective date
       requestBody:

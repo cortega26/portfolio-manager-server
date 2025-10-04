@@ -16,12 +16,17 @@
     "clsx": "^1.2.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
     "node-fetch": "^3.3.1",
+    "pino": "^10.0.0",
+    "pino-http": "^11.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
     "recharts": "^2.7.2",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",

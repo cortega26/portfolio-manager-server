@@ -41,7 +41,7 @@ function buildPriceMaps(records, tickers, dates) {
   return byDate;
 }
 
-async function ensurePrices({ storage, provider, tickers, from, to }) {
+async function ensurePrices({ storage, provider, tickers, from, to, logger }) {
   const dates = listDates(from, to);
   const prices = await storage.readTable('prices');
   const existing = new Set(prices.map((row) => `${row.ticker}_${row.date}`));
@@ -64,11 +64,27 @@ async function ensurePrices({ storage, provider, tickers, from, to }) {
     }
     const rangeFrom = missingDates[0];
     const rangeTo = missingDates[missingDates.length - 1];
+    const startedAt = Date.now();
     const fetched = await provider.getDailyAdjustedClose(
       ticker,
       rangeFrom,
       rangeTo,
     );
+    const durationMs = Date.now() - startedAt;
+    logger?.info?.('price_provider_latency', {
+      ticker,
+      from: rangeFrom,
+      to: rangeTo,
+      duration_ms: durationMs,
+      provider: provider.constructor?.name ?? 'unknown',
+    });
+    if (!fetched.length) {
+      logger?.warn?.('price_provider_empty_response', {
+        ticker,
+        from: rangeFrom,
+        to: rangeTo,
+      });
+    }
     for (const item of fetched) {
       await storage.upsertRow(
         'prices',
@@ -109,6 +125,7 @@ export async function runDailyClose({
     tickers: Array.from(tickers),
     from: previousDate,
     to: targetDate,
+    logger,
   });
 
   const priceRecords = await storage.readTable('prices');
@@ -123,6 +140,20 @@ export async function runDailyClose({
     dates: [previousDate, targetDate],
   });
 
+  let priceStale = false;
+  for (const ticker of tickers) {
+    if (ticker === 'CASH') {
+      continue;
+    }
+    const hasFresh = priceRecords.some(
+      (record) => record.ticker === ticker && record.date === targetDate,
+    );
+    if (!hasFresh) {
+      priceStale = true;
+      logger?.warn?.('price_carry_forward', { ticker, date: targetDate });
+    }
+  }
+
   const targetState = states.find((state) => state.date === targetDate);
   if (targetState) {
     await storage.upsertRow(
@@ -133,6 +164,7 @@ export async function runDailyClose({
         ex_cash_nav: Number((targetState.nav - targetState.cash).toFixed(6)),
         cash_balance: targetState.cash,
         risk_assets_value: targetState.riskValue,
+        stale_price: priceStale,
       },
       ['date'],
     );
