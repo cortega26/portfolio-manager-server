@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DashboardTab from "./components/DashboardTab.jsx";
 import HoldingsTab from "./components/HoldingsTab.jsx";
+import HistoryTab from "./components/HistoryTab.jsx";
+import MetricsTab from "./components/MetricsTab.jsx";
 import PortfolioControls from "./components/PortfolioControls.jsx";
+import ReportsTab from "./components/ReportsTab.jsx";
+import SettingsTab from "./components/SettingsTab.jsx";
 import TabBar from "./components/TabBar.jsx";
 import TransactionsTab from "./components/TransactionsTab.jsx";
 import {
@@ -9,8 +13,30 @@ import {
   persistPortfolio,
   retrievePortfolio,
 } from "./utils/api.js";
-import { buildHoldings, computeDashboardMetrics } from "./utils/holdings.js";
+import {
+  buildHoldings,
+  computeDashboardMetrics,
+} from "./utils/holdings.js";
+import { groupTransactionsByMonth, buildTransactionTimeline } from "./utils/history.js";
+import {
+  buildMetricCards,
+  calculateAllocationBreakdown,
+  derivePerformanceHighlights,
+} from "./utils/metrics.js";
+import {
+  buildPerformanceCsv,
+  buildReportSummary,
+  buildTransactionsCsv,
+  buildHoldingsCsv,
+  triggerCsvDownload,
+} from "./utils/reports.js";
 import { buildRoiSeries } from "./utils/roi.js";
+import {
+  createDefaultSettings,
+  loadSettingsFromStorage,
+  persistSettingsToStorage,
+  updateSetting,
+} from "./utils/settings.js";
 
 const DEFAULT_TAB = "Dashboard";
 
@@ -23,11 +49,35 @@ export default function App() {
   const [roiData, setRoiData] = useState([]);
   const [loadingRoi, setLoadingRoi] = useState(false);
   const [roiRefreshKey, setRoiRefreshKey] = useState(0);
+  const [settings, setSettings] = useState(() => loadSettingsFromStorage());
 
   const holdings = useMemo(() => buildHoldings(transactions), [transactions]);
   const metrics = useMemo(
     () => computeDashboardMetrics(holdings, currentPrices),
     [holdings, currentPrices],
+  );
+
+  const historyMonthlyBreakdown = useMemo(
+    () => groupTransactionsByMonth(transactions),
+    [transactions],
+  );
+  const historyTimeline = useMemo(
+    () => buildTransactionTimeline(transactions),
+    [transactions],
+  );
+
+  const metricCards = useMemo(() => buildMetricCards(metrics), [metrics]);
+  const allocationBreakdown = useMemo(
+    () => calculateAllocationBreakdown(holdings, currentPrices),
+    [holdings, currentPrices],
+  );
+  const performanceHighlights = useMemo(
+    () => derivePerformanceHighlights(roiData),
+    [roiData],
+  );
+  const reportSummaryCards = useMemo(
+    () => buildReportSummary(transactions, holdings, metrics),
+    [transactions, holdings, metrics],
   );
 
   useEffect(() => {
@@ -99,6 +149,10 @@ export default function App() {
     };
   }, [transactions, roiRefreshKey]);
 
+  useEffect(() => {
+    persistSettingsToStorage(settings);
+  }, [settings]);
+
   const handleAddTransaction = useCallback((transaction) => {
     setTransactions((prev) => [...prev, transaction]);
   }, []);
@@ -129,6 +183,35 @@ export default function App() {
 
   const handleRefreshRoi = useCallback(() => {
     setRoiRefreshKey((prev) => prev + 1);
+  }, []);
+
+  const handleExportTransactions = useCallback(() => {
+    const csv = buildTransactionsCsv(transactions);
+    if (csv) {
+      triggerCsvDownload("portfolio-transactions.csv", csv);
+    }
+  }, [transactions]);
+
+  const handleExportHoldings = useCallback(() => {
+    const csv = buildHoldingsCsv(holdings, currentPrices);
+    if (csv) {
+      triggerCsvDownload("portfolio-holdings.csv", csv);
+    }
+  }, [holdings, currentPrices]);
+
+  const handleExportPerformance = useCallback(() => {
+    const csv = buildPerformanceCsv(roiData);
+    if (csv) {
+      triggerCsvDownload("portfolio-performance.csv", csv);
+    }
+  }, [roiData]);
+
+  const handleSettingChange = useCallback((path, value) => {
+    setSettings((prev) => updateSetting(prev, path, value));
+  }, []);
+
+  const handleResetSettings = useCallback(() => {
+    setSettings(createDefaultSettings());
   }, []);
 
   return (
@@ -176,6 +259,38 @@ export default function App() {
             <TransactionsTab
               transactions={transactions}
               onAddTransaction={handleAddTransaction}
+            />
+          )}
+
+          {activeTab === "History" && (
+            <HistoryTab
+              monthlyBreakdown={historyMonthlyBreakdown}
+              timeline={historyTimeline}
+            />
+          )}
+
+          {activeTab === "Metrics" && (
+            <MetricsTab
+              metricCards={metricCards}
+              allocations={allocationBreakdown}
+              performance={performanceHighlights}
+            />
+          )}
+
+          {activeTab === "Reports" && (
+            <ReportsTab
+              summaryCards={reportSummaryCards}
+              onExportTransactions={handleExportTransactions}
+              onExportHoldings={handleExportHoldings}
+              onExportPerformance={handleExportPerformance}
+            />
+          )}
+
+          {activeTab === "Settings" && (
+            <SettingsTab
+              settings={settings}
+              onSettingChange={handleSettingChange}
+              onReset={handleResetSettings}
             />
           )}
         </main>

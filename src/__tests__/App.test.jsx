@@ -17,10 +17,15 @@ beforeEach(() => {
   global.navigator = dom.window.navigator;
   global.HTMLElement = dom.window.HTMLElement;
   global.Node = dom.window.Node;
+  global.localStorage = dom.window.localStorage;
   global.ResizeObserver = class {
     observe() {}
     unobserve() {}
     disconnect() {}
+  };
+  global.URL = {
+    createObjectURL: () => "blob:mock",
+    revokeObjectURL: () => {},
   };
 
   const sampleSeries = [
@@ -71,8 +76,10 @@ afterEach(() => {
   delete global.navigator;
   delete global.HTMLElement;
   delete global.Node;
+  delete global.localStorage;
   delete global.ResizeObserver;
   delete global.fetch;
+  delete global.URL;
 });
 
 describe("App tab navigation", () => {
@@ -97,6 +104,28 @@ describe("App tab navigation", () => {
     });
     await userEvent.click(transactionsTab);
     assert.ok(await screen.findByText("Add Transaction"));
+  });
+
+  it("surfaces empty states for the new analytics tabs", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /history/i }));
+    assert.ok(
+      await screen.findByText(/Record transactions to see contribution trends/i),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /metrics/i }));
+    assert.ok(
+      await screen.findByText(/Metrics become available after you add holdings/i),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /reports/i }));
+    assert.ok(await screen.findByText(/Reporting Snapshot/i));
+    assert.ok(await screen.findByText(/Transactions/));
+
+    await userEvent.click(screen.getByRole("button", { name: /settings/i }));
+    assert.ok(await screen.findByLabelText(/Email alerts/i));
+    assert.ok(await screen.findByText(/Mask balances by default/i));
   });
 
   it("captures a transaction and surfaces it in the holdings view", async () => {
