@@ -113,7 +113,8 @@ export function computeDailyReturnRows({
     const rCash = cashReturns.get(state.date) ?? 0;
     const rSpy = spyReturnSeries.get(state.date) ?? 0;
     const rSpy100 = allSpyReturns.get(state.date) ?? rSpy;
-    const weightCash = state.nav === 0 ? 0 : state.cash / state.nav;
+    const weightSource = prevState ?? state;
+    const weightCash = weightSource.nav === 0 ? 0 : weightSource.cash / weightSource.nav;
     const rBench = Number((weightCash * rCash + (1 - weightCash) * rSpy).toFixed(8));
     rows.push({
       date: state.date,

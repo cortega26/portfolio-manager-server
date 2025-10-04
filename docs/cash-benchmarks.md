@@ -9,7 +9,7 @@ This document describes the daily cash accrual, NAV, return, and benchmark infra
 | `transactions.json` | Portfolio ledger including automated `INTEREST` entries. |
 | `cash_rates.json` | Piecewise-constant APY timeline used for daily interest. |
 | `prices.json` | Daily adjusted close prices for held tickers, SPY, and cash (fixed 1.0). |
-| `nav_snapshots.json` | End-of-day NAV, ex-cash NAV, and sleeve balances. |
+| `nav_snapshots.json` | End-of-day NAV, ex-cash NAV, sleeve balances, and `stale_price` flag. |
 | `returns_daily.json` | Time-weighted daily returns for portfolio, ex-cash sleeve, blended benchmark, SPY, and cash. |
 | `_migrations_state.json` | Migration bookkeeping to keep file schema idempotent. |
 
@@ -36,7 +36,7 @@ Additional series:
 - **Ex-Cash Sleeve** uses risk asset NAV only (flows treated as internal).
 - **Cash Return** is the per-day cash rate above.
 - **All-SPY Track** reinvests flows into SPY using adjusted close and yields the same TWR as a 100% SPY account with those flows.
-- **Blended Benchmark** weights SPY vs. cash by the actual end-of-day allocation `w_{cash,t}`.
+- **Blended Benchmark** weights SPY vs. cash by the **start-of-day** allocation `w_{cash,t}` taken from the prior day's NAV snapshot.
 
 Cumulative summaries report total return as \( \prod_t (1+r_t) - 1 \) and cash drag metrics:
 
@@ -48,7 +48,7 @@ Cumulative summaries report total return as \( \prod_t (1+r_t) - 1 \) and cash d
 `server/jobs/daily_close.js` executes the following steps for the target day (defaults to the last completed UTC day):
 
 1. Resolve effective APY for the prior day and accrue cash interest.
-2. Fetch adjusted-close prices for SPY and held tickers via the provider interface (default: Yahoo Finance) and persist them.
+2. Fetch adjusted-close prices for SPY and held tickers via the provider interface (default: Yahoo Finance) and persist them, logging provider latency.
 3. Rebuild NAV snapshots with carry-forward pricing.
 4. Compute and store daily return rows.
 5. Update job metadata for idempotent re-runs.
@@ -61,10 +61,10 @@ The CLI `npm run backfill -- --from=YYYY-MM-DD --to=YYYY-MM-DD` replays the same
 
 The feature flag exposes new JSON endpoints:
 
-- `GET /returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD`
-- `GET /nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD`
-- `GET /benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
-- `POST /admin/cash-rate { effective_date, apy }`
+- `GET /api/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench`
+- `GET /api/nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /api/benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `POST /api/admin/cash-rate { effective_date, apy }`
 
 See [`docs/openapi.yaml`](./openapi.yaml) for schemas and examples.
 
@@ -75,7 +75,8 @@ See [`docs/openapi.yaml`](./openapi.yaml) for schemas and examples.
 | `DATA_DIR` | string | `./data` | No | Root directory for JSON tables. |
 | `PRICE_FETCH_TIMEOUT_MS` | number | `5000` | No | Timeout for legacy price fetches. |
 | `FEATURES_CASH_BENCHMARKS` | boolean | `true` | No | Enables cash & benchmark endpoints/jobs. |
-| `JOB_NIGHTLY_HOUR` | number | `1` | No | UTC hour for the nightly accrual job. |
+| `JOB_NIGHTLY_HOUR` | number | `4` | No | UTC hour for the nightly accrual job. |
+| `CORS_ALLOWED_ORIGINS` | string (CSV) | _(empty)_ | No | Whitelist of origins allowed by the API CORS policy. |
 
 ## Testing
 
