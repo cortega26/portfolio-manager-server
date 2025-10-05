@@ -1,6 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
+import { atomicWriteFile } from '../utils/atomicStore.js';
+
 async function readJson(filePath, fallback) {
   try {
     const contents = await fs.readFile(filePath, 'utf8');
@@ -15,8 +17,7 @@ async function readJson(filePath, fallback) {
 
 async function writeJson(filePath, value) {
   const serialized = `${JSON.stringify(value, null, 2)}\n`;
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, serialized, 'utf8');
+  await atomicWriteFile(filePath, serialized);
 }
 
 export class JsonTableStorage {
