@@ -5,11 +5,15 @@ import {
   computeAllSpySeries,
   computeDailyReturnRows,
   computeReturnStep,
+  summarizeReturns,
 } from '../finance/returns.js';
+import { d, roundDecimal } from '../finance/decimal.js';
+import { computeDailyStates } from '../finance/portfolio.js';
+import { toDateKey } from '../finance/cash.js';
 
 test('computeReturnStep handles flows correctly', () => {
   const result = computeReturnStep(1000, 1100, 50);
-  assert.equal(Number(result.toFixed(4)), 0.05);
+  assert.equal(roundDecimal(result, 4).toNumber(), 0.05);
 });
 
 test('daily returns align with blended expectation for 50% cash', () => {
@@ -46,8 +50,8 @@ test('daily returns align with blended expectation for 50% cash', () => {
 test('All-SPY track equals TWR of synthetic SPY with same flows', () => {
   const dates = ['2024-01-01', '2024-01-02', '2024-01-03', '2024-01-04'];
   const flows = new Map([
-    ['2024-01-01', 1000],
-    ['2024-01-03', 500],
+    ['2024-01-01', d(1000)],
+    ['2024-01-03', d(500)],
   ]);
   const spyPrices = new Map([
     ['2024-01-01', 100],
@@ -57,27 +61,27 @@ test('All-SPY track equals TWR of synthetic SPY with same flows', () => {
   ]);
   const { returns } = computeAllSpySeries({ dates, flowsByDate: flows, spyPrices });
 
-  let navPrev = 0;
+  let navPrev = d(0);
   let prevPrice = null;
-  let total = 1;
+  let total = d(1);
   for (const date of dates) {
     const price = spyPrices.get(date);
-    const flow = flows.get(date) ?? 0;
+    const flow = flows.get(date) ?? d(0);
     if (prevPrice === null) {
       navPrev = flow;
       prevPrice = price;
       continue;
     }
-    const navBefore = navPrev * (price / prevPrice);
-    const navAfter = navBefore + flow;
-    const twr = navPrev > 0 ? (navBefore - 0) / navPrev - 1 : 0;
-    const computed = returns.get(date) ?? 0;
-    assert.ok(Math.abs(computed - twr) < 1e-8);
-    total *= 1 + computed;
+    const navBefore = navPrev.times(price).dividedBy(prevPrice);
+    const navAfter = navBefore.plus(flow);
+    const twr = navPrev.gt(0) ? navBefore.dividedBy(navPrev).minus(1) : d(0);
+    const computed = returns.get(date) ?? d(0);
+    assert.ok(computed.minus(twr).abs().lt(2e-6));
+    total = total.times(d(1).plus(computed));
     navPrev = navAfter;
     prevPrice = price;
   }
-  assert.ok(total > 0);
+  assert.ok(total.gt(0));
 });
 
 test('first day return is calculated correctly', () => {
@@ -95,4 +99,101 @@ test('first day return is calculated correctly', () => {
   const rows = computeDailyReturnRows({ states, rates, spyPrices, transactions });
 
   assert.ok(Math.abs(rows[0].r_port - 0.02) < 0.001);
+});
+
+test('computeReturnStep reconstructs random sequences without drift', () => {
+  let nav = d(1000);
+  const rng = () => {
+    const seed = Math.sin(nav.toNumber());
+    return seed - Math.floor(seed);
+  };
+  for (let i = 0; i < 250; i += 1) {
+    const flow = d((rng() - 0.5) * 200);
+    const gross = d((rng() - 0.5) * 0.06);
+    const navAfterFlows = nav.times(d(1).plus(gross)).plus(flow);
+    const step = computeReturnStep(nav, navAfterFlows, flow);
+    if (nav.lte(0)) {
+      assert.equal(step.toNumber(), 0);
+    } else {
+      assert.ok(step.minus(gross).abs().lt(1e-6));
+    }
+    nav = navAfterFlows;
+  }
+});
+
+test('daily return rows survive JSON save/load round-trip for long sequences', () => {
+  const transactions = [
+    { date: '2024-01-01', type: 'DEPOSIT', amount: 10000 },
+  ];
+  const tickers = ['SPY', 'QQQ'];
+  let runningDate = new Date('2024-01-01T00:00:00Z');
+  for (let i = 0; i < 60; i += 1) {
+    runningDate = new Date(runningDate.getTime() + 86_400_000);
+    const dateKey = toDateKey(runningDate);
+    if (i % 5 === 0) {
+      transactions.push({
+        date: dateKey,
+        type: 'DEPOSIT',
+        amount: 500 + (i % 3) * 10,
+      });
+    }
+    transactions.push({
+      date: dateKey,
+      type: 'BUY',
+      ticker: tickers[i % tickers.length],
+      amount: 250 + (i % 7) * 3,
+      quantity: 2 + (i % 4) * 0.1,
+    });
+  }
+
+  const dates = transactions
+    .map((tx) => tx.date)
+    .sort((a, b) => a.localeCompare(b));
+  const uniqueDates = Array.from(new Set(dates));
+  const pricesByDate = new Map();
+  for (const date of uniqueDates) {
+    const priceMap = new Map();
+    priceMap.set('SPY', 400 + uniqueDates.indexOf(date));
+    priceMap.set('QQQ', 350 + uniqueDates.indexOf(date) * 1.2);
+    pricesByDate.set(date, priceMap);
+  }
+
+  const states = computeDailyStates({
+    transactions,
+    pricesByDate,
+    dates: uniqueDates,
+  });
+
+  const rows = computeDailyReturnRows({
+    states,
+    rates: [{ effective_date: '2024-01-01', apy: 0.04 }],
+    spyPrices: new Map(uniqueDates.map((date, idx) => [date, 400 + idx])),
+    transactions,
+  });
+
+  const stored = JSON.parse(
+    JSON.stringify(
+      states.map((state) => ({
+        ...state,
+        holdings: Object.fromEntries(state.holdings.entries()),
+      })),
+    ),
+  );
+
+  const restoredStates = stored.map((state) => ({
+    ...state,
+    holdings: new Map(Object.entries(state.holdings)),
+  }));
+
+  const restoredRows = computeDailyReturnRows({
+    states: restoredStates,
+    rates: [{ effective_date: '2024-01-01', apy: 0.04 }],
+    spyPrices: new Map(uniqueDates.map((date, idx) => [date, 400 + idx])),
+    transactions,
+  });
+
+  assert.deepEqual(rows, restoredRows);
+  const summaryOriginal = summarizeReturns(rows);
+  const summaryRestored = summarizeReturns(restoredRows);
+  assert.deepEqual(summaryOriginal, summaryRestored);
 });

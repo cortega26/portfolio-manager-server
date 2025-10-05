@@ -17,7 +17,7 @@
 | STO-2   | Per-portfolio mutex              | CRITICAL |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | STO-3   | Idempotent tx IDs                | HIGH     |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | STO-4   | Path hygiene                     | HIGH     |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
-| MTH-1   | Decimal math policy              | CRITICAL |       | TODO         |                   |    |               |
+| MTH-1   | Decimal math policy              | CRITICAL |       | DONE         | feat&#124;fix/math-decimal-policy | Pending | Local: node --test |
 | MTH-2   | TWR/MWR & benchmark policy       | HIGH     |       | TODO         |                   |    |               |
 | MTH-3   | Cash accruals doc & proration    | MEDIUM   |       | TODO         |                   |    |               |
 | COM-1   | Request validation (zod)         | CRITICAL |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
