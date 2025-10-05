@@ -5,15 +5,21 @@ import rateLimit from 'express-rate-limit';
 import fetch from 'node-fetch';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 import pino from 'pino';
 import pinoHttp from 'pino-http';
-import { z } from 'zod';
 
 import { runMigrations } from './migrations/index.js';
 import { summarizeReturns } from './finance/returns.js';
 import { weightsFromState } from './finance/portfolio.js';
+import {
+  validateCashRateBody,
+  validatePortfolioBody,
+  validatePortfolioIdParam,
+  validateRangeQuery,
+  validateReturnsQuery,
+} from './middleware/validation.js';
 
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? './data');
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
@@ -80,53 +86,9 @@ function adaptLogger(logger) {
   return safe;
 }
 
-function isPlainObject(value) {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value.constructor === Object || Object.getPrototypeOf(value) === null)
-  );
-}
-
 export function isValidPortfolioId(id) {
   return PORTFOLIO_ID_PATTERN.test(id);
 }
-
-const dateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/u, 'Must be ISO date (YYYY-MM-DD)');
-
-const returnsQuerySchema = z
-  .object({
-    from: dateSchema.optional(),
-    to: dateSchema.optional(),
-    views: z
-      .string()
-      .optional()
-      .transform((value) => {
-        if (!value) {
-          return ['port', 'excash', 'spy', 'bench'];
-        }
-        return value
-          .split(',')
-          .map((item) => item.trim().toLowerCase())
-          .filter(Boolean);
-      }),
-  })
-  .transform((query) => ({
-    ...query,
-    views: Array.from(new Set(query.views)),
-  }));
-
-const rangeQuerySchema = z.object({
-  from: dateSchema.optional(),
-  to: dateSchema.optional(),
-});
-
-const cashRateSchema = z.object({
-  effective_date: dateSchema,
-  apy: z.number({ invalid_type_error: 'apy must be numeric' }),
-});
 
 function filterRowsByRange(rows, from, to) {
   return rows.filter((row) => {
@@ -138,6 +100,44 @@ function filterRowsByRange(rows, from, to) {
     }
     return true;
   });
+}
+
+function paginateRows(rows, { page = 1, perPage = 100 } = {}) {
+  const total = rows.length;
+  const normalizedPerPage = Number.isFinite(perPage) && perPage > 0 ? perPage : 100;
+  const totalPages = total === 0 ? 0 : Math.ceil(total / normalizedPerPage);
+  const safePage = totalPages === 0 ? Math.max(1, page) : Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * normalizedPerPage;
+  const end = start + normalizedPerPage;
+  const items = rows.slice(start, end);
+  return {
+    items,
+    meta: {
+      page: safePage,
+      per_page: normalizedPerPage,
+      total,
+      total_pages: totalPages,
+    },
+  };
+}
+
+function computeEtag(serializedBody) {
+  return createHash('sha256').update(serializedBody).digest('base64url');
+}
+
+function sendJsonWithEtag(req, res, payload, { cacheControl } = {}) {
+  const serialized = JSON.stringify(payload);
+  const etag = computeEtag(serialized);
+  if (cacheControl) {
+    res.set('Cache-Control', cacheControl);
+  }
+  if (req.headers['if-none-match'] === etag) {
+    res.set('ETag', etag);
+    res.status(304).end();
+    return;
+  }
+  res.set('ETag', etag);
+  res.type('application/json').send(serialized);
 }
 
 export function createApp({
@@ -330,19 +330,14 @@ export function createApp({
   }
 
   app.use('/api/portfolio/:id', (req, res, next) => {
-    const { id } = req.params;
-    if (!isValidPortfolioId(id)) {
-      log.warn('invalid_portfolio_id', { id });
-      next(
-        createHttpError({
-          status: 400,
-          code: 'INVALID_PORTFOLIO_ID',
-          message: 'Invalid portfolio id. Use letters, numbers, hyphen or underscore.',
-        }),
-      );
-      return;
-    }
-    next();
+    validatePortfolioIdParam(req, res, (error) => {
+      if (error) {
+        log.warn('invalid_portfolio_id', { id: req.params?.id });
+        next(error);
+        return;
+      }
+      next();
+    });
   });
 
   app.get('/api/prices/:symbol', async (req, res, next) => {
@@ -389,21 +384,10 @@ export function createApp({
     }
   });
 
-  app.post('/api/portfolio/:id', async (req, res, next) => {
+  app.post('/api/portfolio/:id', validatePortfolioBody, async (req, res, next) => {
     const { id } = req.params;
     const filePath = path.join(dataDir, `portfolio_${id}.json`);
     const payload = req.body;
-    if (!isPlainObject(payload)) {
-      log.warn('invalid_portfolio_payload', { id, payloadType: typeof payload });
-      next(
-        createHttpError({
-          status: 400,
-          code: 'INVALID_PORTFOLIO_PAYLOAD',
-          message: 'Portfolio payload must be a JSON object.',
-        }),
-      );
-      return;
-    }
     try {
       await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
       res.json({ status: 'ok' });
@@ -434,60 +418,56 @@ export function createApp({
     next();
   }
 
-  app.get('/api/returns/daily', ensureCashFeature, async (req, res, next) => {
-    try {
-      const parsed = returnsQuerySchema.parse(req.query ?? {});
-      const { from = null, to = null, views } = parsed;
-      const storage = await getStorage();
-      const rows = filterRowsByRange(await storage.readTable('returns_daily'), from, to);
-      const mapping = {
-        port: 'r_port',
-        excash: 'r_ex_cash',
-        spy: 'r_spy_100',
-        bench: 'r_bench_blended',
-      };
-      const series = {};
-      for (const view of views) {
-        const key = mapping[view];
-        if (!key) {
-          continue;
+  app.get(
+    '/api/returns/daily',
+    ensureCashFeature,
+    validateReturnsQuery,
+    async (req, res, next) => {
+      try {
+        const { from, to, views, page, perPage } = req.query;
+        const storage = await getStorage();
+        const rows = filterRowsByRange(await storage.readTable('returns_daily'), from, to);
+        const { items, meta } = paginateRows(rows, { page, perPage });
+        const mapping = {
+          port: 'r_port',
+          excash: 'r_ex_cash',
+          spy: 'r_spy_100',
+          bench: 'r_bench_blended',
+        };
+        const series = {};
+        for (const view of views) {
+          const key = mapping[view];
+          if (!key) {
+            continue;
+          }
+          series[key] = items.map((row) => ({ date: row.date, value: row[key] }));
         }
-        series[key] = rows.map((row) => ({ date: row.date, value: row[key] }));
-      }
-      series.r_cash = rows.map((row) => ({ date: row.date, value: row.r_cash }));
-      if (!Object.keys(series).length) {
-        series.r_port = rows.map((row) => ({ date: row.date, value: row.r_port }));
-      }
-      res.json({ series });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
+        series.r_cash = items.map((row) => ({ date: row.date, value: row.r_cash }));
+        if (!Object.keys(series).length) {
+          series.r_port = items.map((row) => ({ date: row.date, value: row.r_port }));
+        }
+        const payload = { series, meta };
+        sendJsonWithEtag(req, res, payload, { cacheControl: 'private, max-age=60' });
+      } catch (error) {
         next(
           createHttpError({
-            status: 400,
-            code: 'VALIDATION_FAILED',
-            message: 'Invalid query parameters.',
-            details: error.errors,
+            status: error.statusCode ?? 500,
+            code: 'RETURNS_FETCH_FAILED',
+            message: 'Failed to fetch returns.',
+            expose: false,
           }),
         );
-        return;
       }
-      next(
-        createHttpError({
-          status: error.statusCode ?? 500,
-          code: 'RETURNS_FETCH_FAILED',
-          message: 'Failed to fetch returns.',
-          expose: false,
-        }),
-      );
-    }
-  });
+    },
+  );
 
-  app.get('/api/nav/daily', ensureCashFeature, async (req, res, next) => {
+  app.get('/api/nav/daily', ensureCashFeature, validateRangeQuery, async (req, res, next) => {
     try {
-      const { from = null, to = null } = rangeQuerySchema.parse(req.query ?? {});
+      const { from, to, page, perPage } = req.query;
       const storage = await getStorage();
       const rows = filterRowsByRange(await storage.readTable('nav_snapshots'), from, to);
-      const data = rows.map((row) => {
+      const { items, meta } = paginateRows(rows, { page, perPage });
+      const data = items.map((row) => {
         const weights = weightsFromState({
           nav: row.portfolio_nav,
           cash: row.cash_balance,
@@ -503,19 +483,9 @@ export function createApp({
           weights,
         };
       });
-      res.json({ data });
+      const payload = { data, meta };
+      sendJsonWithEtag(req, res, payload, { cacheControl: 'private, max-age=60' });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        next(
-          createHttpError({
-            status: 400,
-            code: 'VALIDATION_FAILED',
-            message: 'Invalid query parameters.',
-            details: error.errors,
-          }),
-        );
-        return;
-      }
       next(
         createHttpError({
           status: error.statusCode ?? 500,
@@ -527,9 +497,9 @@ export function createApp({
     }
   });
 
-  app.get('/api/benchmarks/summary', ensureCashFeature, async (req, res, next) => {
+  app.get('/api/benchmarks/summary', ensureCashFeature, validateRangeQuery, async (req, res, next) => {
     try {
-      const { from = null, to = null } = rangeQuerySchema.parse(req.query ?? {});
+      const { from, to } = req.query;
       const storage = await getStorage();
       const rows = filterRowsByRange(await storage.readTable('returns_daily'), from, to);
       const summary = summarizeReturns(rows);
@@ -545,17 +515,6 @@ export function createApp({
         },
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        next(
-          createHttpError({
-            status: 400,
-            code: 'VALIDATION_FAILED',
-            message: 'Invalid query parameters.',
-            details: error.errors,
-          }),
-        );
-        return;
-      }
       next(
         createHttpError({
           status: error.statusCode ?? 500,
@@ -567,39 +526,32 @@ export function createApp({
     }
   });
 
-  app.post('/api/admin/cash-rate', ensureCashFeature, async (req, res, next) => {
-    try {
-      const payload = isPlainObject(req.body) ? req.body : {};
-      const { effective_date: effectiveDate, apy } = cashRateSchema.parse(payload);
-      const storage = await getStorage();
-      await storage.upsertRow(
-        'cash_rates',
-        { effective_date: effectiveDate, apy },
-        ['effective_date'],
-      );
-      res.json({ status: 'ok' });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
+  app.post(
+    '/api/admin/cash-rate',
+    ensureCashFeature,
+    validateCashRateBody,
+    async (req, res, next) => {
+      try {
+        const { effective_date: effectiveDate, apy } = req.body;
+        const storage = await getStorage();
+        await storage.upsertRow(
+          'cash_rates',
+          { effective_date: effectiveDate, apy },
+          ['effective_date'],
+        );
+        res.json({ status: 'ok' });
+      } catch (error) {
         next(
           createHttpError({
-            status: 400,
-            code: 'VALIDATION_FAILED',
-            message: 'Invalid request body.',
-            details: error.errors,
+            status: error.statusCode ?? 500,
+            code: 'CASH_RATE_UPSERT_FAILED',
+            message: 'Failed to update cash rate.',
+            expose: false,
           }),
         );
-        return;
       }
-      next(
-        createHttpError({
-          status: error.statusCode ?? 500,
-          code: 'CASH_RATE_UPSERT_FAILED',
-          message: 'Failed to update cash rate.',
-          expose: false,
-        }),
-      );
-    }
-  });
+    },
+  );
 
   app.use((error, req, res, next) => {
     if (res.headersSent) {

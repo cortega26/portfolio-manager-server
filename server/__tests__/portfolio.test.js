@@ -32,9 +32,21 @@ test('GET /api/portfolio/:id returns empty object when portfolio is missing', as
   assert.deepEqual(response.body, {});
 });
 
-test('POST /api/portfolio/:id persists data in the configured directory', async () => {
+test('POST /api/portfolio/:id persists validated portfolio payloads', async () => {
   const app = createApp({ dataDir, logger: noopLogger });
-  const payload = { holdings: [{ symbol: 'AAPL', shares: 10 }] };
+  const payload = {
+    transactions: [
+      {
+        date: '2024-01-01',
+        ticker: 'aapl',
+        type: 'buy',
+        amount: -150.5,
+        shares: 1.5,
+        price: 100.333,
+      },
+    ],
+    signals: { aapl: { pct: 3 } },
+  };
   const response = await request(app)
     .post('/api/portfolio/sample_01')
     .send(payload);
@@ -43,7 +55,21 @@ test('POST /api/portfolio/:id persists data in the configured directory', async 
 
   const filePath = path.join(dataDir, 'portfolio_sample_01.json');
   const saved = JSON.parse(readFileSync(filePath, 'utf8'));
-  assert.deepEqual(saved, payload);
+  assert.deepEqual(saved, {
+    transactions: [
+      {
+        date: '2024-01-01',
+        ticker: 'AAPL',
+        type: 'BUY',
+        amount: -150.5,
+        shares: 1.5,
+        price: 100.333,
+        quantity: 1.5,
+      },
+    ],
+    signals: { AAPL: { pct: 3 } },
+    settings: { autoClip: false },
+  });
 });
 
 test('rejects invalid portfolio identifiers to prevent path traversal', async () => {
@@ -52,10 +78,9 @@ test('rejects invalid portfolio identifiers to prevent path traversal', async ()
     '/api/portfolio/%2E%2E%2F%2E%2E%2Fetc%2Fpasswd',
   );
   assert.equal(response.status, 400);
-  assert.deepEqual(response.body, {
-    error: 'INVALID_PORTFOLIO_ID',
-    message: 'Invalid portfolio id. Use letters, numbers, hyphen or underscore.',
-  });
+  assert.equal(response.body.error, 'VALIDATION_ERROR');
+  assert.ok(Array.isArray(response.body.details));
+  assert.equal(response.body.details[0]?.path?.[0], undefined);
 });
 
 test('rejects non-object portfolio payloads', async () => {
@@ -64,10 +89,8 @@ test('rejects non-object portfolio payloads', async () => {
     .post('/api/portfolio/invalid_payload')
     .send(['not', 'an', 'object']);
   assert.equal(response.status, 400);
-  assert.deepEqual(response.body, {
-    error: 'INVALID_PORTFOLIO_PAYLOAD',
-    message: 'Portfolio payload must be a JSON object.',
-  });
+  assert.equal(response.body.error, 'VALIDATION_ERROR');
+  assert.ok(Array.isArray(response.body.details));
 });
 
 test('GET /api/prices/:symbol returns parsed historical data', async () => {
