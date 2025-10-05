@@ -79,3 +79,20 @@ test('All-SPY track equals TWR of synthetic SPY with same flows', () => {
   }
   assert.ok(total > 0);
 });
+
+test('first day return is calculated correctly', () => {
+  const states = [
+    { date: '2024-01-01', nav: 10200, cash: 200, riskValue: 10000 },
+  ];
+  const transactions = [
+    { date: '2024-01-01', type: 'DEPOSIT', amount: 10000 },
+  ];
+  const spyPrices = new Map([
+    ['2024-01-01', 100],
+  ]);
+  const rates = [{ effective_date: '2023-12-01', apy: 0.04 }];
+
+  const rows = computeDailyReturnRows({ states, rates, spyPrices, transactions });
+
+  assert.ok(Math.abs(rows[0].r_port - 0.02) < 0.001);
+});
