@@ -13,10 +13,10 @@
 | SEC-6   | Helmet + CSP                     | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-7   | Strict CORS                      | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-8   | CSV/Excel injection guard        | MEDIUM   |       | TODO         |                   |    |               |
-| STO-1   | Atomic writes                    | CRITICAL |       | TODO         |                   |    |               |
-| STO-2   | Per-portfolio mutex              | CRITICAL |       | TODO         |                   |    |               |
-| STO-3   | Idempotent tx IDs                | HIGH     |       | TODO         |                   |    |               |
-| STO-4   | Path hygiene                     | HIGH     |       | TODO         |                   |    |               |
+| STO-1   | Atomic writes                    | CRITICAL |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
+| STO-2   | Per-portfolio mutex              | CRITICAL |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
+| STO-3   | Idempotent tx IDs                | HIGH     |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
+| STO-4   | Path hygiene                     | HIGH     |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | MTH-1   | Decimal math policy              | CRITICAL |       | TODO         |                   |    |               |
 | MTH-2   | TWR/MWR & benchmark policy       | HIGH     |       | TODO         |                   |    |               |
 | MTH-3   | Cash accruals doc & proration    | MEDIUM   |       | TODO         |                   |    |               |

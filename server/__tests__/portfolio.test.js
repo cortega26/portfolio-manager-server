@@ -55,21 +55,85 @@ test('POST /api/portfolio/:id persists validated portfolio payloads', async () =
 
   const filePath = path.join(dataDir, 'portfolio_sample_01.json');
   const saved = JSON.parse(readFileSync(filePath, 'utf8'));
-  assert.deepEqual(saved, {
+  assert.equal(saved.transactions.length, 1);
+  const [transaction] = saved.transactions;
+  const { uid: savedUid, ...rest } = transaction;
+  assert.equal(typeof savedUid, 'string');
+  assert.ok(savedUid.length > 0);
+  assert.deepEqual(rest, {
+    date: '2024-01-01',
+    ticker: 'AAPL',
+    type: 'BUY',
+    amount: -150.5,
+    shares: 1.5,
+    price: 100.333,
+    quantity: 1.5,
+  });
+  assert.deepEqual(saved.signals, { AAPL: { pct: 3 } });
+  assert.deepEqual(saved.settings, { autoClip: false });
+});
+
+test('POST /api/portfolio/:id deduplicates transactions by uid', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  const payload = {
     transactions: [
       {
-        date: '2024-01-01',
-        ticker: 'AAPL',
-        type: 'BUY',
-        amount: -150.5,
-        shares: 1.5,
-        price: 100.333,
-        quantity: 1.5,
+        uid: 'duplicate-id',
+        date: '2024-02-01',
+        type: 'DEPOSIT',
+        amount: 1000,
+      },
+      {
+        uid: 'duplicate-id',
+        date: '2024-02-01',
+        type: 'DEPOSIT',
+        amount: 1000,
+      },
+      {
+        date: '2024-02-02',
+        type: 'DEPOSIT',
+        amount: 500,
       },
     ],
-    signals: { AAPL: { pct: 3 } },
-    settings: { autoClip: false },
-  });
+  };
+
+  const response = await request(app).post('/api/portfolio/dedupe').send(payload);
+  assert.equal(response.status, 200);
+
+  const filePath = path.join(dataDir, 'portfolio_dedupe.json');
+  const saved = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.equal(saved.transactions.length, 2);
+  const duplicateCount = saved.transactions.filter((tx) => tx.uid === 'duplicate-id').length;
+  assert.equal(duplicateCount, 1);
+});
+
+test('concurrent POST requests to the same portfolio remain consistent', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  const id = 'race';
+  const payloads = Array.from({ length: 6 }, (_, index) => ({
+    transactions: [
+      {
+        date: `2024-03-0${index + 1}`,
+        type: 'DEPOSIT',
+        amount: 1000 + index,
+      },
+    ],
+  }));
+
+  await Promise.all(
+    payloads.map((payload) => request(app).post(`/api/portfolio/${id}`).send(payload)),
+  );
+
+  const filePath = path.join(dataDir, 'portfolio_race.json');
+  const saved = JSON.parse(readFileSync(filePath, 'utf8'));
+  assert.equal(saved.transactions.length, 1);
+  const [transaction] = saved.transactions;
+  assert.equal(typeof transaction.uid, 'string');
+  const savedAmount = transaction.amount;
+  assert.ok(
+    payloads.some((payload) => payload.transactions[0].amount === savedAmount),
+    'final write must match one of the submitted payloads',
+  );
 });
 
 test('rejects invalid portfolio identifiers to prevent path traversal', async () => {

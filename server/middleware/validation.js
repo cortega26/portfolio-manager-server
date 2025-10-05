@@ -51,6 +51,7 @@ const inputTransactionTypeSchema = z.preprocess((value) => {
 const transactionSchema = z
   .object({
     id: sanitizeString(z.string().min(1).max(128)).optional(),
+    uid: sanitizeString(z.string().min(1).max(128)).optional(),
     date: isoDateSchema,
     ticker: tickerSchema.optional(),
     type: inputTransactionTypeSchema,
