@@ -25,6 +25,21 @@ paths:
           schema:
             type: string
           description: Comma separated list of views (port, excash, spy, bench)
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number (1-indexed)
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          description: Page size (max 500)
       responses:
         '200':
           description: Daily return series
@@ -46,6 +61,13 @@ paths:
                         $ref: '#/components/schemas/DateValueSeries'
                       r_cash:
                         $ref: '#/components/schemas/DateValueSeries'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
   /api/nav/daily:
     get:
       summary: Daily NAV snapshots and sleeve weights
@@ -60,6 +82,21 @@ paths:
           schema:
             type: string
             format: date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number (1-indexed)
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          description: Page size (max 500)
       responses:
         '200':
           description: NAV series
@@ -93,6 +130,13 @@ paths:
                               type: number
                             risk:
                               type: number
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
   /api/benchmarks/summary:
     get:
       summary: Cumulative returns and drag metrics
@@ -162,6 +206,17 @@ components:
             format: date
           value:
             type: number
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
     ReturnSummary:
       type: object
       properties:

@@ -61,10 +61,12 @@ The CLI `npm run backfill -- --from=YYYY-MM-DD --to=YYYY-MM-DD` replays the same
 
 The feature flag exposes new JSON endpoints:
 
-- `GET /api/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench`
-- `GET /api/nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /api/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench&page=1&per_page=100`
+- `GET /api/nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&page=1&per_page=100`
 - `GET /api/benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - `POST /api/admin/cash-rate { effective_date, apy }`
+
+`page`/`per_page` query parameters are optional (defaults: `1` and `100`) and paginate the time-series data. Responses for list endpoints include a `meta` block (`page`, `per_page`, `total`, `total_pages`) plus `ETag` headers so clients can issue conditional requests. Validation errors are surfaced as HTTP `400` with `{ error: "VALIDATION_ERROR", details: [...] }`.
 
 See [`docs/openapi.yaml`](./openapi.yaml) for schemas and examples.
 

@@ -167,16 +167,24 @@ Loads a saved portfolio with the given `id` from the `data` folder. The identifi
 
 ### `POST /api/portfolio/:id`
 
-Saves a portfolio to the backend. The request body must be a JSON object representing your portfolio state. The identifier is validated using the same `[A-Za-z0-9_-]{1,64}` rule, and payloads that are not plain JSON objects return HTTP `400`. Valid portfolios are stored as `data/portfolio_<id>.json`.
+Saves a portfolio to the backend. Bodies are validated against the schema in [`server/middleware/validation.js`](server/middleware/validation.js):
+
+- `transactions` must be an array of transaction objects (`date`, `ticker`, `type`, `amount`, optional `quantity`/`shares`, etc.).
+- Optional `signals` map tickers to `{ pct: number }` windows.
+- Optional `settings.autoClip` flag.
+
+The identifier is validated using the same `[A-Za-z0-9_-]{1,64}` rule. Invalid identifiers or payloads yield HTTP `400` with `{ error: "VALIDATION_ERROR", details: [...] }`. Valid portfolios are stored as `data/portfolio_<id>.json`.
 
 ### Cash & benchmark endpoints
 
 When the `features.cash_benchmarks` flag is active the API also exposes:
 
-- `GET /api/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench`
-- `GET /api/nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD` (includes `stale_price` flag)
+- `GET /api/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench&page=1&per_page=100`
+- `GET /api/nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&page=1&per_page=100` (includes `stale_price` flag)
 - `GET /api/benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - `POST /api/admin/cash-rate` accepting `{ "effective_date": "YYYY-MM-DD", "apy": 0.04 }`
+
+List endpoints support `page`/`per_page` pagination (defaults: page 1, `per_page` 100) and return an additional `meta` block plus `ETag` headers for conditional requests.
 
 Refer to [`docs/openapi.yaml`](docs/openapi.yaml) for detailed schemas and sample responses.
 
