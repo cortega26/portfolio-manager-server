@@ -8,12 +8,36 @@ function cloneHoldings(holdings) {
   return result;
 }
 
+/**
+ * Sort transactions deterministically.
+ *
+ * AUDIT FIX (CRITICAL-8): Use type-based ordering for same-day transactions
+ * Order: DEPOSIT → BUY → SELL → DIVIDEND → INTEREST → WITHDRAWAL → FEE
+ * This ensures cash is deposited before being spent on buys.
+ */
 export function sortTransactions(transactions) {
+  const typeOrder = {
+    DEPOSIT: 1,
+    BUY: 2,
+    SELL: 3,
+    DIVIDEND: 4,
+    INTEREST: 5,
+    WITHDRAWAL: 6,
+    FEE: 7,
+  };
+
   return [...transactions].sort((a, b) => {
     const dateDiff = a.date.localeCompare(b.date);
     if (dateDiff !== 0) {
       return dateDiff;
     }
+
+    const typeA = typeOrder[a.type] ?? 99;
+    const typeB = typeOrder[b.type] ?? 99;
+    if (typeA !== typeB) {
+      return typeA - typeB;
+    }
+
     return (a.id ?? '').localeCompare(b.id ?? '');
   });
 }
@@ -97,7 +121,7 @@ export function computeDailyStates({ transactions, pricesByDate, dates }) {
     const nav = state.cash + riskValue;
     states.push({
       date: dateKey,
-      cash: Number(state.cash.toFixed(6)),
+      cash: state.cash,
       holdings: holdingsSnapshot,
       riskValue: Number(riskValue.toFixed(6)),
       nav: Number(nav.toFixed(6)),
@@ -114,12 +138,12 @@ export function holdingsToObject(holdings) {
   return result;
 }
 
-export function weightsFromState({ nav, cash, riskValue }) {
-  if (nav === 0) {
-    return { cash: 0 };
+export function weightsFromState(state) {
+  if (!state || state.nav === 0) {
+    return { cash: 0, risk: 0 };
   }
   return {
-    cash: Number((cash / nav).toFixed(6)),
-    risk: Number((riskValue / nav).toFixed(6)),
+    cash: state.cash / state.nav,
+    risk: state.riskValue / state.nav,
   };
 }
