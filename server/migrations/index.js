@@ -16,6 +16,13 @@ const MIGRATIONS = [
       await storage.ensureTable('jobs_state', []);
     },
   },
+  {
+    id: '002_portfolio_keys',
+    description: 'Create portfolio_keys table for hashed API credentials',
+    async up(storage) {
+      await storage.ensureTable('portfolio_keys', []);
+    },
+  },
 ];
 
 async function readStateFile(filePath) {

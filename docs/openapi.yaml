@@ -206,6 +206,53 @@ paths:
                         type: number
                       allocation:
                         type: number
+  /api/portfolio/{id}:
+    get:
+      summary: Load a persisted portfolio definition
+      parameters:
+        - $ref: '#/components/parameters/PortfolioId'
+        - $ref: '#/components/parameters/PortfolioKey'
+      responses:
+        '200':
+          description: Portfolio payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioPayload'
+        '401':
+          description: Missing portfolio API key header
+        '403':
+          description: Invalid portfolio API key header
+        '404':
+          description: Portfolio not provisioned
+    post:
+      summary: Persist a portfolio definition
+      parameters:
+        - $ref: '#/components/parameters/PortfolioId'
+        - $ref: '#/components/parameters/PortfolioKey'
+        - $ref: '#/components/parameters/PortfolioKeyNew'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioPayload'
+      responses:
+        '200':
+          description: Persistence acknowledgement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '400':
+          description: Validation failure
+        '401':
+          description: Missing portfolio API key header
+        '403':
+          description: Invalid portfolio API key header
   /api/admin/cash-rate:
     post:
       summary: Upsert a cash APY effective date
@@ -233,6 +280,33 @@ paths:
                   status:
                     type: string
 components:
+  securitySchemes:
+    PortfolioKey:
+      type: apiKey
+      in: header
+      name: X-Portfolio-Key
+  parameters:
+    PortfolioId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      description: Portfolio identifier matching `[A-Za-z0-9_-]{1,64}`
+    PortfolioKey:
+      in: header
+      name: X-Portfolio-Key
+      required: true
+      schema:
+        type: string
+      description: Per-portfolio API key used to authorise requests
+    PortfolioKeyNew:
+      in: header
+      name: X-Portfolio-Key-New
+      required: false
+      schema:
+        type: string
+      description: Optional new portfolio API key to rotate during a save
   schemas:
     DateValueSeries:
       type: array
@@ -268,3 +342,46 @@ components:
           type: number
         r_cash:
           type: number
+    PortfolioTransaction:
+      type: object
+      properties:
+        uid:
+          type: string
+        date:
+          type: string
+          format: date
+        ticker:
+          type: string
+        type:
+          type: string
+          description: Transaction type (BUY, SELL, DIVIDEND, etc.)
+        amount:
+          type: number
+        price:
+          type: number
+        shares:
+          type: number
+        quantity:
+          type: number
+        metadata:
+          type: object
+          additionalProperties: true
+    PortfolioPayload:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortfolioTransaction'
+        signals:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              pct:
+                type: number
+        settings:
+          type: object
+          properties:
+            autoClip:
+              type: boolean

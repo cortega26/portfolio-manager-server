@@ -6,15 +6,21 @@ import fetch from 'node-fetch';
 import NodeCache from 'node-cache';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { createHash, randomUUID } from 'crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 
 import pino from 'pino';
 import pinoHttp from 'pino-http';
 
 import { runMigrations } from './migrations/index.js';
 import { summarizeReturns } from './finance/returns.js';
-import { weightsFromState } from './finance/portfolio.js';
+import { sortTransactions, weightsFromState } from './finance/portfolio.js';
 import { toDateKey } from './finance/cash.js';
+import {
+  d,
+  fromMicroShares,
+  roundDecimal,
+  toMicroShares,
+} from './finance/decimal.js';
 import {
   DualPriceProvider,
   YahooPriceProvider,
@@ -221,6 +227,159 @@ export function createApp({
   });
   const priceProviderInstance = priceProvider ?? compositePriceProvider;
 
+  const portfolioKeyCache = new Map();
+
+  function digestPortfolioKey(rawKey) {
+    return createHash('sha256').update(rawKey).digest();
+  }
+
+  function hashPortfolioKey(rawKey) {
+    return digestPortfolioKey(rawKey).toString('hex');
+  }
+
+  function normalizeKey(value) {
+    if (typeof value !== 'string') {
+      return '';
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : '';
+  }
+
+  async function readPortfolioKeyHash(portfolioId) {
+    if (portfolioKeyCache.has(portfolioId)) {
+      return portfolioKeyCache.get(portfolioId);
+    }
+    const storage = await getStorage();
+    const rows = await storage.readTable('portfolio_keys');
+    const record = rows.find((row) => row.id === portfolioId);
+    const hash = typeof record?.hash === 'string' ? record.hash : null;
+    portfolioKeyCache.set(portfolioId, hash);
+    return hash;
+  }
+
+  async function writePortfolioKeyHash(portfolioId, hash) {
+    await withLock(`portfolio-key:${portfolioId}`, async () => {
+      const storage = await getStorage();
+      if (hash) {
+        await storage.upsertRow(
+          'portfolio_keys',
+          {
+            id: portfolioId,
+            hash,
+            updated_at: new Date().toISOString(),
+          },
+          ['id'],
+        );
+      } else {
+        await storage.deleteWhere('portfolio_keys', (row) => row.id === portfolioId);
+      }
+    });
+    portfolioKeyCache.set(portfolioId, hash ?? null);
+  }
+
+  function createPortfolioKeyVerifier({ allowBootstrap = false, allowRotation = false } = {}) {
+    return async (req, _res, next) => {
+      const { id: portfolioId } = req.params ?? {};
+      const providedKey = normalizeKey(req.get('x-portfolio-key'));
+      const rotationKey = normalizeKey(req.get('x-portfolio-key-new'));
+
+      try {
+        const storedHash = await readPortfolioKeyHash(portfolioId);
+
+        if (!storedHash) {
+          if (!providedKey) {
+            next(
+              createHttpError({
+                status: 401,
+                code: 'NO_KEY',
+                message: 'Portfolio key required.',
+                expose: true,
+              }),
+            );
+            return;
+          }
+          if (!allowBootstrap) {
+            next(
+              createHttpError({
+                status: 404,
+                code: 'PORTFOLIO_NOT_FOUND',
+                message: 'Portfolio not provisioned.',
+              }),
+            );
+            return;
+          }
+
+          const hashed = hashPortfolioKey(providedKey);
+          await writePortfolioKeyHash(portfolioId, hashed);
+          if (!req.portfolioAuth) {
+            req.portfolioAuth = {};
+          }
+          req.portfolioAuth.bootstrapped = true;
+          log.info('portfolio_key_bootstrapped', { id: portfolioId });
+          next();
+          return;
+        }
+
+        if (!providedKey) {
+          next(
+            createHttpError({
+              status: 401,
+              code: 'NO_KEY',
+              message: 'Portfolio key required.',
+              expose: true,
+            }),
+          );
+          return;
+        }
+
+        const storedBuffer = Buffer.from(storedHash, 'hex');
+        const providedDigest = digestPortfolioKey(providedKey);
+        if (
+          storedBuffer.length !== providedDigest.length
+          || !timingSafeEqual(storedBuffer, providedDigest)
+        ) {
+          log.warn('portfolio_key_invalid', { id: portfolioId });
+          next(
+            createHttpError({
+              status: 403,
+              code: 'INVALID_KEY',
+              message: 'Invalid portfolio key.',
+              expose: true,
+            }),
+          );
+          return;
+        }
+
+        if (allowRotation && rotationKey) {
+          const newHash = hashPortfolioKey(rotationKey);
+          if (newHash !== storedHash) {
+            await writePortfolioKeyHash(portfolioId, newHash);
+            if (!req.portfolioAuth) {
+              req.portfolioAuth = {};
+            }
+            req.portfolioAuth.rotated = true;
+            log.info('portfolio_key_rotated', { id: portfolioId });
+          }
+        }
+
+        next();
+      } catch (error) {
+        log.error('portfolio_key_verification_failed', {
+          id: portfolioId,
+          error: error.message,
+        });
+        next(
+          createHttpError({
+            status: 500,
+            code: 'KEY_VERIFICATION_FAILED',
+            message: 'Failed to verify portfolio key.',
+            expose: false,
+          }),
+        );
+      }
+    };
+  }
+
   function resolvePortfolioFilePath(portfolioId) {
     const candidate = path.resolve(dataDirectory, `portfolio_${portfolioId}.json`);
     const relative = path.relative(dataDirectory, candidate);
@@ -256,6 +415,131 @@ export function createApp({
       });
     }
     return deduplicated;
+  }
+
+  function enforceOversellPolicy(transactions, { portfolioId, autoClip }) {
+    if (!Array.isArray(transactions) || transactions.length === 0) {
+      return;
+    }
+
+    const holdingsMicro = new Map();
+    const ordered = sortTransactions(transactions);
+
+    for (const tx of ordered) {
+      if (!tx || typeof tx !== 'object') {
+        continue;
+      }
+      const ticker = tx.ticker;
+      if (!ticker || ticker === 'CASH') {
+        continue;
+      }
+      if (tx.type === 'BUY') {
+        const rawQuantity = Number.isFinite(tx.quantity)
+          ? tx.quantity
+          : Number.isFinite(tx.shares)
+            ? Math.abs(tx.shares)
+            : 0;
+        const micro = Math.max(0, toMicroShares(rawQuantity));
+        if (micro === 0) {
+          continue;
+        }
+        const current = holdingsMicro.get(ticker) ?? 0;
+        holdingsMicro.set(ticker, current + micro);
+        continue;
+      }
+
+      if (tx.type !== 'SELL') {
+        continue;
+      }
+
+      const requestedMicro = Math.abs(
+        toMicroShares(
+          Number.isFinite(tx.quantity)
+            ? tx.quantity
+            : Number.isFinite(tx.shares)
+              ? -Math.abs(tx.shares)
+              : 0,
+        ),
+      );
+      if (requestedMicro === 0) {
+        continue;
+      }
+
+      const availableMicro = holdingsMicro.get(ticker) ?? 0;
+      if (requestedMicro <= availableMicro) {
+        holdingsMicro.set(ticker, availableMicro - requestedMicro);
+        continue;
+      }
+
+      const requestedShares = roundDecimal(fromMicroShares(requestedMicro), 6).toNumber();
+      const availableShares = roundDecimal(fromMicroShares(availableMicro), 6).toNumber();
+
+      if (!autoClip) {
+        log.warn('oversell_rejected', {
+          id: portfolioId,
+          ticker,
+          date: tx.date,
+          requested_shares: requestedShares,
+          available_shares: availableShares,
+        });
+        throw createHttpError({
+          status: 400,
+          code: 'E_OVERSELL',
+          message: `Cannot sell ${requestedShares} shares of ${ticker}. Only ${availableShares} available.`,
+          details: {
+            ticker,
+            requested: requestedShares,
+            available: availableShares,
+            date: tx.date,
+          },
+          expose: true,
+        });
+      }
+
+      const clippedMicro = availableMicro;
+      const clippedSharesDecimal = roundDecimal(fromMicroShares(clippedMicro), 6);
+      const clippedShares = clippedSharesDecimal.toNumber();
+      const originalShares = Number.isFinite(tx.shares)
+        ? Math.abs(tx.shares)
+        : requestedShares;
+
+      let adjustedAmount = 0;
+      if (originalShares > 0 && Number.isFinite(tx.amount) && tx.amount !== 0) {
+        const perShare = d(Math.abs(tx.amount)).div(originalShares);
+        const newAmountDecimal = perShare.times(clippedSharesDecimal);
+        const signedAmount = tx.amount >= 0 ? newAmountDecimal : newAmountDecimal.neg();
+        adjustedAmount = roundDecimal(signedAmount, 6).toNumber();
+      }
+      if (clippedShares === 0) {
+        adjustedAmount = 0;
+      }
+
+      tx.quantity = clippedShares === 0 ? 0 : -clippedShares;
+      tx.shares = clippedShares;
+      tx.amount = adjustedAmount;
+
+      const metadata = tx.metadata && typeof tx.metadata === 'object' ? { ...tx.metadata } : {};
+      const systemMeta = metadata.system && typeof metadata.system === 'object'
+        ? { ...metadata.system }
+        : {};
+      systemMeta.oversell_clipped = {
+        requested_shares: requestedShares,
+        available_shares: availableShares,
+        delivered_shares: clippedShares,
+      };
+      metadata.system = systemMeta;
+      tx.metadata = metadata;
+
+      holdingsMicro.set(ticker, 0);
+
+      log.warn('oversell_clipped', {
+        id: portfolioId,
+        ticker,
+        date: tx.date,
+        requested_shares: requestedShares,
+        delivered_shares: clippedShares,
+      });
+    }
   }
 
   let storagePromise;
@@ -418,7 +702,13 @@ export function createApp({
     }
   }
 
-  app.use('/api/portfolio/:id', (req, res, next) => {
+  const requirePortfolioKeyRead = createPortfolioKeyVerifier();
+  const requirePortfolioKeyWrite = createPortfolioKeyVerifier({
+    allowBootstrap: true,
+    allowRotation: true,
+  });
+
+  const validatePortfolioId = (req, res, next) => {
     validatePortfolioIdParam(req, res, (error) => {
       if (error) {
         log.warn('invalid_portfolio_id', { id: req.params?.id });
@@ -427,7 +717,7 @@ export function createApp({
       }
       next();
     });
-  });
+  };
 
   app.get('/api/prices/:symbol', async (req, res, next) => {
     const { symbol } = req.params;
@@ -462,68 +752,87 @@ export function createApp({
     }
   });
 
-  app.get('/api/portfolio/:id', async (req, res, next) => {
-    const { id } = req.params;
-    let filePath;
-    try {
-      filePath = resolvePortfolioFilePath(id);
-    } catch (error) {
-      next(error);
-      return;
-    }
-    try {
-      const data = await fs.readFile(filePath, 'utf8');
-      res.json(JSON.parse(data));
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        res.json({});
+  app.get(
+    '/api/portfolio/:id',
+    validatePortfolioId,
+    requirePortfolioKeyRead,
+    async (req, res, next) => {
+      const { id } = req.params;
+      let filePath;
+      try {
+        filePath = resolvePortfolioFilePath(id);
+      } catch (error) {
+        next(error);
         return;
       }
-      log.error('portfolio_read_failed', { id, error: error.message });
-      next(
-        createHttpError({
-          status: 500,
-          code: 'PORTFOLIO_READ_FAILED',
-          message: 'Failed to load portfolio.',
-          expose: false,
-        }),
-      );
-    }
-  });
+      try {
+        const data = await fs.readFile(filePath, 'utf8');
+        res.json(JSON.parse(data));
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          res.json({});
+          return;
+        }
+        log.error('portfolio_read_failed', { id, error: error.message });
+        next(
+          createHttpError({
+            status: 500,
+            code: 'PORTFOLIO_READ_FAILED',
+            message: 'Failed to load portfolio.',
+            expose: false,
+          }),
+        );
+      }
+    },
+  );
 
-  app.post('/api/portfolio/:id', validatePortfolioBody, async (req, res, next) => {
-    const { id } = req.params;
-    let filePath;
-    try {
-      filePath = resolvePortfolioFilePath(id);
-    } catch (error) {
-      next(error);
-      return;
-    }
-    const payload = req.body;
-    const normalizedTransactions = ensureTransactionUids(payload.transactions ?? [], id);
-    const normalizedPayload = {
-      ...payload,
-      transactions: normalizedTransactions,
-    };
-    const serialized = `${JSON.stringify(normalizedPayload, null, 2)}\n`;
-    try {
-      await withLock(`portfolio:${id}`, async () => {
-        await atomicWriteFile(filePath, serialized);
-      });
-      res.json({ status: 'ok' });
-    } catch (error) {
-      log.error('portfolio_write_failed', { id, error: error.message });
-      next(
-        createHttpError({
-          status: 500,
-          code: 'PORTFOLIO_WRITE_FAILED',
-          message: 'Failed to save portfolio.',
-          expose: false,
-        }),
-      );
-    }
-  });
+  app.post(
+    '/api/portfolio/:id',
+    validatePortfolioId,
+    requirePortfolioKeyWrite,
+    validatePortfolioBody,
+    async (req, res, next) => {
+      const { id } = req.params;
+      let filePath;
+      try {
+        filePath = resolvePortfolioFilePath(id);
+      } catch (error) {
+        next(error);
+        return;
+      }
+      const payload = req.body;
+      const autoClip = Boolean(payload.settings?.autoClip);
+      const normalizedTransactions = ensureTransactionUids(payload.transactions ?? [], id);
+      try {
+        enforceOversellPolicy(normalizedTransactions, { portfolioId: id, autoClip });
+      } catch (error) {
+        next(error);
+        return;
+      }
+      const normalizedPayload = {
+        ...payload,
+        transactions: normalizedTransactions,
+        settings: { autoClip },
+      };
+      const serialized = `${JSON.stringify(normalizedPayload, null, 2)}\n`;
+      try {
+        await withLock(`portfolio:${id}`, async () => {
+          await atomicWriteFile(filePath, serialized);
+        });
+        res.json({ status: 'ok' });
+      } catch (error) {
+        log.error('portfolio_write_failed', { id, error: error.message });
+        next(
+          createHttpError({
+            status: 500,
+            code: 'PORTFOLIO_WRITE_FAILED',
+            message: 'Failed to save portfolio.',
+            expose: false,
+          }),
+        );
+      }
+    },
+  );
 
   function ensureCashFeature(req, res, next) {
     if (!featureFlags.cashBenchmarks) {

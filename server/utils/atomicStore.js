@@ -39,6 +39,10 @@ export async function atomicWriteFile(filePath, data) {
   try {
     directoryHandle = await fsPromises.open(directory, 'r');
     await directoryHandle.sync();
+  } catch (error) {
+    if (!['EINVAL', 'ENOTSUP', 'EISDIR', 'EPERM'].includes(error.code)) {
+      throw error;
+    }
   } finally {
     if (directoryHandle) {
       await directoryHandle.close();

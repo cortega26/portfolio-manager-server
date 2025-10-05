@@ -37,19 +37,35 @@ import {
   persistSettingsToStorage,
   updateSetting,
 } from "./utils/settings.js";
+import { loadPortfolioKey, savePortfolioKey } from "./utils/portfolioKeys.js";
 
 const DEFAULT_TAB = "Dashboard";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
   const [portfolioId, setPortfolioId] = useState("");
+  const [portfolioKey, setPortfolioKey] = useState("");
+  const [portfolioKeyNew, setPortfolioKeyNew] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [signals, setSignals] = useState({});
+  const [portfolioSettings, setPortfolioSettings] = useState({ autoClip: false });
   const [currentPrices, setCurrentPrices] = useState({});
   const [roiData, setRoiData] = useState([]);
   const [loadingRoi, setLoadingRoi] = useState(false);
   const [roiRefreshKey, setRoiRefreshKey] = useState(0);
   const [settings, setSettings] = useState(() => loadSettingsFromStorage());
+
+  useEffect(() => {
+    if (!portfolioId) {
+      setPortfolioKey("");
+      setPortfolioKeyNew("");
+      setPortfolioSettings({ autoClip: false });
+      return;
+    }
+    const stored = loadPortfolioKey(portfolioId);
+    setPortfolioKey(stored);
+    setPortfolioKeyNew("");
+  }, [portfolioId]);
 
   const holdings = useMemo(() => buildHoldings(transactions), [transactions]);
   const metrics = useMemo(
@@ -173,19 +189,56 @@ export default function App() {
   }, []);
 
   const handleSavePortfolio = useCallback(async () => {
-    const body = { transactions, signals };
-    await persistPortfolio(portfolioId, body);
-  }, [portfolioId, transactions, signals]);
+    const currentKey = portfolioKey.trim();
+    const nextKeyCandidate = portfolioKeyNew.trim();
+    if (!portfolioId) {
+      throw new Error("Portfolio ID required");
+    }
+    if (!currentKey) {
+      throw new Error("API key required");
+    }
+    const body = {
+      transactions,
+      signals,
+      settings: { autoClip: Boolean(portfolioSettings.autoClip) },
+    };
+    await persistPortfolio(portfolioId, body, {
+      apiKey: currentKey,
+      newApiKey: nextKeyCandidate || undefined,
+    });
+    const storedKey = nextKeyCandidate || currentKey;
+    setPortfolioKey(storedKey);
+    setPortfolioKeyNew("");
+    savePortfolioKey(portfolioId, storedKey);
+  }, [
+    portfolioId,
+    portfolioKey,
+    portfolioKeyNew,
+    transactions,
+    signals,
+    portfolioSettings,
+  ]);
 
   const handleLoadPortfolio = useCallback(async () => {
-    const data = await retrievePortfolio(portfolioId);
-    if (Array.isArray(data.transactions)) {
-      setTransactions(data.transactions);
+    const currentKey = portfolioKey.trim();
+    if (!portfolioId) {
+      throw new Error("Portfolio ID required");
     }
-    if (data.signals) {
-      setSignals(data.signals);
+    if (!currentKey) {
+      throw new Error("API key required");
     }
-  }, [portfolioId]);
+    const data = await retrievePortfolio(portfolioId, { apiKey: currentKey });
+    setTransactions(Array.isArray(data.transactions) ? data.transactions : []);
+    setSignals(data.signals ?? {});
+    if (data.settings) {
+      setPortfolioSettings({ autoClip: Boolean(data.settings.autoClip) });
+    } else {
+      setPortfolioSettings({ autoClip: false });
+    }
+    setPortfolioKey(currentKey);
+    setPortfolioKeyNew("");
+    savePortfolioKey(portfolioId, currentKey);
+  }, [portfolioId, portfolioKey]);
 
   const handleRefreshRoi = useCallback(() => {
     setRoiRefreshKey((prev) => prev + 1);
@@ -216,8 +269,16 @@ export default function App() {
     setSettings((prev) => updateSetting(prev, path, value));
   }, []);
 
+  const handlePortfolioSettingChange = useCallback((autoClipValue) => {
+    setPortfolioSettings((prev) => ({
+      ...prev,
+      autoClip: Boolean(autoClipValue),
+    }));
+  }, []);
+
   const handleResetSettings = useCallback(() => {
     setSettings(createDefaultSettings());
+    setPortfolioSettings({ autoClip: false });
   }, []);
 
   return (
@@ -235,7 +296,11 @@ export default function App() {
 
         <PortfolioControls
           portfolioId={portfolioId}
+          portfolioKey={portfolioKey}
+          portfolioKeyNew={portfolioKeyNew}
           onPortfolioIdChange={setPortfolioId}
+          onPortfolioKeyChange={setPortfolioKey}
+          onPortfolioKeyNewChange={setPortfolioKeyNew}
           onSave={handleSavePortfolio}
           onLoad={handleLoadPortfolio}
         />
@@ -298,6 +363,8 @@ export default function App() {
               settings={settings}
               onSettingChange={handleSettingChange}
               onReset={handleResetSettings}
+              portfolioSettings={portfolioSettings}
+              onPortfolioSettingChange={handlePortfolioSettingChange}
             />
           )}
         </main>

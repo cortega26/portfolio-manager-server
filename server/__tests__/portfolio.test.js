@@ -15,6 +15,17 @@ const noopLogger = {
   error() {},
 };
 
+const API_KEY = 'test-key';
+const SECONDARY_KEY = 'rotated-key';
+
+function withKey(requestBuilder, key = API_KEY, newKey) {
+  let builder = requestBuilder.set('X-Portfolio-Key', key);
+  if (newKey) {
+    builder = builder.set('X-Portfolio-Key-New', newKey);
+  }
+  return builder;
+}
+
 let dataDir;
 
 beforeEach(() => {
@@ -25,11 +36,27 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-test('GET /api/portfolio/:id returns empty object when portfolio is missing', async () => {
+test('GET /api/portfolio/:id returns 404 when portfolio is not provisioned', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  const response = await withKey(request(app).get('/api/portfolio/demo'));
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error, 'PORTFOLIO_NOT_FOUND');
+});
+
+test('GET /api/portfolio/:id requires an API key header', async () => {
   const app = createApp({ dataDir, logger: noopLogger });
   const response = await request(app).get('/api/portfolio/demo');
-  assert.equal(response.status, 200);
-  assert.deepEqual(response.body, {});
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error, 'NO_KEY');
+});
+
+test('POST /api/portfolio/:id requires an API key header', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  const response = await request(app)
+    .post('/api/portfolio/no_auth')
+    .send({ transactions: [] });
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error, 'NO_KEY');
 });
 
 test('POST /api/portfolio/:id persists validated portfolio payloads', async () => {
@@ -47,9 +74,11 @@ test('POST /api/portfolio/:id persists validated portfolio payloads', async () =
     ],
     signals: { aapl: { pct: 3 } },
   };
-  const response = await request(app)
-    .post('/api/portfolio/sample_01')
-    .send(payload);
+  const response = await withKey(
+    request(app)
+      .post('/api/portfolio/sample_01')
+      .send(payload),
+  );
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, { status: 'ok' });
 
@@ -71,6 +100,133 @@ test('POST /api/portfolio/:id persists validated portfolio payloads', async () =
   });
   assert.deepEqual(saved.signals, { AAPL: { pct: 3 } });
   assert.deepEqual(saved.settings, { autoClip: false });
+});
+
+test('GET /api/portfolio/:id rejects invalid API keys after provisioning', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  await withKey(
+    request(app)
+      .post('/api/portfolio/auth_check')
+      .send({ transactions: [] }),
+  );
+
+  const response = await withKey(
+    request(app).get('/api/portfolio/auth_check'),
+    'wrong-key',
+  );
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error, 'INVALID_KEY');
+});
+
+test('POST /api/portfolio/:id rotates API key when a new key header is provided', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  await withKey(
+    request(app)
+      .post('/api/portfolio/rotate_me')
+      .send({ transactions: [] }),
+  );
+
+  const rotateResponse = await withKey(
+    request(app)
+      .post('/api/portfolio/rotate_me')
+      .send({ transactions: [] }),
+    API_KEY,
+    SECONDARY_KEY,
+  );
+  assert.equal(rotateResponse.status, 200);
+
+  const oldKeyResponse = await withKey(
+    request(app).get('/api/portfolio/rotate_me'),
+    API_KEY,
+  );
+  assert.equal(oldKeyResponse.status, 403);
+  assert.equal(oldKeyResponse.body.error, 'INVALID_KEY');
+
+  const newKeyResponse = await withKey(
+    request(app).get('/api/portfolio/rotate_me'),
+    SECONDARY_KEY,
+  );
+  assert.equal(newKeyResponse.status, 200);
+});
+
+test('POST /api/portfolio/:id rejects oversells when autoClip is disabled', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  const payload = {
+    transactions: [
+      {
+        date: '2024-01-01',
+        ticker: 'AAPL',
+        type: 'BUY',
+        amount: -1000,
+        shares: 10,
+        price: 100,
+      },
+      {
+        date: '2024-01-02',
+        ticker: 'AAPL',
+        type: 'SELL',
+        amount: 1500,
+        shares: 15,
+        price: 150,
+      },
+    ],
+    settings: { autoClip: false },
+  };
+
+  const response = await withKey(
+    request(app)
+      .post('/api/portfolio/oversell_reject')
+      .send(payload),
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error, 'E_OVERSELL');
+});
+
+test('POST /api/portfolio/:id clips oversells when autoClip is enabled', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  const payload = {
+    transactions: [
+      {
+        date: '2024-01-01',
+        ticker: 'MSFT',
+        type: 'BUY',
+        amount: -2000,
+        shares: 20,
+        price: 100,
+      },
+      {
+        date: '2024-01-02',
+        ticker: 'MSFT',
+        type: 'SELL',
+        amount: 2500,
+        shares: 25,
+        price: 100,
+      },
+    ],
+    settings: { autoClip: true },
+  };
+
+  const response = await withKey(
+    request(app)
+      .post('/api/portfolio/oversell_clip')
+      .send(payload),
+  );
+
+  assert.equal(response.status, 200);
+
+  const filePath = path.join(dataDir, 'portfolio_oversell_clip.json');
+  const saved = JSON.parse(readFileSync(filePath, 'utf8'));
+  const [{ uid: buyUid, ...buy }, { uid: sellUid, ...sell }] = saved.transactions;
+  assert.ok(buyUid && sellUid);
+  assert.equal(buy.shares, 20);
+  assert.equal(buy.amount, -2000);
+  assert.equal(sell.shares, 20);
+  assert.equal(sell.quantity, -20);
+  assert.equal(sell.amount, 2000);
+  assert.equal(saved.settings.autoClip, true);
+  assert.ok(sell.metadata?.system?.oversell_clipped);
+  assert.equal(sell.metadata.system.oversell_clipped.delivered_shares, 20);
 });
 
 test('POST /api/portfolio/:id deduplicates transactions by uid', async () => {
@@ -97,7 +253,9 @@ test('POST /api/portfolio/:id deduplicates transactions by uid', async () => {
     ],
   };
 
-  const response = await request(app).post('/api/portfolio/dedupe').send(payload);
+  const response = await withKey(
+    request(app).post('/api/portfolio/dedupe').send(payload),
+  );
   assert.equal(response.status, 200);
 
   const filePath = path.join(dataDir, 'portfolio_dedupe.json');
@@ -121,7 +279,9 @@ test('concurrent POST requests to the same portfolio remain consistent', async (
   }));
 
   await Promise.all(
-    payloads.map((payload) => request(app).post(`/api/portfolio/${id}`).send(payload)),
+    payloads.map((payload) =>
+      withKey(request(app).post(`/api/portfolio/${id}`).send(payload)),
+    ),
   );
 
   const filePath = path.join(dataDir, 'portfolio_race.json');
@@ -149,9 +309,11 @@ test('rejects invalid portfolio identifiers to prevent path traversal', async ()
 
 test('rejects non-object portfolio payloads', async () => {
   const app = createApp({ dataDir, logger: noopLogger });
-  const response = await request(app)
-    .post('/api/portfolio/invalid_payload')
-    .send(['not', 'an', 'object']);
+  const response = await withKey(
+    request(app)
+      .post('/api/portfolio/invalid_payload')
+      .send(['not', 'an', 'object']),
+  );
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');
   assert.ok(Array.isArray(response.body.details));
@@ -193,8 +355,13 @@ test('GET /api/prices/:symbol handles upstream fetch failures', async () => {
 
 test('GET /api/portfolio/:id returns 500 when stored data is invalid', async () => {
   const app = createApp({ dataDir, logger: noopLogger });
+  await withKey(
+    request(app)
+      .post('/api/portfolio/corrupt')
+      .send({ transactions: [] }),
+  );
   writeFileSync(path.join(dataDir, 'portfolio_corrupt.json'), '{ invalid');
-  const response = await request(app).get('/api/portfolio/corrupt');
+  const response = await withKey(request(app).get('/api/portfolio/corrupt'));
   assert.equal(response.status, 500);
   assert.deepEqual(response.body, {
     error: 'PORTFOLIO_READ_FAILED',
