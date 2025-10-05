@@ -127,12 +127,14 @@ test('API endpoints expose computed series', async () => {
   );
   assert.equal(returnsResponse.status, 200);
   assert.ok(Array.isArray(returnsResponse.body.series.r_port));
+  assert.ok(returnsResponse.body.meta);
 
   const navResponse = await request(app).get(
     '/api/nav/daily?from=2024-01-02&to=2024-01-02',
   );
   assert.equal(navResponse.status, 200);
   assert.ok(Array.isArray(navResponse.body.data));
+  assert.ok(navResponse.body.data.length > 0);
   assert.equal(navResponse.body.data[0].stale_price, false);
 
   const summaryResponse = await request(app).get(
