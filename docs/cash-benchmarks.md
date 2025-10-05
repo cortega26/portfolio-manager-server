@@ -54,8 +54,18 @@ Cumulative summaries report total return as \( \prod_t (1+r_t) - 1 \) and cash d
 5. Update job metadata for idempotent re-runs.
 
 `scheduleNightlyClose` in `server/jobs/scheduler.js` runs the close routine once per day at the configured UTC hour (`JOB_NIGHTLY_HOUR`).
+It now consults the trading calendar helper so weekends and hard-coded US market holidays (New Year’s, MLK Day, Presidents’ Day,
+Good Friday, Memorial Day, Juneteenth, Independence Day, Labor Day, Thanksgiving, and Christmas) are skipped gracefully. When the
+target day is closed, the scheduler logs the skip and re-checks on the next UTC day without failing the job loop.
 
 The CLI `npm run backfill -- --from=YYYY-MM-DD --to=YYYY-MM-DD` replays the same pipeline across historical ranges and is safe to re-run.
+
+## Trading Calendar Helper
+
+`server/utils/calendar.js` centralizes trading-day logic. `isTradingDay(date)` returns `false` for weekends and for the observed
+set of US market holidays listed above (including Monday observations when the holiday lands on a weekend) and `true` otherwise.
+`computeTradingDayAge` powers the stale-data guard by counting only trading days between two dates, while `nextTradingDay` skips
+over consecutive closures. The helper currently ships with a static holiday list; no additional configuration is required.
 
 ## API Additions
 

@@ -29,7 +29,7 @@ import {
 } from './middleware/validation.js';
 import { atomicWriteFile } from './utils/atomicStore.js';
 import { withLock } from './utils/locks.js';
-import { computeTradingDayAge } from './utils/tradingDays.js';
+import { computeTradingDayAge } from './utils/calendar.js';
 
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? './data');
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
