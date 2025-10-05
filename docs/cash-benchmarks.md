@@ -70,6 +70,10 @@ The feature flag exposes new JSON endpoints:
 
 See [`docs/openapi.yaml`](./openapi.yaml) for schemas and examples.
 
+## Data Freshness Guard
+
+Price- and benchmark-derived responses enforce a trading-day-aware freshness threshold. The server inspects the latest available adjusted-close date for each payload and compares it to the configured maximum trading-day age. If the dataset is older than the threshold, the endpoint emits structured warnings and responds with HTTP `503`/`{ "error": "STALE_DATA" }` instead of returning stale analytics. Weekends and major U.S. market holidays are excluded from the age calculation so expected gaps (e.g., long weekends) do not trigger false positives.
+
 ## Configuration
 
 | Name | Type | Default | Required | Description |
@@ -79,6 +83,7 @@ See [`docs/openapi.yaml`](./openapi.yaml) for schemas and examples.
 | `FEATURES_CASH_BENCHMARKS` | boolean | `true` | No | Enables cash & benchmark endpoints/jobs. |
 | `JOB_NIGHTLY_HOUR` | number | `4` | No | UTC hour for the nightly accrual job. |
 | `CORS_ALLOWED_ORIGINS` | string (CSV) | _(empty)_ | No | Whitelist of origins allowed by the API CORS policy. |
+| `FRESHNESS_MAX_STALE_TRADING_DAYS` | number | `3` | No | Maximum allowable trading-day age before `/api/prices/:symbol` and `/api/benchmarks/summary` emit `503 STALE_DATA`. |
 
 ## Testing
 

@@ -29,6 +29,7 @@ import {
 } from './middleware/validation.js';
 import { atomicWriteFile } from './utils/atomicStore.js';
 import { withLock } from './utils/locks.js';
+import { computeTradingDayAge } from './utils/tradingDays.js';
 
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? './data');
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
@@ -162,6 +163,7 @@ export function createApp({
   logger = DEFAULT_LOGGER,
   fetchTimeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
   config = null,
+  priceProvider = null,
 } = {}) {
   const baseLogger = adaptLogger(logger) ?? DEFAULT_LOGGER;
   const log = typeof baseLogger.child === 'function'
@@ -177,6 +179,13 @@ export function createApp({
     return DEFAULT_CACHE_TTL_SECONDS;
   })();
   const cacheControlHeader = `private, max-age=${cacheTtlSeconds}`;
+  const maxStaleTradingDays = (() => {
+    const override = config?.freshness?.maxStaleTradingDays;
+    if (Number.isFinite(override) && override >= 0) {
+      return Math.round(override);
+    }
+    return 3;
+  })();
   const dataDirectory = path.resolve(dataDir);
 
   fs.mkdir(dataDirectory, { recursive: true }).catch((error) => {
@@ -210,6 +219,7 @@ export function createApp({
     fallback: stooqProvider,
     logger: priceLogger,
   });
+  const priceProviderInstance = priceProvider ?? compositePriceProvider;
 
   function resolvePortfolioFilePath(portfolioId) {
     const candidate = path.resolve(dataDirectory, `portfolio_${portfolioId}.json`);
@@ -368,7 +378,7 @@ export function createApp({
     }
 
     try {
-      const fetched = await compositePriceProvider.getDailyAdjustedClose(
+      const fetched = await priceProviderInstance.getDailyAdjustedClose(
         normalizedSymbol,
         fromDate,
         toDate,
@@ -424,6 +434,18 @@ export function createApp({
     const { range } = req.query;
     try {
       const prices = await fetchHistoricalPrices(symbol, range ?? '1y');
+      const latestDate = prices.length > 0 ? prices[prices.length - 1].date : null;
+      const tradingDayAge = computeTradingDayAge(latestDate);
+      if (!latestDate || tradingDayAge > maxStaleTradingDays) {
+        log.warn('stale_price_data', {
+          symbol,
+          latest_date: latestDate,
+          trading_days_age: tradingDayAge,
+          threshold_trading_days: maxStaleTradingDays,
+        });
+        res.status(503).json({ error: 'STALE_DATA' });
+        return;
+      }
       sendJsonWithEtag(req, res, prices, { cacheControl: cacheControlHeader });
     } catch (error) {
       if (error.statusCode) {
@@ -621,7 +643,34 @@ export function createApp({
     try {
       const { from, to } = req.query;
       const storage = await getStorage();
+      const cacheKey = ['benchmarks', from ?? '', to ?? ''].join(':');
       const rows = filterRowsByRange(await storage.readTable('returns_daily'), from, to);
+      const todayKey = toDateKey(new Date());
+      let referenceKey = to ? toDateKey(to) : todayKey;
+      if (referenceKey > todayKey) {
+        referenceKey = todayKey;
+      }
+      const latestDate = rows.reduce(
+        (acc, row) => (acc && acc > row.date ? acc : row.date),
+        null,
+      );
+      const referenceDate = new Date(`${referenceKey}T00:00:00Z`);
+      const tradingDayAge = computeTradingDayAge(latestDate, referenceDate);
+      if (!latestDate || tradingDayAge > maxStaleTradingDays) {
+        log.warn('stale_benchmark_data', {
+          latest_date: latestDate,
+          reference_date: referenceKey,
+          trading_days_age: tradingDayAge,
+          threshold_trading_days: maxStaleTradingDays,
+        });
+        res.status(503).json({ error: 'STALE_DATA' });
+        return;
+      }
+      const cached = responseCache.get(cacheKey);
+      if (cached) {
+        sendJsonWithEtag(req, res, cached, { cacheControl: cacheControlHeader });
+        return;
+      }
       const summary = summarizeReturns(rows);
       const dragVsSelf = Number((summary.r_ex_cash - summary.r_port).toFixed(6));
       const allocationDrag = Number(
@@ -634,12 +683,6 @@ export function createApp({
           allocation: allocationDrag,
         },
       };
-      const cacheKey = ['benchmarks', from ?? '', to ?? ''].join(':');
-      const cached = responseCache.get(cacheKey);
-      if (cached) {
-        sendJsonWithEtag(req, res, cached, { cacheControl: cacheControlHeader });
-        return;
-      }
       responseCache.set(cacheKey, payload);
       sendJsonWithEtag(req, res, payload, { cacheControl: cacheControlHeader });
     } catch (error) {
