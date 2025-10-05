@@ -47,6 +47,10 @@ export function loadConfig(env = process.env) {
   );
   const allowedOrigins = parseList(env.CORS_ALLOWED_ORIGINS, []);
   const nightlyHour = parseNumber(env.JOB_NIGHTLY_HOUR, 4);
+  const maxStaleTradingDays = parseNumber(
+    env.FRESHNESS_MAX_STALE_TRADING_DAYS,
+    3,
+  );
 
   return {
     dataDir,
@@ -59,6 +63,9 @@ export function loadConfig(env = process.env) {
     },
     cors: {
       allowedOrigins,
+    },
+    freshness: {
+      maxStaleTradingDays,
     },
   };
 }
