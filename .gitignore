@@ -7,3 +7,5 @@ npm-debug.log*
 
 # Test output
 *.tap
+
+old_instructions/

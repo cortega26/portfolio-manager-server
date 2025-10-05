@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 import { atomicWriteFile } from '../utils/atomicStore.js';
+import { withLock } from '../utils/locks.js';
 
 async function readJson(filePath, fallback) {
   try {
@@ -50,7 +51,9 @@ export class JsonTableStorage {
 
   async writeTable(name, rows) {
     const filePath = this.tablePath(name);
-    await writeJson(filePath, rows);
+    await withLock(`table:${filePath}`, async () => {
+      await writeJson(filePath, rows);
+    });
   }
 
   async upsertRow(name, row, keyFields) {

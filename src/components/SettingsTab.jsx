@@ -71,7 +71,14 @@ function NumberField({ id, label, description, value, min, max, step, onChange }
   );
 }
 
-export default function SettingsTab({ settings, onSettingChange, onReset }) {
+export default function SettingsTab({
+  settings,
+  onSettingChange,
+  onReset,
+  portfolioSettings,
+  onPortfolioSettingChange,
+}) {
+  const autoClipEnabled = Boolean(portfolioSettings?.autoClip);
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
@@ -165,6 +172,13 @@ export default function SettingsTab({ settings, onSettingChange, onReset }) {
             description="Reduce row padding for dense transaction or holdings views."
             checked={settings.display.compactTables}
             onChange={(value) => onSettingChange("display.compactTables", value)}
+          />
+          <ToggleField
+            id="setting-auto-clip"
+            label="Auto-clip oversell orders"
+            description="When disabled the server rejects SELL orders that exceed available shares."
+            checked={autoClipEnabled}
+            onChange={(value) => onPortfolioSettingChange?.(value)}
           />
         </div>
         <button

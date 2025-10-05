@@ -83,7 +83,12 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
   );
 
   const responses = await Promise.all(
-    payloads.map((payload) => request(app).post(`/api/portfolio/${portfolioId}`).send(payload)),
+    payloads.map((payload) =>
+      request(app)
+        .post(`/api/portfolio/${portfolioId}`)
+        .set('X-Portfolio-Key', 'stress-key')
+        .send(payload),
+    ),
   );
 
   for (const response of responses) {

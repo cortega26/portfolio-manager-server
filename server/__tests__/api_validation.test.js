@@ -37,7 +37,8 @@ test('POST /api/portfolio rejects invalid payloads with validation details', asy
   const response = await request(app)
     .post('/api/portfolio/test123')
     .send({ transactions: [{ type: 'BUY', amount: 'invalid' }] })
-    .set('Content-Type', 'application/json');
+    .set('Content-Type', 'application/json')
+    .set('X-Portfolio-Key', 'validation-key');
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');
@@ -49,7 +50,8 @@ test('POST /api/portfolio rejects invalid portfolio id', async () => {
   const response = await request(app)
     .post('/api/portfolio/bad id')
     .send({ transactions: [] })
-    .set('Content-Type', 'application/json');
+    .set('Content-Type', 'application/json')
+    .set('X-Portfolio-Key', 'validation-key');
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');

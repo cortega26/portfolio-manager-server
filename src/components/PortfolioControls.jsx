@@ -2,7 +2,11 @@ import { useState } from "react";
 
 export default function PortfolioControls({
   portfolioId,
+  portfolioKey,
+  portfolioKeyNew,
   onPortfolioIdChange,
+  onPortfolioKeyChange,
+  onPortfolioKeyNewChange,
   onSave,
   onLoad,
 }) {
@@ -11,6 +15,10 @@ export default function PortfolioControls({
   async function handle(action) {
     if (!portfolioId) {
       setStatus({ type: "error", message: "Set a portfolio ID first." });
+      return;
+    }
+    if (!portfolioKey) {
+      setStatus({ type: "error", message: "Provide an API key to continue." });
       return;
     }
 
@@ -42,6 +50,40 @@ export default function PortfolioControls({
             value={portfolioId}
             onChange={(event) => onPortfolioIdChange(event.target.value)}
             placeholder="e.g. demo-portfolio"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label
+            htmlFor="portfolioKey"
+            className="text-sm font-medium text-slate-600 dark:text-slate-300"
+          >
+            API Key
+          </label>
+          <input
+            id="portfolioKey"
+            type="password"
+            className="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            value={portfolioKey}
+            onChange={(event) => onPortfolioKeyChange?.(event.target.value)}
+            placeholder="Required"
+            autoComplete="off"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label
+            htmlFor="portfolioKeyNew"
+            className="text-sm font-medium text-slate-600 dark:text-slate-300"
+          >
+            Rotate Key (optional)
+          </label>
+          <input
+            id="portfolioKeyNew"
+            type="password"
+            className="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            value={portfolioKeyNew}
+            onChange={(event) => onPortfolioKeyNewChange?.(event.target.value)}
+            placeholder="Leave blank to keep current"
+            autoComplete="off"
           />
         </div>
         <div className="flex gap-3">

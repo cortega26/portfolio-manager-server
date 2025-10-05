@@ -161,6 +161,10 @@ Always terminate traffic for the Express API behind HTTPS with HTTP Strict Trans
 
 ## API
 
+### Authentication
+
+Every request that reads from or writes to `/api/portfolio/:id` must include an `X-Portfolio-Key` header. On the first `POST` the server bootstraps the portfolio by hashing and storing the provided key. Subsequent requests must reuse the same header value; requests without it return `401 NO_KEY` and mismatched keys return `403 INVALID_KEY`. To rotate credentials atomically, include the current key plus `X-Portfolio-Key-New` with the replacement value on a `POST` request. Keys are stored as SHA-256 hashes and never returned in responses.
+
 ### `GET /api/prices/:symbol?range=1y`
 
 Returns an array of historical prices for a US ticker using Stooq. Supported query parameters:
@@ -181,7 +185,7 @@ Example response:
 
 ### `GET /api/portfolio/:id`
 
-Loads a saved portfolio with the given `id` from the `data` folder. The identifier must match `[A-Za-z0-9_-]{1,64}`; otherwise the request is rejected with HTTP `400`. Returns an empty object if the portfolio does not exist.
+Loads a saved portfolio with the given `id` from the `data` folder once it has been provisioned. The identifier must match `[A-Za-z0-9_-]{1,64}`; otherwise the request is rejected with HTTP `400`. Portfolios that are not yet provisioned respond with HTTP `404 PORTFOLIO_NOT_FOUND`.
 
 ### `POST /api/portfolio/:id`
 
@@ -189,7 +193,7 @@ Saves a portfolio to the backend. Bodies are validated against the schema in [`s
 
 - `transactions` must be an array of transaction objects (`date`, `ticker`, `type`, `amount`, optional `quantity`/`shares`, etc.).
 - Optional `signals` map tickers to `{ pct: number }` windows.
-- Optional `settings.autoClip` flag.
+- Optional `settings.autoClip` flag controls oversell behaviour. By default oversells are rejected with `400 E_OVERSELL`; when the flag is `true` the server clips the sell order to the available shares and records an audit trail entry in `transaction.metadata.system.oversell_clipped`.
 
 The identifier is validated using the same `[A-Za-z0-9_-]{1,64}` rule. Invalid identifiers or payloads yield HTTP `400` with `{ error: "VALIDATION_ERROR", details: [...] }`. Valid portfolios are stored as `data/portfolio_<id>.json`.
 

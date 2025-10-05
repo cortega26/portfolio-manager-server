@@ -1,15 +1,16 @@
 import { formatCurrency, formatPercent } from "./format.js";
 import { deriveHoldingStats } from "./holdings.js";
+import { sanitizeCsvCell } from "./csv.js";
 
 function toCsvValue(value) {
-  if (value == null) {
+  const sanitized = sanitizeCsvCell(value);
+  if (sanitized === "") {
     return "";
   }
-  const stringValue = String(value);
-  if (stringValue.includes(",") || stringValue.includes("\n") || stringValue.includes('"')) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
+  if (sanitized.includes(",") || sanitized.includes("\n") || sanitized.includes('"')) {
+    return `"${sanitized.replace(/"/g, '""')}"`;
   }
-  return stringValue;
+  return sanitized;
 }
 
 function toCsv(rows) {
