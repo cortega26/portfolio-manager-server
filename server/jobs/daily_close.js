@@ -1,4 +1,5 @@
 import { toDateKey, accrueInterest } from '../finance/cash.js';
+import { isTradingDay } from '../utils/calendar.js';
 import { computeDailyStates } from '../finance/portfolio.js';
 import { computeDailyReturnRows } from '../finance/returns.js';
 import { runMigrations } from '../migrations/index.js';
@@ -105,14 +106,21 @@ export async function runDailyClose({
   date = new Date(Date.now() - MS_PER_DAY),
   priceProvider,
 } = {}) {
+  const targetDate = new Date(`${toDateKey(date)}T00:00:00Z`);
+  if (!isTradingDay(targetDate)) {
+    logger?.info?.('daily_close_skipped_non_trading_day', {
+      target_date: toDateKey(targetDate),
+    });
+    return { skipped: true };
+  }
   const storage = await runMigrations({ dataDir, logger });
-  const targetDate = toDateKey(date);
+  const targetDateKey = toDateKey(targetDate);
   const previousDate = toDateKey(
-    new Date(new Date(`${targetDate}T00:00:00Z`).getTime() - MS_PER_DAY),
+    new Date(new Date(`${targetDateKey}T00:00:00Z`).getTime() - MS_PER_DAY),
   );
 
   const rates = await storage.readTable('cash_rates');
-  await accrueInterest({ storage, date: targetDate, rates, logger });
+  await accrueInterest({ storage, date: targetDateKey, rates, logger });
 
   const transactions = await storage.readTable('transactions');
   const tickers = new Set(['SPY', 'CASH']);
@@ -134,7 +142,7 @@ export async function runDailyClose({
     provider,
     tickers: Array.from(tickers),
     from: previousDate,
-    to: targetDate,
+    to: targetDateKey,
     logger,
   });
 
@@ -142,12 +150,12 @@ export async function runDailyClose({
   const pricesByDate = buildPriceMaps(
     priceRecords,
     Array.from(tickers),
-    [previousDate, targetDate],
+    [previousDate, targetDateKey],
   );
   const states = computeDailyStates({
     transactions,
     pricesByDate,
-    dates: [previousDate, targetDate],
+    dates: [previousDate, targetDateKey],
   });
 
   let priceStale = false;
@@ -156,15 +164,15 @@ export async function runDailyClose({
       continue;
     }
     const hasFresh = priceRecords.some(
-      (record) => record.ticker === ticker && record.date === targetDate,
+      (record) => record.ticker === ticker && record.date === targetDateKey,
     );
     if (!hasFresh) {
       priceStale = true;
-      logger?.warn?.('price_carry_forward', { ticker, date: targetDate });
+      logger?.warn?.('price_carry_forward', { ticker, date: targetDateKey });
     }
   }
 
-  const targetState = states.find((state) => state.date === targetDate);
+  const targetState = states.find((state) => state.date === targetDateKey);
   if (targetState) {
     await storage.upsertRow(
       'nav_snapshots',
@@ -192,7 +200,7 @@ export async function runDailyClose({
     spyPrices: priceMapForSpy,
     transactions,
   });
-  const targetRow = returnRows.find((row) => row.date === targetDate);
+  const targetRow = returnRows.find((row) => row.date === targetDateKey);
   if (targetRow) {
     await storage.upsertRow('returns_daily', targetRow, ['date']);
   }
@@ -201,7 +209,7 @@ export async function runDailyClose({
     'jobs_state',
     {
       job: 'daily_close',
-      last_run_date: targetDate,
+      last_run_date: targetDateKey,
       updated_at: new Date().toISOString(),
     },
     ['job'],
