@@ -26,6 +26,24 @@ const DEFAULT_LOGGER = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 const PORTFOLIO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SYMBOL_PATTERN = /^[A-Za-z0-9._-]{1,32}$/;
 
+function createHttpError({ status = 500, code = 'INTERNAL_ERROR', message, details, expose }) {
+  const error = new Error(
+    message ?? (status >= 500 ? 'Unexpected server error' : 'Request could not be processed'),
+  );
+  error.status = status;
+  error.statusCode = status;
+  error.code = code;
+  if (details !== undefined) {
+    error.details = details;
+  }
+  if (expose !== undefined) {
+    error.expose = expose;
+  } else {
+    error.expose = status < 500;
+  }
+  return error;
+}
+
 function adaptLogger(logger) {
   if (!logger) {
     return null;
@@ -153,6 +171,8 @@ export function createApp({
 
   const app = express();
 
+  app.disable('x-powered-by');
+
   const httpLogger = pinoHttp({
     logger: DEFAULT_LOGGER,
     genReqId(req) {
@@ -169,22 +189,62 @@ export function createApp({
   app.use(httpLogger);
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          'default-src': ["'self'"],
+          'base-uri': ["'self'"],
+          'script-src': ["'self'"],
+          'frame-ancestors': ["'none'"],
+          'connect-src': ["'self'"],
+        },
+      },
+      frameguard: { action: 'deny' },
+      hsts: { maxAge: 15552000, includeSubDomains: true, preload: true },
+      referrerPolicy: { policy: 'no-referrer' },
     }),
   );
+  const allowedOriginSet = new Set(allowedOrigins);
   app.use(
     cors({
       origin(origin, callback) {
-        if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        if (!origin) {
           callback(null, true);
           return;
         }
-        callback(new Error('Not allowed by CORS'));
+        if (allowedOriginSet.has(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(
+          createHttpError({
+            status: 403,
+            code: 'CORS_NOT_ALLOWED',
+            message: 'Origin not allowed by CORS policy',
+          }),
+        );
       },
-      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      credentials: false,
     }),
   );
   app.use(express.json({ limit: '10mb' }));
+
+  const generalLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  const portfolioLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.use('/api', generalLimiter);
+  app.use(['/api/portfolio', '/api/returns', '/api/nav'], portfolioLimiter);
 
   const priceLimiter = rateLimit({
     windowMs: 60_000,
@@ -196,9 +256,11 @@ export function createApp({
 
   async function fetchHistoricalPrices(symbol, range = '1y') {
     if (!SYMBOL_PATTERN.test(symbol)) {
-      const error = new Error('Invalid symbol');
-      error.code = 'ERR_INVALID_SYMBOL';
-      throw error;
+      throw createHttpError({
+        status: 400,
+        code: 'INVALID_SYMBOL',
+        message: 'Invalid symbol.',
+      });
     }
 
     const controller = new AbortController();
@@ -208,7 +270,12 @@ export function createApp({
       const url = `https://stooq.com/q/d/l/?s=${urlSymbol}&i=d`;
       const res = await fetchImpl(url, { signal: controller.signal });
       if (!res.ok) {
-        throw new Error(`Failed to fetch price for ${symbol}`);
+        throw createHttpError({
+          status: 502,
+          code: 'PRICE_FETCH_FAILED',
+          message: 'Failed to fetch historical prices.',
+          expose: true,
+        });
       }
       const csv = await res.text();
       const lines = csv.trim().split('\n');
@@ -232,12 +299,31 @@ export function createApp({
       }
       return result;
     } catch (error) {
-      const message = error.name === 'AbortError' ? 'price_fetch_timeout' : 'price_fetch_failed';
-      log.error(message, {
+      if (error.name === 'AbortError') {
+        const timeoutError = createHttpError({
+          status: 504,
+          code: 'UPSTREAM_TIMEOUT',
+          message: 'Price fetch timed out.',
+        });
+        log.error('price_fetch_timeout', {
+          error: error.message,
+          symbol,
+        });
+        throw timeoutError;
+      }
+      log.error('price_fetch_failed', {
         error: error.message,
         symbol,
       });
-      throw error;
+      if (error.statusCode) {
+        throw error;
+      }
+      throw createHttpError({
+        status: 502,
+        code: 'PRICE_FETCH_FAILED',
+        message: 'Failed to fetch historical prices.',
+        expose: true,
+      });
     } finally {
       clearTimeout(timeout);
     }
@@ -247,27 +333,40 @@ export function createApp({
     const { id } = req.params;
     if (!isValidPortfolioId(id)) {
       log.warn('invalid_portfolio_id', { id });
-      res.status(400).json({
-        error: 'Invalid portfolio id. Use letters, numbers, hyphen or underscore.',
-      });
+      next(
+        createHttpError({
+          status: 400,
+          code: 'INVALID_PORTFOLIO_ID',
+          message: 'Invalid portfolio id. Use letters, numbers, hyphen or underscore.',
+        }),
+      );
       return;
     }
     next();
   });
 
-  app.get('/api/prices/:symbol', async (req, res) => {
+  app.get('/api/prices/:symbol', async (req, res, next) => {
     const { symbol } = req.params;
     const { range } = req.query;
     try {
       const prices = await fetchHistoricalPrices(symbol, range ?? '1y');
       res.json(prices);
     } catch (error) {
-      const status = error.code === 'ERR_INVALID_SYMBOL' ? 400 : 502;
-      res.status(status).json({ error: 'Failed to fetch historical prices' });
+      if (error.statusCode) {
+        next(error);
+        return;
+      }
+      next(
+        createHttpError({
+          status: 502,
+          code: 'PRICE_FETCH_FAILED',
+          message: 'Failed to fetch historical prices.',
+        }),
+      );
     }
   });
 
-  app.get('/api/portfolio/:id', async (req, res) => {
+  app.get('/api/portfolio/:id', async (req, res, next) => {
     const { id } = req.params;
     const filePath = path.join(dataDir, `portfolio_${id}.json`);
     try {
@@ -279,17 +378,30 @@ export function createApp({
         return;
       }
       log.error('portfolio_read_failed', { id, error: error.message });
-      res.status(500).json({ error: 'Failed to load portfolio' });
+      next(
+        createHttpError({
+          status: 500,
+          code: 'PORTFOLIO_READ_FAILED',
+          message: 'Failed to load portfolio.',
+          expose: false,
+        }),
+      );
     }
   });
 
-  app.post('/api/portfolio/:id', async (req, res) => {
+  app.post('/api/portfolio/:id', async (req, res, next) => {
     const { id } = req.params;
     const filePath = path.join(dataDir, `portfolio_${id}.json`);
     const payload = req.body;
     if (!isPlainObject(payload)) {
       log.warn('invalid_portfolio_payload', { id, payloadType: typeof payload });
-      res.status(400).json({ error: 'Portfolio payload must be a JSON object.' });
+      next(
+        createHttpError({
+          status: 400,
+          code: 'INVALID_PORTFOLIO_PAYLOAD',
+          message: 'Portfolio payload must be a JSON object.',
+        }),
+      );
       return;
     }
     try {
@@ -297,19 +409,32 @@ export function createApp({
       res.json({ status: 'ok' });
     } catch (error) {
       log.error('portfolio_write_failed', { id, error: error.message });
-      res.status(500).json({ error: 'Failed to save portfolio' });
+      next(
+        createHttpError({
+          status: 500,
+          code: 'PORTFOLIO_WRITE_FAILED',
+          message: 'Failed to save portfolio.',
+          expose: false,
+        }),
+      );
     }
   });
 
   function ensureCashFeature(req, res, next) {
     if (!featureFlags.cashBenchmarks) {
-      res.status(404).json({ error: 'cash_benchmarks_disabled' });
+      next(
+        createHttpError({
+          status: 404,
+          code: 'CASH_BENCHMARKS_DISABLED',
+          message: 'Cash benchmarks feature is disabled.',
+        }),
+      );
       return;
     }
     next();
   }
 
-  app.get('/api/returns/daily', ensureCashFeature, async (req, res) => {
+  app.get('/api/returns/daily', ensureCashFeature, async (req, res, next) => {
     try {
       const parsed = returnsQuerySchema.parse(req.query ?? {});
       const { from = null, to = null, views } = parsed;
@@ -335,15 +460,29 @@ export function createApp({
       }
       res.json({ series });
     } catch (error) {
-      const message = error instanceof z.ZodError ? 'validation_failed' : 'returns_fetch_failed';
-      log.error(message, { error: error.message });
-      res.status(error instanceof z.ZodError ? 400 : error.statusCode ?? 500).json({
-        error: error instanceof z.ZodError ? error.errors : error.message,
-      });
+      if (error instanceof z.ZodError) {
+        next(
+          createHttpError({
+            status: 400,
+            code: 'VALIDATION_FAILED',
+            message: 'Invalid query parameters.',
+            details: error.errors,
+          }),
+        );
+        return;
+      }
+      next(
+        createHttpError({
+          status: error.statusCode ?? 500,
+          code: 'RETURNS_FETCH_FAILED',
+          message: 'Failed to fetch returns.',
+          expose: false,
+        }),
+      );
     }
   });
 
-  app.get('/api/nav/daily', ensureCashFeature, async (req, res) => {
+  app.get('/api/nav/daily', ensureCashFeature, async (req, res, next) => {
     try {
       const { from = null, to = null } = rangeQuerySchema.parse(req.query ?? {});
       const storage = await getStorage();
@@ -366,15 +505,29 @@ export function createApp({
       });
       res.json({ data });
     } catch (error) {
-      const message = error instanceof z.ZodError ? 'validation_failed' : 'nav_fetch_failed';
-      log.error(message, { error: error.message });
-      res.status(error instanceof z.ZodError ? 400 : error.statusCode ?? 500).json({
-        error: error instanceof z.ZodError ? error.errors : error.message,
-      });
+      if (error instanceof z.ZodError) {
+        next(
+          createHttpError({
+            status: 400,
+            code: 'VALIDATION_FAILED',
+            message: 'Invalid query parameters.',
+            details: error.errors,
+          }),
+        );
+        return;
+      }
+      next(
+        createHttpError({
+          status: error.statusCode ?? 500,
+          code: 'NAV_FETCH_FAILED',
+          message: 'Failed to fetch NAV data.',
+          expose: false,
+        }),
+      );
     }
   });
 
-  app.get('/api/benchmarks/summary', ensureCashFeature, async (req, res) => {
+  app.get('/api/benchmarks/summary', ensureCashFeature, async (req, res, next) => {
     try {
       const { from = null, to = null } = rangeQuerySchema.parse(req.query ?? {});
       const storage = await getStorage();
@@ -392,17 +545,29 @@ export function createApp({
         },
       });
     } catch (error) {
-      const message = error instanceof z.ZodError
-        ? 'validation_failed'
-        : 'benchmarks_fetch_failed';
-      log.error(message, { error: error.message });
-      res.status(error instanceof z.ZodError ? 400 : error.statusCode ?? 500).json({
-        error: error instanceof z.ZodError ? error.errors : error.message,
-      });
+      if (error instanceof z.ZodError) {
+        next(
+          createHttpError({
+            status: 400,
+            code: 'VALIDATION_FAILED',
+            message: 'Invalid query parameters.',
+            details: error.errors,
+          }),
+        );
+        return;
+      }
+      next(
+        createHttpError({
+          status: error.statusCode ?? 500,
+          code: 'BENCHMARKS_FETCH_FAILED',
+          message: 'Failed to fetch benchmark summary.',
+          expose: false,
+        }),
+      );
     }
   });
 
-  app.post('/api/admin/cash-rate', ensureCashFeature, async (req, res) => {
+  app.post('/api/admin/cash-rate', ensureCashFeature, async (req, res, next) => {
     try {
       const payload = isPlainObject(req.body) ? req.body : {};
       const { effective_date: effectiveDate, apy } = cashRateSchema.parse(payload);
@@ -414,22 +579,83 @@ export function createApp({
       );
       res.json({ status: 'ok' });
     } catch (error) {
-      const message = error instanceof z.ZodError
-        ? 'validation_failed'
-        : 'cash_rate_upsert_failed';
-      log.error(message, { error: error.message });
-      res.status(error instanceof z.ZodError ? 400 : error.statusCode ?? 500).json({
-        error: error instanceof z.ZodError ? error.errors : error.message,
-      });
+      if (error instanceof z.ZodError) {
+        next(
+          createHttpError({
+            status: 400,
+            code: 'VALIDATION_FAILED',
+            message: 'Invalid request body.',
+            details: error.errors,
+          }),
+        );
+        return;
+      }
+      next(
+        createHttpError({
+          status: error.statusCode ?? 500,
+          code: 'CASH_RATE_UPSERT_FAILED',
+          message: 'Failed to update cash rate.',
+          expose: false,
+        }),
+      );
     }
   });
 
   app.use((error, req, res, next) => {
-    if (error?.message === 'Not allowed by CORS') {
-      res.status(403).json({ error: 'cors_not_allowed' });
+    if (res.headersSent) {
+      next(error);
       return;
     }
-    next(error);
+
+    if (error && typeof error === 'object' && !error.statusCode) {
+      if (error.type === 'entity.too.large') {
+        error = createHttpError({
+          status: 413,
+          code: 'PAYLOAD_TOO_LARGE',
+          message: 'Request payload too large.',
+        });
+      } else if (error.type === 'entity.parse.failed') {
+        error = createHttpError({
+          status: 400,
+          code: 'INVALID_JSON',
+          message: 'Invalid JSON payload.',
+          expose: true,
+        });
+      }
+    }
+
+    const status = error?.statusCode ?? error?.status ?? 500;
+    const code = error?.code ?? (status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST');
+    let message;
+    if (status >= 500) {
+      message = error?.expose ? error?.message ?? 'Unexpected server error' : 'Unexpected server error';
+    } else if (error?.expose === false) {
+      message = 'Request could not be processed';
+    } else {
+      message = error?.message ?? 'Request could not be processed';
+    }
+    const details = status < 500 ? error?.details : undefined;
+
+    const logMethod = status >= 500 ? 'error' : 'warn';
+    const reqLogger = req.log ?? baseLogger;
+    if (typeof reqLogger?.[logMethod] === 'function') {
+      reqLogger[logMethod](
+        {
+          error: error?.message,
+          code,
+          status,
+          stack: status >= 500 ? error?.stack : undefined,
+        },
+        'request_error',
+      );
+    }
+
+    const responseBody = { error: code, message };
+    if (details !== undefined) {
+      responseBody.details = details;
+    }
+
+    res.status(status).json(responseBody);
   });
 
   return app;
