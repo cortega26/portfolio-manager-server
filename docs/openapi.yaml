@@ -137,6 +137,44 @@ paths:
               schema:
                 type: string
               description: Strong validator for conditional requests
+  /api/prices/{symbol}:
+    get:
+      summary: Historical adjusted-close prices for a symbol
+      parameters:
+        - in: path
+          name: symbol
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [1y]
+          description: Historical window (currently only `1y` is supported)
+      responses:
+        '200':
+          description: Historical price series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - date
+                    - close
+                  properties:
+                    date:
+                      type: string
+                      format: date
+                    close:
+                      type: number
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
   /api/benchmarks/summary:
     get:
       summary: Cumulative returns and drag metrics
