@@ -38,7 +38,10 @@ Run the test suite to verify all fixes:
 npm test
 ```
 
-All Phase 1 critical tests should pass.
+The suite includes OpenAPI contract coverage via `server/__tests__/api_contract.test.js`,
+which loads [`docs/openapi.yaml`](docs/openapi.yaml) with `@apidevtools/swagger-parser` and
+validates the JSON returned by SuperTest requests against the documented schemas. All Phase 1
+critical tests should pass.
 
 ## Continuous Integration
 
