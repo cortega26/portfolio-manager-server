@@ -1,10 +1,10 @@
 | ID      | Title                            | Severity | Owner | Status       | Branch            | PR | Evidence (CI) |
 |---------|----------------------------------|----------|-------|--------------|-------------------|----|---------------|
-| G1      | Coverage gate                    | HIGH     |       | TODO         |                   |    |               |
-| G2      | Lint gate                        | MEDIUM   |       | TODO         |                   |    |               |
-| G3      | Security audit gate              | MEDIUM   |       | TODO         |                   |    |               |
-| G4      | Test artifacts                   | LOW      |       | TODO         |                   |    |               |
-| G5      | Release gate                     | HIGH     |       | TODO         |                   |    |               |
+| G1      | Coverage gate                    | HIGH     |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: CI (nyc check-coverage) |
+| G2      | Lint gate                        | MEDIUM   |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: CI (npm run lint) |
+| G3      | Security audit gate              | MEDIUM   |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: CI (gitleaks + npm audit) |
+| G4      | Test artifacts                   | LOW      |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: CI artifact (coverage/) |
+| G5      | Release gate                     | HIGH     |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: Deploy (needs ci) |
 | SEC-1   | Rate limiting                    | CRITICAL |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-2   | JSON size limits                 | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-3   | Per-portfolio API key            | HIGH*    |       | TODO         |                   |    |               |

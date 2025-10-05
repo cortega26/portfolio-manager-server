@@ -40,6 +40,17 @@ npm test
 
 All Phase 1 critical tests should pass.
 
+## Continuous Integration
+
+GitHub Actions enforces quality gates on every push and pull request targeting `main`. The reusable CI workflow runs before any Pages deployment and must succeed before the release workflow can proceed.
+
+| Workflow | Job | Purpose | Key commands | Artifacts |
+| -------- | --- | ------- | ------------ | --------- |
+| `CI` | `ci` | Installs dependencies, lints, runs the Node test runner twice (directly and through `nyc`) and enforces coverage/security/audit gates. | `npm ci`, `npm run lint`, `npm run test`, `npx nyc check-coverage --branches=85 --functions=85 --lines=85 --statements=85`, `npx gitleaks detect --no-banner`, `npm audit --audit-level=moderate` | `coverage/` uploaded as the `node-coverage` artifact |
+| `Deploy Vite app to GitHub Pages` | `build-and-deploy` | Builds and publishes the static frontend once CI succeeds on `main`. | `npm install`, `npm run build` | `dist/` via `actions/upload-pages-artifact` |
+
+> The repository bundles a deterministic `gitleaks` wrapper under `tools/gitleaks/` so that secret scanning works without downloading third-party binaries. The scanner audits for high-signal patterns (AWS/GitHub/Slack/Google tokens and private-key blocks) and fails the build if any are discovered.
+
 ### Known Limitations
 
 **These are planned for future phases:**
