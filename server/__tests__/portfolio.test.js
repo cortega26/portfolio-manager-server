@@ -53,7 +53,8 @@ test('rejects invalid portfolio identifiers to prevent path traversal', async ()
   );
   assert.equal(response.status, 400);
   assert.deepEqual(response.body, {
-    error: 'Invalid portfolio id. Use letters, numbers, hyphen or underscore.',
+    error: 'INVALID_PORTFOLIO_ID',
+    message: 'Invalid portfolio id. Use letters, numbers, hyphen or underscore.',
   });
 });
 
@@ -64,7 +65,8 @@ test('rejects non-object portfolio payloads', async () => {
     .send(['not', 'an', 'object']);
   assert.equal(response.status, 400);
   assert.deepEqual(response.body, {
-    error: 'Portfolio payload must be a JSON object.',
+    error: 'INVALID_PORTFOLIO_PAYLOAD',
+    message: 'Portfolio payload must be a JSON object.',
   });
 });
 
@@ -85,7 +87,7 @@ test('GET /api/prices/:symbol rejects invalid symbol input', async () => {
   const app = createApp({ dataDir, logger: noopLogger });
   const response = await request(app).get('/api/prices/INVALID!');
   assert.equal(response.status, 400);
-  assert.deepEqual(response.body, { error: 'Failed to fetch historical prices' });
+  assert.deepEqual(response.body, { error: 'INVALID_SYMBOL', message: 'Invalid symbol.' });
 });
 
 test('GET /api/prices/:symbol handles upstream fetch failures', async () => {
@@ -96,7 +98,10 @@ test('GET /api/prices/:symbol handles upstream fetch failures', async () => {
   const app = createApp({ dataDir, logger: noopLogger, fetchImpl });
   const response = await request(app).get('/api/prices/AAPL');
   assert.equal(response.status, 502);
-  assert.deepEqual(response.body, { error: 'Failed to fetch historical prices' });
+  assert.deepEqual(response.body, {
+    error: 'PRICE_FETCH_FAILED',
+    message: 'Failed to fetch historical prices.',
+  });
 });
 
 test('GET /api/portfolio/:id returns 500 when stored data is invalid', async () => {
@@ -104,7 +109,10 @@ test('GET /api/portfolio/:id returns 500 when stored data is invalid', async () 
   writeFileSync(path.join(dataDir, 'portfolio_corrupt.json'), '{ invalid');
   const response = await request(app).get('/api/portfolio/corrupt');
   assert.equal(response.status, 500);
-  assert.deepEqual(response.body, { error: 'Failed to load portfolio' });
+  assert.deepEqual(response.body, {
+    error: 'PORTFOLIO_READ_FAILED',
+    message: 'Unexpected server error',
+  });
 });
 
 test('isValidPortfolioId accepts generated safe identifiers', () => {

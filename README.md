@@ -139,6 +139,10 @@ To deploy the static frontend to GitHub Pages and run the backend separately:
 
 3. Deploy the backend to your preferred host (Heroku, Railway, Cloudflare Workers with minimal adjustments). For Cloudflare Workers, you can port the express logic to `fetch` handlers and use KV for storage.
 
+### HTTPS & transport security
+
+Always terminate traffic for the Express API behind HTTPS with HTTP Strict Transport Security (HSTS) enabled at your edge proxy or load balancer. Plaintext HTTP must never be exposed in production—enforce automatic redirects to HTTPS and configure long-lived HSTS policies for continued protection.
+
 ## API
 
 ### `GET /api/prices/:symbol?range=1y`
