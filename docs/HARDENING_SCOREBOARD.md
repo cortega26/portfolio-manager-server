@@ -20,10 +20,10 @@
 | MTH-1   | Decimal math policy              | CRITICAL |       | TODO         |                   |    |               |
 | MTH-2   | TWR/MWR & benchmark policy       | HIGH     |       | TODO         |                   |    |               |
 | MTH-3   | Cash accruals doc & proration    | MEDIUM   |       | TODO         |                   |    |               |
-| COM-1   | Request validation (zod)         | CRITICAL |       | TODO         |                   |    |               |
+| COM-1   | Request validation (zod)         | CRITICAL |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
 | COM-2   | Oversell reject + opt clip       | HIGH     |       | TODO         |                   |    |               |
 | COM-3   | Same-day determinism rules       | MEDIUM   |       | TODO         |                   |    |               |
-| COM-4   | Error codes & pagination         | MEDIUM   |       | TODO         |                   |    |               |
+| COM-4   | Error codes & pagination         | MEDIUM   |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
 | PERF-1  | Price caching + stale guard      | HIGH     |       | TODO         |                   |    |               |
 | PERF-2  | Incremental holdings             | MEDIUM   |       | TODO         |                   |    |               |
 | PERF-3  | UI virtualization/pagination     | LOW      |       | TODO         |                   |    |               |
