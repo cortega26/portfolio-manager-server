@@ -54,6 +54,7 @@ export function computeAllSpySeries({ dates, flowsByDate, spyPrices }) {
       navByDate.set(date, prevNav);
       continue;
     }
+
     if (!prevDate) {
       const flow = flowsByDate.get(date) ?? 0;
       prevNav = flow;
@@ -62,6 +63,7 @@ export function computeAllSpySeries({ dates, flowsByDate, spyPrices }) {
       prevDate = date;
       continue;
     }
+
     const prevPrice = priceMap.get(prevDate) ?? price;
     const flow = flowsByDate.get(date) ?? 0;
     const navBeforeFlows = prevNav * (prevPrice === 0 ? 1 : price / prevPrice);
@@ -85,6 +87,7 @@ export function computeDailyReturnRows({
   if (states.length === 0) {
     return [];
   }
+
   const dates = states.map((state) => state.date);
   const flowsByDate = externalFlowsByDate(transactions);
   const cashReturns = buildCashReturnSeries({
@@ -100,31 +103,55 @@ export function computeDailyReturnRows({
   });
 
   const rows = [];
+
   for (let i = 0; i < states.length; i += 1) {
     const state = states[i];
     const prevState = states[i - 1];
     const flow = flowsByDate.get(state.date) ?? 0;
-    const rPort = prevState
-      ? computeReturnStep(prevState.nav, state.nav, flow)
-      : 0;
-    const rExCash = prevState
-      ? computeReturnStep(prevState.riskValue, state.riskValue, 0)
-      : 0;
+
+    let rPort;
+    let rExCash;
+
+    if (prevState) {
+      rPort = computeReturnStep(prevState.nav, state.nav, flow);
+      rExCash = computeReturnStep(prevState.riskValue, state.riskValue, 0);
+    } else {
+      const inceptionCapital = flow;
+
+      if (inceptionCapital > 0 && state.nav > 0) {
+        rPort = (state.nav - flow) / inceptionCapital;
+        rExCash =
+          inceptionCapital > 0 && state.riskValue > 0
+            ? (state.riskValue - (inceptionCapital - flow)) / inceptionCapital
+            : 0;
+      } else {
+        rPort = 0;
+        rExCash = 0;
+      }
+    }
+
     const rCash = cashReturns.get(state.date) ?? 0;
     const rSpy = spyReturnSeries.get(state.date) ?? 0;
     const rSpy100 = allSpyReturns.get(state.date) ?? rSpy;
-    const weightSource = prevState ?? state;
+
+    const weightSource = prevState ?? {
+      nav: flow > 0 ? flow : 1,
+      cash: flow > 0 ? flow : 1,
+    };
+
     const weightCash = weightSource.nav === 0 ? 0 : weightSource.cash / weightSource.nav;
     const rBench = Number((weightCash * rCash + (1 - weightCash) * rSpy).toFixed(8));
+
     rows.push({
       date: state.date,
-      r_port: rPort,
-      r_ex_cash: rExCash,
+      r_port: Number(rPort.toFixed(8)),
+      r_ex_cash: Number(rExCash.toFixed(8)),
       r_bench_blended: rBench,
       r_spy_100: rSpy100,
       r_cash: rCash,
     });
   }
+
   return rows;
 }
 
