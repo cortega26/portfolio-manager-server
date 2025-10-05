@@ -79,6 +79,7 @@ export default function TransactionsTab({
   function handleSubmit(event) {
     event.preventDefault();
     const { date, ticker, type, amount, price } = form;
+
     if (!date || !ticker || !type || !amount || !price) {
       setError("Please fill in all fields.");
       return;
@@ -86,23 +87,31 @@ export default function TransactionsTab({
 
     const amountValue = Number.parseFloat(amount);
     const priceValue = Number.parseFloat(price);
-    if (
-      !Number.isFinite(amountValue) ||
-      !Number.isFinite(priceValue) ||
-      priceValue === 0
-    ) {
-      setError("Amount and price must be valid numbers.");
+
+    if (!Number.isFinite(amountValue)) {
+      setError("Amount must be a valid number.");
       return;
     }
 
-    const shares = Math.abs(amountValue) / priceValue;
+    if (!Number.isFinite(priceValue) || priceValue <= 0) {
+      setError("Price must be a positive number.");
+      return;
+    }
+
+    if (Math.abs(amountValue) <= 0) {
+      setError("Amount must be non-zero.");
+      return;
+    }
+
+    const shares = Math.abs(amountValue) / Math.abs(priceValue);
+
     const payload = {
       date,
       ticker: ticker.trim().toUpperCase(),
       type,
       amount: type === "BUY" ? -Math.abs(amountValue) : Math.abs(amountValue),
-      price: priceValue,
-      shares,
+      price: Math.abs(priceValue),
+      shares: Number(shares.toFixed(8)),
     };
 
     onAddTransaction(payload);
@@ -111,9 +120,12 @@ export default function TransactionsTab({
   }
 
   const computedShares =
-    form.amount && form.price && Number.isFinite(Number.parseFloat(form.price))
+    form.amount &&
+    form.price &&
+    Number.isFinite(Number.parseFloat(form.price)) &&
+    Number.parseFloat(form.price) > 0
       ? Math.abs(Number.parseFloat(form.amount || 0)) /
-        Number.parseFloat(form.price || 1)
+        Math.abs(Number.parseFloat(form.price || 1))
       : null;
 
   return (
