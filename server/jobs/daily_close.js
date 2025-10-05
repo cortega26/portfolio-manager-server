@@ -2,7 +2,11 @@ import { toDateKey, accrueInterest } from '../finance/cash.js';
 import { computeDailyStates } from '../finance/portfolio.js';
 import { computeDailyReturnRows } from '../finance/returns.js';
 import { runMigrations } from '../migrations/index.js';
-import { YahooPriceProvider } from '../data/prices.js';
+import {
+  DualPriceProvider,
+  YahooPriceProvider,
+  StooqPriceProvider,
+} from '../data/prices.js';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -118,7 +122,13 @@ export async function runDailyClose({
     }
   }
 
-  const provider = priceProvider ?? new YahooPriceProvider({ logger });
+  const provider =
+    priceProvider
+    ?? new DualPriceProvider({
+      primary: new YahooPriceProvider({ logger }),
+      fallback: new StooqPriceProvider({ logger }),
+      logger,
+    });
   await ensurePrices({
     storage,
     provider,
