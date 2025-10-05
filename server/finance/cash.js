@@ -1,5 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 
+import {
+  ZERO,
+  d,
+  fromCents,
+  roundDecimal,
+  toCents,
+} from './decimal.js';
+
 const MS_PER_DAY = 86_400_000;
 
 export function toDateKey(date) {
@@ -10,7 +18,11 @@ export function toDateKey(date) {
 }
 
 export function dailyRateFromApy(apy) {
-  return Number.isFinite(apy) ? (1 + apy) ** (1 / 365) - 1 : 0;
+  if (!Number.isFinite(apy)) {
+    return ZERO;
+  }
+  const factor = d(1).plus(apy);
+  return factor.pow(d(1).div(365)).minus(1);
 }
 
 export function resolveApyForDate(rates, date) {
@@ -27,7 +39,7 @@ export function resolveApyForDate(rates, date) {
 
 function computeCashBalanceUntil(transactions, date) {
   const dateKey = toDateKey(date);
-  let cash = 0;
+  let cashCents = 0;
   const sorted = [...transactions].sort((a, b) => {
     const dateDiff = a.date.localeCompare(b.date);
     if (dateDiff !== 0) {
@@ -43,23 +55,24 @@ function computeCashBalanceUntil(transactions, date) {
     if (!Number.isFinite(amount)) {
       continue;
     }
+    const amountCents = toCents(amount);
     switch (tx.type) {
       case 'DEPOSIT':
       case 'DIVIDEND':
       case 'INTEREST':
       case 'SELL':
-        cash += amount;
+        cashCents += amountCents;
         break;
       case 'WITHDRAWAL':
       case 'BUY':
       case 'FEE':
-        cash -= amount;
+        cashCents -= amountCents;
         break;
       default:
         break;
     }
   }
-  return cash;
+  return fromCents(cashCents);
 }
 
 export async function accrueInterest({ storage, date, rates, logger }) {
@@ -70,8 +83,9 @@ export async function accrueInterest({ storage, date, rates, logger }) {
   const cashBalance = computeCashBalanceUntil(transactions, prevKey);
   const apy = resolveApyForDate(rates, prevKey);
   const dailyRate = dailyRateFromApy(apy);
-  const interestAmount = cashBalance * dailyRate;
-  if (Math.abs(interestAmount) < 1e-6) {
+  const interestAmount = cashBalance.times(dailyRate);
+  const interestCents = toCents(interestAmount);
+  if (interestCents === 0) {
     return null;
   }
 
@@ -86,7 +100,7 @@ export async function accrueInterest({ storage, date, rates, logger }) {
     ticker: 'CASH',
     date: dateKey,
     quantity: 0,
-    amount: Number(interestAmount.toFixed(6)),
+    amount: fromCents(interestCents).toNumber(),
     note: 'Automated daily cash interest accrual',
     internal: true,
   };
@@ -103,7 +117,7 @@ export async function accrueInterest({ storage, date, rates, logger }) {
     logger.info('interest_posted', {
       date: dateKey,
       amount: record.amount,
-      cash_balance: Number(cashBalance.toFixed(6)),
+      cash_balance: roundDecimal(cashBalance, 6).toNumber(),
       apy,
     });
   }

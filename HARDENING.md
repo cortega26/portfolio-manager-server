@@ -222,6 +222,8 @@ app.post('/api/portfolio/:id', verifyPortfolioKey, async (req,res,next)=>{
 ### MTH‑1: Deterministic Math Policy (**CRITICAL**)
 **Risk:** floating‑point drift over long ledgers.  
 **Fix:** use **decimal.js** (or integers). Round only at I/O boundaries.
+
+**Status:** Implemented via [`server/finance/decimal.js`](server/finance/decimal.js) and documented in [`docs/math-policy.md`](docs/math-policy.md).
 ```js
 // finance/decimal.js
 import Decimal from 'decimal.js';

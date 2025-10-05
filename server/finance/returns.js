@@ -1,11 +1,13 @@
 import { buildCashSeries } from './cash.js';
 import { externalFlowsByDate } from './portfolio.js';
+import { d, fromCents, roundDecimal, toCents, ZERO } from './decimal.js';
 
 export function computeReturnStep(prevNav, nav, flow) {
-  if (prevNav <= 0) {
-    return 0;
+  const prev = d(prevNav);
+  if (prev.lte(0)) {
+    return ZERO;
   }
-  return Number(((nav - flow) / prevNav - 1).toFixed(8));
+  return d(nav).minus(flow).dividedBy(prev).minus(1);
 }
 
 export function buildSpyReturnSeries({ spyPrices }) {
@@ -16,14 +18,16 @@ export function buildSpyReturnSeries({ spyPrices }) {
   for (let i = 1; i < entries.length; i += 1) {
     const [date, price] = entries[i];
     const [, prevPrice] = entries[i - 1];
-    if (prevPrice === 0) {
-      result.set(date, 0);
+    const currentPrice = d(price);
+    const previousPrice = d(prevPrice);
+    if (previousPrice.lte(0)) {
+      result.set(date, ZERO);
     } else {
-      result.set(date, Number((price / prevPrice - 1).toFixed(8)));
+      result.set(date, currentPrice.dividedBy(previousPrice).minus(1));
     }
   }
   if (entries.length > 0 && !result.has(entries[0][0])) {
-    result.set(entries[0][0], 0);
+    result.set(entries[0][0], ZERO);
   }
   return result;
 }
@@ -32,7 +36,7 @@ export function buildCashReturnSeries({ rates, from, to }) {
   const series = buildCashSeries({ rates, from, to });
   const map = new Map();
   for (const entry of series) {
-    map.set(entry.date, Number(entry.rate.toFixed(8)));
+    map.set(entry.date, roundDecimal(entry.rate, 12));
   }
   return map;
 }
@@ -43,35 +47,42 @@ export function computeAllSpySeries({ dates, flowsByDate, spyPrices }) {
   );
   const priceMap = new Map(prices);
   let prevDate = null;
-  let prevNav = 0;
+  let prevNavCents = 0;
   const returns = new Map();
   const navByDate = new Map();
 
   for (const date of dates) {
     const price = priceMap.get(date);
     if (price === undefined) {
-      returns.set(date, 0);
-      navByDate.set(date, prevNav);
+      returns.set(date, ZERO);
+      navByDate.set(date, fromCents(prevNavCents));
       continue;
     }
 
     if (!prevDate) {
-      const flow = flowsByDate.get(date) ?? 0;
-      prevNav = flow;
-      navByDate.set(date, flow);
-      returns.set(date, 0);
+      const flow = flowsByDate.get(date) ?? ZERO;
+      prevNavCents = toCents(flow);
+      navByDate.set(date, fromCents(prevNavCents));
+      returns.set(date, ZERO);
       prevDate = date;
       continue;
     }
 
     const prevPrice = priceMap.get(prevDate) ?? price;
-    const flow = flowsByDate.get(date) ?? 0;
-    const navBeforeFlows = prevNav * (prevPrice === 0 ? 1 : price / prevPrice);
-    const navAfter = navBeforeFlows + flow;
-    const dailyReturn = computeReturnStep(prevNav, navBeforeFlows, 0);
+    const flow = flowsByDate.get(date) ?? ZERO;
+    const navBeforeFlows = fromCents(prevNavCents)
+      .times(price)
+      .dividedBy(prevPrice === 0 ? 1 : prevPrice);
+    const navBeforeCents = toCents(navBeforeFlows);
+    const navAfterCents = navBeforeCents + toCents(flow);
+    const dailyReturn = computeReturnStep(
+      fromCents(prevNavCents),
+      fromCents(navBeforeCents),
+      ZERO,
+    );
     returns.set(date, dailyReturn);
-    navByDate.set(date, navAfter);
-    prevNav = navAfter;
+    navByDate.set(date, fromCents(navAfterCents));
+    prevNavCents = navAfterCents;
     prevDate = date;
   }
 
@@ -107,48 +118,50 @@ export function computeDailyReturnRows({
   for (let i = 0; i < states.length; i += 1) {
     const state = states[i];
     const prevState = states[i - 1];
-    const flow = flowsByDate.get(state.date) ?? 0;
+    const flow = flowsByDate.get(state.date) ?? ZERO;
 
-    let rPort;
-    let rExCash;
+    let rPort = ZERO;
+    let rExCash = ZERO;
 
     if (prevState) {
       rPort = computeReturnStep(prevState.nav, state.nav, flow);
-      rExCash = computeReturnStep(prevState.riskValue, state.riskValue, 0);
+      rExCash = computeReturnStep(prevState.riskValue, state.riskValue, ZERO);
     } else {
       const inceptionCapital = flow;
 
-      if (inceptionCapital > 0 && state.nav > 0) {
-        rPort = (state.nav - flow) / inceptionCapital;
+      if (inceptionCapital.gt(0) && state.nav > 0) {
+        rPort = d(state.nav).minus(flow).dividedBy(inceptionCapital);
         rExCash =
-          inceptionCapital > 0 && state.riskValue > 0
-            ? (state.riskValue - (inceptionCapital - flow)) / inceptionCapital
-            : 0;
-      } else {
-        rPort = 0;
-        rExCash = 0;
+          inceptionCapital.gt(0) && state.riskValue > 0
+            ? d(state.riskValue)
+                .minus(inceptionCapital.minus(flow))
+                .dividedBy(inceptionCapital)
+            : ZERO;
       }
     }
 
-    const rCash = cashReturns.get(state.date) ?? 0;
-    const rSpy = spyReturnSeries.get(state.date) ?? 0;
+    const rCash = cashReturns.get(state.date) ?? ZERO;
+    const rSpy = spyReturnSeries.get(state.date) ?? ZERO;
     const rSpy100 = allSpyReturns.get(state.date) ?? rSpy;
 
     const weightSource = prevState ?? {
-      nav: flow > 0 ? flow : 1,
-      cash: flow > 0 ? flow : 1,
+      nav: flow.gt(0) ? flow.toNumber() : 1,
+      cash: flow.gt(0) ? flow.toNumber() : 1,
     };
 
-    const weightCash = weightSource.nav === 0 ? 0 : weightSource.cash / weightSource.nav;
-    const rBench = Number((weightCash * rCash + (1 - weightCash) * rSpy).toFixed(8));
+    const weightCash = d(weightSource.cash).dividedBy(weightSource.nav || 1);
+    const rBench = roundDecimal(
+      weightCash.times(rCash).plus(d(1).minus(weightCash).times(rSpy)),
+      10,
+    );
 
     rows.push({
       date: state.date,
-      r_port: Number(rPort.toFixed(8)),
-      r_ex_cash: Number(rExCash.toFixed(8)),
-      r_bench_blended: rBench,
-      r_spy_100: rSpy100,
-      r_cash: rCash,
+      r_port: roundDecimal(rPort, 8).toNumber(),
+      r_ex_cash: roundDecimal(rExCash, 8).toNumber(),
+      r_bench_blended: roundDecimal(rBench, 8).toNumber(),
+      r_spy_100: roundDecimal(rSpy100, 8).toNumber(),
+      r_cash: roundDecimal(rCash, 8).toNumber(),
     });
   }
 
@@ -157,34 +170,36 @@ export function computeDailyReturnRows({
 
 export function summarizeReturns(rows) {
   const summary = {
-    r_port: 1,
-    r_ex_cash: 1,
-    r_bench_blended: 1,
-    r_spy_100: 1,
-    r_cash: 1,
+    r_port: d(1),
+    r_ex_cash: d(1),
+    r_bench_blended: d(1),
+    r_spy_100: d(1),
+    r_cash: d(1),
   };
   for (const row of rows) {
-    summary.r_port *= 1 + row.r_port;
-    summary.r_ex_cash *= 1 + row.r_ex_cash;
-    summary.r_bench_blended *= 1 + row.r_bench_blended;
-    summary.r_spy_100 *= 1 + row.r_spy_100;
-    summary.r_cash *= 1 + row.r_cash;
+    summary.r_port = summary.r_port.times(d(1).plus(row.r_port));
+    summary.r_ex_cash = summary.r_ex_cash.times(d(1).plus(row.r_ex_cash));
+    summary.r_bench_blended = summary.r_bench_blended.times(
+      d(1).plus(row.r_bench_blended),
+    );
+    summary.r_spy_100 = summary.r_spy_100.times(d(1).plus(row.r_spy_100));
+    summary.r_cash = summary.r_cash.times(d(1).plus(row.r_cash));
   }
   return {
-    r_port: Number((summary.r_port - 1).toFixed(6)),
-    r_ex_cash: Number((summary.r_ex_cash - 1).toFixed(6)),
-    r_bench_blended: Number((summary.r_bench_blended - 1).toFixed(6)),
-    r_spy_100: Number((summary.r_spy_100 - 1).toFixed(6)),
-    r_cash: Number((summary.r_cash - 1).toFixed(6)),
+    r_port: roundDecimal(summary.r_port.minus(1), 6).toNumber(),
+    r_ex_cash: roundDecimal(summary.r_ex_cash.minus(1), 6).toNumber(),
+    r_bench_blended: roundDecimal(summary.r_bench_blended.minus(1), 6).toNumber(),
+    r_spy_100: roundDecimal(summary.r_spy_100.minus(1), 6).toNumber(),
+    r_cash: roundDecimal(summary.r_cash.minus(1), 6).toNumber(),
   };
 }
 
 export function cumulativeDifference(rows) {
-  let drag = 1;
-  let blended = 1;
+  let drag = d(1);
+  let blended = d(1);
   for (const row of rows) {
-    drag *= 1 + row.r_ex_cash;
-    blended *= 1 + row.r_port;
+    drag = drag.times(d(1).plus(row.r_ex_cash));
+    blended = blended.times(d(1).plus(row.r_port));
   }
-  return Number(((drag - blended) / blended).toFixed(6));
+  return roundDecimal(drag.minus(blended).dividedBy(blended), 6).toNumber();
 }
