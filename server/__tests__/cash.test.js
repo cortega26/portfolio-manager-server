@@ -10,6 +10,7 @@ import {
   dailyRateFromApy,
   resolveApyForDate,
 } from '../finance/cash.js';
+import { fromCents, roundDecimal, toCents } from '../finance/decimal.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
 
@@ -28,7 +29,7 @@ afterEach(() => {
 
 test('dailyRateFromApy matches expected precision', () => {
   const rate = dailyRateFromApy(0.05);
-  assert.ok(rate > 0.0001 && rate < 0.0002);
+  assert.ok(rate.gt(0.0001) && rate.lt(0.0002));
 });
 
 test('resolveApyForDate returns latest effective rate', () => {
@@ -57,6 +58,11 @@ test('accrueInterest inserts transaction when balance positive', async () => {
   const interest = transactions.find((tx) => tx.type === 'INTEREST');
   assert.ok(interest);
   assert.equal(interest.date, '2024-01-02');
+  const expected = dailyRateFromApy(0.0365).times(1000);
+  assert.equal(
+    interest.amount,
+    fromCents(toCents(expected)).toNumber(),
+  );
 });
 
 test('accrueInterest is idempotent across reruns', async () => {
@@ -71,4 +77,9 @@ test('accrueInterest is idempotent across reruns', async () => {
   const transactions = await storage.readTable('transactions');
   const interestRecords = transactions.filter((tx) => tx.type === 'INTEREST');
   assert.equal(interestRecords.length, 1);
+  const delta = roundDecimal(
+    dailyRateFromApy(0.0365).times(1000),
+    6,
+  );
+  assert.equal(interestRecords[0].amount, fromCents(toCents(delta)).toNumber());
 });
