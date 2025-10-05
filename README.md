@@ -13,6 +13,50 @@ This project provides a full‑stack portfolio manager that runs client‑side i
 - **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management.
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
 
+## Phase 1 Audit Fixes (October 2025)
+
+### Applied Fixes
+
+This codebase has been updated with critical fixes from a comprehensive audit:
+
+#### Transaction Processing
+- ✅ **CRITICAL-1:** Share calculation now uses consistent sign conventions
+- ✅ **CRITICAL-3:** Sell transactions are validated and clipped to prevent negative shares
+- ✅ **CRITICAL-8:** Same-day transactions are processed in deterministic order (DEPOSIT → BUY → SELL → WITHDRAWAL)
+- ✅ **HIGH-2:** Price validation ensures only positive prices are accepted
+
+#### Return Calculations
+- ✅ **CRITICAL-5:** First-day Time-Weighted Returns are now calculated correctly
+- ✅ **CRITICAL-6:** Blended benchmark uses start-of-period weights (not end-of-period)
+
+### Testing
+
+Run the test suite to verify all fixes:
+
+```bash
+npm test
+```
+
+All Phase 1 critical tests should pass.
+
+### Known Limitations
+
+**These are planned for future phases:**
+
+- **Lot Tracking (Phase 2):** Current implementation uses average cost basis. For accurate tax reporting, lot-level tracking (FIFO/LIFO) will be implemented in Phase 2.
+- **Trading Day Calendar (Phase 3):** Price staleness detection uses calendar days. Trading day awareness will be added in Phase 3.
+- **Daily Compound Interest:** Cash interest is calculated using daily compound. Documentation has been updated to reflect this (not "simple monthly" as previously stated).
+
+### Migration Notes
+
+**For existing portfolios:**
+
+1. Transaction ordering may slightly change due to deterministic type-based sorting
+2. First-day returns may show non-zero values where they were previously 0%
+3. Oversell attempts will now be clipped to available shares with warnings in console
+
+These changes improve data integrity and mathematical correctness.
+
 ### Frontend configuration
 
 | Name            | Type         | Default                                            | Required | Description                                                                   |
