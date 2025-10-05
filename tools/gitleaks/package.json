@@ -1,0 +1,8 @@
+{
+  "name": "gitleaks",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "gitleaks": "./cli.mjs"
+  }
+}
