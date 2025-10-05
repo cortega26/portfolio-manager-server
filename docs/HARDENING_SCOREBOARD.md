@@ -24,7 +24,7 @@
 | COM-2   | Oversell reject + opt clip       | HIGH     |       | TODO         |                   |    |               |
 | COM-3   | Same-day determinism rules       | MEDIUM   |       | TODO         |                   |    |               |
 | COM-4   | Error codes & pagination         | MEDIUM   |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
-| PERF-1  | Price caching + stale guard      | HIGH     |       | TODO         |                   |    |               |
+| PERF-1  | Price caching + stale guard      | HIGH     |       | DONE         | feat\|fix/cache-etag-cache | Local: node --test cache_behaviors |               |
 | PERF-2  | Incremental holdings             | MEDIUM   |       | TODO         |                   |    |               |
 | PERF-3  | UI virtualization/pagination     | LOW      |       | TODO         |                   |    |               |
 | PERF-4  | DB migration trigger             | LOW→MED  |       | TODO         |                   |    |               |
