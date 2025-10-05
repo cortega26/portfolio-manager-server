@@ -5,13 +5,13 @@
 | G3      | Security audit gate              | MEDIUM   |       | TODO         |                   |    |               |
 | G4      | Test artifacts                   | LOW      |       | TODO         |                   |    |               |
 | G5      | Release gate                     | HIGH     |       | TODO         |                   |    |               |
-| SEC-1   | Rate limiting                    | CRITICAL |       | TODO         |                   |    |               |
-| SEC-2   | JSON size limits                 | HIGH     |       | TODO         |                   |    |               |
+| SEC-1   | Rate limiting                    | CRITICAL |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
+| SEC-2   | JSON size limits                 | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-3   | Per-portfolio API key            | HIGH*    |       | TODO         |                   |    |               |
-| SEC-4   | Uniform error handler            | MEDIUM   |       | TODO         |                   |    |               |
-| SEC-5   | HTTPS/HSTS                       | HIGH     |       | TODO         |                   |    |               |
-| SEC-6   | Helmet + CSP                     | HIGH     |       | TODO         |                   |    |               |
-| SEC-7   | Strict CORS                      | HIGH     |       | TODO         |                   |    |               |
+| SEC-4   | Uniform error handler            | MEDIUM   |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
+| SEC-5   | HTTPS/HSTS                       | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
+| SEC-6   | Helmet + CSP                     | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
+| SEC-7   | Strict CORS                      | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-8   | CSV/Excel injection guard        | MEDIUM   |       | TODO         |                   |    |               |
 | STO-1   | Atomic writes                    | CRITICAL |       | TODO         |                   |    |               |
 | STO-2   | Per-portfolio mutex              | CRITICAL |       | TODO         |                   |    |               |
