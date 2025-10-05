@@ -30,6 +30,6 @@
 | PERF-4  | DB migration trigger             | LOW→MED  |       | TODO         |                   |    |               |
 | TEST-1  | Unit tests                       | HIGH     |       | TODO         |                   |    |               |
 | TEST-2  | Property-based tests             | HIGH     |       | DONE         | feat/ledger-property-tests | PR pending | Randomized ledger invariants (cash floors, share conservation, deterministic TWR)
-| TEST-3  | Golden snapshot tests            | HIGH     |       | TODO         |                   |    |               |
+| TEST-3  | Golden snapshot tests            | HIGH     |       | DONE         | feat/returns-snapshots | Pending | Local: npm test -- returns.snapshot |
 | TEST-4  | Concurrency tests                | HIGH     |       | TODO         |                   |    |               |
 | TEST-5  | API contract tests               | HIGH     |       | TODO         |                   |    |               |
