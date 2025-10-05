@@ -5,7 +5,7 @@
 | G3      | Security audit gate              | MEDIUM   |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: CI (gitleaks + npm audit) |
 | G4      | Test artifacts                   | LOW      |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: CI artifact (coverage/) |
 | G5      | Release gate                     | HIGH     |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: Deploy (needs ci) |
-| SEC-1   | Rate limiting                    | CRITICAL |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
+| SEC-1   | Rate limiting                    | CRITICAL |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) | Local: npm test (api_validation rate-limit) |
 | SEC-2   | JSON size limits                 | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-3   | Per-portfolio API key            | HIGH*    |       | DONE         | main              |    | server/app.js (verifyPortfolioKey) |
 | SEC-4   | Uniform error handler            | MEDIUM   |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
@@ -20,7 +20,7 @@
 | MTH-1   | Decimal math policy              | CRITICAL |       | DONE         | feat&#124;fix/math-decimal-policy | Pending | Local: node --test |
 | MTH-2   | TWR/MWR & benchmark policy       | HIGH     |       | TODO         |                   |    |               |
 | MTH-3   | Cash accruals doc & proration    | MEDIUM   |       | TODO         |                   |    |               |
-| COM-1   | Request validation (zod)         | CRITICAL |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
+| COM-1   | Request validation (zod)         | CRITICAL |       | DONE         | main              |    | src/utils/api.js, src/utils/portfolioSchema.js; Local: npm test (2025-10-05) |
 | COM-2   | Oversell reject + opt clip       | HIGH     |       | DONE         | main              |    | server/app.js (enforceOversellPolicy) |
 | COM-3   | Same-day determinism rules       | MEDIUM   |       | TODO         |                   |    |               |
 | COM-4   | Error codes & pagination         | MEDIUM   |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
@@ -28,7 +28,7 @@
 | PERF-2  | Incremental holdings             | MEDIUM   |       | TODO         |                   |    |               |
 | PERF-3  | UI virtualization/pagination     | LOW      |       | TODO         |                   |    |               |
 | PERF-4  | DB migration trigger             | LOW→MED  |       | TODO         |                   |    |               |
-| TEST-1  | Unit tests                       | HIGH     |       | TODO         |                   |    |               |
+| TEST-1  | Unit tests                       | HIGH     |       | DONE         | main              |    | Local: npm test (node --test coverage + src/__tests__/portfolioSchema.test.js) |
 | TEST-2  | Property-based tests             | HIGH     |       | DONE         | feat/ledger-property-tests | PR pending | Randomized ledger invariants (cash floors, share conservation, deterministic TWR)
 | TEST-3  | Golden snapshot tests            | HIGH     |       | DONE         | feat/returns-snapshots | Pending | Local: npm test -- returns.snapshot |
 | TEST-4  | Concurrency tests                | HIGH     |       | DONE         | feat\|fix/storage-concurrency-tests | Pending | Local: node --test server/__tests__/storage_concurrency.test.js (≈0.8s, covers Promise.all writers + rename crash) |

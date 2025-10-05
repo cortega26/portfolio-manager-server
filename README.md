@@ -10,6 +10,7 @@ This project provides a full‑stack portfolio manager that runs client‑side i
 - **Holdings dashboard** – see average cost, current value, unrealised/realised PnL, ROI and position weights.
 - **Signals per ticker** – define a percentage band around the last price to trigger buy/trim/hold signals.
 - **ROI vs SPY** – chart your portfolio’s performance against SPY using daily price data from Stooq (no API key required).
+- **Client-side schema validation** – the React client runs zod checks before POSTing to the portfolio API so only well-formed payloads reach the server.
 - **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management.
 - **Deterministic math engine** – internal cash, holdings, and return calculations run in Decimal/cents space; see [docs/math-policy.md](docs/math-policy.md).
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
@@ -40,8 +41,9 @@ npm test
 
 The suite includes OpenAPI contract coverage via `server/__tests__/api_contract.test.js`,
 which loads [`docs/openapi.yaml`](docs/openapi.yaml) with `@apidevtools/swagger-parser` and
-validates the JSON returned by SuperTest requests against the documented schemas. All Phase 1
-critical tests should pass.
+validates the JSON returned by SuperTest requests against the documented schemas. The new
+`src/__tests__/portfolioSchema.test.js` exercises the client zod validator, keeping the browser and
+the Express schema in sync. All Phase 1 critical tests should pass.
 
 ## Continuous Integration
 

@@ -139,3 +139,24 @@ test('POST /api/admin/cash-rate enforces body validation', async () => {
   assert.equal(response.body.error, 'VALIDATION_ERROR');
   assert.ok(Array.isArray(response.body.details));
 });
+
+test('POST /api/portfolio enforces rate limiting', async () => {
+  const payload = { transactions: [], signals: {} };
+  const responses = [];
+  for (let index = 0; index < 21; index += 1) {
+    const response = await request(app)
+      .post('/api/portfolio/ratelimit')
+      .send(payload)
+      .set('Content-Type', 'application/json')
+      .set('X-Portfolio-Key', 'limit-key');
+    responses.push(response);
+  }
+
+  for (let index = 0; index < 20; index += 1) {
+    assert.equal(responses[index].status, 200);
+  }
+
+  const last = responses[responses.length - 1];
+  assert.equal(last.status, 429);
+  assert.equal(Number(last.headers['ratelimit-remaining'] ?? '0'), 0);
+});
