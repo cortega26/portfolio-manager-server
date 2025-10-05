@@ -99,6 +99,7 @@ Price- and benchmark-derived responses enforce a trading-day-aware freshness thr
 
 - Unit coverage: cash accrual, return math, and SPY track parity (`server/__tests__/cash.test.js`, `server/__tests__/returns.test.js`).
 - Integration coverage: nightly job idempotency and API exposure (`server/__tests__/daily_close.test.js`).
+- Property coverage: randomized ledger stress harness validating cash floors, share conservation, and deterministic return rows (`server/__tests__/ledger.property.test.js`).
 
 ## TODO
 
