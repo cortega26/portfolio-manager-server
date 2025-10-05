@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import fetch from 'node-fetch';
+import NodeCache from 'node-cache';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { createHash, randomUUID } from 'crypto';
@@ -30,6 +31,13 @@ const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
 );
 
 const DEFAULT_LOGGER = pino({ level: process.env.LOG_LEVEL ?? 'info' });
+const DEFAULT_CACHE_TTL_SECONDS = (() => {
+  const raw = Number.parseInt(process.env.API_CACHE_TTL_SECONDS ?? '600', 10);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 600;
+  }
+  return Math.max(300, Math.min(900, Math.round(raw)));
+})();
 
 const PORTFOLIO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SYMBOL_PATTERN = /^[A-Za-z0-9._-]{1,32}$/;
@@ -155,6 +163,14 @@ export function createApp({
     : baseLogger;
   const featureFlags = config?.featureFlags ?? { cashBenchmarks: true };
   const allowedOrigins = config?.cors?.allowedOrigins ?? [];
+  const cacheTtlSeconds = (() => {
+    const override = config?.cache?.ttlSeconds;
+    if (Number.isFinite(override) && override > 0) {
+      return Math.round(override);
+    }
+    return DEFAULT_CACHE_TTL_SECONDS;
+  })();
+  const cacheControlHeader = `private, max-age=${cacheTtlSeconds}`;
   const dataDirectory = path.resolve(dataDir);
 
   fs.mkdir(dataDirectory, { recursive: true }).catch((error) => {
@@ -162,6 +178,12 @@ export function createApp({
       error: error.message,
       dataDir: dataDirectory,
     });
+  });
+
+  const responseCache = new NodeCache({
+    stdTTL: cacheTtlSeconds,
+    checkperiod: Math.max(30, Math.floor(cacheTtlSeconds / 2)),
+    useClones: false,
   });
 
   function resolvePortfolioFilePath(portfolioId) {
@@ -303,10 +325,18 @@ export function createApp({
       });
     }
 
+    const normalizedRange = typeof range === 'string' && range.trim() ? range : '1y';
+    const normalizedSymbol = symbol.trim().toUpperCase();
+    const cacheKey = `prices:${normalizedSymbol}:${normalizedRange}`;
+    const cached = responseCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), fetchTimeoutMs);
     try {
-      const urlSymbol = symbol.toLowerCase().replace('.', '').replace('/', '');
+      const urlSymbol = normalizedSymbol.toLowerCase().replace('.', '').replace('/', '');
       const url = `https://stooq.com/q/d/l/?s=${urlSymbol}&i=d`;
       const res = await fetchImpl(url, { signal: controller.signal });
       if (!res.ok) {
@@ -332,11 +362,16 @@ export function createApp({
         }
       }
       result.sort((a, b) => a.date.localeCompare(b.date));
-      if (range === '1y') {
+      if (normalizedRange === '1y') {
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        return result.filter(({ date }) => new Date(`${date}T00:00:00Z`) >= oneYearAgo);
+        const filtered = result.filter(
+          ({ date }) => new Date(`${date}T00:00:00Z`) >= oneYearAgo,
+        );
+        responseCache.set(cacheKey, filtered);
+        return filtered;
       }
+      responseCache.set(cacheKey, result);
       return result;
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -385,7 +420,7 @@ export function createApp({
     const { range } = req.query;
     try {
       const prices = await fetchHistoricalPrices(symbol, range ?? '1y');
-      res.json(prices);
+      sendJsonWithEtag(req, res, prices, { cacheControl: cacheControlHeader });
     } catch (error) {
       if (error.statusCode) {
         next(error);
@@ -507,7 +542,21 @@ export function createApp({
           series.r_port = items.map((row) => ({ date: row.date, value: row.r_port }));
         }
         const payload = { series, meta };
-        sendJsonWithEtag(req, res, payload, { cacheControl: 'private, max-age=60' });
+        const cacheKey = [
+          'returns',
+          from ?? '',
+          to ?? '',
+          views.slice().sort().join(','),
+          page,
+          perPage,
+        ].join(':');
+        const cached = responseCache.get(cacheKey);
+        if (cached) {
+          sendJsonWithEtag(req, res, cached, { cacheControl: cacheControlHeader });
+          return;
+        }
+        responseCache.set(cacheKey, payload);
+        sendJsonWithEtag(req, res, payload, { cacheControl: cacheControlHeader });
       } catch (error) {
         next(
           createHttpError({
@@ -544,7 +593,14 @@ export function createApp({
         };
       });
       const payload = { data, meta };
-      sendJsonWithEtag(req, res, payload, { cacheControl: 'private, max-age=60' });
+      const cacheKey = ['nav', from ?? '', to ?? '', page, perPage].join(':');
+      const cached = responseCache.get(cacheKey);
+      if (cached) {
+        sendJsonWithEtag(req, res, cached, { cacheControl: cacheControlHeader });
+        return;
+      }
+      responseCache.set(cacheKey, payload);
+      sendJsonWithEtag(req, res, payload, { cacheControl: cacheControlHeader });
     } catch (error) {
       next(
         createHttpError({
@@ -567,13 +623,21 @@ export function createApp({
       const allocationDrag = Number(
         (summary.r_spy_100 - summary.r_bench_blended).toFixed(6),
       );
-      res.json({
+      const payload = {
         summary,
         drag: {
           vs_self: dragVsSelf,
           allocation: allocationDrag,
         },
-      });
+      };
+      const cacheKey = ['benchmarks', from ?? '', to ?? ''].join(':');
+      const cached = responseCache.get(cacheKey);
+      if (cached) {
+        sendJsonWithEtag(req, res, cached, { cacheControl: cacheControlHeader });
+        return;
+      }
+      responseCache.set(cacheKey, payload);
+      sendJsonWithEtag(req, res, payload, { cacheControl: cacheControlHeader });
     } catch (error) {
       next(
         createHttpError({

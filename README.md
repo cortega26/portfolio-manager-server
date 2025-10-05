@@ -96,14 +96,15 @@ The interface organises the experience across focused tabs:
 
    Configuration is provided via environment variables:
 
-   | Name                     | Type          | Default  | Required | Description                                         |
-   | ------------------------ | ------------- | -------- | -------- | --------------------------------------------------- |
-   | `PORT`                   | number        | `3000`   | No       | TCP port for the Express server.                    |
-   | `DATA_DIR`               | string (path) | `./data` | No       | Directory for persisted portfolio files and JSON tables. |
-   | `PRICE_FETCH_TIMEOUT_MS` | number        | `5000`   | No       | Timeout in milliseconds for legacy upstream price fetches. |
-   | `FEATURES_CASH_BENCHMARKS` | boolean     | `true`   | No       | Enables cash accrual, NAV/return endpoints, and nightly job. |
-   | `JOB_NIGHTLY_HOUR`       | number        | `4`      | No       | UTC hour to execute the nightly close pipeline.     |
-   | `CORS_ALLOWED_ORIGINS`   | string (CSV)  | _(empty)_ | No      | Comma-separated origins allowed by the API CORS policy. |
+| Name                     | Type          | Default  | Required | Description                                         |
+| ------------------------ | ------------- | -------- | -------- | --------------------------------------------------- |
+| `PORT`                   | number        | `3000`   | No       | TCP port for the Express server.                    |
+| `DATA_DIR`               | string (path) | `./data` | No       | Directory for persisted portfolio files and JSON tables. |
+| `PRICE_FETCH_TIMEOUT_MS` | number        | `5000`   | No       | Timeout in milliseconds for legacy upstream price fetches. |
+| `API_CACHE_TTL_SECONDS`  | number        | `600`    | No       | In-process cache TTL (seconds) for price and analytics endpoints; defaults within the 300–900 s range. |
+| `FEATURES_CASH_BENCHMARKS` | boolean     | `true`   | No       | Enables cash accrual, NAV/return endpoints, and nightly job. |
+| `JOB_NIGHTLY_HOUR`       | number        | `4`      | No       | UTC hour to execute the nightly close pipeline.     |
+| `CORS_ALLOWED_ORIGINS`   | string (CSV)  | _(empty)_ | No      | Comma-separated origins allowed by the API CORS policy. |
 
 Price data for interactive queries is fetched from [Stooq](https://stooq.com/). Benchmark processing uses the Yahoo Finance adjusted-close feed via the provider interface documented in [`docs/cash-benchmarks.md`](docs/cash-benchmarks.md).
 
@@ -152,6 +153,8 @@ Returns an array of historical prices for a US ticker using Stooq. Supported que
 
 - `range` – currently only `1y` (one year of daily data) is supported.
 
+Responses include `ETag` headers and `Cache-Control: private, max-age=<API_CACHE_TTL_SECONDS>` allowing conditional requests. Repeat calls with a matching `If-None-Match` header receive HTTP `304` without re-fetching upstream data.
+
 Example response:
 
 ```json
@@ -185,7 +188,7 @@ When the `features.cash_benchmarks` flag is active the API also exposes:
 - `GET /api/benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - `POST /api/admin/cash-rate` accepting `{ "effective_date": "YYYY-MM-DD", "apy": 0.04 }`
 
-List endpoints support `page`/`per_page` pagination (defaults: page 1, `per_page` 100) and return an additional `meta` block plus `ETag` headers for conditional requests.
+List endpoints support `page`/`per_page` pagination (defaults: page 1, `per_page` 100) and return an additional `meta` block plus `ETag` headers for conditional requests. They also emit `Cache-Control: private, max-age=<API_CACHE_TTL_SECONDS>` to align browser caches with the server’s in-process TTL.
 
 Refer to [`docs/openapi.yaml`](docs/openapi.yaml) for detailed schemas and sample responses.
 
