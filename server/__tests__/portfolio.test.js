@@ -159,7 +159,7 @@ test('rejects non-object portfolio payloads', async () => {
 
 test('GET /api/prices/:symbol returns parsed historical data', async () => {
   const today = new Date().toISOString().slice(0, 10);
-  const csv = `Date,Open,High,Low,Close,Volume\n${today},1,1,1,123.45,1000`;
+  const csv = `Date,Open,High,Low,Close,Adj Close,Volume\n${today},1,1,1,123.45,123.45,1000`;
   const fetchImpl = async () => ({
     ok: true,
     text: async () => csv,

@@ -14,6 +14,12 @@ import pinoHttp from 'pino-http';
 import { runMigrations } from './migrations/index.js';
 import { summarizeReturns } from './finance/returns.js';
 import { weightsFromState } from './finance/portfolio.js';
+import { toDateKey } from './finance/cash.js';
+import {
+  DualPriceProvider,
+  YahooPriceProvider,
+  StooqPriceProvider,
+} from './data/prices.js';
 import {
   validateCashRateBody,
   validatePortfolioBody,
@@ -186,6 +192,25 @@ export function createApp({
     useClones: false,
   });
 
+  const priceLogger = typeof log.child === 'function'
+    ? log.child({ module: 'price_provider' })
+    : log;
+  const yahooProvider = new YahooPriceProvider({
+    fetchImpl,
+    timeoutMs: fetchTimeoutMs,
+    logger: priceLogger,
+  });
+  const stooqProvider = new StooqPriceProvider({
+    fetchImpl,
+    timeoutMs: fetchTimeoutMs,
+    logger: priceLogger,
+  });
+  const compositePriceProvider = new DualPriceProvider({
+    primary: yahooProvider,
+    fallback: stooqProvider,
+    logger: priceLogger,
+  });
+
   function resolvePortfolioFilePath(portfolioId) {
     const candidate = path.resolve(dataDirectory, `portfolio_${portfolioId}.json`);
     const relative = path.relative(dataDirectory, candidate);
@@ -333,46 +358,27 @@ export function createApp({
       return cached;
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), fetchTimeoutMs);
+    const today = new Date();
+    const toDate = toDateKey(today);
+    let fromDate = '1900-01-01';
+    if (normalizedRange === '1y') {
+      const oneYearAgo = new Date(today);
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      fromDate = toDateKey(oneYearAgo);
+    }
+
     try {
-      const urlSymbol = normalizedSymbol.toLowerCase().replace('.', '').replace('/', '');
-      const url = `https://stooq.com/q/d/l/?s=${urlSymbol}&i=d`;
-      const res = await fetchImpl(url, { signal: controller.signal });
-      if (!res.ok) {
-        throw createHttpError({
-          status: 502,
-          code: 'PRICE_FETCH_FAILED',
-          message: 'Failed to fetch historical prices.',
-          expose: true,
-        });
-      }
-      const csv = await res.text();
-      const lines = csv.trim().split('\n');
-      const result = [];
-      for (let i = 1; i < lines.length; i += 1) {
-        const parts = lines[i].split(',');
-        if (parts.length < 5) {
-          continue;
-        }
-        const date = parts[0];
-        const closeValue = Number.parseFloat(parts[4]);
-        if (Number.isFinite(closeValue) && date) {
-          result.push({ date, close: closeValue });
-        }
-      }
-      result.sort((a, b) => a.date.localeCompare(b.date));
-      if (normalizedRange === '1y') {
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        const filtered = result.filter(
-          ({ date }) => new Date(`${date}T00:00:00Z`) >= oneYearAgo,
-        );
-        responseCache.set(cacheKey, filtered);
-        return filtered;
-      }
-      responseCache.set(cacheKey, result);
-      return result;
+      const fetched = await compositePriceProvider.getDailyAdjustedClose(
+        normalizedSymbol,
+        fromDate,
+        toDate,
+      );
+      const sorted = [...fetched]
+        .filter((item) => item.date && Number.isFinite(Number(item.adjClose)))
+        .map((item) => ({ date: item.date, close: Number(item.adjClose) }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      responseCache.set(cacheKey, sorted);
+      return sorted;
     } catch (error) {
       if (error.name === 'AbortError') {
         const timeoutError = createHttpError({
@@ -399,8 +405,6 @@ export function createApp({
         message: 'Failed to fetch historical prices.',
         expose: true,
       });
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
