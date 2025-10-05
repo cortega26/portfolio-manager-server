@@ -20,6 +20,8 @@ import {
   validateRangeQuery,
   validateReturnsQuery,
 } from './middleware/validation.js';
+import { atomicWriteFile } from './utils/atomicStore.js';
+import { withLock } from './utils/locks.js';
 
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? './data');
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
@@ -153,13 +155,51 @@ export function createApp({
     : baseLogger;
   const featureFlags = config?.featureFlags ?? { cashBenchmarks: true };
   const allowedOrigins = config?.cors?.allowedOrigins ?? [];
+  const dataDirectory = path.resolve(dataDir);
 
-  fs.mkdir(dataDir, { recursive: true }).catch((error) => {
+  fs.mkdir(dataDirectory, { recursive: true }).catch((error) => {
     log.error('failed_to_ensure_data_directory', {
       error: error.message,
-      dataDir,
+      dataDir: dataDirectory,
     });
   });
+
+  function resolvePortfolioFilePath(portfolioId) {
+    const candidate = path.resolve(dataDirectory, `portfolio_${portfolioId}.json`);
+    const relative = path.relative(dataDirectory, candidate);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw createHttpError({
+        status: 400,
+        code: 'INVALID_PORTFOLIO_ID',
+        message: 'Invalid portfolio identifier.',
+        expose: true,
+      });
+    }
+    return candidate;
+  }
+
+  function ensureTransactionUids(transactions, portfolioId) {
+    const seen = new Set();
+    const deduplicated = [];
+    const duplicates = new Set();
+    for (const transaction of transactions) {
+      const rawUid = typeof transaction.uid === 'string' ? transaction.uid.trim() : '';
+      const uid = rawUid ? rawUid : randomUUID();
+      if (seen.has(uid)) {
+        duplicates.add(uid);
+        continue;
+      }
+      seen.add(uid);
+      deduplicated.push({ ...transaction, uid });
+    }
+    if (duplicates.size > 0) {
+      log.warn('duplicate_transaction_uids_filtered', {
+        id: portfolioId,
+        duplicates: Array.from(duplicates),
+      });
+    }
+    return deduplicated;
+  }
 
   let storagePromise;
   const getStorage = async () => {
@@ -363,7 +403,13 @@ export function createApp({
 
   app.get('/api/portfolio/:id', async (req, res, next) => {
     const { id } = req.params;
-    const filePath = path.join(dataDir, `portfolio_${id}.json`);
+    let filePath;
+    try {
+      filePath = resolvePortfolioFilePath(id);
+    } catch (error) {
+      next(error);
+      return;
+    }
     try {
       const data = await fs.readFile(filePath, 'utf8');
       res.json(JSON.parse(data));
@@ -386,10 +432,24 @@ export function createApp({
 
   app.post('/api/portfolio/:id', validatePortfolioBody, async (req, res, next) => {
     const { id } = req.params;
-    const filePath = path.join(dataDir, `portfolio_${id}.json`);
-    const payload = req.body;
+    let filePath;
     try {
-      await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+      filePath = resolvePortfolioFilePath(id);
+    } catch (error) {
+      next(error);
+      return;
+    }
+    const payload = req.body;
+    const normalizedTransactions = ensureTransactionUids(payload.transactions ?? [], id);
+    const normalizedPayload = {
+      ...payload,
+      transactions: normalizedTransactions,
+    };
+    const serialized = `${JSON.stringify(normalizedPayload, null, 2)}\n`;
+    try {
+      await withLock(`portfolio:${id}`, async () => {
+        await atomicWriteFile(filePath, serialized);
+      });
       res.json({ status: 'ok' });
     } catch (error) {
       log.error('portfolio_write_failed', { id, error: error.message });
