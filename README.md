@@ -11,6 +11,7 @@ This project provides a full‑stack portfolio manager that runs client‑side i
 - **Signals per ticker** – define a percentage band around the last price to trigger buy/trim/hold signals.
 - **ROI vs SPY** – chart your portfolio’s performance against SPY using daily price data from Stooq (no API key required).
 - **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management.
+- **Deterministic math engine** – internal cash, holdings, and return calculations run in Decimal/cents space; see [docs/math-policy.md](docs/math-policy.md).
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
 
 ## Phase 1 Audit Fixes (October 2025)

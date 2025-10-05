@@ -1,4 +1,12 @@
 import { toDateKey, transactionIsExternal } from './cash.js';
+import {
+  d,
+  fromCents,
+  fromMicroShares,
+  roundDecimal,
+  toCents,
+  toMicroShares,
+} from './decimal.js';
 
 function cloneHoldings(holdings) {
   const result = new Map();
@@ -43,43 +51,52 @@ export function sortTransactions(transactions) {
 }
 
 function applyTransaction(state, tx) {
-  const amount = Number.parseFloat(tx.amount ?? 0) || 0;
-  const quantity = Number.parseFloat(tx.quantity ?? 0) || 0;
+  const amount = Number.parseFloat(tx.amount ?? 0);
+  const quantity = Number.parseFloat(tx.quantity ?? 0);
   const ticker = tx.ticker ?? null;
 
-  switch (tx.type) {
-    case 'DEPOSIT':
-    case 'DIVIDEND':
-    case 'INTEREST':
-    case 'SELL':
-      state.cash += amount;
-      break;
-    case 'WITHDRAWAL':
-    case 'BUY':
-    case 'FEE':
-      state.cash -= amount;
-      break;
-    default:
-      break;
+  if (Number.isFinite(amount)) {
+    const amountCents = toCents(amount);
+    switch (tx.type) {
+      case 'DEPOSIT':
+      case 'DIVIDEND':
+      case 'INTEREST':
+      case 'SELL':
+        state.cashCents += amountCents;
+        break;
+      case 'WITHDRAWAL':
+      case 'BUY':
+      case 'FEE':
+        state.cashCents -= amountCents;
+        break;
+      default:
+        break;
+    }
   }
 
-  if (ticker && ticker !== 'CASH' && quantity !== 0) {
-    const next = (state.holdings.get(ticker) ?? 0) + quantity;
-    state.holdings.set(ticker, Number(next.toFixed(6)));
+  if (ticker && ticker !== 'CASH' && Number.isFinite(quantity) && quantity !== 0) {
+    const next = (state.holdings.get(ticker) ?? 0) + toMicroShares(quantity);
+    state.holdings.set(ticker, next);
   }
 }
 
 export function projectStateUntil(transactions, date) {
   const dateKey = toDateKey(date);
-  const state = { cash: 0, holdings: new Map() };
+  const state = { cashCents: 0, holdings: new Map() };
   for (const tx of sortTransactions(transactions)) {
     if (tx.date > dateKey) {
       break;
     }
     applyTransaction(state, tx);
-    state.cash = Number(state.cash.toFixed(6));
   }
-  return state;
+  const holdings = new Map();
+  for (const [ticker, micro] of state.holdings.entries()) {
+    holdings.set(ticker, fromMicroShares(micro).toNumber());
+  }
+  return {
+    cash: fromCents(state.cashCents).toNumber(),
+    holdings,
+  };
 }
 
 export function externalFlowsByDate(transactions) {
@@ -88,18 +105,25 @@ export function externalFlowsByDate(transactions) {
     if (!transactionIsExternal(tx)) {
       continue;
     }
-    const amount = Number.parseFloat(tx.amount ?? 0) || 0;
-    const signed = tx.type === 'WITHDRAWAL' ? -amount : amount;
+    const amount = Number.parseFloat(tx.amount ?? 0);
+    if (!Number.isFinite(amount)) {
+      continue;
+    }
+    const signedCents = (tx.type === 'WITHDRAWAL' ? -1 : 1) * toCents(amount);
     const current = flows.get(tx.date) ?? 0;
-    flows.set(tx.date, Number((current + signed).toFixed(6)));
+    flows.set(tx.date, current + signedCents);
   }
-  return flows;
+  const normalized = new Map();
+  for (const [dateKey, cents] of flows.entries()) {
+    normalized.set(dateKey, fromCents(cents));
+  }
+  return normalized;
 }
 
 export function computeDailyStates({ transactions, pricesByDate, dates }) {
   const sortedTransactions = sortTransactions(transactions);
   const states = [];
-  const state = { cash: 0, holdings: new Map() };
+  const state = { cashCents: 0, holdings: new Map() };
   let txIndex = 0;
 
   for (const dateKey of dates) {
@@ -108,23 +132,39 @@ export function computeDailyStates({ transactions, pricesByDate, dates }) {
       sortedTransactions[txIndex].date <= dateKey
     ) {
       applyTransaction(state, sortedTransactions[txIndex]);
-      state.cash = Number(state.cash.toFixed(6));
       txIndex += 1;
     }
     const holdingsSnapshot = cloneHoldings(state.holdings);
     const priceMap = pricesByDate.get(dateKey) ?? new Map();
-    let riskValue = 0;
-    for (const [ticker, qty] of holdingsSnapshot.entries()) {
-      const price = priceMap.get(ticker) ?? 0;
-      riskValue += qty * price;
+    let riskValueCents = 0;
+    for (const [ticker, qtyMicro] of holdingsSnapshot.entries()) {
+      if (ticker === 'CASH') {
+        continue;
+      }
+      const price = Number.parseFloat(priceMap.get(ticker) ?? 0);
+      if (!Number.isFinite(price)) {
+        continue;
+      }
+      const qty = fromMicroShares(qtyMicro);
+      const value = qty.times(price);
+      riskValueCents += toCents(value);
     }
-    const nav = state.cash + riskValue;
+    const cash = fromCents(state.cashCents);
+    const riskValue = fromCents(riskValueCents);
+    const navCents = state.cashCents + riskValueCents;
+    const holdingsForOutput = new Map();
+    for (const [ticker, qtyMicro] of holdingsSnapshot.entries()) {
+      holdingsForOutput.set(
+        ticker,
+        fromMicroShares(qtyMicro).toNumber(),
+      );
+    }
     states.push({
       date: dateKey,
-      cash: state.cash,
-      holdings: holdingsSnapshot,
-      riskValue: Number(riskValue.toFixed(6)),
-      nav: Number(nav.toFixed(6)),
+      cash: cash.toNumber(),
+      holdings: holdingsForOutput,
+      riskValue: riskValue.toNumber(),
+      nav: fromCents(navCents).toNumber(),
     });
   }
   return states;
@@ -143,7 +183,7 @@ export function weightsFromState(state) {
     return { cash: 0, risk: 0 };
   }
   return {
-    cash: state.cash / state.nav,
-    risk: state.riskValue / state.nav,
+    cash: roundDecimal(d(state.cash).div(state.nav), 8).toNumber(),
+    risk: roundDecimal(d(state.riskValue).div(state.nav), 8).toNumber(),
   };
 }
