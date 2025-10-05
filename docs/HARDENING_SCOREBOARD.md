@@ -31,5 +31,5 @@
 | TEST-1  | Unit tests                       | HIGH     |       | TODO         |                   |    |               |
 | TEST-2  | Property-based tests             | HIGH     |       | DONE         | feat/ledger-property-tests | PR pending | Randomized ledger invariants (cash floors, share conservation, deterministic TWR)
 | TEST-3  | Golden snapshot tests            | HIGH     |       | DONE         | feat/returns-snapshots | Pending | Local: npm test -- returns.snapshot |
-| TEST-4  | Concurrency tests                | HIGH     |       | TODO         |                   |    |               |
+| TEST-4  | Concurrency tests                | HIGH     |       | DONE         | feat\|fix/storage-concurrency-tests | Pending | Local: node --test server/__tests__/storage_concurrency.test.js (≈0.8s, covers Promise.all writers + rename crash) |
 | TEST-5  | API contract tests               | HIGH     |       | TODO         |                   |    |               |
