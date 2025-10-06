@@ -27,7 +27,7 @@
 | MTH-3   | Cash accruals doc & proration    | MEDIUM   |       | DONE         | main              |    | docs/cash-benchmarks.md (Day-count, proration, effective-date sections) |
 | COM-1   | Request validation (zod)         | CRITICAL |       | DONE         | main              |    | src/utils/api.js, src/utils/portfolioSchema.js; Local: npm test (2025-10-05) |
 | COM-2   | Oversell reject + opt clip       | HIGH     |       | DONE         | main              |    | server/app.js (enforceOversellPolicy) |
-| COM-3   | Same-day determinism rules       | MEDIUM   |       | TODO         |                   |    |               |
+| COM-3   | Same-day determinism rules       | MEDIUM   |       | DONE         | feat/same-day-determinism | Pending | server/__tests__/portfolio.test.js |
 | COM-4   | Error codes & pagination         | MEDIUM   |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
 | DX-1    | Transactions form reducer        | MEDIUM   |       | DONE         | main              |    | src/components/TransactionsTab.jsx; Local: npm test (2025-10-05) |
 | DX-2    | Environment template             | LOW      |       | DONE         | main              |    | `.env.example` committed; README "Environment configuration" section |
