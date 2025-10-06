@@ -41,6 +41,9 @@ The template groups settings by concern; adjust at minimum:
 - `CORS_ALLOWED_ORIGINS` – comma-separated list of frontends allowed to call the API.
 - `FEATURES_CASH_BENCHMARKS` – keep `true` to expose cash and benchmark endpoints discussed below.
 - `VITE_API_BASE` – override if the frontend should call a non-default API origin.
+- `LOG_LEVEL` – adjust Pino verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`).
+- `API_CACHE_TTL_SECONDS` / `PRICE_FETCH_TIMEOUT_MS` – tune caching and upstream HTTP timeout behaviour.
+- `JOB_NIGHTLY_HOUR` / `FRESHNESS_MAX_STALE_TRADING_DAYS` – govern when the nightly close runs and how long benchmark data may stay stale before returning `503`.
 
 Refer back to Appendix B of the audit for the full catalog of supported variables.
 
