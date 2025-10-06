@@ -1,3 +1,4 @@
+<!-- markdownlint-disable -->
 | ID      | Title                            | Severity | Owner | Status       | Branch            | PR | Evidence (CI) |
 |---------|----------------------------------|----------|-------|--------------|-------------------|----|---------------|
 | G1      | Coverage gate                    | HIGH     |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: CI (nyc check-coverage) |
@@ -26,6 +27,7 @@
 | COM-3   | Same-day determinism rules       | MEDIUM   |       | TODO         |                   |    |               |
 | COM-4   | Error codes & pagination         | MEDIUM   |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
 | DX-1    | Transactions form reducer        | MEDIUM   |       | DONE         | main              |    | src/components/TransactionsTab.jsx; Local: npm test (2025-10-05) |
+| DX-2    | Environment template             | LOW      |       | DONE         | main              |    | `.env.example` committed; README "Environment configuration" section |
 | PERF-1  | Price caching + stale guard      | HIGH     |       | DONE         | feat\|fix/cache-etag-cache | Local: node --test cache_behaviors |               |
 | PERF-2  | Incremental holdings             | MEDIUM   |       | TODO         |                   |    |               |
 | PERF-3  | UI virtualization/pagination     | LOW      |       | TODO         |                   |    |               |

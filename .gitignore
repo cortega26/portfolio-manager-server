@@ -1,11 +1,15 @@
+# Build artifacts
 node_modules/
 dist/
+
+# Local environment overrides
 .env
+.env.local
+.env.*.local
+
+# Test output
 coverage/
 .DS_Store
 npm-debug.log*
 
-# Test output
 *.tap
-
-old_instructions/
