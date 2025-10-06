@@ -103,8 +103,10 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
   const sanitized = {
     ...saved,
     transactions: (saved.transactions ?? []).map((transaction) => {
-      const { createdAt, seq, ...rest } = transaction;
-      return rest;
+      const sanitizedTransaction = { ...transaction };
+      delete sanitizedTransaction.createdAt;
+      delete sanitizedTransaction.seq;
+      return sanitizedTransaction;
     }),
   };
 

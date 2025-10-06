@@ -16,7 +16,7 @@ class LargePriceProvider {
     this.calls = 0;
   }
 
-  async getDailyAdjustedClose(symbol, from, to) {
+  async getDailyAdjustedClose() {
     this.calls += 1;
     const rows = [];
     for (let index = 0; index < this.rowCount; index += 1) {
