@@ -1,7 +1,20 @@
 import path from 'node:path';
 import process from 'node:process';
+import { inspect } from 'node:util';
 
 import fc from 'fast-check';
+
+function throwOnConsole(method) {
+  const original = console[method].bind(console);
+  console[method] = (...args) => {
+    original(...args);
+    const rendered = args.map((value) => (typeof value === 'string' ? value : inspect(value))).join(' ');
+    throw new Error(`Console ${method}: ${rendered}`);
+  };
+}
+
+throwOnConsole('warn');
+throwOnConsole('error');
 
 const PROJECT_SEGMENTS = ['server', 'src', 'shared'];
 

@@ -5,7 +5,7 @@ import { formatCurrency } from "./format.js";
  *
  * AUDIT FIX (CRITICAL-3): Added validation to prevent negative shares
  * - Clips SELL transactions to available shares
- * - Logs warnings for oversell attempts
+ * - Emits structured warnings for oversell attempts
  * - Handles floating-point dust with tolerance
  */
 const SHARE_EPSILON = 1e-8;
@@ -49,6 +49,13 @@ function normaliseShareBook(holding) {
   holding.cost = Number(holding.cost.toFixed(6));
 }
 
+function emitWarning(handler, payload) {
+  if (typeof handler !== "function") {
+    return;
+  }
+  handler({ ...payload });
+}
+
 function buildOversellWarning({ ticker, transaction, holding, sharesToSell }) {
   return {
     ticker,
@@ -60,17 +67,25 @@ function buildOversellWarning({ ticker, transaction, holding, sharesToSell }) {
   };
 }
 
-function applySell(holding, transaction, { ticker, warnings }) {
+function formatOversellMessage({ ticker, transaction, holding, sharesToSell }) {
+  return (
+    `[HOLDINGS WARNING] Cannot sell ${transaction.shares.toFixed(8)} shares of ${ticker} on ${transaction.date}. ` +
+    `Only ${holding.shares.toFixed(8)} shares available. Clipping to available shares (${sharesToSell.toFixed(8)}).`
+  );
+}
+
+function applySell(holding, transaction, { ticker, warnings, onWarning }) {
   const avgCost = holding.shares > 0 ? holding.cost / holding.shares : 0;
   const sharesToSell = Math.min(transaction.shares, holding.shares);
 
   if (transaction.shares > holding.shares + 1e-6) {
     const warning = buildOversellWarning({ ticker, transaction, holding, sharesToSell });
     warnings.push(warning);
-    console.warn(
-      `[HOLDINGS WARNING] Cannot sell ${transaction.shares.toFixed(8)} shares of ${ticker} on ${transaction.date}. ` +
-        `Only ${holding.shares.toFixed(8)} shares available. Clipping to available shares.`,
-    );
+    emitWarning(onWarning, {
+      type: "oversell",
+      warning,
+      message: formatOversellMessage({ ticker, transaction, holding, sharesToSell }),
+    });
   }
 
   holding.shares -= sharesToSell;
@@ -79,7 +94,7 @@ function applySell(holding, transaction, { ticker, warnings }) {
   normaliseShareBook(holding);
 }
 
-function applyTransactionToMap(map, transaction, warnings) {
+function applyTransactionToMap(map, transaction, context) {
   const ticker = normalizeTicker(transaction.ticker);
   if (!ticker) {
     return null;
@@ -89,30 +104,37 @@ function applyTransactionToMap(map, transaction, warnings) {
     return null;
   }
 
+  const warnings = context?.warnings ?? [];
+  const onWarning = context?.onWarning;
+
   const previous = map.has(ticker) ? cloneHoldingRecord(map.get(ticker)) : null;
   const holding = getOrCreateHolding(map, ticker);
 
   if (transaction.type === "BUY") {
     applyBuy(holding, transaction);
   } else {
-    applySell(holding, transaction, { ticker, warnings });
+    applySell(holding, transaction, { ticker, warnings, onWarning });
   }
 
   return { ticker, previous };
 }
 
-function buildHoldingsStateInternal(transactions, { logSummary }) {
+function buildHoldingsStateInternal(transactions, { logSummary, onWarning }) {
   const map = new Map();
   const warnings = [];
   const history = [];
 
   for (const transaction of transactions) {
-    const change = applyTransactionToMap(map, transaction, warnings);
+    const change = applyTransactionToMap(map, transaction, { warnings, onWarning });
     history.push(change);
   }
 
   if (logSummary && warnings.length > 0) {
-    console.warn(`[HOLDINGS] Generated ${warnings.length} warning(s) during processing.`);
+    emitWarning(onWarning, {
+      type: "summary",
+      count: warnings.length,
+      warnings: [...warnings],
+    });
   }
 
   return {
@@ -131,8 +153,8 @@ export function cloneHoldingsMap(holdingsMap) {
   return clone;
 }
 
-export function applyTransactionSnapshot(map, transaction, warnings = []) {
-  return applyTransactionToMap(map, transaction, warnings);
+export function applyTransactionSnapshot(map, transaction, warnings = [], onWarning) {
+  return applyTransactionToMap(map, transaction, { warnings, onWarning });
 }
 
 export function revertTransactionSnapshot(map, snapshot) {
@@ -151,12 +173,12 @@ export function holdingsMapToArray(map) {
 }
 
 export function buildHoldingsState(transactions, options = {}) {
-  const settings = { logSummary: true, ...options };
+  const settings = { logSummary: true, onWarning: null, ...options };
   return buildHoldingsStateInternal(transactions, settings);
 }
 
 export function buildHoldings(transactions) {
-  return buildHoldingsStateInternal(transactions, { logSummary: true }).holdings;
+  return buildHoldingsStateInternal(transactions, { logSummary: true, onWarning: null }).holdings;
 }
 
 export function deriveHoldingStats(holding, currentPrice) {
