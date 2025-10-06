@@ -65,6 +65,30 @@ const transactionSchema = z
   .object({
     id: sanitizeString(z.string().min(1).max(128)).optional(),
     uid: sanitizeString(z.string().min(1).max(128)).optional(),
+    createdAt: z
+      .preprocess((value) => {
+        if (typeof value === 'string' && value.trim() !== '') {
+          const parsed = Number.parseInt(value, 10);
+          return Number.isNaN(parsed) ? value : parsed;
+        }
+        return value;
+      }, z
+        .number({ invalid_type_error: 'createdAt must be a number' })
+        .int('createdAt must be an integer')
+        .nonnegative('createdAt must be non-negative'))
+      .optional(),
+    seq: z
+      .preprocess((value) => {
+        if (typeof value === 'string' && value.trim() !== '') {
+          const parsed = Number.parseInt(value, 10);
+          return Number.isNaN(parsed) ? value : parsed;
+        }
+        return value;
+      }, z
+        .number({ invalid_type_error: 'seq must be a number' })
+        .int('seq must be an integer')
+        .min(0, 'seq must be non-negative'))
+      .optional(),
     date: isoDateSchema,
     ticker: tickerSchema.optional(),
     type: inputTransactionTypeSchema,
