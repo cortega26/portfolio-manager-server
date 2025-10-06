@@ -86,9 +86,11 @@ test('POST /api/portfolio/:id persists validated portfolio payloads', async () =
   const saved = JSON.parse(readFileSync(filePath, 'utf8'));
   assert.equal(saved.transactions.length, 1);
   const [transaction] = saved.transactions;
-  const { uid: savedUid, ...rest } = transaction;
+  const { uid: savedUid, createdAt, seq, ...rest } = transaction;
   assert.equal(typeof savedUid, 'string');
   assert.ok(savedUid.length > 0);
+  assert.equal(typeof createdAt, 'number');
+  assert.equal(typeof seq, 'number');
   assert.deepEqual(rest, {
     date: '2024-01-01',
     ticker: 'AAPL',
@@ -416,6 +418,85 @@ test('sorting is deterministic when called multiple times', () => {
   assert.deepEqual(sorted1, sorted2);
 });
 
+test('same-day transactions honor createdAt and seq tie-breakers', () => {
+  const base = 1_700_000_000_000;
+  const transactions = [
+    {
+      id: 'later',
+      uid: 'uid-3',
+      date: '2024-01-01',
+      type: 'BUY',
+      amount: -100,
+      createdAt: base + 10,
+      seq: 10,
+    },
+    {
+      id: 'alpha',
+      uid: 'uid-1',
+      date: '2024-01-01',
+      type: 'BUY',
+      amount: -100,
+      createdAt: base + 1,
+      seq: 5,
+    },
+    {
+      id: 'alpha',
+      uid: 'uid-0',
+      date: '2024-01-01',
+      type: 'BUY',
+      amount: -100,
+      createdAt: base + 1,
+      seq: 5,
+    },
+    {
+      id: 'beta',
+      uid: 'uid-2',
+      date: '2024-01-01',
+      type: 'BUY',
+      amount: -100,
+      createdAt: base + 1,
+      seq: 5,
+    },
+    {
+      id: 'earliest',
+      uid: 'uid-4',
+      date: '2024-01-01',
+      type: 'BUY',
+      amount: -100,
+      createdAt: base,
+      seq: 7,
+    },
+    {
+      id: 'alpha',
+      uid: 'uid-5',
+      date: '2024-01-01',
+      type: 'BUY',
+      amount: -100,
+      createdAt: base + 1,
+      seq: 6,
+    },
+  ];
+
+  const sorted = sortTransactions(transactions);
+
+  assert.deepEqual(sorted.map((tx) => tx.id), [
+    'earliest',
+    'alpha',
+    'alpha',
+    'beta',
+    'alpha',
+    'later',
+  ]);
+  assert.deepEqual(sorted.map((tx) => tx.uid), [
+    'uid-4',
+    'uid-0',
+    'uid-1',
+    'uid-2',
+    'uid-5',
+    'uid-3',
+  ]);
+});
+
 test('different dates are sorted chronologically first', () => {
   const transactions = [
     { id: 'c', date: '2024-01-03', type: 'BUY', amount: -300 },
@@ -428,4 +509,61 @@ test('different dates are sorted chronologically first', () => {
   assert.equal(sorted[0].date, '2024-01-01');
   assert.equal(sorted[1].date, '2024-01-02');
   assert.equal(sorted[2].date, '2024-01-03');
+});
+
+test('POST /api/portfolio/:id assigns deterministic metadata fields', async () => {
+  const app = createApp({ dataDir, logger: noopLogger });
+  const id = 'metadata_fields';
+  const payload = {
+    transactions: [
+      {
+        uid: 'keep-existing',
+        date: '2024-02-01',
+        type: 'DEPOSIT',
+        amount: 1000,
+        createdAt: 1_700_000_000_000,
+        seq: 5,
+      },
+      {
+        date: '2024-02-02',
+        type: 'BUY',
+        amount: -500,
+        ticker: 'MSFT',
+      },
+      {
+        uid: 'backdated',
+        date: '2024-02-03',
+        type: 'SELL',
+        amount: 250,
+        ticker: 'MSFT',
+        createdAt: 0,
+        seq: 1,
+      },
+    ],
+  };
+
+  const response = await withKey(
+    request(app).post(`/api/portfolio/${id}`).send(payload),
+  );
+
+  assert.equal(response.status, 200);
+
+  const saved = JSON.parse(
+    readFileSync(path.join(dataDir, `portfolio_${id}.json`), 'utf8'),
+  );
+  const createdAts = saved.transactions.map((tx) => tx.createdAt);
+  const seqs = saved.transactions.map((tx) => tx.seq);
+
+  assert.ok(createdAts.every((value) => Number.isInteger(value) && value >= 0));
+  for (let index = 1; index < createdAts.length; index += 1) {
+    assert.ok(
+      createdAts[index] > createdAts[index - 1],
+      'createdAt values must be strictly increasing',
+    );
+  }
+
+  assert.equal(seqs[0], payload.transactions[0].seq);
+  for (let index = 1; index < seqs.length; index += 1) {
+    assert.equal(seqs[index], seqs[index - 1] + 1);
+  }
 });

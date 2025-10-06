@@ -34,6 +34,39 @@ export function sortTransactions(transactions) {
     FEE: 7,
   };
 
+  const toComparableTimestamp = (value) => {
+    if (typeof value === 'number') {
+      if (Number.isFinite(value) && value >= 0) {
+        return Math.trunc(value);
+      }
+      return 0;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') {
+        return 0;
+      }
+      const parsed = Number.parseInt(trimmed, 10);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  };
+
+  const toComparableSeq = (value) => {
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') {
+        return 0;
+      }
+      const parsed = Number.parseInt(trimmed, 10);
+      return Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    }
+    return 0;
+  };
+
   return [...transactions].sort((a, b) => {
     const dateDiff = a.date.localeCompare(b.date);
     if (dateDiff !== 0) {
@@ -46,7 +79,22 @@ export function sortTransactions(transactions) {
       return typeA - typeB;
     }
 
-    return (a.id ?? '').localeCompare(b.id ?? '');
+    const createdAtDiff = toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
+    if (createdAtDiff !== 0) {
+      return createdAtDiff;
+    }
+
+    const seqDiff = toComparableSeq(a.seq) - toComparableSeq(b.seq);
+    if (seqDiff !== 0) {
+      return seqDiff;
+    }
+
+    const idDiff = (a.id ?? '').localeCompare(b.id ?? '');
+    if (idDiff !== 0) {
+      return idDiff;
+    }
+
+    return (a.uid ?? '').localeCompare(b.uid ?? '');
   });
 }
 
