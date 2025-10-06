@@ -1,6 +1,211 @@
+<!-- markdownlint-disable -->
 # Portfolio Manager (Server Edition)
 
 This project provides a full‑stack portfolio manager that runs client‑side in the browser but persists data on the server. It allows you to record transactions (buy, sell, dividends, deposits and withdrawals) using amounts and exact prices, computes holdings and portfolio value, tracks return on investment (ROI) relative to the S&P 500 (SPY) and displays configurable trading signals for each ticker.
+
+## Getting Started
+
+Content adapted from Section 6 ("Complete User Guide") of `comprehensive_audit_v3.md` so new contributors can follow a single source of truth.
+
+### Prerequisites
+
+- **Node.js** 20.x or later
+- **npm** 9.x or later
+- **Git** for cloning the repository
+- **A text editor** (VS Code recommended)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/cortega26/portfolio-manager-server.git
+   cd portfolio-manager-server
+   ```
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+   This installs the shared toolchain for both the Express backend and the Vite frontend.
+3. **Copy the environment template**
+   ```bash
+   cp .env.example .env
+   ```
+4. **Edit `.env`** with values suited to your machine (see the next section for guidance).
+
+### Environment configuration
+
+The template groups settings by concern; adjust at minimum:
+
+- `NODE_ENV` / `PORT` – runtime mode and API port (defaults to `development`/`3000`).
+- `DATA_DIR` – filesystem path where portfolios are persisted (defaults to `./data`).
+- `CORS_ALLOWED_ORIGINS` – comma-separated list of frontends allowed to call the API.
+- `FEATURES_CASH_BENCHMARKS` – keep `true` to expose cash and benchmark endpoints discussed below.
+- `VITE_API_BASE` – override if the frontend should call a non-default API origin.
+
+Refer back to Appendix B of the audit for the full catalog of supported variables.
+
+### Start the application
+
+Open two terminals from the project root:
+
+**Terminal 1 – Backend API**
+```bash
+npm run server
+```
+You should see log lines such as `Server running on port 3000` and the resolved `data` directory.
+
+**Terminal 2 – Frontend dev server**
+```bash
+npm run dev
+```
+Vite prints a local URL (normally `http://localhost:5173`) once it finishes bundling.
+
+Visit `http://localhost:5173` in your browser to load the dashboard. The client proxies API requests to `http://localhost:3000` by default.
+
+### Verify persistence
+
+Create or load a portfolio, then confirm the backend wrote a file:
+
+```bash
+ls -la data/
+```
+
+Look for files named `portfolio_<id>.json`; they indicate the portfolio bootstrapped successfully.
+
+## API Key Setup & Management
+
+API keys secure every portfolio-specific request. Keys are hashed at rest, checked on each call, and required for both UI and API usage.
+
+### Why API keys matter
+
+- Enforce per-portfolio isolation so one compromised key cannot access other data.
+- Support auditability—failed attempts are rate limited and logged.
+- Enable rotation without downtime (old + new keys can be supplied together during a save).
+
+### Crafting strong keys
+
+Keys must satisfy the audit’s strengthened policy:
+
+- Minimum 12 characters
+- At least one uppercase letter (`A-Z`)
+- At least one lowercase letter (`a-z`)
+- At least one number (`0-9`)
+- At least one special character (`!@#$%^&*`)
+
+✅ **Examples that pass**
+- `MyPortfolio2024!Secure`
+- `Invest#2024$Growth`
+- `Retirement@Plan2024`
+
+❌ **Examples that fail**
+- `password` (too short, lacks character classes)
+- `12345678` (digits only)
+- `portfoliokey` (no uppercase, numbers, or special characters)
+
+If validation fails, the API responds with `400 WEAK_KEY` alongside the exact requirements to fix.
+
+### Create your first portfolio
+
+1. Pick a portfolio identifier that matches `[A-Za-z0-9_-]{1,64}` (for example `my-portfolio`).
+2. Generate a strong API key using the rules above.
+3. In the UI header, enter the portfolio ID, then the API key, and click **Save**.
+4. The backend hashes and stores the key while creating `data/portfolio_<id>.json`.
+5. Reload the dashboard or press **Load** to confirm the portfolio opens with the same credentials.
+
+### Rotate API keys safely
+
+1. Load the portfolio with the current key.
+2. Prepare a new strong key.
+3. Save the portfolio while providing both headers:
+   ```bash
+   curl -X POST http://localhost:3000/api/portfolio/my-portfolio \
+     -H "Content-Type: application/json" \
+     -H "X-Portfolio-Key: OldKey2024!" \
+     -H "X-Portfolio-Key-New: NewKey2024!" \
+     -d @portfolio.json
+   ```
+4. Subsequent requests must send the new key; the old key is discarded after a successful rotation.
+
+The UI exposes matching fields so non-CLI users can rotate keys without dropping connections.
+
+## Usage Examples
+
+### Day-one funding and purchases
+
+1. Save an initial `DEPOSIT` of 10,000 USD on your start date.
+2. Add `BUY` transactions for tickers such as `AAPL` or `MSFT` with negative cash amounts and market prices.
+3. Switch to the **Dashboard** tab to confirm holdings, allocation weights, and blended benchmark comparisons.
+
+### Monthly income tracking
+
+1. Record recurring `DIVIDEND` entries whenever payouts arrive.
+2. Use the **History** tab to monitor realised income and reinvest via new `BUY` transactions.
+3. Export the **Transactions** report if you need a CSV for accounting.
+
+### API automation
+
+Use `curl` or Postman to script workflows:
+
+```bash
+# Fetch one year of prices
+curl "http://localhost:3000/api/prices/SPY?range=1y"
+
+# Append a deposit followed by a buy
+curl -X POST http://localhost:3000/api/portfolio/my-portfolio \
+  -H "Content-Type: application/json" \
+  -H "X-Portfolio-Key: MyPortfolio2024!Secure" \
+  -d '{
+    "transactions": [
+      { "date": "2024-01-01", "type": "DEPOSIT", "amount": 10000 },
+      { "date": "2024-01-05", "ticker": "AAPL", "type": "BUY", "amount": -3000, "price": 150 }
+    ]
+  }'
+
+# Retrieve daily returns including blended benchmarks
+curl "http://localhost:3000/api/returns/daily?from=2024-01-01&to=2024-12-31" \
+  -H "X-Portfolio-Key: MyPortfolio2024!Secure"
+```
+
+### Bulk CSV import
+
+1. Prepare a CSV containing historical activity:
+   ```csv
+   date,ticker,type,amount,price
+   2024-01-01,,DEPOSIT,10000,0
+   2024-01-05,AAPL,BUY,-3000,150
+   2024-01-05,MSFT,BUY,-3000,375
+   2024-02-15,AAPL,DIVIDEND,50,0
+   ```
+2. Open **Reports → Import** in the UI and select the file.
+3. Review the preview, confirm, and save the portfolio so the backend persists the new transactions.
+
+## Troubleshooting
+
+Common issues and quick fixes (see Section 6 of the audit for the full decision tree):
+
+- **Cannot connect to backend** – Ensure `npm run server` is running, port 3000 is free, and `VITE_API_BASE` matches the API origin.
+- **Portfolio not found** – Verify the ID spelling and confirm the `data/` directory contains `portfolio_<id>.json`.
+- **Invalid API key / too many attempts** – Keys are case-sensitive; remove trailing spaces and wait 15 minutes if rate limited.
+- **Prices not loading** – Check your network connection, confirm the ticker is a supported US symbol, and verify stooq.com is reachable.
+- **Transactions not saving** – Inspect server logs for validation errors and confirm the process can write to `DATA_DIR`.
+- **Unexpected calculations** – Re-check transaction dates, price signs, and run `npm test` to ensure formulas are intact.
+
+If problems persist, gather relevant log lines (the server uses Pino for structured output) before opening an issue.
+
+## Security Logging
+
+The Express backend streams security-audit events through Pino. Every authentication request emits
+structured envelopes such as `auth_success`, `auth_failed`, `key_rotated`, `weak_key_rejected`, and
+`rate_limit_exceeded` with the following fields:
+
+- `event_type` (always `security`) and `event`
+- ISO `timestamp` plus `request_id`
+- Network context (`ip`, `user_agent`)
+- `portfolio_id` and contextual metadata (`reason`, `scope`, etc.)
+
+For production deployments forward these logs to a central aggregator (Grafana Loki, Elastic, or
+Datadog) using your log shipper of choice. Shipping on the `event_type=security` channel keeps audit
+trails searchable and enables alerting for repeated failures or rate-limit violations.
 
 ## Features
 

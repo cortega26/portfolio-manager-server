@@ -27,12 +27,15 @@ import {
   StooqPriceProvider,
 } from './data/prices.js';
 import {
+  API_KEY_REQUIREMENTS,
+  apiKeySchema,
   validateCashRateBody,
   validatePortfolioBody,
   validatePortfolioIdParam,
   validateRangeQuery,
   validateReturnsQuery,
 } from './middleware/validation.js';
+import { createSecurityAuditLogger } from './middleware/auditLog.js';
 import { atomicWriteFile } from './utils/atomicStore.js';
 import { withLock } from './utils/locks.js';
 import { computeTradingDayAge } from './utils/calendar.js';
@@ -54,9 +57,15 @@ const DEFAULT_CACHE_TTL_SECONDS = (() => {
 
 const PORTFOLIO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SYMBOL_PATTERN = /^[A-Za-z0-9._-]{1,32}$/;
-const STRONG_KEY_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
 
-function createHttpError({ status = 500, code = 'INTERNAL_ERROR', message, details, expose }) {
+function createHttpError({
+  status = 500,
+  code = 'INTERNAL_ERROR',
+  message,
+  details,
+  expose,
+  requirements,
+}) {
   const error = new Error(
     message ?? (status >= 500 ? 'Unexpected server error' : 'Request could not be processed'),
   );
@@ -65,6 +74,9 @@ function createHttpError({ status = 500, code = 'INTERNAL_ERROR', message, detai
   error.code = code;
   if (details !== undefined) {
     error.details = details;
+  }
+  if (Array.isArray(requirements)) {
+    error.requirements = requirements;
   }
   if (expose !== undefined) {
     error.expose = expose;
@@ -171,6 +183,7 @@ export function createApp({
   fetchTimeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
   config = null,
   priceProvider = null,
+  auditSink = null,
 } = {}) {
   const baseLogger = adaptLogger(logger) ?? DEFAULT_LOGGER;
   const log = typeof baseLogger.child === 'function'
@@ -292,11 +305,23 @@ export function createApp({
   }
 
   function validateKeyStrength(rawKey, { action }) {
-    if (STRONG_KEY_PATTERN.test(rawKey)) {
-      return true;
+    const result = apiKeySchema.safeParse(rawKey);
+    if (result.success) {
+      return { ok: true, issues: [] };
     }
-    logSecurity('warn', 'portfolio_key_weak', { action });
-    return false;
+    const issues = result.error?.issues?.map((issue) => issue.message) ?? [];
+    logSecurity('warn', 'portfolio_key_weak', { action, issues });
+    return { ok: false, issues };
+  }
+
+  function createWeakKeyError() {
+    return createHttpError({
+      status: 400,
+      code: 'WEAK_KEY',
+      message: 'API key does not meet strength requirements',
+      expose: true,
+      requirements: API_KEY_REQUIREMENTS,
+    });
   }
 
   function getFailureState(key, now = Date.now()) {
@@ -460,16 +485,19 @@ export function createApp({
             return;
           }
 
-          if (!validateKeyStrength(providedKey, { action: 'bootstrap' })) {
-            next(
-              createHttpError({
-                status: 400,
-                code: 'WEAK_KEY',
-                message:
-                  'Portfolio key must be at least 12 characters and include uppercase, lowercase, numeric, and special characters.',
-                expose: true,
-              }),
-            );
+          const { ok: bootstrapKeyOk, issues: bootstrapIssues } = validateKeyStrength(
+            providedKey,
+            { action: 'bootstrap' },
+          );
+          if (!bootstrapKeyOk) {
+            if (typeof req.auditLog === 'function') {
+              req.auditLog('weak_key_rejected', {
+                portfolio_id: portfolioId,
+                action: 'bootstrap',
+                issues: bootstrapIssues,
+              });
+            }
+            next(createWeakKeyError());
             return;
           }
 
@@ -481,6 +509,12 @@ export function createApp({
           }
           req.portfolioAuth.bootstrapped = true;
           logSecurity('info', 'portfolio_key_bootstrapped', { id: portfolioId });
+          if (typeof req.auditLog === 'function') {
+            req.auditLog('auth_success', {
+              portfolio_id: portfolioId,
+              mode: 'bootstrap',
+            });
+          }
           next();
           return;
         }
@@ -499,6 +533,13 @@ export function createApp({
             remote_address: remoteAddress,
             blocked,
           });
+          if (typeof req.auditLog === 'function') {
+            req.auditLog('auth_failed', {
+              portfolio_id: portfolioId,
+              reason: 'missing_key',
+              blocked,
+            });
+          }
           next(
             createHttpError({
               status: blocked ? 429 : 401,
@@ -539,6 +580,14 @@ export function createApp({
               retry_after_seconds: retryAfterSeconds ?? null,
             });
           }
+          if (typeof req.auditLog === 'function') {
+            req.auditLog('auth_failed', {
+              portfolio_id: portfolioId,
+              reason: 'invalid_key',
+              blocked,
+              attempts: failureResult.attempts,
+            });
+          }
           next(
             createHttpError({
               status: blocked ? 429 : 403,
@@ -555,16 +604,19 @@ export function createApp({
         resetFailures(failureKey);
 
         if (allowRotation && rotationKey) {
-          if (!validateKeyStrength(rotationKey, { action: 'rotate' })) {
-            next(
-              createHttpError({
-                status: 400,
-                code: 'WEAK_KEY',
-                message:
-                  'Portfolio key must be at least 12 characters and include uppercase, lowercase, numeric, and special characters.',
-                expose: true,
-              }),
-            );
+          const { ok: rotationKeyOk, issues: rotationIssues } = validateKeyStrength(
+            rotationKey,
+            { action: 'rotate' },
+          );
+          if (!rotationKeyOk) {
+            if (typeof req.auditLog === 'function') {
+              req.auditLog('weak_key_rejected', {
+                portfolio_id: portfolioId,
+                action: 'rotate',
+                issues: rotationIssues,
+              });
+            }
+            next(createWeakKeyError());
             return;
           }
           const newHash = hashPortfolioKey(rotationKey);
@@ -575,15 +627,32 @@ export function createApp({
             }
             req.portfolioAuth.rotated = true;
             logSecurity('info', 'portfolio_key_rotated', { id: portfolioId });
+            if (typeof req.auditLog === 'function') {
+              req.auditLog('key_rotated', {
+                portfolio_id: portfolioId,
+              });
+            }
           }
         }
 
+        if (typeof req.auditLog === 'function') {
+          req.auditLog('auth_success', {
+            portfolio_id: portfolioId,
+            mode: 'access',
+          });
+        }
         next();
       } catch (error) {
         logSecurity('error', 'portfolio_key_verification_failed', {
           id: portfolioId,
           error: error.message,
         });
+        if (typeof req.auditLog === 'function') {
+          req.auditLog('auth_failed', {
+            portfolio_id: portfolioId,
+            reason: 'verification_error',
+          });
+        }
         next(
           createHttpError({
             status: 500,
@@ -784,6 +853,7 @@ export function createApp({
   });
 
   app.use(httpLogger);
+  app.use(createSecurityAuditLogger({ logger: log, sink: auditSink }));
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -827,27 +897,94 @@ export function createApp({
   );
   app.use(express.json({ limit: '10mb' }));
 
+  const rateLimitConfig = config?.rateLimit ?? {};
+  const { handler: generalLimitHandler, ...generalLimitConfig } = rateLimitConfig.general ?? {};
+  const { handler: portfolioLimitHandler, ...portfolioLimitConfig } = rateLimitConfig.portfolio ?? {};
+  const { handler: priceLimitHandler, ...priceLimitConfig } = rateLimitConfig.prices ?? {};
+
+  const generalWindowMs = Number.isFinite(generalLimitConfig.windowMs)
+    ? Math.max(100, Math.round(generalLimitConfig.windowMs))
+    : 60_000;
+  const generalMax = Number.isFinite(generalLimitConfig.max)
+    ? Math.max(1, Math.round(generalLimitConfig.max))
+    : 100;
+  const portfolioWindowMs = Number.isFinite(portfolioLimitConfig.windowMs)
+    ? Math.max(100, Math.round(portfolioLimitConfig.windowMs))
+    : 60_000;
+  const portfolioMax = Number.isFinite(portfolioLimitConfig.max)
+    ? Math.max(1, Math.round(portfolioLimitConfig.max))
+    : 20;
+  const priceWindowMs = Number.isFinite(priceLimitConfig.windowMs)
+    ? Math.max(100, Math.round(priceLimitConfig.windowMs))
+    : 60_000;
+  const priceMax = Number.isFinite(priceLimitConfig.max)
+    ? Math.max(1, Math.round(priceLimitConfig.max))
+    : 60;
+
+  const createLimitHandler = ({ scope, limit, windowMs, customHandler }) =>
+    async (req, res, next, optionsUsed) => {
+      if (typeof req.auditLog === 'function') {
+        req.auditLog('rate_limit_exceeded', {
+          scope,
+          route: req.originalUrl,
+          limit,
+          window_ms: windowMs,
+        });
+      }
+      if (typeof customHandler === 'function') {
+        return customHandler(req, res, next, optionsUsed);
+      }
+      res.status(optionsUsed.statusCode);
+      const message = typeof optionsUsed.message === 'function'
+        ? await optionsUsed.message(req, res)
+        : optionsUsed.message;
+      if (!res.writableEnded) {
+        res.send(message);
+      }
+    };
+
   const generalLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 100,
+    ...generalLimitConfig,
+    windowMs: generalWindowMs,
+    max: generalMax,
     standardHeaders: true,
     legacyHeaders: false,
+    handler: createLimitHandler({
+      scope: 'general',
+      limit: generalMax,
+      windowMs: generalWindowMs,
+      customHandler: generalLimitHandler,
+    }),
   });
   const portfolioLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 20,
+    ...portfolioLimitConfig,
+    windowMs: portfolioWindowMs,
+    max: portfolioMax,
     standardHeaders: true,
     legacyHeaders: false,
+    handler: createLimitHandler({
+      scope: 'portfolio',
+      limit: portfolioMax,
+      windowMs: portfolioWindowMs,
+      customHandler: portfolioLimitHandler,
+    }),
   });
 
   app.use('/api', generalLimiter);
   app.use(['/api/portfolio', '/api/returns', '/api/nav'], portfolioLimiter);
 
   const priceLimiter = rateLimit({
-    windowMs: 60_000,
-    max: 60,
+    ...priceLimitConfig,
+    windowMs: priceWindowMs,
+    max: priceMax,
     standardHeaders: true,
     legacyHeaders: false,
+    handler: createLimitHandler({
+      scope: 'prices',
+      limit: priceMax,
+      windowMs: priceWindowMs,
+      customHandler: priceLimitHandler,
+    }),
   });
   app.use('/api/prices', priceLimiter);
 
@@ -1301,6 +1438,9 @@ export function createApp({
     const responseBody = { error: code, message };
     if (details !== undefined) {
       responseBody.details = details;
+    }
+    if (Array.isArray(error?.requirements) && error.requirements.length > 0) {
+      responseBody.requirements = error.requirements;
     }
 
     res.status(status).json(responseBody);

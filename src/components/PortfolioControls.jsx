@@ -1,4 +1,66 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import {
+  evaluateApiKeyRequirements,
+  isApiKeyStrong,
+} from "../../shared/apiKey.js";
+
+const STATUS_META = {
+  empty: {
+    label: "Enter a key to evaluate strength",
+    className: "text-slate-600 dark:text-slate-300",
+  },
+  weak: {
+    label: "Strength: needs attention",
+    className: "text-amber-600 dark:text-amber-400",
+  },
+  strong: {
+    label: "Strength: strong",
+    className: "text-emerald-600 dark:text-emerald-400",
+  },
+};
+
+function resolveStatus(checks, value) {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) {
+    return "empty";
+  }
+  return checks.every((item) => item.met) ? "strong" : "weak";
+}
+
+function RequirementChecklist({ checks, status }) {
+  const meta = STATUS_META[status] ?? STATUS_META.empty;
+  return (
+    <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300">
+      <p className={`font-medium ${meta.className}`}>{meta.label}</p>
+      <ul className="mt-1 space-y-1">
+        {checks.map((item) => (
+          <li key={item.requirement} className="flex items-center gap-2">
+            <span
+              className={`inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase ${
+                item.met
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                  : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+              }`}
+              aria-hidden="true"
+            >
+              {item.met ? "OK" : "--"}
+            </span>
+            <span
+              className={
+                item.met
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-slate-600 dark:text-slate-300"
+              }
+            >
+              {item.requirement}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function PortfolioControls({
   portfolioId,
@@ -12,6 +74,18 @@ export default function PortfolioControls({
 }) {
   const [status, setStatus] = useState(null);
 
+  const keyChecks = useMemo(
+    () => evaluateApiKeyRequirements(portfolioKey),
+    [portfolioKey],
+  );
+  const rotationChecks = useMemo(
+    () => evaluateApiKeyRequirements(portfolioKeyNew),
+    [portfolioKeyNew],
+  );
+  const keyStatus = resolveStatus(keyChecks, portfolioKey);
+  const rotationStatus = resolveStatus(rotationChecks, portfolioKeyNew);
+  const rotationTouched = Boolean((portfolioKeyNew ?? "").trim());
+
   async function handle(action) {
     if (!portfolioId) {
       setStatus({ type: "error", message: "Set a portfolio ID first." });
@@ -19,6 +93,17 @@ export default function PortfolioControls({
     }
     if (!portfolioKey) {
       setStatus({ type: "error", message: "Provide an API key to continue." });
+      return;
+    }
+    if (
+      action === onSave
+      && rotationTouched
+      && !isApiKeyStrong(portfolioKeyNew)
+    ) {
+      setStatus({
+        type: "error",
+        message: "New API key does not meet strength requirements.",
+      });
       return;
     }
 
@@ -68,6 +153,7 @@ export default function PortfolioControls({
             placeholder="Required"
             autoComplete="off"
           />
+          <RequirementChecklist checks={keyChecks} status={keyStatus} />
         </div>
         <div className="flex flex-col">
           <label
@@ -85,6 +171,12 @@ export default function PortfolioControls({
             placeholder="Leave blank to keep current"
             autoComplete="off"
           />
+          {rotationTouched && (
+            <RequirementChecklist
+              checks={rotationChecks}
+              status={rotationStatus}
+            />
+          )}
         </div>
         <div className="flex gap-3">
           <button

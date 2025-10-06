@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+import {
+  API_KEY_MIN_LENGTH,
+  API_KEY_REGEX,
+  API_KEY_REQUIREMENTS,
+} from '../../shared/apiKey.js';
+
 const ISO_DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/u;
 const PORTFOLIO_ID_REGEX = /^[A-Za-z0-9_-]{1,64}$/u;
 const SYMBOL_REGEX = /^[A-Za-z0-9._-]{1,32}$/u;
@@ -11,6 +17,13 @@ const isoDateSchema = sanitizeString(
   z
     .string({ invalid_type_error: 'Expected ISO date string' })
     .regex(ISO_DATE_REGEX, 'Must be ISO date (YYYY-MM-DD)'),
+);
+
+const apiKeySchema = sanitizeString(
+  z
+    .string({ invalid_type_error: 'API key must be a string' })
+    .min(API_KEY_MIN_LENGTH, 'API key must be at least 12 characters long')
+    .regex(API_KEY_REGEX, 'API key does not meet strength requirements'),
 );
 
 const portfolioIdSchema = sanitizeString(
@@ -250,6 +263,8 @@ export {
   returnsQuerySchema,
   rangeQuerySchema,
   cashRateBodySchema,
+  apiKeySchema,
   validationErrorFromZod,
+  API_KEY_REQUIREMENTS,
 };
 
