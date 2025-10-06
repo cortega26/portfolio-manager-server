@@ -14,6 +14,19 @@ function normalizeTicker(rawTicker) {
   return rawTicker?.trim().toUpperCase() ?? "";
 }
 
+function cloneHoldingRecord(holding) {
+  return {
+    ticker: holding.ticker,
+    shares: holding.shares,
+    cost: holding.cost,
+    realised: holding.realised,
+  };
+}
+
+function holdingsMapToArrayInternal(map) {
+  return Array.from(map.values(), (holding) => cloneHoldingRecord(holding));
+}
+
 function getOrCreateHolding(map, ticker) {
   if (!map.has(ticker)) {
     map.set(ticker, { ticker, shares: 0, cost: 0, realised: 0 });
@@ -66,33 +79,84 @@ function applySell(holding, transaction, { ticker, warnings }) {
   normaliseShareBook(holding);
 }
 
-export function buildHoldings(transactions) {
-  const map = new Map();
-  const warnings = [];
-
-  for (const transaction of transactions) {
-    const ticker = normalizeTicker(transaction.ticker);
-    if (!ticker) {
-      continue;
-    }
-
-    const holding = getOrCreateHolding(map, ticker);
-
-    if (transaction.type === "BUY") {
-      applyBuy(holding, transaction);
-      continue;
-    }
-
-    if (transaction.type === "SELL") {
-      applySell(holding, transaction, { ticker, warnings });
-    }
+function applyTransactionToMap(map, transaction, warnings) {
+  const ticker = normalizeTicker(transaction.ticker);
+  if (!ticker) {
+    return null;
   }
 
-  if (warnings.length > 0) {
+  if (transaction.type !== "BUY" && transaction.type !== "SELL") {
+    return null;
+  }
+
+  const previous = map.has(ticker) ? cloneHoldingRecord(map.get(ticker)) : null;
+  const holding = getOrCreateHolding(map, ticker);
+
+  if (transaction.type === "BUY") {
+    applyBuy(holding, transaction);
+  } else {
+    applySell(holding, transaction, { ticker, warnings });
+  }
+
+  return { ticker, previous };
+}
+
+function buildHoldingsStateInternal(transactions, { logSummary }) {
+  const map = new Map();
+  const warnings = [];
+  const history = [];
+
+  for (const transaction of transactions) {
+    const change = applyTransactionToMap(map, transaction, warnings);
+    history.push(change);
+  }
+
+  if (logSummary && warnings.length > 0) {
     console.warn(`[HOLDINGS] Generated ${warnings.length} warning(s) during processing.`);
   }
 
-  return Array.from(map.values());
+  return {
+    holdingsMap: map,
+    holdings: holdingsMapToArrayInternal(map),
+    history,
+    warnings,
+  };
+}
+
+export function cloneHoldingsMap(holdingsMap) {
+  const clone = new Map();
+  for (const [ticker, holding] of holdingsMap.entries()) {
+    clone.set(ticker, cloneHoldingRecord(holding));
+  }
+  return clone;
+}
+
+export function applyTransactionSnapshot(map, transaction, warnings = []) {
+  return applyTransactionToMap(map, transaction, warnings);
+}
+
+export function revertTransactionSnapshot(map, snapshot) {
+  if (!snapshot || !snapshot.ticker) {
+    return;
+  }
+  if (snapshot.previous) {
+    map.set(snapshot.ticker, cloneHoldingRecord(snapshot.previous));
+    return;
+  }
+  map.delete(snapshot.ticker);
+}
+
+export function holdingsMapToArray(map) {
+  return holdingsMapToArrayInternal(map);
+}
+
+export function buildHoldingsState(transactions, options = {}) {
+  const settings = { logSummary: true, ...options };
+  return buildHoldingsStateInternal(transactions, settings);
+}
+
+export function buildHoldings(transactions) {
+  return buildHoldingsStateInternal(transactions, { logSummary: true }).holdings;
 }
 
 export function deriveHoldingStats(holding, currentPrice) {
