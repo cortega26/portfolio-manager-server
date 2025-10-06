@@ -240,24 +240,21 @@ This codebase has been updated with critical fixes from a comprehensive audit:
 - ✅ **CRITICAL-5:** First-day Time-Weighted Returns are now calculated correctly
 - ✅ **CRITICAL-6:** Blended benchmark uses start-of-period weights (not end-of-period)
 
-### Testing
+### Testing & quality gates
 
-Run the test suite to verify all fixes:
+The suite now enforces randomized execution order, coverage thresholds, and warnings-as-errors for project code:
 
-```bash
-npm test
-```
+- `npm test` – runs all unit, integration, and property-based tests once with deterministic shuffling, `c8` coverage enforcement (branches ≥ 70%, functions ≥ 90%, lines/statements ≥ 90%), and warning promotion via `server/__tests__/setup/global.js`.
+- `npm run test:ci` – identical to `npm test` but pins `TEST_SHUFFLE_SEED=20251006` for reproducible CI logs.
+- `npm run test:stress` – executes the full suite five times (without coverage) to expose order-dependent or flaky behaviour.
 
-The suite includes OpenAPI contract coverage via `server/__tests__/api_contract.test.js`,
-which loads [`docs/openapi.yaml`](docs/openapi.yaml) with `@apidevtools/swagger-parser` and
-validates the JSON returned by SuperTest requests against the documented schemas. The new
-`src/__tests__/portfolioSchema.test.js` exercises the client zod validator, keeping the browser and
-the Express schema in sync. A dedicated `server/__tests__/integration.test.js` now drives a full
-portfolio lifecycle (bootstrap → trades → key rotation) and verifies the API key lockout rules,
-while `server/__tests__/edge_cases.test.js` codifies same-day ordering, oversell rejection,
-precision math, and validation edge cases. API failure paths are captured in
-`server/__tests__/api_errors.test.js`, ensuring malformed payloads, weak keys, and oversized bodies
-surface the documented error codes. All Phase 1 critical tests should pass.
+| Name               | Type      | Default                         | Required | Description |
+| ------------------ | --------- | ------------------------------- | -------- | ----------- |
+| `TEST_SHUFFLE_SEED` | int/string | Random per run (CI: `20251006`) | No       | Overrides the deterministic shuffle used by `tools/run-tests.mjs`. Set to reproduce a failing order locally. |
+| `FC_SEED`          | int       | Derived from `TEST_SHUFFLE_SEED` | No      | Controls the Fast-Check property test seeds; helps reproduce counterexamples. |
+| `FC_RUNS`          | int       | `80`                            | No       | Adjusts the number of Fast-Check executions per property test (increase for additional assurance). |
+
+The coverage-aware runner still loads [`docs/openapi.yaml`](docs/openapi.yaml) via `server/__tests__/api_contract.test.js`, exercises the React zod validator in `src/__tests__/portfolioSchema.test.js`, and drives a full portfolio lifecycle in `server/__tests__/integration.test.js`. API failure paths, edge cases, and math policies remain covered; the new property tests harden ROI, benchmark, and cash accrual logic against seeded bugs.
 
 ## Continuous Integration
 
