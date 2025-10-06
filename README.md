@@ -43,6 +43,7 @@ The template groups settings by concern; adjust at minimum:
 - `VITE_API_BASE` – override if the frontend should call a non-default API origin.
 - `LOG_LEVEL` – adjust Pino verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`).
 - `API_CACHE_TTL_SECONDS` / `PRICE_CACHE_TTL_SECONDS` / `PRICE_CACHE_CHECK_PERIOD` / `PRICE_FETCH_TIMEOUT_MS` – tune response caching, price cache maintenance, and upstream HTTP timeout behaviour.
+- `BRUTE_FORCE_MAX_ATTEMPTS` / `BRUTE_FORCE_ATTEMPT_WINDOW_SECONDS` / `BRUTE_FORCE_LOCKOUT_SECONDS` / `BRUTE_FORCE_MAX_LOCKOUT_SECONDS` / `BRUTE_FORCE_LOCKOUT_MULTIPLIER` – configure the progressive lockout guard for portfolio authentication.
 - `JOB_NIGHTLY_HOUR` / `FRESHNESS_MAX_STALE_TRADING_DAYS` – govern when the nightly close runs and how long benchmark data may stay stale before returning `503`.
 
 Refer back to Appendix B of the audit for the full catalog of supported variables.
@@ -401,6 +402,10 @@ Example response:
 ### `GET /api/cache/stats`
 
 Returns aggregated cache metrics (`keys`, `hits`, `misses`, `hitRate`) for price data caching. Useful for lightweight monitoring or local performance verification.
+
+### `GET /api/security/stats`
+
+Exposes brute-force protection metrics (`activeFailureKeys`, `activeLockouts`, and current thresholds) to help validate security posture in staging environments.
 
 ### `GET /api/portfolio/:id`
 
