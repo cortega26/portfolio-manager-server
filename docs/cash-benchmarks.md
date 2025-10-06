@@ -41,6 +41,42 @@ Additional series:
 Cumulative summaries report total return as \( \prod_t (1+r_t) - 1 \) and cash drag metrics:
 
 - `vs_self = R_{ex\_cash} - R_{port}`
+### Day-one handling
+
+The first record in `returns_daily` seeds its return using the inception capital from the earliest
+external flow. When the ledger starts with a `DEPOSIT`, `computeRollingReturns` falls back to the
+`computeInceptionReturns` helper so day-one performance reports `(NAV - flow) / flow` instead of
+zero. Internal transactions (BUY/SELL/DIVIDEND/INTEREST/FEE) never trigger this bootstrap path,
+keeping cash-only days flat.
+
+### Benchmark weight freeze policy
+
+Blended benchmarks reuse the prior day’s NAV snapshot as their weight source. The helper
+`resolveWeightSource` feeds the start-of-day cash weight into `computeBenchmarkReturn`, so intraday
+flows do not retroactively change the mix. If a new deposit arrives mid-day, the benchmark tracks it
+as part of the next close rather than rebalancing historical weights.
+
+### Money-weighted returns (XIRR)
+
+`GET /api/benchmarks/summary` now returns a `money_weighted` object alongside the TWR summary. The
+server derives daily cash flows from `DEPOSIT` and `WITHDRAWAL` transactions, prepends the starting
+NAV as a cash outflow, appends the end NAV as a cash inflow, and solves for the annualised XIRR via a
+bisected NPV root finder. The payload exposes:
+
+- `portfolio` – annualised money-weighted return for the requested range.
+- `start_date` / `end_date` – inclusive window the XIRR was solved against.
+- `method` – currently always `xirr`, signalling the calculation strategy.
+
+When NAV snapshots are missing for the requested range, the XIRR falls back to `0.0` so consumers can
+detect incomplete data without guessing.
+
+### Rebalancing cadence
+
+The nightly close job never performs synthetic rebalancing. Holdings drift naturally with market
+performance, and only explicit `DEPOSIT`/`WITHDRAWAL` flows alter cash weights. The blended benchmark
+reflects that policy by re-using the frozen weights until the next close recalculates NAV. This keeps
+cash drag metrics aligned with the investor’s actual allocation decisions instead of assuming daily
+perfect rebalancing.
 - `allocation = R_{spy\_100} - R_{bench\_blended}`
 
 ## Nightly Job & Backfill

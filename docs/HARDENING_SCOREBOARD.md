@@ -20,7 +20,7 @@
 | STO-3   | Idempotent tx IDs                | HIGH     |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | STO-4   | Path hygiene                     | HIGH     |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | MTH-1   | Decimal math policy              | CRITICAL |       | DONE         | feat&#124;fix/math-decimal-policy | Pending | Local: node --test |
-| MTH-2   | TWR/MWR & benchmark policy       | HIGH     |       | TODO         |                   |    |               |
+| MTH-2   | TWR/MWR & benchmark policy       | HIGH     |       | DONE         | main              |    | Local: npm test (money_weighted) |
 | MTH-3   | Cash accruals doc & proration    | MEDIUM   |       | TODO         |                   |    |               |
 | COM-1   | Request validation (zod)         | CRITICAL |       | DONE         | main              |    | src/utils/api.js, src/utils/portfolioSchema.js; Local: npm test (2025-10-05) |
 | COM-2   | Oversell reject + opt clip       | HIGH     |       | DONE         | main              |    | server/app.js (enforceOversellPolicy) |

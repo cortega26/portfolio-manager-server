@@ -154,6 +154,27 @@ test('GET /api/benchmarks/summary matches the OpenAPI contract', async () => {
       r_cash: 0.0002,
     },
   ]);
+  await storage.writeTable('nav_snapshots', [
+    {
+      date: '2024-01-01',
+      portfolio_nav: 1000,
+      ex_cash_nav: 800,
+      cash_balance: 200,
+      risk_assets_value: 800,
+      stale_price: false,
+    },
+    {
+      date: '2024-01-02',
+      portfolio_nav: 1015,
+      ex_cash_nav: 805,
+      cash_balance: 210,
+      risk_assets_value: 805,
+      stale_price: false,
+    },
+  ]);
+  await storage.writeTable('transactions', [
+    { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+  ]);
 
   const app = buildApp();
   const response = await request(app).get('/api/benchmarks/summary?from=2024-01-01&to=2024-01-02');

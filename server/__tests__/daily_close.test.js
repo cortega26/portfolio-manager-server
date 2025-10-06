@@ -142,7 +142,8 @@ test('API endpoints expose computed series', async () => {
   );
   assert.equal(summaryResponse.status, 200);
   assert.ok(summaryResponse.body.summary);
-
+  assert.ok(summaryResponse.body.money_weighted);
+  assert.equal(summaryResponse.body.money_weighted.method, 'xirr');
   const postRate = await request(app)
     .post('/api/admin/cash-rate')
     .send({ effective_date: '2024-01-15', apy: 0.04 });
