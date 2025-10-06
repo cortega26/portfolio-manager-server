@@ -1,4 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from "react";
 import PortfolioControls from "./components/PortfolioControls.jsx";
 import TabBar from "./components/TabBar.jsx";
 import {
@@ -6,10 +14,7 @@ import {
   persistPortfolio,
   retrievePortfolio,
 } from "./utils/api.js";
-import {
-  buildHoldings,
-  computeDashboardMetrics,
-} from "./utils/holdings.js";
+import { computeDashboardMetrics } from "./utils/holdings.js";
 import { groupTransactionsByMonth, buildTransactionTimeline } from "./utils/history.js";
 import {
   buildMetricCards,
@@ -31,6 +36,10 @@ import {
   updateSetting,
 } from "./utils/settings.js";
 import { loadPortfolioKey, savePortfolioKey } from "./utils/portfolioKeys.js";
+import {
+  createInitialLedgerState,
+  ledgerReducer,
+} from "./utils/holdingsLedger.js";
 
 const DashboardTab = lazy(() => import("./components/DashboardTab.jsx"));
 const HoldingsTab = lazy(() => import("./components/HoldingsTab.jsx"));
@@ -56,7 +65,8 @@ export default function App() {
   const [portfolioId, setPortfolioId] = useState("");
   const [portfolioKey, setPortfolioKey] = useState("");
   const [portfolioKeyNew, setPortfolioKeyNew] = useState("");
-  const [transactions, setTransactions] = useState([]);
+  const [ledger, dispatchLedger] = useReducer(ledgerReducer, undefined, createInitialLedgerState);
+  const { transactions, holdings } = ledger;
   const [signals, setSignals] = useState({});
   const [portfolioSettings, setPortfolioSettings] = useState({ autoClip: false });
   const [currentPrices, setCurrentPrices] = useState({});
@@ -77,7 +87,6 @@ export default function App() {
     setPortfolioKeyNew("");
   }, [portfolioId]);
 
-  const holdings = useMemo(() => buildHoldings(transactions), [transactions]);
   const metrics = useMemo(
     () => computeDashboardMetrics(holdings, currentPrices),
     [holdings, currentPrices],
@@ -180,13 +189,11 @@ export default function App() {
   }, [settings]);
 
   const handleAddTransaction = useCallback((transaction) => {
-    setTransactions((prev) => [...prev, transaction]);
+    dispatchLedger({ type: "append", transaction });
   }, []);
 
   const handleDeleteTransaction = useCallback((indexToRemove) => {
-    setTransactions((prev) =>
-      prev.filter((_, index) => index !== indexToRemove),
-    );
+    dispatchLedger({ type: "remove", index: indexToRemove });
   }, []);
 
   const handleSignalChange = useCallback((ticker, pct) => {
@@ -238,7 +245,11 @@ export default function App() {
       throw new Error("API key required");
     }
     const data = await retrievePortfolio(portfolioId, { apiKey: currentKey });
-    setTransactions(Array.isArray(data.transactions) ? data.transactions : []);
+    dispatchLedger({
+      type: "replace",
+      transactions: Array.isArray(data.transactions) ? data.transactions : [],
+      logSummary: true,
+    });
     setSignals(data.signals ?? {});
     if (data.settings) {
       setPortfolioSettings({ autoClip: Boolean(data.settings.autoClip) });

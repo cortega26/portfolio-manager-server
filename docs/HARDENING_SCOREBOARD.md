@@ -32,7 +32,7 @@
 | DX-1    | Transactions form reducer        | MEDIUM   |       | DONE         | main              |    | src/components/TransactionsTab.jsx; Local: npm test (2025-10-05) |
 | DX-2    | Environment template             | LOW      |       | DONE         | main              |    | `.env.example` committed; README "Environment configuration" section |
 | PERF-1  | Price caching + stale guard      | HIGH     |       | DONE         | feat\|fix/cache-etag-cache | Local: node --test cache_behaviors; Phase2 Item1 tests (`server/__tests__/api_cache.test.js`) |               |
-| PERF-2  | Incremental holdings             | MEDIUM   |       | TODO         |                   |    |               |
+| PERF-2  | Incremental holdings             | MEDIUM   |       | DONE         | feat/perf-incremental-holdings | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/perf-incremental-holdings) | Local: npm test (storage concurrency failing pre-existing) |
 | PERF-3  | UI virtualization/pagination     | LOW      |       | TODO         |                   |    |               |
 | PERF-4  | DB migration trigger             | LOW→MED  |       | TODO         |                   |    |               |
 | PERF-5  | Response compression             | MEDIUM   |       | DONE         | main              |    | `server/__tests__/compression.test.js` (Phase2 Item3) |
