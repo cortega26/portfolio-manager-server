@@ -51,6 +51,9 @@ export function loadConfig(env = process.env) {
     env.FRESHNESS_MAX_STALE_TRADING_DAYS,
     3,
   );
+  const apiCacheTtlSeconds = parseNumber(env.API_CACHE_TTL_SECONDS, 600);
+  const priceCacheTtlSeconds = parseNumber(env.PRICE_CACHE_TTL_SECONDS, 600);
+  const priceCacheCheckPeriodSeconds = parseNumber(env.PRICE_CACHE_CHECK_PERIOD, 120);
 
   return {
     dataDir,
@@ -66,6 +69,13 @@ export function loadConfig(env = process.env) {
     },
     freshness: {
       maxStaleTradingDays,
+    },
+    cache: {
+      ttlSeconds: apiCacheTtlSeconds,
+      price: {
+        ttlSeconds: priceCacheTtlSeconds,
+        checkPeriodSeconds: priceCacheCheckPeriodSeconds,
+      },
     },
   };
 }
