@@ -1,13 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import DashboardTab from "./components/DashboardTab.jsx";
-import HoldingsTab from "./components/HoldingsTab.jsx";
-import HistoryTab from "./components/HistoryTab.jsx";
-import MetricsTab from "./components/MetricsTab.jsx";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import PortfolioControls from "./components/PortfolioControls.jsx";
-import ReportsTab from "./components/ReportsTab.jsx";
-import SettingsTab from "./components/SettingsTab.jsx";
 import TabBar from "./components/TabBar.jsx";
-import TransactionsTab from "./components/TransactionsTab.jsx";
 import {
   fetchPrices,
   persistPortfolio,
@@ -38,6 +31,23 @@ import {
   updateSetting,
 } from "./utils/settings.js";
 import { loadPortfolioKey, savePortfolioKey } from "./utils/portfolioKeys.js";
+
+const DashboardTab = lazy(() => import("./components/DashboardTab.jsx"));
+const HoldingsTab = lazy(() => import("./components/HoldingsTab.jsx"));
+const HistoryTab = lazy(() => import("./components/HistoryTab.jsx"));
+const MetricsTab = lazy(() => import("./components/MetricsTab.jsx"));
+const ReportsTab = lazy(() => import("./components/ReportsTab.jsx"));
+const SettingsTab = lazy(() => import("./components/SettingsTab.jsx"));
+const TransactionsTab = lazy(() => import("./components/TransactionsTab.jsx"));
+
+function LoadingFallback() {
+  return (
+    <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+      <span className="text-sm text-slate-600 dark:text-slate-300">Loading view…</span>
+    </div>
+  );
+}
 
 const DEFAULT_TAB = "Dashboard";
 
@@ -308,65 +318,67 @@ export default function App() {
         <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
         <main className="pb-12">
-          {activeTab === "Dashboard" && (
-            <DashboardTab
-              metrics={metrics}
-              roiData={roiData}
-              loadingRoi={loadingRoi}
-              onRefreshRoi={handleRefreshRoi}
-            />
-          )}
+          <Suspense fallback={<LoadingFallback />}>
+            {activeTab === "Dashboard" && (
+              <DashboardTab
+                metrics={metrics}
+                roiData={roiData}
+                loadingRoi={loadingRoi}
+                onRefreshRoi={handleRefreshRoi}
+              />
+            )}
 
-          {activeTab === "Holdings" && (
-            <HoldingsTab
-              holdings={holdings}
-              currentPrices={currentPrices}
-              signals={signals}
-              onSignalChange={handleSignalChange}
-            />
-          )}
+            {activeTab === "Holdings" && (
+              <HoldingsTab
+                holdings={holdings}
+                currentPrices={currentPrices}
+                signals={signals}
+                onSignalChange={handleSignalChange}
+              />
+            )}
 
-          {activeTab === "Transactions" && (
-            <TransactionsTab
-              transactions={transactions}
-              onAddTransaction={handleAddTransaction}
-              onDeleteTransaction={handleDeleteTransaction}
-            />
-          )}
+            {activeTab === "Transactions" && (
+              <TransactionsTab
+                transactions={transactions}
+                onAddTransaction={handleAddTransaction}
+                onDeleteTransaction={handleDeleteTransaction}
+              />
+            )}
 
-          {activeTab === "History" && (
-            <HistoryTab
-              monthlyBreakdown={historyMonthlyBreakdown}
-              timeline={historyTimeline}
-            />
-          )}
+            {activeTab === "History" && (
+              <HistoryTab
+                monthlyBreakdown={historyMonthlyBreakdown}
+                timeline={historyTimeline}
+              />
+            )}
 
-          {activeTab === "Metrics" && (
-            <MetricsTab
-              metricCards={metricCards}
-              allocations={allocationBreakdown}
-              performance={performanceHighlights}
-            />
-          )}
+            {activeTab === "Metrics" && (
+              <MetricsTab
+                metricCards={metricCards}
+                allocations={allocationBreakdown}
+                performance={performanceHighlights}
+              />
+            )}
 
-          {activeTab === "Reports" && (
-            <ReportsTab
-              summaryCards={reportSummaryCards}
-              onExportTransactions={handleExportTransactions}
-              onExportHoldings={handleExportHoldings}
-              onExportPerformance={handleExportPerformance}
-            />
-          )}
+            {activeTab === "Reports" && (
+              <ReportsTab
+                summaryCards={reportSummaryCards}
+                onExportTransactions={handleExportTransactions}
+                onExportHoldings={handleExportHoldings}
+                onExportPerformance={handleExportPerformance}
+              />
+            )}
 
-          {activeTab === "Settings" && (
-            <SettingsTab
-              settings={settings}
-              onSettingChange={handleSettingChange}
-              onReset={handleResetSettings}
-              portfolioSettings={portfolioSettings}
-              onPortfolioSettingChange={handlePortfolioSettingChange}
-            />
-          )}
+            {activeTab === "Settings" && (
+              <SettingsTab
+                settings={settings}
+                onSettingChange={handleSettingChange}
+                onReset={handleResetSettings}
+                portfolioSettings={portfolioSettings}
+                onPortfolioSettingChange={handlePortfolioSettingChange}
+              />
+            )}
+          </Suspense>
         </main>
       </div>
     </div>
