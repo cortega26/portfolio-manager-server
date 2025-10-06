@@ -196,6 +196,17 @@ Common issues and quick fixes (see Section 6 of the audit for the full decision
 
 If problems persist, gather relevant log lines (the server uses Pino for structured output) before opening an issue.
 
+## Holdings utility hooks
+
+When calling the client-side holdings helpers you can subscribe to structured warning events instead of watching for console output.
+
+| name        | type                     | default | required | description |
+|-------------|--------------------------|---------|----------|-------------|
+| `logSummary`| `boolean`                | `true`  | No       | Emits a single `summary` warning after processing if any oversell events were detected. |
+| `onWarning` | `(event: HoldingsEvent)` | `null`  | No       | Invoked for each warning. Receives `{ type: 'oversell' or 'summary', warning?, message?, count?, warnings? }`. |
+
+The helpers never print to `console.warn`. To surface oversell conditions in the UI, pass an `onWarning` handler to `buildHoldingsState` or the ledger reducer and display the returned warning metadata in your preferred channel.
+
 ## Security Logging
 
 The Express backend streams security-audit events through Pino. Every authentication request emits
