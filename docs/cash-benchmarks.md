@@ -18,10 +18,35 @@ This document describes the daily cash accrual, NAV, return, and benchmark infra
 Daily interest is posted as an `INTEREST` transaction using:
 
 \[
- r_{\text{daily}} = (1 + \text{APY})^{1/365} - 1, \quad \text{Interest}_t = \text{Cash}_{t-1} \cdot r_{\text{daily}}
+r_{\text{daily}} = (1 + \text{APY})^{1/365} - 1, \quad \text{Interest}_t = \text{Cash}_{t-1} \cdot r_{\text{daily}}
 \]
 
 The accrual job writes deterministic identifiers (`interest-YYYY-MM-DD`) so re-running the job simply updates the same record.
+
+### Day-count convention
+
+- Cash interest assumes a **365-day ACT/365** basis. The helper `dailyRateFromApy` converts the stored APY into a daily factor
+  with `(1 + apy)^(1/365) - 1` and rounds all booked entries to the nearest cent (`toCents`/`fromCents`).
+- The prior day’s closing cash balance (post all trades, deposits, withdrawals, dividends, and previous interest) is the base for
+  interest. A zero or negative cash balance short-circuits the insert so the ledger never accrues spurious income.
+
+### Rate change proration
+
+- Rates live in `cash_rates.json` as `{ effective_date, apy }` tuples. The resolver sorts entries lexicographically and picks the
+  **latest effective date ≤ target day**. Each calendar day therefore receives the APY that was in force for that day’s close.
+- Because the nightly job accrues one day at a time, any APY change mid-month is naturally prorated: days before the change reuse
+  the old APY, and days after the change use the new APY with no interpolation gaps.
+- Future-dated entries remain inert until the close passes their `effective_date`, so uploading a schedule does not back-date
+  interest.
+
+### Effective-date semantics
+
+- When running the nightly accrual for day `D`, the engine first looks at the previous calendar day `D-1`. The APY effective on
+  `D-1` powers the interest posted on `D`, mirroring how banks pay interest for the balance that existed over the prior day.
+- A newly inserted APY with `effective_date = 2024-02-01` therefore takes effect on the **close of 2024-02-01** and the interest
+  entry dated `2024-02-02` is the first to reflect it. Historical entries remain unchanged unless the backfill command is rerun.
+- Re-running either the nightly job or a backfill is idempotent because the transaction ID includes the posting date; repeats
+  simply overwrite the existing `INTEREST` row instead of duplicating it.
 
 ## Time-Weighted Returns & Benchmarks
 
