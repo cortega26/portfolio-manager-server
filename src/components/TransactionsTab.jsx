@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useReducer } from "react";
 import { formatCurrency } from "../utils/format.js";
 
 const defaultForm = {
@@ -8,6 +8,33 @@ const defaultForm = {
   amount: "",
   price: "",
 };
+
+const initialState = {
+  form: { ...defaultForm },
+  error: null,
+};
+
+function createInitialForm() {
+  return { ...defaultForm };
+}
+
+function reducer(state, action) {
+  switch (action.type) {
+    case "update":
+      return {
+        ...state,
+        form: { ...state.form, [action.field]: action.value },
+      };
+    case "set-error":
+      return { ...state, error: action.error };
+    case "clear-error":
+      return { ...state, error: null };
+    case "reset":
+      return { form: createInitialForm(), error: null };
+    default:
+      return state;
+  }
+}
 
 function TransactionsTable({ transactions, onDeleteTransaction }) {
   if (transactions.length === 0) {
@@ -69,11 +96,18 @@ export default function TransactionsTab({
   onDeleteTransaction,
   transactions,
 }) {
-  const [form, setForm] = useState(defaultForm);
-  const [error, setError] = useState(null);
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const { form, error } = state;
 
   function updateForm(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    dispatch({ type: "update", field, value });
+    if (error) {
+      dispatch({ type: "clear-error" });
+    }
+  }
+
+  function recordError(message) {
+    dispatch({ type: "set-error", error: message });
   }
 
   function handleSubmit(event) {
@@ -81,7 +115,7 @@ export default function TransactionsTab({
     const { date, ticker, type, amount, price } = form;
 
     if (!date || !ticker || !type || !amount || !price) {
-      setError("Please fill in all fields.");
+      recordError("Please fill in all fields.");
       return;
     }
 
@@ -89,17 +123,17 @@ export default function TransactionsTab({
     const priceValue = Number.parseFloat(price);
 
     if (!Number.isFinite(amountValue)) {
-      setError("Amount must be a valid number.");
+      recordError("Amount must be a valid number.");
       return;
     }
 
     if (!Number.isFinite(priceValue) || priceValue <= 0) {
-      setError("Price must be a positive number.");
+      recordError("Price must be a positive number.");
       return;
     }
 
     if (Math.abs(amountValue) <= 0) {
-      setError("Amount must be non-zero.");
+      recordError("Amount must be non-zero.");
       return;
     }
 
@@ -115,8 +149,7 @@ export default function TransactionsTab({
     };
 
     onAddTransaction(payload);
-    setForm(defaultForm);
-    setError(null);
+    dispatch({ type: "reset" });
   }
 
   const computedShares =

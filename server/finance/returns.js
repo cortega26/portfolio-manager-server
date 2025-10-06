@@ -89,6 +89,54 @@ export function computeAllSpySeries({ dates, flowsByDate, spyPrices }) {
   return { returns, navByDate };
 }
 
+function computeInceptionReturns({ flow, state }) {
+  if (!flow.gt(0) || state.nav <= 0) {
+    return { rPort: ZERO, rExCash: ZERO };
+  }
+
+  const inceptionCapital = flow;
+  const rPort = d(state.nav).minus(flow).dividedBy(inceptionCapital);
+
+  if (!(state.riskValue > 0)) {
+    return { rPort, rExCash: ZERO };
+  }
+
+  const rExCash = d(state.riskValue)
+    .minus(inceptionCapital.minus(flow))
+    .dividedBy(inceptionCapital);
+  return { rPort, rExCash };
+}
+
+function computeRollingReturns({ prevState, state, flow }) {
+  if (!prevState) {
+    return computeInceptionReturns({ flow, state });
+  }
+
+  return {
+    rPort: computeReturnStep(prevState.nav, state.nav, flow),
+    rExCash: computeReturnStep(prevState.riskValue, state.riskValue, ZERO),
+  };
+}
+
+function resolveWeightSource(prevState, flow) {
+  if (prevState) {
+    return prevState;
+  }
+  if (flow.gt(0)) {
+    const bootstrap = flow.toNumber();
+    return { nav: bootstrap, cash: bootstrap };
+  }
+  return { nav: 1, cash: 1 };
+}
+
+function computeBenchmarkReturn({ weightSource, rCash, rSpy }) {
+  const weightCash = d(weightSource.cash).dividedBy(weightSource.nav || 1);
+  return roundDecimal(
+    weightCash.times(rCash).plus(d(1).minus(weightCash).times(rSpy)),
+    10,
+  );
+}
+
 export function computeDailyReturnRows({
   states,
   rates,
@@ -113,59 +161,25 @@ export function computeDailyReturnRows({
     spyPrices,
   });
 
-  const rows = [];
-
-  for (let i = 0; i < states.length; i += 1) {
-    const state = states[i];
-    const prevState = states[i - 1];
+  return states.map((state, index) => {
+    const prevState = states[index - 1];
     const flow = flowsByDate.get(state.date) ?? ZERO;
-
-    let rPort = ZERO;
-    let rExCash = ZERO;
-
-    if (prevState) {
-      rPort = computeReturnStep(prevState.nav, state.nav, flow);
-      rExCash = computeReturnStep(prevState.riskValue, state.riskValue, ZERO);
-    } else {
-      const inceptionCapital = flow;
-
-      if (inceptionCapital.gt(0) && state.nav > 0) {
-        rPort = d(state.nav).minus(flow).dividedBy(inceptionCapital);
-        rExCash =
-          inceptionCapital.gt(0) && state.riskValue > 0
-            ? d(state.riskValue)
-                .minus(inceptionCapital.minus(flow))
-                .dividedBy(inceptionCapital)
-            : ZERO;
-      }
-    }
-
+    const { rPort, rExCash } = computeRollingReturns({ prevState, state, flow });
     const rCash = cashReturns.get(state.date) ?? ZERO;
     const rSpy = spyReturnSeries.get(state.date) ?? ZERO;
     const rSpy100 = allSpyReturns.get(state.date) ?? rSpy;
+    const weightSource = resolveWeightSource(prevState, flow);
+    const rBench = computeBenchmarkReturn({ weightSource, rCash, rSpy });
 
-    const weightSource = prevState ?? {
-      nav: flow.gt(0) ? flow.toNumber() : 1,
-      cash: flow.gt(0) ? flow.toNumber() : 1,
-    };
-
-    const weightCash = d(weightSource.cash).dividedBy(weightSource.nav || 1);
-    const rBench = roundDecimal(
-      weightCash.times(rCash).plus(d(1).minus(weightCash).times(rSpy)),
-      10,
-    );
-
-    rows.push({
+    return {
       date: state.date,
       r_port: roundDecimal(rPort, 8).toNumber(),
       r_ex_cash: roundDecimal(rExCash, 8).toNumber(),
       r_bench_blended: roundDecimal(rBench, 8).toNumber(),
       r_spy_100: roundDecimal(rSpy100, 8).toNumber(),
       r_cash: roundDecimal(rCash, 8).toNumber(),
-    });
-  }
-
-  return rows;
+    };
+  });
 }
 
 export function summarizeReturns(rows) {

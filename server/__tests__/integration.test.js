@@ -31,8 +31,8 @@ afterEach(() => {
 test('portfolio lifecycle persists transactions, signals, and key rotation', async () => {
   const app = buildApp();
   const portfolioId = 'life-' + randomUUID();
-  const apiKey = 'integration-key';
-  const rotatedKey = 'integration-key-rotated';
+  const apiKey = 'ValidKey123!';
+  const rotatedKey = 'ValidKey321!';
 
   const bootstrap = await request(app)
     .post('/api/portfolio/' + portfolioId)
@@ -94,7 +94,7 @@ test('portfolio lifecycle persists transactions, signals, and key rotation', asy
 test('concurrent portfolio modifications remain consistent', async () => {
   const app = buildApp();
   const portfolioId = 'con-' + randomUUID();
-  const apiKey = 'concurrency-key';
+  const apiKey = 'ValidKeyABC1!';
 
   await request(app)
     .post('/api/portfolio/' + portfolioId)
@@ -152,7 +152,7 @@ test('concurrent portfolio modifications remain consistent', async () => {
 test('brute-force guard blocks repeated invalid key attempts and allows recovery', async () => {
   const app = buildApp();
   const portfolioId = 'bf-' + randomUUID();
-  const apiKey = 'bf-primary-key';
+  const apiKey = 'ValidKeyLock1!';
 
   await request(app)
     .post('/api/portfolio/' + portfolioId)

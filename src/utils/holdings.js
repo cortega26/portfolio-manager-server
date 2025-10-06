@@ -8,66 +8,91 @@ import { formatCurrency } from "./format.js";
  * - Logs warnings for oversell attempts
  * - Handles floating-point dust with tolerance
  */
+const SHARE_EPSILON = 1e-8;
+
+function normalizeTicker(rawTicker) {
+  return rawTicker?.trim().toUpperCase() ?? "";
+}
+
+function getOrCreateHolding(map, ticker) {
+  if (!map.has(ticker)) {
+    map.set(ticker, { ticker, shares: 0, cost: 0, realised: 0 });
+  }
+  return map.get(ticker);
+}
+
+function applyBuy(holding, transaction) {
+  holding.shares += transaction.shares;
+  holding.cost += Math.abs(transaction.amount);
+}
+
+function normaliseShareBook(holding) {
+  if (Math.abs(holding.shares) < SHARE_EPSILON) {
+    holding.shares = 0;
+    holding.cost = 0;
+    return;
+  }
+  holding.shares = Number(holding.shares.toFixed(8));
+  holding.cost = Number(holding.cost.toFixed(6));
+}
+
+function buildOversellWarning({ ticker, transaction, holding, sharesToSell }) {
+  return {
+    ticker,
+    date: transaction.date,
+    issue: "oversell",
+    attempted: transaction.shares,
+    available: holding.shares,
+    clipped: sharesToSell,
+  };
+}
+
+function applySell(holding, transaction, { ticker, warnings }) {
+  const avgCost = holding.shares > 0 ? holding.cost / holding.shares : 0;
+  const sharesToSell = Math.min(transaction.shares, holding.shares);
+
+  if (transaction.shares > holding.shares + 1e-6) {
+    const warning = buildOversellWarning({ ticker, transaction, holding, sharesToSell });
+    warnings.push(warning);
+    console.warn(
+      `[HOLDINGS WARNING] Cannot sell ${transaction.shares.toFixed(8)} shares of ${ticker} on ${transaction.date}. ` +
+        `Only ${holding.shares.toFixed(8)} shares available. Clipping to available shares.`,
+    );
+  }
+
+  holding.shares -= sharesToSell;
+  holding.cost -= avgCost * sharesToSell;
+  holding.realised += transaction.amount - avgCost * sharesToSell;
+  normaliseShareBook(holding);
+}
+
 export function buildHoldings(transactions) {
   const map = new Map();
   const warnings = [];
 
-  transactions.forEach((tx) => {
-    const ticker = tx.ticker?.trim().toUpperCase();
+  for (const transaction of transactions) {
+    const ticker = normalizeTicker(transaction.ticker);
     if (!ticker) {
-      return;
+      continue;
     }
 
-    if (!map.has(ticker)) {
-      map.set(ticker, { ticker, shares: 0, cost: 0, realised: 0 });
+    const holding = getOrCreateHolding(map, ticker);
+
+    if (transaction.type === "BUY") {
+      applyBuy(holding, transaction);
+      continue;
     }
 
-    const holding = map.get(ticker);
-
-    if (tx.type === "BUY") {
-      holding.shares += tx.shares;
-      holding.cost += Math.abs(tx.amount);
-    } else if (tx.type === "SELL") {
-      const avgCost = holding.shares > 0 ? holding.cost / holding.shares : 0;
-      const sharesToSell = Math.min(tx.shares, holding.shares);
-
-      if (tx.shares > holding.shares + 1e-6) {
-        const warning = {
-          ticker,
-          date: tx.date,
-          issue: "oversell",
-          attempted: tx.shares,
-          available: holding.shares,
-          clipped: sharesToSell,
-        };
-        warnings.push(warning);
-        console.warn(
-          `[HOLDINGS WARNING] Cannot sell ${tx.shares.toFixed(8)} shares of ${ticker} on ${tx.date}. ` +
-            `Only ${holding.shares.toFixed(8)} shares available. Clipping to available shares.`,
-        );
-      }
-
-      holding.shares -= sharesToSell;
-      holding.cost -= avgCost * sharesToSell;
-      holding.realised += tx.amount - avgCost * sharesToSell;
-
-      if (Math.abs(holding.shares) < 1e-8) {
-        holding.shares = 0;
-        holding.cost = 0;
-      } else {
-        holding.shares = Number(holding.shares.toFixed(8));
-        holding.cost = Number(holding.cost.toFixed(6));
-      }
+    if (transaction.type === "SELL") {
+      applySell(holding, transaction, { ticker, warnings });
     }
-  });
-
-  const holdings = Array.from(map.values());
+  }
 
   if (warnings.length > 0) {
     console.warn(`[HOLDINGS] Generated ${warnings.length} warning(s) during processing.`);
   }
 
-  return holdings;
+  return Array.from(map.values());
 }
 
 export function deriveHoldingStats(holding, currentPrice) {

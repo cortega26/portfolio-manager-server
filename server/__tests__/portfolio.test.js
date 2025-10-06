@@ -15,8 +15,8 @@ const noopLogger = {
   error() {},
 };
 
-const API_KEY = 'test-key';
-const SECONDARY_KEY = 'rotated-key';
+const API_KEY = 'ValidKey123!';
+const SECONDARY_KEY = 'ValidKey1234!';
 
 function withKey(requestBuilder, key = API_KEY, newKey) {
   let builder = requestBuilder.set('X-Portfolio-Key', key);

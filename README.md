@@ -46,7 +46,9 @@ validates the JSON returned by SuperTest requests against the documented schemas
 the Express schema in sync. A dedicated `server/__tests__/integration.test.js` now drives a full
 portfolio lifecycle (bootstrap → trades → key rotation) and verifies the API key lockout rules,
 while `server/__tests__/edge_cases.test.js` codifies same-day ordering, oversell rejection,
-precision math, and validation edge cases. All Phase 1 critical tests should pass.
+precision math, and validation edge cases. API failure paths are captured in
+`server/__tests__/api_errors.test.js`, ensuring malformed payloads, weak keys, and oversized bodies
+surface the documented error codes. All Phase 1 critical tests should pass.
 
 ## Continuous Integration
 
@@ -168,7 +170,7 @@ Always terminate traffic for the Express API behind HTTPS with HTTP Strict Trans
 
 ### Authentication
 
-Every request that reads from or writes to `/api/portfolio/:id` must include an `X-Portfolio-Key` header. On the first `POST` the server bootstraps the portfolio by hashing and storing the provided key. Subsequent requests must reuse the same header value; requests without it return `401 NO_KEY` and mismatched keys return `403 INVALID_KEY`. To rotate credentials atomically, include the current key plus `X-Portfolio-Key-New` with the replacement value on a `POST` request. Keys are stored as SHA-256 hashes and never returned in responses. Repeated missing or invalid keys are tracked per portfolio and remote address—after five failures within fifteen minutes the API responds with `429 TOO_MANY_KEY_ATTEMPTS` and a `Retry-After` header; presenting the correct key immediately clears the lockout.
+Every request that reads from or writes to `/api/portfolio/:id` must include an `X-Portfolio-Key` header. On the first `POST` the server bootstraps the portfolio by hashing and storing the provided key. Subsequent requests must reuse the same header value; requests without it return `401 NO_KEY` and mismatched keys return `403 INVALID_KEY`. To rotate credentials atomically, include the current key plus `X-Portfolio-Key-New` with the replacement value on a `POST` request. Keys are stored as SHA-256 hashes and never returned in responses. New or rotated keys must be at least 12 characters and include uppercase, lowercase, numeric, and special characters—weak keys return `400 WEAK_KEY`. Repeated missing or invalid keys are tracked per portfolio and remote address—after five failures within fifteen minutes the API responds with `429 TOO_MANY_KEY_ATTEMPTS` and a `Retry-After` header; presenting the correct key immediately clears the lockout.
 
 ### `GET /api/prices/:symbol?range=1y`
 

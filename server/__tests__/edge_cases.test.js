@@ -45,7 +45,7 @@ test('computeDailyStates handles same-day ordering without negative cash', () =>
 test('oversell prevention rejects sales beyond available shares', async () => {
   await withTempApp(async ({ app }) => {
     const portfolioId = 'edge-oversell-' + randomUUID();
-    const apiKey = 'edge-oversell-key';
+    const apiKey = 'ValidKeyEdge1!';
     const response = await request(app)
       .post('/api/portfolio/' + portfolioId)
       .set('X-Portfolio-Key', apiKey)
@@ -110,7 +110,7 @@ test('projectStateUntil handles large transaction volumes deterministically', ()
 test('validation rejects negative prices before persistence', async () => {
   await withTempApp(async ({ app }) => {
     const portfolioId = 'edge-validate-' + randomUUID();
-    const apiKey = 'edge-validate-key';
+    const apiKey = 'ValidKeyEdge2!';
     const response = await request(app)
       .post('/api/portfolio/' + portfolioId)
       .set('X-Portfolio-Key', apiKey)

@@ -25,6 +25,7 @@
 | COM-2   | Oversell reject + opt clip       | HIGH     |       | DONE         | main              |    | server/app.js (enforceOversellPolicy) |
 | COM-3   | Same-day determinism rules       | MEDIUM   |       | TODO         |                   |    |               |
 | COM-4   | Error codes & pagination         | MEDIUM   |       | DONE         | feat/com-validation | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/com-validation) | Local: lint/test |
+| DX-1    | Transactions form reducer        | MEDIUM   |       | DONE         | main              |    | src/components/TransactionsTab.jsx; Local: npm test (2025-10-05) |
 | PERF-1  | Price caching + stale guard      | HIGH     |       | DONE         | feat\|fix/cache-etag-cache | Local: node --test cache_behaviors |               |
 | PERF-2  | Incremental holdings             | MEDIUM   |       | TODO         |                   |    |               |
 | PERF-3  | UI virtualization/pagination     | LOW      |       | TODO         |                   |    |               |
@@ -36,3 +37,4 @@
 | TEST-5  | API contract tests               | HIGH     |       | DONE         | feat\|fix/api-contract-validation | Pending | Local: npm test |
 | TEST-6  | Integration API lifecycle tests  | CRITICAL |       | DONE         | main              |    | server/__tests__/integration.test.js; Local: npm test (2025-10-05) |
 | TEST-7  | Edge-case regression tests       | HIGH     |       | DONE         | main              |    | server/__tests__/edge_cases.test.js; Local: npm test (2025-10-05) |
+| TEST-8  | Frontend integration tests       | MEDIUM   |       | DONE         | main              |    | src/__tests__/Transactions.integration.test.jsx; Local: npm test (2025-10-05) |

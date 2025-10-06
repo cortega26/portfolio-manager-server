@@ -54,6 +54,7 @@ const DEFAULT_CACHE_TTL_SECONDS = (() => {
 
 const PORTFOLIO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SYMBOL_PATTERN = /^[A-Za-z0-9._-]{1,32}$/;
+const STRONG_KEY_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
 
 function createHttpError({ status = 500, code = 'INTERNAL_ERROR', message, details, expose }) {
   const error = new Error(
@@ -266,6 +267,21 @@ export function createApp({
     );
   }
 
+  const securityLogger = typeof log.child === 'function'
+    ? log.child({ module: 'security' })
+    : log;
+
+  function logSecurity(level, event, details = {}) {
+    const logger = typeof securityLogger?.[level] === 'function'
+      ? securityLogger[level].bind(securityLogger)
+      : typeof securityLogger?.info === 'function'
+        ? securityLogger.info.bind(securityLogger)
+        : null;
+    if (logger) {
+      logger({ event, ...details });
+    }
+  }
+
   function resolveFailureContext(portfolioId, req) {
     const remoteAddress = resolveRemoteAddress(req);
     const normalizedId = typeof portfolioId === 'string' && portfolioId ? portfolioId : 'unknown';
@@ -273,6 +289,14 @@ export function createApp({
       key: `${normalizedId}::${remoteAddress}`,
       remoteAddress,
     };
+  }
+
+  function validateKeyStrength(rawKey, { action }) {
+    if (STRONG_KEY_PATTERN.test(rawKey)) {
+      return true;
+    }
+    logSecurity('warn', 'portfolio_key_weak', { action });
+    return false;
   }
 
   function getFailureState(key, now = Date.now()) {
@@ -336,6 +360,12 @@ export function createApp({
     const retryAfterSeconds = blocked
       ? Math.max(1, Math.ceil((entry.blockedUntil - now) / 1000))
       : null;
+    if (blocked) {
+      logSecurity('warn', 'portfolio_key_lockout', {
+        key,
+        retry_after_seconds: retryAfterSeconds,
+      });
+    }
     return { blocked, retryAfterSeconds, attempts: entry.count };
   }
 
@@ -430,14 +460,27 @@ export function createApp({
             return;
           }
 
+          if (!validateKeyStrength(providedKey, { action: 'bootstrap' })) {
+            next(
+              createHttpError({
+                status: 400,
+                code: 'WEAK_KEY',
+                message:
+                  'Portfolio key must be at least 12 characters and include uppercase, lowercase, numeric, and special characters.',
+                expose: true,
+              }),
+            );
+            return;
+          }
+
           const hashed = hashPortfolioKey(providedKey);
           await writePortfolioKeyHash(portfolioId, hashed);
-           resetFailures(failureKey);
+          resetFailures(failureKey);
           if (!req.portfolioAuth) {
             req.portfolioAuth = {};
           }
           req.portfolioAuth.bootstrapped = true;
-          log.info('portfolio_key_bootstrapped', { id: portfolioId });
+          logSecurity('info', 'portfolio_key_bootstrapped', { id: portfolioId });
           next();
           return;
         }
@@ -451,6 +494,11 @@ export function createApp({
           if (blocked && retryAfterSeconds) {
             res.set('Retry-After', String(retryAfterSeconds));
           }
+          logSecurity('warn', 'portfolio_key_missing', {
+            id: portfolioId,
+            remote_address: remoteAddress,
+            blocked,
+          });
           next(
             createHttpError({
               status: blocked ? 429 : 401,
@@ -478,14 +526,14 @@ export function createApp({
           if (blocked && retryAfterSeconds) {
             res.set('Retry-After', String(retryAfterSeconds));
           }
-          log.warn('portfolio_key_invalid', {
+          logSecurity('warn', 'portfolio_key_invalid', {
             id: portfolioId,
             remote_address: remoteAddress,
             attempts: failureResult.attempts,
             blocked,
           });
           if (blocked) {
-            log.warn('portfolio_key_blocked', {
+            logSecurity('warn', 'portfolio_key_blocked', {
               id: portfolioId,
               remote_address: remoteAddress,
               retry_after_seconds: retryAfterSeconds ?? null,
@@ -507,6 +555,18 @@ export function createApp({
         resetFailures(failureKey);
 
         if (allowRotation && rotationKey) {
+          if (!validateKeyStrength(rotationKey, { action: 'rotate' })) {
+            next(
+              createHttpError({
+                status: 400,
+                code: 'WEAK_KEY',
+                message:
+                  'Portfolio key must be at least 12 characters and include uppercase, lowercase, numeric, and special characters.',
+                expose: true,
+              }),
+            );
+            return;
+          }
           const newHash = hashPortfolioKey(rotationKey);
           if (newHash !== storedHash) {
             await writePortfolioKeyHash(portfolioId, newHash);
@@ -514,13 +574,13 @@ export function createApp({
               req.portfolioAuth = {};
             }
             req.portfolioAuth.rotated = true;
-            log.info('portfolio_key_rotated', { id: portfolioId });
+            logSecurity('info', 'portfolio_key_rotated', { id: portfolioId });
           }
         }
 
         next();
       } catch (error) {
-        log.error('portfolio_key_verification_failed', {
+        logSecurity('error', 'portfolio_key_verification_failed', {
           id: portfolioId,
           error: error.message,
         });
@@ -1195,7 +1255,7 @@ export function createApp({
       return;
     }
 
-    if (error && typeof error === 'object' && !error.statusCode) {
+    if (error && typeof error === 'object') {
       if (error.type === 'entity.too.large') {
         error = createHttpError({
           status: 413,

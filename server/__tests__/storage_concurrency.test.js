@@ -86,7 +86,7 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
     payloads.map((payload) =>
       request(app)
         .post(`/api/portfolio/${portfolioId}`)
-        .set('X-Portfolio-Key', 'stress-key')
+        .set('X-Portfolio-Key', 'ValidKeyStress1!')
         .send(payload),
     ),
   );
