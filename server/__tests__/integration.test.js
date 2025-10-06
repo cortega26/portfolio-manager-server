@@ -30,7 +30,7 @@ beforeEach(() => {
         },
       },
     };
-    const configOverrides = overrides.config ?? {};
+    const { config: configOverrides = {}, ...rest } = overrides;
     const mergedConfig = {
       ...baseConfig,
       ...configOverrides,
@@ -43,7 +43,6 @@ beforeEach(() => {
         },
       },
     };
-    const { config: _ignored, ...rest } = overrides;
     return createApp({
       dataDir,
       logger: noopLogger,
