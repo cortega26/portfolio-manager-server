@@ -38,7 +38,7 @@ test('POST /api/portfolio rejects invalid payloads with validation details', asy
     .post('/api/portfolio/test123')
     .send({ transactions: [{ type: 'BUY', amount: 'invalid' }] })
     .set('Content-Type', 'application/json')
-    .set('X-Portfolio-Key', 'validation-key');
+    .set('X-Portfolio-Key', 'ValidKey123!');
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');
@@ -51,7 +51,7 @@ test('POST /api/portfolio rejects invalid portfolio id', async () => {
     .post('/api/portfolio/bad id')
     .send({ transactions: [] })
     .set('Content-Type', 'application/json')
-    .set('X-Portfolio-Key', 'validation-key');
+    .set('X-Portfolio-Key', 'ValidKey123!');
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');
@@ -148,7 +148,7 @@ test('POST /api/portfolio enforces rate limiting', async () => {
       .post('/api/portfolio/ratelimit')
       .send(payload)
       .set('Content-Type', 'application/json')
-      .set('X-Portfolio-Key', 'limit-key');
+      .set('X-Portfolio-Key', 'ValidKey456!');
     responses.push(response);
   }
 

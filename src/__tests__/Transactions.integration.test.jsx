@@ -1,0 +1,88 @@
+import assert from "node:assert/strict";
+import { afterEach, beforeEach, test } from "node:test";
+import { JSDOM } from "jsdom";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+
+import TransactionsTab from "../components/TransactionsTab.jsx";
+
+let dom;
+
+beforeEach(() => {
+  dom = new JSDOM("<!doctype html><html><body></body></html>");
+  global.window = dom.window;
+  global.document = dom.window.document;
+  global.navigator = dom.window.navigator;
+  global.HTMLElement = dom.window.HTMLElement;
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
+
+afterEach(() => {
+  cleanup();
+  dom.window.close();
+  delete global.window;
+  delete global.document;
+  delete global.navigator;
+  delete global.HTMLElement;
+  delete global.ResizeObserver;
+});
+
+function renderTransactionsTab(overrides = {}) {
+  const addCalls = [];
+  const deleteCalls = [];
+  render(
+    <TransactionsTab
+      transactions={[]}
+      onAddTransaction={(payload) => addCalls.push(payload)}
+      onDeleteTransaction={(index) => deleteCalls.push(index)}
+      {...overrides}
+    />,
+  );
+  return { addCalls, deleteCalls };
+}
+
+test('submits a valid transaction payload and resets the form', () => {
+  const { addCalls } = renderTransactionsTab();
+
+  fireEvent.change(screen.getByLabelText(/Date/i), {
+    target: { value: '2024-01-05' },
+  });
+  fireEvent.change(screen.getByLabelText(/Ticker/i), {
+    target: { value: 'spy' },
+  });
+  fireEvent.change(screen.getByLabelText(/Type/i), {
+    target: { value: 'BUY' },
+  });
+  fireEvent.change(screen.getByLabelText(/Amount \(USD\)/i), {
+    target: { value: '1000' },
+  });
+  fireEvent.change(screen.getByLabelText(/Price \(USD\)/i), {
+    target: { value: '100' },
+  });
+
+  fireEvent.submit(screen.getByRole('form'));
+
+  assert.equal(addCalls.length, 1);
+  assert.deepEqual(addCalls[0], {
+    date: '2024-01-05',
+    ticker: 'SPY',
+    type: 'BUY',
+    amount: -1000,
+    price: 100,
+    shares: 10,
+  });
+
+  assert.equal(screen.queryByText(/Please fill in all fields\./i), null);
+  assert.equal(screen.getByLabelText(/Ticker/i).value, '');
+});
+
+test('shows validation feedback when required fields are missing', () => {
+  renderTransactionsTab();
+
+  fireEvent.submit(screen.getByRole('form'));
+
+  assert.ok(screen.getByText(/Please fill in all fields\./i));
+});
