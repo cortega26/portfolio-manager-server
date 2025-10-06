@@ -39,6 +39,12 @@ import { createSecurityAuditLogger } from './middleware/auditLog.js';
 import { atomicWriteFile } from './utils/atomicStore.js';
 import { withLock } from './utils/locks.js';
 import { computeTradingDayAge } from './utils/calendar.js';
+import {
+  configurePriceCache,
+  getCacheStats,
+  getCachedPrice,
+  setCachedPrice,
+} from './cache/priceCache.js';
 
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? './data');
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
@@ -199,6 +205,20 @@ export function createApp({
     return DEFAULT_CACHE_TTL_SECONDS;
   })();
   const cacheControlHeader = `private, max-age=${cacheTtlSeconds}`;
+  const priceCacheConfig = config?.cache?.price ?? {};
+  const priceCacheTtlSeconds = Number.isFinite(priceCacheConfig.ttlSeconds)
+    && priceCacheConfig.ttlSeconds > 0
+    ? Math.round(priceCacheConfig.ttlSeconds)
+    : 600;
+  const priceCacheCheckPeriodSeconds = Number.isFinite(priceCacheConfig.checkPeriodSeconds)
+    && priceCacheConfig.checkPeriodSeconds > 0
+    ? Math.round(priceCacheConfig.checkPeriodSeconds)
+    : 120;
+  configurePriceCache({
+    ttlSeconds: priceCacheTtlSeconds,
+    checkPeriodSeconds: priceCacheCheckPeriodSeconds,
+  });
+  const priceCacheControlHeader = `private, max-age=${priceCacheTtlSeconds}`;
   const maxStaleTradingDays = (() => {
     const override = config?.freshness?.maxStaleTradingDays;
     if (Number.isFinite(override) && override >= 0) {
@@ -997,12 +1017,11 @@ export function createApp({
       });
     }
 
-    const normalizedRange = typeof range === 'string' && range.trim() ? range : '1y';
+    const normalizedRange = typeof range === 'string' && range.trim() ? range.trim().toLowerCase() : '1y';
     const normalizedSymbol = symbol.trim().toUpperCase();
-    const cacheKey = `prices:${normalizedSymbol}:${normalizedRange}`;
-    const cached = responseCache.get(cacheKey);
+    const cached = getCachedPrice(normalizedSymbol, normalizedRange);
     if (cached) {
-      return cached;
+      return { prices: cached.data, etag: cached.etag, cacheHit: true };
     }
 
     const today = new Date();
@@ -1024,8 +1043,8 @@ export function createApp({
         .filter((item) => item.date && Number.isFinite(Number(item.adjClose)))
         .map((item) => ({ date: item.date, close: Number(item.adjClose) }))
         .sort((a, b) => a.date.localeCompare(b.date));
-      responseCache.set(cacheKey, sorted);
-      return sorted;
+      const etag = setCachedPrice(normalizedSymbol, normalizedRange, sorted);
+      return { prices: sorted, etag, cacheHit: false };
     } catch (error) {
       if (error.name === 'AbortError') {
         const timeoutError = createHttpError({
@@ -1076,7 +1095,7 @@ export function createApp({
     const { symbol } = req.params;
     const { range } = req.query;
     try {
-      const prices = await fetchHistoricalPrices(symbol, range ?? '1y');
+      const { prices, etag, cacheHit } = await fetchHistoricalPrices(symbol, range ?? '1y');
       const latestDate = prices.length > 0 ? prices[prices.length - 1].date : null;
       const tradingDayAge = computeTradingDayAge(latestDate);
       if (!latestDate || tradingDayAge > maxStaleTradingDays) {
@@ -1089,7 +1108,21 @@ export function createApp({
         res.status(503).json({ error: 'STALE_DATA' });
         return;
       }
-      sendJsonWithEtag(req, res, prices, { cacheControl: cacheControlHeader });
+      const clientETag = req.get('if-none-match');
+      if (cacheHit && clientETag && clientETag === etag) {
+        res
+          .status(304)
+          .set('ETag', etag)
+          .set('Cache-Control', priceCacheControlHeader)
+          .set('X-Cache', 'HIT')
+          .end();
+        return;
+      }
+      res
+        .set('ETag', etag)
+        .set('Cache-Control', priceCacheControlHeader)
+        .set('X-Cache', cacheHit ? 'HIT' : 'MISS')
+        .json(prices);
     } catch (error) {
       if (error.statusCode) {
         next(error);
@@ -1103,6 +1136,10 @@ export function createApp({
         }),
       );
     }
+  });
+
+  app.get('/api/cache/stats', (_req, res) => {
+    res.json(getCacheStats());
   });
 
   app.get(

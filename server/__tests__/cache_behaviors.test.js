@@ -37,13 +37,19 @@ test('GET /api/prices/:symbol caches responses for warm hits and exposes TTL hea
     dataDir,
     logger: noopLogger,
     fetchImpl,
-    config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
+    config: {
+      cache: {
+        ttlSeconds: CACHE_TTL_SECONDS,
+        price: { ttlSeconds: CACHE_TTL_SECONDS, checkPeriodSeconds: 60 },
+      },
+    },
   });
 
   const first = await request(app).get('/api/prices/MSFT');
   assert.equal(first.status, 200);
   assert.equal(fetchCount, 1);
   assert.equal(first.headers['cache-control'], `private, max-age=${CACHE_TTL_SECONDS}`);
+  assert.equal(first.headers['x-cache'], 'MISS');
   assert.ok(Array.isArray(first.body));
   assert.equal(first.body.length, 1);
 
@@ -52,6 +58,7 @@ test('GET /api/prices/:symbol caches responses for warm hits and exposes TTL hea
   assert.equal(fetchCount, 1, 'warm cache should avoid a new fetch');
   assert.deepEqual(second.body, first.body);
   assert.equal(second.headers['cache-control'], `private, max-age=${CACHE_TTL_SECONDS}`);
+  assert.equal(second.headers['x-cache'], 'HIT');
 });
 
 test('GET /api/returns/daily serves cached payloads even when storage mutates', async () => {
