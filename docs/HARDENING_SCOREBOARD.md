@@ -13,6 +13,7 @@
 | SEC-6   | Helmet + CSP                     | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-7   | Strict CORS                      | HIGH     |       | DONE         | feat/security-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/security-hardening) |               |
 | SEC-8   | CSV/Excel injection guard        | MEDIUM   |       | DONE         | main              |    | src/utils/csv.js |
+| SEC-9   | Brute-force API key guard        | CRITICAL |       | DONE         | main              |    | server/app.js (key failure tracker); Local: npm test (2025-10-05) |
 | STO-1   | Atomic writes                    | CRITICAL |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | STO-2   | Per-portfolio mutex              | CRITICAL |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | STO-3   | Idempotent tx IDs                | HIGH     |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
@@ -33,3 +34,5 @@
 | TEST-3  | Golden snapshot tests            | HIGH     |       | DONE         | feat/returns-snapshots | Pending | Local: npm test -- returns.snapshot |
 | TEST-4  | Concurrency tests                | HIGH     |       | DONE         | feat\|fix/storage-concurrency-tests | Pending | Local: node --test server/__tests__/storage_concurrency.test.js (≈0.8s, covers Promise.all writers + rename crash) |
 | TEST-5  | API contract tests               | HIGH     |       | DONE         | feat\|fix/api-contract-validation | Pending | Local: npm test |
+| TEST-6  | Integration API lifecycle tests  | CRITICAL |       | DONE         | main              |    | server/__tests__/integration.test.js; Local: npm test (2025-10-05) |
+| TEST-7  | Edge-case regression tests       | HIGH     |       | DONE         | main              |    | server/__tests__/edge_cases.test.js; Local: npm test (2025-10-05) |

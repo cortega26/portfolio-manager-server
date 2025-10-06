@@ -229,6 +229,122 @@ export function createApp({
 
   const portfolioKeyCache = new Map();
 
+  const maxKeyFailuresConfig = config?.security?.maxKeyFailures;
+  const windowMsConfig = config?.security?.keyFailureWindowMs;
+  const blockMsConfig = config?.security?.keyFailureBlockMs;
+
+  const MAX_KEY_FAILURES = Math.min(
+    Math.max(3, Number.isFinite(maxKeyFailuresConfig) ? Math.trunc(maxKeyFailuresConfig) : 5),
+    20,
+  );
+  const KEY_FAILURE_WINDOW_MS = Math.max(
+    30_000,
+    Number.isFinite(windowMsConfig) ? Math.trunc(windowMsConfig) : 15 * 60 * 1000,
+  );
+  const KEY_FAILURE_BLOCK_MS = Math.max(
+    60_000,
+    Number.isFinite(blockMsConfig) ? Math.trunc(blockMsConfig) : 15 * 60 * 1000,
+  );
+  const keyFailureTracker = new Map();
+
+  function resolveRemoteAddress(req) {
+    const forwarded = req.headers?.['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      return forwarded.split(',')[0].trim();
+    }
+    if (Array.isArray(forwarded) && forwarded.length > 0) {
+      const value = forwarded[0];
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+    return (
+      req.ip
+      ?? req.socket?.remoteAddress
+      ?? req.connection?.remoteAddress
+      ?? 'unknown'
+    );
+  }
+
+  function resolveFailureContext(portfolioId, req) {
+    const remoteAddress = resolveRemoteAddress(req);
+    const normalizedId = typeof portfolioId === 'string' && portfolioId ? portfolioId : 'unknown';
+    return {
+      key: `${normalizedId}::${remoteAddress}`,
+      remoteAddress,
+    };
+  }
+
+  function getFailureState(key, now = Date.now()) {
+    const entry = keyFailureTracker.get(key);
+    if (!entry) {
+      return { blocked: false, retryAfterSeconds: null };
+    }
+    if (entry.blockedUntil && entry.blockedUntil <= now) {
+      keyFailureTracker.delete(key);
+      return { blocked: false, retryAfterSeconds: null };
+    }
+    if (!entry.blockedUntil && now - entry.firstFailureAt > KEY_FAILURE_WINDOW_MS) {
+      keyFailureTracker.delete(key);
+      return { blocked: false, retryAfterSeconds: null };
+    }
+    if (entry.blockedUntil && entry.blockedUntil > now) {
+      return {
+        blocked: true,
+        retryAfterSeconds: Math.max(1, Math.ceil((entry.blockedUntil - now) / 1000)),
+      };
+    }
+    return { blocked: false, retryAfterSeconds: null };
+  }
+
+  function registerFailure(key, now = Date.now()) {
+    const existing = keyFailureTracker.get(key);
+    let entry;
+    if (!existing) {
+      entry = {
+        count: 1,
+        firstFailureAt: now,
+        lastFailureAt: now,
+        blockedUntil: 0,
+      };
+    } else {
+      entry = { ...existing };
+      if (entry.blockedUntil && entry.blockedUntil <= now) {
+        entry.blockedUntil = 0;
+        entry.count = 0;
+        entry.firstFailureAt = now;
+      }
+      if (now - entry.firstFailureAt > KEY_FAILURE_WINDOW_MS) {
+        entry.count = 1;
+        entry.firstFailureAt = now;
+      } else {
+        entry.count += 1;
+      }
+      entry.lastFailureAt = now;
+    }
+
+    if (entry.count >= MAX_KEY_FAILURES) {
+      const blockedUntil = now + KEY_FAILURE_BLOCK_MS;
+      entry.blockedUntil = entry.blockedUntil && entry.blockedUntil > blockedUntil
+        ? entry.blockedUntil
+        : blockedUntil;
+    }
+
+    keyFailureTracker.set(key, entry);
+
+    const blocked = Boolean(entry.blockedUntil && entry.blockedUntil > now);
+    const retryAfterSeconds = blocked
+      ? Math.max(1, Math.ceil((entry.blockedUntil - now) / 1000))
+      : null;
+    return { blocked, retryAfterSeconds, attempts: entry.count };
+  }
+
+  function resetFailures(key) {
+    if (keyFailureTracker.has(key)) {
+      keyFailureTracker.delete(key);
+    }
+  }
+
   function digestPortfolioKey(rawKey) {
     return createHash('sha256').update(rawKey).digest();
   }
@@ -278,16 +394,21 @@ export function createApp({
   }
 
   function createPortfolioKeyVerifier({ allowBootstrap = false, allowRotation = false } = {}) {
-    return async (req, _res, next) => {
+    return async (req, res, next) => {
       const { id: portfolioId } = req.params ?? {};
       const providedKey = normalizeKey(req.get('x-portfolio-key'));
       const rotationKey = normalizeKey(req.get('x-portfolio-key-new'));
+      const { key: failureKey, remoteAddress } = resolveFailureContext(portfolioId, req);
+      const now = Date.now();
+      const preFailureState = getFailureState(failureKey, now);
 
       try {
         const storedHash = await readPortfolioKeyHash(portfolioId);
 
         if (!storedHash) {
           if (!providedKey) {
+            // Do not register failures before a portfolio is provisioned to avoid
+            // locking users out during bootstrap.
             next(
               createHttpError({
                 status: 401,
@@ -311,6 +432,7 @@ export function createApp({
 
           const hashed = hashPortfolioKey(providedKey);
           await writePortfolioKeyHash(portfolioId, hashed);
+           resetFailures(failureKey);
           if (!req.portfolioAuth) {
             req.portfolioAuth = {};
           }
@@ -321,11 +443,21 @@ export function createApp({
         }
 
         if (!providedKey) {
+          const failureResult = registerFailure(failureKey, now);
+          const blocked = preFailureState.blocked || failureResult.blocked;
+          const retryAfterSeconds = failureResult.blocked
+            ? failureResult.retryAfterSeconds
+            : preFailureState.retryAfterSeconds;
+          if (blocked && retryAfterSeconds) {
+            res.set('Retry-After', String(retryAfterSeconds));
+          }
           next(
             createHttpError({
-              status: 401,
-              code: 'NO_KEY',
-              message: 'Portfolio key required.',
+              status: blocked ? 429 : 401,
+              code: blocked ? 'TOO_MANY_KEY_ATTEMPTS' : 'NO_KEY',
+              message: blocked
+                ? 'Too many missing or invalid portfolio key attempts. Try again later.'
+                : 'Portfolio key required.',
               expose: true,
             }),
           );
@@ -338,17 +470,41 @@ export function createApp({
           storedBuffer.length !== providedDigest.length
           || !timingSafeEqual(storedBuffer, providedDigest)
         ) {
-          log.warn('portfolio_key_invalid', { id: portfolioId });
+          const failureResult = registerFailure(failureKey, now);
+          const blocked = preFailureState.blocked || failureResult.blocked;
+          const retryAfterSeconds = failureResult.blocked
+            ? failureResult.retryAfterSeconds
+            : preFailureState.retryAfterSeconds;
+          if (blocked && retryAfterSeconds) {
+            res.set('Retry-After', String(retryAfterSeconds));
+          }
+          log.warn('portfolio_key_invalid', {
+            id: portfolioId,
+            remote_address: remoteAddress,
+            attempts: failureResult.attempts,
+            blocked,
+          });
+          if (blocked) {
+            log.warn('portfolio_key_blocked', {
+              id: portfolioId,
+              remote_address: remoteAddress,
+              retry_after_seconds: retryAfterSeconds ?? null,
+            });
+          }
           next(
             createHttpError({
-              status: 403,
-              code: 'INVALID_KEY',
-              message: 'Invalid portfolio key.',
+              status: blocked ? 429 : 403,
+              code: blocked ? 'TOO_MANY_KEY_ATTEMPTS' : 'INVALID_KEY',
+              message: blocked
+                ? 'Too many invalid portfolio key attempts. Try again later.'
+                : 'Invalid portfolio key.',
               expose: true,
             }),
           );
           return;
         }
+
+        resetFailures(failureKey);
 
         if (allowRotation && rotationKey) {
           const newHash = hashPortfolioKey(rotationKey);
