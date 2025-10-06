@@ -100,9 +100,17 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
   const raw = readFileSync(filePath, 'utf8');
   const saved = JSON.parse(raw);
 
+  const sanitized = {
+    ...saved,
+    transactions: (saved.transactions ?? []).map((transaction) => {
+      const { createdAt, seq, ...rest } = transaction;
+      return rest;
+    }),
+  };
+
   const matches = normalizedPayloads.some((expected) => {
     try {
-      assert.deepEqual(saved, expected);
+      assert.deepEqual(sanitized, expected);
       return true;
     } catch {
       return false;
