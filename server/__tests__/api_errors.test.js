@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import request from 'supertest';
 
 import { createApp } from '../app.js';
+import { API_KEY_REQUIREMENTS } from '../middleware/validation.js';
 
 const STRONG_KEY = 'ValidKeyErrors1!';
 
@@ -53,6 +54,11 @@ test('returns 400 when attempting to bootstrap with a weak key', async () => {
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'WEAK_KEY');
+  assert.equal(
+    response.body.message,
+    'API key does not meet strength requirements',
+  );
+  assert.deepEqual(response.body.requirements, API_KEY_REQUIREMENTS);
 });
 
 test('returns 413 for payloads larger than the JSON body limit', async () => {
