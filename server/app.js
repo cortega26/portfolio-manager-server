@@ -10,6 +10,7 @@ import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 
 import pino from 'pino';
 import pinoHttp from 'pino-http';
+import compression from 'compression';
 
 import { runMigrations } from './migrations/index.js';
 import { summarizeReturns } from './finance/returns.js';
@@ -45,6 +46,13 @@ import {
   getCachedPrice,
   setCachedPrice,
 } from './cache/priceCache.js';
+import {
+  configureBruteForce,
+  registerAuthFailure,
+  clearAuthFailures,
+  checkBruteForceLockout,
+  getBruteForceStats,
+} from './middleware/bruteForce.js';
 
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? './data');
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
@@ -263,23 +271,8 @@ export function createApp({
 
   const portfolioKeyCache = new Map();
 
-  const maxKeyFailuresConfig = config?.security?.maxKeyFailures;
-  const windowMsConfig = config?.security?.keyFailureWindowMs;
-  const blockMsConfig = config?.security?.keyFailureBlockMs;
-
-  const MAX_KEY_FAILURES = Math.min(
-    Math.max(3, Number.isFinite(maxKeyFailuresConfig) ? Math.trunc(maxKeyFailuresConfig) : 5),
-    20,
-  );
-  const KEY_FAILURE_WINDOW_MS = Math.max(
-    30_000,
-    Number.isFinite(windowMsConfig) ? Math.trunc(windowMsConfig) : 15 * 60 * 1000,
-  );
-  const KEY_FAILURE_BLOCK_MS = Math.max(
-    60_000,
-    Number.isFinite(blockMsConfig) ? Math.trunc(blockMsConfig) : 15 * 60 * 1000,
-  );
-  const keyFailureTracker = new Map();
+  const bruteForceConfig = config?.security?.bruteForce ?? {};
+  configureBruteForce(bruteForceConfig);
 
   function resolveRemoteAddress(req) {
     const forwarded = req.headers?.['x-forwarded-for'];
@@ -344,82 +337,6 @@ export function createApp({
     });
   }
 
-  function getFailureState(key, now = Date.now()) {
-    const entry = keyFailureTracker.get(key);
-    if (!entry) {
-      return { blocked: false, retryAfterSeconds: null };
-    }
-    if (entry.blockedUntil && entry.blockedUntil <= now) {
-      keyFailureTracker.delete(key);
-      return { blocked: false, retryAfterSeconds: null };
-    }
-    if (!entry.blockedUntil && now - entry.firstFailureAt > KEY_FAILURE_WINDOW_MS) {
-      keyFailureTracker.delete(key);
-      return { blocked: false, retryAfterSeconds: null };
-    }
-    if (entry.blockedUntil && entry.blockedUntil > now) {
-      return {
-        blocked: true,
-        retryAfterSeconds: Math.max(1, Math.ceil((entry.blockedUntil - now) / 1000)),
-      };
-    }
-    return { blocked: false, retryAfterSeconds: null };
-  }
-
-  function registerFailure(key, now = Date.now()) {
-    const existing = keyFailureTracker.get(key);
-    let entry;
-    if (!existing) {
-      entry = {
-        count: 1,
-        firstFailureAt: now,
-        lastFailureAt: now,
-        blockedUntil: 0,
-      };
-    } else {
-      entry = { ...existing };
-      if (entry.blockedUntil && entry.blockedUntil <= now) {
-        entry.blockedUntil = 0;
-        entry.count = 0;
-        entry.firstFailureAt = now;
-      }
-      if (now - entry.firstFailureAt > KEY_FAILURE_WINDOW_MS) {
-        entry.count = 1;
-        entry.firstFailureAt = now;
-      } else {
-        entry.count += 1;
-      }
-      entry.lastFailureAt = now;
-    }
-
-    if (entry.count >= MAX_KEY_FAILURES) {
-      const blockedUntil = now + KEY_FAILURE_BLOCK_MS;
-      entry.blockedUntil = entry.blockedUntil && entry.blockedUntil > blockedUntil
-        ? entry.blockedUntil
-        : blockedUntil;
-    }
-
-    keyFailureTracker.set(key, entry);
-
-    const blocked = Boolean(entry.blockedUntil && entry.blockedUntil > now);
-    const retryAfterSeconds = blocked
-      ? Math.max(1, Math.ceil((entry.blockedUntil - now) / 1000))
-      : null;
-    if (blocked) {
-      logSecurity('warn', 'portfolio_key_lockout', {
-        key,
-        retry_after_seconds: retryAfterSeconds,
-      });
-    }
-    return { blocked, retryAfterSeconds, attempts: entry.count };
-  }
-
-  function resetFailures(key) {
-    if (keyFailureTracker.has(key)) {
-      keyFailureTracker.delete(key);
-    }
-  }
-
   function digestPortfolioKey(rawKey) {
     return createHash('sha256').update(rawKey).digest();
   }
@@ -475,15 +392,42 @@ export function createApp({
       const rotationKey = normalizeKey(req.get('x-portfolio-key-new'));
       const { key: failureKey, remoteAddress } = resolveFailureContext(portfolioId, req);
       const now = Date.now();
-      const preFailureState = getFailureState(failureKey, now);
+
+      const lockoutStatus = checkBruteForceLockout(portfolioId, remoteAddress, now);
+      if (lockoutStatus.blocked) {
+        if (lockoutStatus.retryAfterSeconds) {
+          res.set('Retry-After', String(lockoutStatus.retryAfterSeconds));
+        }
+        logSecurity('warn', 'portfolio_key_lockout', {
+          id: portfolioId,
+          remote_address: remoteAddress,
+          retry_after_seconds: lockoutStatus.retryAfterSeconds ?? null,
+          lockout_count: lockoutStatus.lockoutCount ?? null,
+        });
+        if (typeof req.auditLog === 'function') {
+          req.auditLog('auth_failed', {
+            portfolio_id: portfolioId,
+            reason: 'lockout_active',
+            retry_after_seconds: lockoutStatus.retryAfterSeconds ?? null,
+            lockout_count: lockoutStatus.lockoutCount ?? null,
+          });
+        }
+        next(
+          createHttpError({
+            status: 429,
+            code: 'TOO_MANY_KEY_ATTEMPTS',
+            message: 'Too many invalid portfolio key attempts. Try again later.',
+            expose: true,
+          }),
+        );
+        return;
+      }
 
       try {
         const storedHash = await readPortfolioKeyHash(portfolioId);
 
         if (!storedHash) {
           if (!providedKey) {
-            // Do not register failures before a portfolio is provisioned to avoid
-            // locking users out during bootstrap.
             next(
               createHttpError({
                 status: 401,
@@ -523,7 +467,7 @@ export function createApp({
 
           const hashed = hashPortfolioKey(providedKey);
           await writePortfolioKeyHash(portfolioId, hashed);
-          resetFailures(failureKey);
+          clearAuthFailures(portfolioId, remoteAddress);
           if (!req.portfolioAuth) {
             req.portfolioAuth = {};
           }
@@ -540,36 +484,36 @@ export function createApp({
         }
 
         if (!providedKey) {
-          const failureResult = registerFailure(failureKey, now);
-          const blocked = preFailureState.blocked || failureResult.blocked;
-          const retryAfterSeconds = failureResult.blocked
-            ? failureResult.retryAfterSeconds
-            : preFailureState.retryAfterSeconds;
-          if (blocked && retryAfterSeconds) {
-            res.set('Retry-After', String(retryAfterSeconds));
+          const failureResult = registerAuthFailure(portfolioId, remoteAddress, now);
+          if (failureResult.retryAfterSeconds) {
+            res.set('Retry-After', String(failureResult.retryAfterSeconds));
           }
           logSecurity('warn', 'portfolio_key_missing', {
             id: portfolioId,
             remote_address: remoteAddress,
-            blocked,
+            blocked: failureResult.blocked,
+            remaining_attempts: failureResult.remainingAttempts ?? null,
           });
           if (typeof req.auditLog === 'function') {
             req.auditLog('auth_failed', {
               portfolio_id: portfolioId,
               reason: 'missing_key',
-              blocked,
+              blocked: failureResult.blocked,
+              remaining_attempts: failureResult.remainingAttempts ?? null,
             });
           }
-          next(
-            createHttpError({
-              status: blocked ? 429 : 401,
-              code: blocked ? 'TOO_MANY_KEY_ATTEMPTS' : 'NO_KEY',
-              message: blocked
-                ? 'Too many missing or invalid portfolio key attempts. Try again later.'
-                : 'Portfolio key required.',
-              expose: true,
-            }),
-          );
+          const error = createHttpError({
+            status: failureResult.blocked ? 429 : 401,
+            code: failureResult.blocked ? 'TOO_MANY_KEY_ATTEMPTS' : 'NO_KEY',
+            message: failureResult.blocked
+              ? 'Too many missing or invalid portfolio key attempts. Try again later.'
+              : 'Portfolio key required.',
+            expose: true,
+          });
+          if (!failureResult.blocked && Number.isFinite(failureResult.remainingAttempts)) {
+            error.details = { remaining_attempts: failureResult.remainingAttempts };
+          }
+          next(error);
           return;
         }
 
@@ -579,49 +523,51 @@ export function createApp({
           storedBuffer.length !== providedDigest.length
           || !timingSafeEqual(storedBuffer, providedDigest)
         ) {
-          const failureResult = registerFailure(failureKey, now);
-          const blocked = preFailureState.blocked || failureResult.blocked;
-          const retryAfterSeconds = failureResult.blocked
-            ? failureResult.retryAfterSeconds
-            : preFailureState.retryAfterSeconds;
-          if (blocked && retryAfterSeconds) {
-            res.set('Retry-After', String(retryAfterSeconds));
+          const failureResult = registerAuthFailure(portfolioId, remoteAddress, now);
+          if (failureResult.retryAfterSeconds) {
+            res.set('Retry-After', String(failureResult.retryAfterSeconds));
           }
+          const attemptTotal = failureResult.failures ?? failureResult.attempts ?? null;
           logSecurity('warn', 'portfolio_key_invalid', {
             id: portfolioId,
             remote_address: remoteAddress,
-            attempts: failureResult.attempts,
-            blocked,
+            blocked: failureResult.blocked,
+            attempts: attemptTotal,
           });
-          if (blocked) {
+          if (failureResult.blocked) {
             logSecurity('warn', 'portfolio_key_blocked', {
               id: portfolioId,
               remote_address: remoteAddress,
-              retry_after_seconds: retryAfterSeconds ?? null,
+              retry_after_seconds: failureResult.retryAfterSeconds ?? null,
+              lockout_count: failureResult.lockoutCount ?? null,
             });
           }
           if (typeof req.auditLog === 'function') {
             req.auditLog('auth_failed', {
               portfolio_id: portfolioId,
               reason: 'invalid_key',
-              blocked,
-              attempts: failureResult.attempts,
+              blocked: failureResult.blocked,
+              attempts: attemptTotal,
+              remaining_attempts: failureResult.remainingAttempts ?? null,
+              retry_after_seconds: failureResult.retryAfterSeconds ?? null,
             });
           }
-          next(
-            createHttpError({
-              status: blocked ? 429 : 403,
-              code: blocked ? 'TOO_MANY_KEY_ATTEMPTS' : 'INVALID_KEY',
-              message: blocked
-                ? 'Too many invalid portfolio key attempts. Try again later.'
-                : 'Invalid portfolio key.',
-              expose: true,
-            }),
-          );
+          const error = createHttpError({
+            status: failureResult.blocked ? 429 : 403,
+            code: failureResult.blocked ? 'TOO_MANY_KEY_ATTEMPTS' : 'INVALID_KEY',
+            message: failureResult.blocked
+              ? 'Too many invalid portfolio key attempts. Try again later.'
+              : 'Invalid portfolio key.',
+            expose: true,
+          });
+          if (!failureResult.blocked && Number.isFinite(failureResult.remainingAttempts)) {
+            error.details = { remaining_attempts: failureResult.remainingAttempts };
+          }
+          next(error);
           return;
         }
 
-        resetFailures(failureKey);
+        clearAuthFailures(portfolioId, remoteAddress);
 
         if (allowRotation && rotationKey) {
           const { ok: rotationKeyOk, issues: rotationIssues } = validateKeyStrength(
@@ -642,6 +588,7 @@ export function createApp({
           const newHash = hashPortfolioKey(rotationKey);
           if (newHash !== storedHash) {
             await writePortfolioKeyHash(portfolioId, newHash);
+            clearAuthFailures(portfolioId, remoteAddress);
             if (!req.portfolioAuth) {
               req.portfolioAuth = {};
             }
@@ -858,6 +805,18 @@ export function createApp({
   const app = express();
 
   app.disable('x-powered-by');
+
+  const compressionMiddleware = compression({
+    threshold: 1024,
+    level: 6,
+    filter(req, res) {
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+  });
+  app.use(compressionMiddleware);
 
   const httpLogger = pinoHttp({
     logger: DEFAULT_LOGGER,
@@ -1140,6 +1099,10 @@ export function createApp({
 
   app.get('/api/cache/stats', (_req, res) => {
     res.json(getCacheStats());
+  });
+
+  app.get('/api/security/stats', (_req, res) => {
+    res.json(getBruteForceStats());
   });
 
   app.get(

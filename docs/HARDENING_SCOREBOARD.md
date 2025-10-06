@@ -32,6 +32,7 @@
 | PERF-2  | Incremental holdings             | MEDIUM   |       | TODO         |                   |    |               |
 | PERF-3  | UI virtualization/pagination     | LOW      |       | TODO         |                   |    |               |
 | PERF-4  | DB migration trigger             | LOW→MED  |       | TODO         |                   |    |               |
+| PERF-5  | Response compression             | MEDIUM   |       | DONE         | main              |    | `server/__tests__/compression.test.js` (Phase2 Item3) |
 | TEST-1  | Unit tests                       | HIGH     |       | DONE         | main              |    | Local: npm test (node --test coverage + src/__tests__/portfolioSchema.test.js) |
 | TEST-2  | Property-based tests             | HIGH     |       | DONE         | feat/ledger-property-tests | PR pending | Randomized ledger invariants (cash floors, share conservation, deterministic TWR)
 | TEST-3  | Golden snapshot tests            | HIGH     |       | DONE         | feat/returns-snapshots | Pending | Local: npm test -- returns.snapshot |

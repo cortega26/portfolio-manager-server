@@ -54,6 +54,12 @@ export function loadConfig(env = process.env) {
   const apiCacheTtlSeconds = parseNumber(env.API_CACHE_TTL_SECONDS, 600);
   const priceCacheTtlSeconds = parseNumber(env.PRICE_CACHE_TTL_SECONDS, 600);
   const priceCacheCheckPeriodSeconds = parseNumber(env.PRICE_CACHE_CHECK_PERIOD, 120);
+  const bruteForceMaxAttempts = parseNumber(env.BRUTE_FORCE_MAX_ATTEMPTS, 5);
+  const bruteForceAttemptWindowSeconds = parseNumber(env.BRUTE_FORCE_ATTEMPT_WINDOW_SECONDS, 15 * 60);
+  const bruteForceLockoutSeconds = parseNumber(env.BRUTE_FORCE_LOCKOUT_SECONDS, 15 * 60);
+  const bruteForceMaxLockoutSeconds = parseNumber(env.BRUTE_FORCE_MAX_LOCKOUT_SECONDS, 60 * 60);
+  const bruteForceMultiplier = parseNumber(env.BRUTE_FORCE_LOCKOUT_MULTIPLIER, 2);
+  const bruteForceCheckPeriodSeconds = parseNumber(env.BRUTE_FORCE_CHECK_PERIOD, 60);
 
   return {
     dataDir,
@@ -75,6 +81,16 @@ export function loadConfig(env = process.env) {
       price: {
         ttlSeconds: priceCacheTtlSeconds,
         checkPeriodSeconds: priceCacheCheckPeriodSeconds,
+      },
+    },
+    security: {
+      bruteForce: {
+        maxAttempts: bruteForceMaxAttempts,
+        attemptWindowSeconds: bruteForceAttemptWindowSeconds,
+        baseLockoutSeconds: bruteForceLockoutSeconds,
+        maxLockoutSeconds: bruteForceMaxLockoutSeconds,
+        progressiveMultiplier: bruteForceMultiplier,
+        checkPeriodSeconds: bruteForceCheckPeriodSeconds,
       },
     },
   };

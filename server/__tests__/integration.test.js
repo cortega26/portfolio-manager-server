@@ -15,13 +15,42 @@ let buildApp;
 
 beforeEach(() => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-int-'));
-  buildApp = (overrides = {}) =>
-    createApp({
+  buildApp = (overrides = {}) => {
+    const baseConfig = {
+      featureFlags: { cashBenchmarks: true },
+      cors: { allowedOrigins: [] },
+      security: {
+        bruteForce: {
+          maxAttempts: 5,
+          attemptWindowSeconds: 120,
+          baseLockoutSeconds: 2,
+          maxLockoutSeconds: 30,
+          progressiveMultiplier: 2,
+          checkPeriodSeconds: 1,
+        },
+      },
+    };
+    const configOverrides = overrides.config ?? {};
+    const mergedConfig = {
+      ...baseConfig,
+      ...configOverrides,
+      security: {
+        ...baseConfig.security,
+        ...(configOverrides.security ?? {}),
+        bruteForce: {
+          ...baseConfig.security.bruteForce,
+          ...(configOverrides.security?.bruteForce ?? {}),
+        },
+      },
+    };
+    const { config: _ignored, ...rest } = overrides;
+    return createApp({
       dataDir,
       logger: noopLogger,
-      config: { featureFlags: { cashBenchmarks: true }, cors: { allowedOrigins: [] } },
-      ...overrides,
+      config: mergedConfig,
+      ...rest,
     });
+  };
 });
 
 afterEach(() => {
@@ -173,6 +202,11 @@ test('brute-force guard blocks repeated invalid key attempts and allows recovery
   assert.equal(blocked.status, 429);
   assert.equal(blocked.body.error, 'TOO_MANY_KEY_ATTEMPTS');
   assert.ok(Number.isFinite(Number.parseInt(blocked.headers['retry-after'] ?? '0', 10)));
+
+  const retryAfterSeconds = Number.parseInt(blocked.headers['retry-after'] ?? '0', 10);
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    await new Promise((resolve) => setTimeout(resolve, retryAfterSeconds * 1000 + 100));
+  }
 
   const recovery = await request(app)
     .get('/api/portfolio/' + portfolioId)
