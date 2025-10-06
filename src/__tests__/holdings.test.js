@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
   buildHoldings,
+  buildHoldingsState,
   computeDashboardMetrics,
   deriveHoldingStats,
   deriveSignalRow,
@@ -56,5 +57,34 @@ describe("holdings utilities", () => {
     const signal = deriveSignalRow(holdings[0], undefined, 4);
     assert.equal(signal.signal, "NO DATA");
     assert.equal(signal.price, "—");
+  });
+
+  it("reports oversell warnings via the onWarning callback", () => {
+    const oversellTransactions = [
+      { ticker: "TSLA", type: "BUY", shares: 10, amount: -2000, date: "2024-01-01" },
+      { ticker: "TSLA", type: "SELL", shares: 15, amount: 3500, date: "2024-01-02" },
+    ];
+
+    const events = [];
+    const state = buildHoldingsState(oversellTransactions, {
+      logSummary: true,
+      onWarning: (event) => {
+        events.push(event);
+      },
+    });
+
+    assert.equal(state.warnings.length, 1);
+    assert.equal(events.length, 2);
+
+    const oversellEvent = events.find((event) => event.type === "oversell");
+    assert.ok(oversellEvent, "expected oversell event to be emitted");
+    assert.equal(oversellEvent.warning.ticker, "TSLA");
+    assert.equal(oversellEvent.warning.clipped, 10);
+    assert.match(oversellEvent.message, /Cannot sell 15/);
+
+    const summaryEvent = events.find((event) => event.type === "summary");
+    assert.ok(summaryEvent, "expected summary event to be emitted");
+    assert.equal(summaryEvent.count, 1);
+    assert.equal(summaryEvent.warnings.length, 1);
   });
 });
