@@ -1,6 +1,8 @@
-import { buildCashSeries } from './cash.js';
+import { buildCashSeries, toDateKey } from './cash.js';
 import { externalFlowsByDate } from './portfolio.js';
 import { d, fromCents, roundDecimal, toCents, ZERO } from './decimal.js';
+const MS_PER_DAY = 86_400_000;
+
 
 export function computeReturnStep(prevNav, nav, flow) {
   const prev = d(prevNav);
@@ -206,6 +208,173 @@ export function summarizeReturns(rows) {
     r_spy_100: roundDecimal(summary.r_spy_100.minus(1), 6).toNumber(),
     r_cash: roundDecimal(summary.r_cash.minus(1), 6).toNumber(),
   };
+}
+
+function normalizeToUtcDate(value) {
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+  if (typeof value === 'number') {
+    return new Date(value);
+  }
+  if (typeof value === 'string') {
+    return new Date(`${value}T00:00:00Z`);
+  }
+  return new Date(value);
+}
+
+function computeYearFraction(startDate, currentDate) {
+  const diffMs = currentDate.getTime() - startDate.getTime();
+  return d(diffMs).div(MS_PER_DAY).div(365);
+}
+
+function evaluateNpv(flows, rate) {
+  if (rate <= -0.999999) {
+    return d(Number.POSITIVE_INFINITY);
+  }
+  const onePlusRate = d(1).plus(rate);
+  let total = ZERO;
+  for (const flow of flows) {
+    const discount = onePlusRate.pow(flow.years);
+    total = total.plus(flow.amount.dividedBy(discount));
+  }
+  return total;
+}
+
+function computeXirr(flows, { tolerance = 1e-7, maxIterations = 100 } = {}) {
+  const prepared = flows
+    .map((flow) => ({
+      date: normalizeToUtcDate(flow.date),
+      amount: d(flow.amount ?? 0),
+    }))
+    .filter((flow) => flow.amount.isFinite() && !flow.amount.isZero())
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  if (prepared.length < 2) {
+    return ZERO;
+  }
+
+  const earliest = prepared[0].date;
+  for (const flow of prepared) {
+    flow.years = computeYearFraction(earliest, flow.date);
+  }
+
+  const hasPositive = prepared.some((flow) => flow.amount.gt(0));
+  const hasNegative = prepared.some((flow) => flow.amount.lt(0));
+  if (!hasPositive || !hasNegative) {
+    return ZERO;
+  }
+
+  let low = -0.999;
+  let high = 0.5;
+  let npvLow = evaluateNpv(prepared, low);
+  let npvHigh = evaluateNpv(prepared, high);
+
+  for (let expand = 0; expand < 128 && npvLow.times(npvHigh).gt(0); expand += 1) {
+    if (npvLow.gt(0) && npvHigh.gt(0)) {
+      high += 1;
+      npvHigh = evaluateNpv(prepared, high);
+      continue;
+    }
+    if (npvLow.lt(0) && npvHigh.lt(0)) {
+      const nextLow = Math.max(-0.9999, low - 0.5);
+      if (nextLow == low) {
+        break;
+      }
+      low = nextLow;
+      npvLow = evaluateNpv(prepared, low);
+      continue;
+    }
+    break;
+  }
+
+  if (npvLow.isZero()) {
+    return roundDecimal(d(low), 12);
+  }
+  if (npvHigh.isZero()) {
+    return roundDecimal(d(high), 12);
+  }
+  if (npvLow.times(npvHigh).gt(0)) {
+    return ZERO;
+  }
+
+  const toleranceDecimal = d(tolerance);
+  let result = (low + high) / 2;
+
+  for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+    const mid = (low + high) / 2;
+    const npvMid = evaluateNpv(prepared, mid);
+
+    if (npvMid.abs().lte(toleranceDecimal)) {
+      result = mid;
+      break;
+    }
+
+    if (npvLow.times(npvMid).lt(0)) {
+      high = mid;
+      npvHigh = npvMid;
+      result = mid;
+    } else {
+      low = mid;
+      npvLow = npvMid;
+      result = mid;
+    }
+  }
+
+  return roundDecimal(d(result), 12);
+}
+
+export function computeMoneyWeightedReturn({ transactions, navRows, startDate, endDate }) {
+  if (!Array.isArray(navRows) || navRows.length === 0 || !startDate || !endDate) {
+    return ZERO;
+  }
+  const startKey = toDateKey(startDate);
+  const endKey = toDateKey(endDate);
+  if (!startKey || !endKey) {
+    return ZERO;
+  }
+
+  const navByDate = new Map(
+    navRows.map((row) => [row.date, d(row.portfolio_nav ?? 0)]),
+  );
+  const flowsByDate = externalFlowsByDate(transactions ?? []);
+  const flows = new Map();
+  const addFlow = (dateKey, amount) => {
+    if (!amount || !amount.isFinite() || amount.isZero()) {
+      return;
+    }
+    const existing = flows.get(dateKey) ?? ZERO;
+    flows.set(dateKey, existing.plus(amount));
+  };
+
+  const startNav = navByDate.get(startKey) ?? ZERO;
+  const endNav = navByDate.get(endKey) ?? ZERO;
+  const startFlow = flowsByDate.get(startKey) ?? ZERO;
+  const initialCapital = startNav.minus(startFlow);
+  if (initialCapital.gt(0)) {
+    addFlow(startKey, initialCapital.neg());
+  }
+
+  for (const [dateKey, flow] of flowsByDate.entries()) {
+    if (dateKey < startKey || dateKey > endKey) {
+      continue;
+    }
+    addFlow(dateKey, flow.neg());
+  }
+
+  if (endNav.gt(0) || flows.has(endKey)) {
+    addFlow(endKey, endNav);
+  }
+
+  const flowEntries = Array.from(flows.entries())
+    .map(([date, amount]) => ({ date, amount }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (flowEntries.length < 2) {
+    return ZERO;
+  }
+
+  return computeXirr(flowEntries);
 }
 
 export function cumulativeDifference(rows) {

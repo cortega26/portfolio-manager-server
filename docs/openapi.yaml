@@ -206,6 +206,26 @@ paths:
                         type: number
                       allocation:
                         type: number
+                  money_weighted:
+                    type: object
+                    properties:
+                      portfolio:
+                        type: number
+                      start_date:
+                        type: string
+                        format: date
+                        nullable: true
+                      end_date:
+                        type: string
+                        format: date
+                        nullable: true
+                      method:
+                        type: string
+                        enum:
+                          - xirr
+                    required:
+                      - portfolio
+                      - method
   /api/portfolio/{id}:
     get:
       summary: Load a persisted portfolio definition

@@ -428,6 +428,7 @@ When the `features.cash_benchmarks` flag is active the API also exposes:
 - `GET /api/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench&page=1&per_page=100`
 - `GET /api/nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&page=1&per_page=100` (includes `stale_price` flag)
 - `GET /api/benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+  - Response includes `money_weighted.portfolio` (annualised XIRR) with `start_date`, `end_date`, and `method` fields describing the solved window.
 - `POST /api/admin/cash-rate` accepting `{ "effective_date": "YYYY-MM-DD", "apy": 0.04 }`
 
 List endpoints support `page`/`per_page` pagination (defaults: page 1, `per_page` 100) and return an additional `meta` block plus `ETag` headers for conditional requests. They also emit `Cache-Control: private, max-age=<API_CACHE_TTL_SECONDS>` to align browser caches with the server’s in-process TTL.

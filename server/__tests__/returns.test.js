@@ -6,6 +6,7 @@ import {
   computeDailyReturnRows,
   computeReturnStep,
   summarizeReturns,
+  computeMoneyWeightedReturn,
 } from '../finance/returns.js';
 import { d, roundDecimal } from '../finance/decimal.js';
 import { computeDailyStates } from '../finance/portfolio.js';
@@ -196,4 +197,55 @@ test('daily return rows survive JSON save/load round-trip for long sequences', (
   const summaryOriginal = summarizeReturns(rows);
   const summaryRestored = summarizeReturns(restoredRows);
   assert.deepEqual(summaryOriginal, summaryRestored);
+});
+
+test('computeMoneyWeightedReturn annualises single deposit', () => {
+  const transactions = [
+    { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+  ];
+  const navRows = [
+    { date: '2024-01-01', portfolio_nav: 1000 },
+    { date: '2024-01-31', portfolio_nav: 1100 },
+  ];
+  const result = computeMoneyWeightedReturn({
+    transactions,
+    navRows,
+    startDate: '2024-01-01',
+    endDate: '2024-01-31',
+  }).toNumber();
+  const expected = Math.pow(1100 / 1000, 365 / 30) - 1;
+  assert.ok(Math.abs(result - expected) < 1e-6);
+});
+
+test('computeMoneyWeightedReturn balances NPV for mixed flows', () => {
+  const transactions = [
+    { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+    { date: '2024-02-10', type: 'DEPOSIT', amount: 200 },
+    { date: '2024-02-20', type: 'WITHDRAWAL', amount: 150 },
+  ];
+  const navRows = [
+    { date: '2024-01-01', portfolio_nav: 1000 },
+    { date: '2024-02-29', portfolio_nav: 1175 },
+  ];
+  const rate = computeMoneyWeightedReturn({
+    transactions,
+    navRows,
+    startDate: '2024-01-01',
+    endDate: '2024-02-29',
+  }).toNumber();
+  const MS_PER_DAY = 86_400_000;
+  const earliest = new Date('2024-01-01T00:00:00Z');
+  const flows = [
+    { date: '2024-01-01', amount: -1000 },
+    { date: '2024-02-10', amount: -200 },
+    { date: '2024-02-20', amount: 150 },
+    { date: '2024-02-29', amount: 1175 },
+  ];
+  const presentValue = flows.reduce((acc, flow) => {
+    const current = new Date(`${flow.date}T00:00:00Z`);
+    const years = (current.getTime() - earliest.getTime()) / MS_PER_DAY / 365;
+    const discount = (1 + rate) ** years;
+    return acc + flow.amount / discount;
+  }, 0);
+  assert.ok(Math.abs(presentValue) < 1e-6);
 });
