@@ -43,6 +43,49 @@ export function buildCashReturnSeries({ rates, from, to }) {
   return map;
 }
 
+function prepareReturnSeries({ states, rates, spyPrices, transactions }) {
+  const dates = states.map((state) => state.date);
+  const flowsByDate = externalFlowsByDate(transactions);
+  const cashReturns = buildCashReturnSeries({
+    rates,
+    from: dates[0],
+    to: dates[dates.length - 1],
+  });
+  const spyReturnSeries = buildSpyReturnSeries({ spyPrices });
+  const { returns: allSpyReturns } = computeAllSpySeries({
+    dates,
+    flowsByDate,
+    spyPrices,
+  });
+
+  return { flowsByDate, cashReturns, spyReturnSeries, allSpyReturns };
+}
+
+function buildReturnRow({
+  state,
+  prevState,
+  flow,
+  cashReturns,
+  spyReturnSeries,
+  allSpyReturns,
+}) {
+  const { rPort, rExCash } = computeRollingReturns({ prevState, state, flow });
+  const rCash = cashReturns.get(state.date) ?? ZERO;
+  const rSpy = spyReturnSeries.get(state.date) ?? ZERO;
+  const rSpy100 = allSpyReturns.get(state.date) ?? rSpy;
+  const weightSource = resolveWeightSource(prevState, flow);
+  const rBench = computeBenchmarkReturn({ weightSource, rCash, rSpy });
+
+  return {
+    date: state.date,
+    r_port: roundDecimal(rPort, 8).toNumber(),
+    r_ex_cash: roundDecimal(rExCash, 8).toNumber(),
+    r_bench_blended: roundDecimal(rBench, 8).toNumber(),
+    r_spy_100: roundDecimal(rSpy100, 8).toNumber(),
+    r_cash: roundDecimal(rCash, 8).toNumber(),
+  };
+}
+
 export function computeAllSpySeries({ dates, flowsByDate, spyPrices }) {
   const prices = Array.from(spyPrices.entries()).sort((a, b) =>
     a[0].localeCompare(b[0]),
@@ -149,38 +192,24 @@ export function computeDailyReturnRows({
     return [];
   }
 
-  const dates = states.map((state) => state.date);
-  const flowsByDate = externalFlowsByDate(transactions);
-  const cashReturns = buildCashReturnSeries({
+  const context = prepareReturnSeries({
+    states,
     rates,
-    from: dates[0],
-    to: dates[dates.length - 1],
-  });
-  const spyReturnSeries = buildSpyReturnSeries({ spyPrices });
-  const { returns: allSpyReturns } = computeAllSpySeries({
-    dates,
-    flowsByDate,
     spyPrices,
+    transactions,
   });
 
   return states.map((state, index) => {
     const prevState = states[index - 1];
-    const flow = flowsByDate.get(state.date) ?? ZERO;
-    const { rPort, rExCash } = computeRollingReturns({ prevState, state, flow });
-    const rCash = cashReturns.get(state.date) ?? ZERO;
-    const rSpy = spyReturnSeries.get(state.date) ?? ZERO;
-    const rSpy100 = allSpyReturns.get(state.date) ?? rSpy;
-    const weightSource = resolveWeightSource(prevState, flow);
-    const rBench = computeBenchmarkReturn({ weightSource, rCash, rSpy });
-
-    return {
-      date: state.date,
-      r_port: roundDecimal(rPort, 8).toNumber(),
-      r_ex_cash: roundDecimal(rExCash, 8).toNumber(),
-      r_bench_blended: roundDecimal(rBench, 8).toNumber(),
-      r_spy_100: roundDecimal(rSpy100, 8).toNumber(),
-      r_cash: roundDecimal(rCash, 8).toNumber(),
-    };
+    const flow = context.flowsByDate.get(state.date) ?? ZERO;
+    return buildReturnRow({
+      state,
+      prevState,
+      flow,
+      cashReturns: context.cashReturns,
+      spyReturnSeries: context.spyReturnSeries,
+      allSpyReturns: context.allSpyReturns,
+    });
   });
 }
 
