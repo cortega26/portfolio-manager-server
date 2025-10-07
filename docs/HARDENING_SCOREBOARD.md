@@ -60,7 +60,7 @@ template) with no regressions detected.
 
 | ID        | Title                                      | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |-----------|--------------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
-| P4-UI-1   | Benchmark view toggles & blended charting  | TODO                                   | —      | —  | —                           | Derived from `docs/old_docs/AGENTS.md` Phase 4 plan: expose blended vs 100% SPY comparison controls in the dashboard chart. |
+| P4-UI-1   | Benchmark view toggles & blended charting  | DONE                                   | feat/phase4-benchmark-toggles | —  | README.md §Benchmark toggles & ROI comparisons; Tests: `npm test -- --coverage` | Dashboard ROI chart exposes persisted benchmark toggles (SPY, blended, ex-cash, cash) powered by `/api/returns/daily`. |
 | P4-UI-2   | KPI panel refresh for cash & benchmarks     | TODO                                   | —      | —  | —                           | Update dashboard KPIs to surface cash drag metrics alongside SPY benchmarks before Phase 4 sign-off. |
 | P4-DOC-1  | Frontend operations playbook                | TODO                                   | —      | —  | —                           | Document Admin tab workflows and benchmark toggles across README + docs once UI changes land. |
 
