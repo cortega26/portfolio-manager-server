@@ -1,4 +1,4 @@
-import { useReducer } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { formatCurrency } from "../utils/format.js";
 
 const defaultForm = {
@@ -36,7 +36,10 @@ function reducer(state, action) {
   }
 }
 
-function TransactionsTable({ transactions, onDeleteTransaction }) {
+const DEFAULT_PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
+
+function TransactionsTable({ offset, transactions, onDeleteTransaction }) {
   if (transactions.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -60,31 +63,39 @@ function TransactionsTable({ transactions, onDeleteTransaction }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-          {transactions.map((transaction, index) => (
-            <tr
-              key={`${transaction.ticker}-${transaction.date}-${index}`}
-              className="bg-white dark:bg-slate-900"
-            >
-              <td className="px-3 py-2">{transaction.date}</td>
-              <td className="px-3 py-2 font-semibold">{transaction.ticker}</td>
-              <td className="px-3 py-2">{transaction.type}</td>
-              <td className="px-3 py-2">
-                {formatCurrency(transaction.amount)}
-              </td>
-              <td className="px-3 py-2">{formatCurrency(transaction.price)}</td>
-              <td className="px-3 py-2">{transaction.shares.toFixed(4)}</td>
-              <td className="px-3 py-2 text-right">
-                <button
-                  type="button"
-                  onClick={() => onDeleteTransaction?.(index)}
-                  className="rounded-md border border-transparent px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10"
-                  aria-label={`Undo transaction for ${transaction.ticker} on ${transaction.date}`}
-                >
-                  Undo
-                </button>
-              </td>
-            </tr>
-          ))}
+          {transactions.map((transaction, index) => {
+            const globalIndex = offset + index;
+            const sharesDisplay =
+              typeof transaction.shares === "number"
+                ? transaction.shares.toFixed(4)
+                : "—";
+
+            return (
+              <tr
+                key={`${transaction.ticker}-${transaction.date}-${globalIndex}`}
+                className="bg-white dark:bg-slate-900"
+              >
+                <td className="px-3 py-2">{transaction.date}</td>
+                <td className="px-3 py-2 font-semibold">{transaction.ticker}</td>
+                <td className="px-3 py-2">{transaction.type}</td>
+                <td className="px-3 py-2">
+                  {formatCurrency(transaction.amount)}
+                </td>
+                <td className="px-3 py-2">{formatCurrency(transaction.price)}</td>
+                <td className="px-3 py-2">{sharesDisplay}</td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onDeleteTransaction?.(globalIndex)}
+                    className="rounded-md border border-transparent px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10"
+                    aria-label={`Undo transaction for ${transaction.ticker} on ${transaction.date}`}
+                  >
+                    Undo
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -94,10 +105,36 @@ function TransactionsTable({ transactions, onDeleteTransaction }) {
 export default function TransactionsTab({
   onAddTransaction,
   onDeleteTransaction,
-  transactions,
+  transactions = [],
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const { form, error } = state;
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [page, setPage] = useState(1);
+
+  const pagination = useMemo(() => {
+    const total = transactions.length;
+    const safePageSize = pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE;
+    const totalPages = Math.max(1, Math.ceil(total / safePageSize));
+    const currentPage = Math.min(page, totalPages);
+    const startIndex = (currentPage - 1) * safePageSize;
+    const endIndex = Math.min(startIndex + safePageSize, total);
+
+    return {
+      currentPage,
+      endIndex,
+      startIndex,
+      totalPages,
+      totalTransactions: total,
+      visibleTransactions: transactions.slice(startIndex, endIndex),
+    };
+  }, [page, pageSize, transactions]);
+
+  useEffect(() => {
+    if (pagination.currentPage !== page) {
+      setPage(pagination.currentPage);
+    }
+  }, [page, pagination.currentPage]);
 
   function updateForm(field, value) {
     dispatch({ type: "update", field, value });
@@ -161,6 +198,9 @@ export default function TransactionsTab({
         Math.abs(Number.parseFloat(form.price || 1))
       : null;
 
+  const { currentPage, endIndex, startIndex, totalPages, totalTransactions, visibleTransactions } =
+    pagination;
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
@@ -200,16 +240,18 @@ export default function TransactionsTab({
                 <option value="SELL">SELL</option>
                 <option value="DIVIDEND">DIVIDEND</option>
                 <option value="DEPOSIT">DEPOSIT</option>
-                <option value="WITHDRAW">WITHDRAW</option>
+                <option value="WITHDRAWAL">WITHDRAWAL</option>
+                <option value="INTEREST">INTEREST</option>
+                <option value="FEE">FEE</option>
               </select>
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               Amount (USD)
               <input
                 type="number"
-                step="0.01"
                 value={form.amount}
                 onChange={(event) => updateForm("amount", event.target.value)}
+                placeholder="e.g. 1000"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </label>
@@ -217,41 +259,110 @@ export default function TransactionsTab({
               Price (USD)
               <input
                 type="number"
-                step="0.01"
                 value={form.price}
                 onChange={(event) => updateForm("price", event.target.value)}
+                placeholder="e.g. 100"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </label>
-            <div className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Shares
-              <span className="mt-1 rounded-md border border-dashed border-slate-300 px-3 py-2 font-mono text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                {computedShares ? computedShares.toFixed(4) : "—"}
-              </span>
-            </div>
+            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+              Computed Shares
+              <input
+                type="text"
+                readOnly
+                value={
+                  computedShares === null
+                    ? "—"
+                    : Number(computedShares).toFixed(4)
+                }
+                className="mt-1 cursor-not-allowed rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                aria-live="polite"
+              />
+            </label>
           </div>
-          {error && (
-            <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
-          )}
-          <button
-            type="submit"
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-          >
-            Add Transaction
-          </button>
+
+          {error ? (
+            <p className="text-sm font-medium text-rose-600" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+              Add Transaction
+            </button>
+          </div>
         </form>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
+
+      <section aria-label="Recorded transactions" className="space-y-4">
         <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
           Recent Activity
         </h2>
-        <div className="mt-4">
-          <TransactionsTable
-            transactions={transactions}
-            onDeleteTransaction={onDeleteTransaction}
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            {totalTransactions === 0
+              ? "No transactions recorded yet."
+              : `Showing ${startIndex + 1}-${endIndex} of ${totalTransactions} transactions`}
+          </p>
+          {totalTransactions > 0 ? (
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+              Rows per page
+              <select
+                aria-label="Rows per page"
+                className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                onChange={(event) => {
+                  const nextValue = Number.parseInt(event.target.value, 10);
+                  setPageSize(Number.isFinite(nextValue) ? nextValue : DEFAULT_PAGE_SIZE);
+                  setPage(1);
+                }}
+                value={pageSize}
+              >
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
         </div>
-      </div>
+
+        <TransactionsTable
+          offset={startIndex}
+          onDeleteTransaction={onDeleteTransaction}
+          transactions={visibleTransactions}
+        />
+
+        {totalTransactions > pageSize ? (
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              aria-label="Previous page"
+              disabled={currentPage <= 1}
+            >
+              Previous
+            </button>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Page {currentPage} of {totalPages}
+            </p>
+            <button
+              type="button"
+              className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              aria-label="Next page"
+              disabled={currentPage >= totalPages}
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

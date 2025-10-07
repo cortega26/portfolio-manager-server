@@ -359,7 +359,8 @@ Price data for interactive queries is fetched from [Stooq](https://stooq.com/). 
 
 4. **Usage:**
    - Navigate using the tab bar at the top of the workspace. The active tab is persisted while you save or load data.
-   - Add transactions via the **Transactions** tab. Enter **amount** and **price**; shares are computed automatically before submission.
+  - Add transactions via the **Transactions** tab. Enter **amount** and **price**; shares are computed automatically before submission.
+  - Scroll-free pagination keeps transaction tables responsive — 50 rows per page by default with controls to change the page size or step through history.
    - Review metrics, ROI performance and quick actions from the **Dashboard** tab.
    - Configure signals and monitor allocation details from the **Holdings** tab. Percentage windows determine when the last price falls below or above your buy/trim zones.
    - Audit deposits, withdrawals, and realised cash flow via the **History** tab’s contribution trends and timeline.
