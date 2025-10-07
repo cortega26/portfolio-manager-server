@@ -26,21 +26,13 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-fund --no-audit
 
       - name: Run ESLint
         run: npm run lint
 
-      - name: Run tests
-        run: npm run test
-        env:
-          NODE_V8_COVERAGE: coverage
-
-      - name: Generate nyc coverage data
-        run: npx --yes nyc npm run test
-
-      - name: Enforce coverage thresholds
-        run: npx --yes nyc check-coverage --branches=85 --functions=85 --lines=85 --statements=85
+      - name: Run tests with coverage (single pass)
+        run: npm run test:coverage
 
       - name: Scan for secrets with gitleaks
         run: npx --yes gitleaks detect --no-banner

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test as baseTest } from 'node:test';
 
 import {
   YahooPriceProvider,
@@ -46,6 +46,9 @@ class PrimaryStub {
 }
 
 class FallbackStub extends PrimaryStub {}
+
+const skipNetwork = process.env.NO_NETWORK_TESTS === '1';
+const test = skipNetwork ? baseTest.skip : baseTest;
 
 test('YahooPriceProvider parses adjusted close values and logs latency', async () => {
   const fetchImpl = async () => ({ ok: true, text: async () => yahooCsv });
