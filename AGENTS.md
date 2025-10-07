@@ -1,180 +1,225 @@
+# AGENTS — Playbook for Automated Contributions (React/Vite/Express/Tailwind)
 
-<!-- markdownlint-disable -->
-# AGENTS.md — Portfolio Manager (Server Edition)
+> **Repository:** `cortega26/portfolio-manager-server`  
+> **Stack:** React + Vite (frontend), Express (backend), TailwindCSS, Node.js (npm)  
+> **Related docs:** `AI_IMPLEMENTATION_PROMPT.md`, `PHASE2_IMPLEMENTATION_PROMPT.md`, `docs/` (scoreboards & guides)
 
-**Repository:** `cortega26/portfolio-manager-server`  
-**Stack:** React + Vite + Tailwind (frontend), Node/Express (backend), file‑based persistence.  
-**Price source:** Stooq (adjusted daily data; no API key).  
-**Why this doc?** To orchestrate AI tasks (Codex) so it **edits code**, adds tests, and ships features — not just write reports.
-
----
-
-## 0) Context from the repo (source of truth)
-- Backend/API is an **Express** server with REST endpoints for prices and portfolio CRUD. Development flow runs `npm run server` for backend and `npm run dev` for Vite, per README.  
-- Portfolios persist to the `data/` directory; portfolio IDs are validated with the regex `[A-Za-z0-9_-]{1,64}` to prevent path traversal.  
-- Prices are fetched from **Stooq** (US tickers), and the UI benchmarks ROI vs **SPY** using daily price data.  
-- The repo already contains the file **`cash-and-benchmarks-action-plan.md`** with deliverables for cash & benchmarks.
-
-> These behaviors must be preserved while adding the cash & benchmark feature, improving quality and security.
+This playbook standardizes how an agent (e.g., Codex/Copilot/LLM) should **propose and apply safe changes** in this repo.
 
 ---
 
-## 1) MODE & RULES
-
-### MODE
-- **PEV (Plan → Execute → Verify)** on every task.
-- Use the Codex tier that satisfies acceptance criteria; **auto‑fallback** if blocked and record the fallback in a compliance note within the PR description.
-
-### RULES
-**R1 — Code Quality**
-- Respect existing toolchain; add ESLint + Prettier if missing. Keep functions focused (soft limit ≤80 LOC; cyclomatic complexity ≤10).
-
-**R2 — Security**
-- Validate inputs on all endpoints (IDs already validated; extend to query params). No `shell=True` equivalents, no unsafe `child_process`. Mask secrets in logs.
-
-**R3 — API Contracts**
-- Document all routes in OpenAPI (YAML or JSON). Version `/api` responses; don’t break clients.
-
-**R4 — Tests & Coverage**
-- Add unit tests (Jest or Vitest) and API tests (supertest). Target ≥85% coverage for **new** modules; snapshot tests allowed for API JSON.
-
-**R5 — Observability**
-- Use structured logging (e.g., `pino`). Include request ID, timing, and upstream fetch latency to Stooq.
-
-**R6 — DX**
-- `npm test`, `npm run dev`, `npm run server` keep working. Add `npm run lint`, `npm run typecheck` (if adding TS), and `npm run backfill` if implemented.
+## 0) Golden Rules (read before touching code)
+- **Make real edits, not reports.** Always create a branch and a PR with evidence (CI logs, coverage, diffs).
+- **Do not silence warnings.** If Node/React/Vite emits warnings, **fix the root cause** (migrate APIs or narrowly scope third‑party issues).
+- **Protect local data and secrets.** Never commit `data/` or `.env`; use `.env.example` as the contract.
+- **Preserve compatibility.** Prefer minimal, safe diffs; split risky or breaking changes into follow‑up PRs.
+- **Conventional Commits.** `feat|fix|chore|docs|refactor|test(scope): message`.
 
 ---
 
-## 2) Roles (AI Agents)
+## 1) Environment Setup
+1) Requirements (see README): Node 20.x and npm 9.x or newer.  
+2) Install dependencies:
+```bash
+npm ci
+```
+3) Prepare environment variables:
+```bash
+cp .env.example .env
+```
+4) Verify ports & paths (see README): `PORT`, `DATA_DIR`, CORS config, `VITE_API_BASE`, caching/TTL.
 
-### A. Orchestrator
-- Reads this AGENTS.md; creates/updates issues and PRs per phase. Ensures PEV and acceptance criteria are met.
-
-### B. Backend Engineer — Cash & Returns
-- Implement **cash as a position** (ticker `CASH`, price=1.0) with **daily interest accrual** via `INTEREST` internal transactions.
-- Build **TWR** calculators for: Portfolio (incl. cash), Ex‑cash sleeve, and **All‑SPY** ghost portfolio (using external flows).
-
-### C. Data Provider — Prices
-- Provide an adapter interface for price sources; default **Stooq**. Ensure **adjusted** values are used when available. Cache responses; respect timeout.
-
-### D. Benchmarks Analyst
-- Implement **blended benchmark** using daily weights w.r.t cash vs SPY. Produce Cash Drag metrics.
-
-### E. API Engineer
-- Add routes to serve returns, NAV snapshots, benchmarks, and set/get cash APY timeline. Validate inputs.
-
-### F. Frontend Integrator
-- Wire new series (Portfolio, Ex‑cash, All‑SPY, Blended) to charts (Recharts). Add toggle for **Blended vs 100% SPY** comparison and small KPI panel.
-
-### G. QA Engineer
-- Add golden tests and idempotency tests for interest accrual. Add backfill tests and API schema tests. Enforce coverage target.
-
-### H. SecOps
-- Add dependency audit, basic SAST (ESLint security rules), and HTTP hardening (helmet, CORS config).
+**Run locally** (separate terminals are fine):
+```bash
+npm run server   # backend (Express)
+npm run dev      # frontend (Vite)
+```
+Persistence sanity‑check: after adding a portfolio you should observe files like `data/portfolio_<id>.json` (not committed).
 
 ---
 
-## 3) Deliverables (feature + platform)
+## 2) Quality Policy (tests, coverage, strictness)
+- **Test runner:** Vitest (preferred). If Jest is present, keep parity; do not introduce heavy toolchains.
+- **Coverage:** enable `--coverage` and enforce thresholds (global ≥ **80%**, **changed files ≥ 90%**). Never lower thresholds.
+- **Order randomization:** run with shuffle to reveal order dependencies.
+- **Fail on warnings:** throw on `console.warn`/`console.error` during tests via `setupTests.ts/js`. Do not blanket‑mute.
+- **Node strict warnings:** on at least one pass locally and in CI:
+```bash
+NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm test -- --coverage
+```
 
-### Core Feature
-- `INTEREST` transaction type (internal).
-- Daily interest accrual from an APY timeline (admin‑editable); accrues on prior day’s closing balance.
-- TWR series: Portfolio incl‑cash, Ex‑cash sleeve, All‑SPY ghost.
-- Benchmarks: Blended (cash+SPY by actual weights) and 100% SPY.
-- New endpoints:
-  - `GET /api/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench`  
-  - `GET /api/nav/daily?from=...&to=...`  
-  - `GET /api/benchmarks/summary?from=...&to=...`  
-  - `POST /api/admin/cash-rate` (upsert `{effective_date, apy}`) — protected.
-- Docs: `docs/cash-benchmarks.md`, OpenAPI updated.
+### Mutation & Property Testing (when runtime allows)
+- **Mutation:** integrate StrykerJS for hot domain modules (ROI, cash accrual, SPY benchmark parity). Schedule nightly if runtime is heavy.
+- **Property‑based:** use `fast-check` to assert invariants (e.g., deposit scaling, zero‑return day leaves cumulative ROI unchanged, portfolio==SPY when trades mirror 1:1).
 
-### Platform Upgrades
-- Logging: `pino` middleware; latency metrics.
-- Validation: `zod`/`valibot` (or express‑validator) schemas for route inputs.
-- Tests: Jest/Vitest + supertest; coverage report.
-- CI: GitHub Actions runs lint, test, build, and a light e2e (API ping).
+**Example `setupTests.ts` snippet (Vitest):**
+```ts
+import { vi } from 'vitest';
 
----
+const throwOn = (method: 'warn' | 'error') => {
+  const orig = console[method];
+  vi.spyOn(console, method).mockImplementation((...args: unknown[]) => {
+    orig(...args);
+    const msg = String(args?.[0] ?? '');
+    throw new Error(`Console ${method}: ${msg}`);
+  });
+};
 
-## 4) Storage Model (file-based, no DB migration required)
-
-- Keep **file‑based** persistence under `data/`:
-  - `portfolio_<id>.json` — existing.
-  - `rates_<id>.json` or `cash_rates.json` — APY timeline.
-  - `nav_<id>.jsonl` — daily NAV snapshots (JSON lines, append‑only).
-  - `returns_<id>.jsonl` — daily returns and benchmark steps.
-- Provide a `backfill` script to recompute snapshots/returns from transactions for reproducibility.
-
----
-
-## 5) Acceptance Criteria (binary)
-
-- **A1**: Daily `INTEREST` entries posted for days with APY>0 and non‑zero cash; re‑runs are idempotent (no duplicates).
-- **A2**: `GET /api/returns/daily` returns 4 series (`r_port`, `r_ex_cash`, `r_spy_100`, `r_bench_blended`) for date ranges; inputs validated.
-- **A3**: Synthetic 50% cash test shows `R_port ≈ 0.5*R_SPY + 0.5*R_cash` within 1 bp over 1y.
-- **A4**: All‑SPY track equals the TWR of a portfolio that buys SPY with the same dated external flows (property test).
-- **A5**: Coverage ≥85% on new code; CI green.
-- **A6**: Price provider uses adjusted values; provider unit tests pass.
-- **A7**: API schemas documented; clients unaffected; legacy endpoints still behave as in README.
-- **A8**: Stooq request timeouts respected; failures degrade gracefully.
+throwOn('warn');
+throwOn('error');
+```
+Make sure this file is referenced in `vitest.config.ts` under `test.setupFiles`.
 
 ---
 
-## 6) Phases & Checklists
-
-### Phase 0 — Wire‑up
-- Detect package manager and scripts; keep `npm run dev` and `npm run server` behavior.
-- Feature flag `features.cash_benchmarks=true` in config.
-
-### Phase 1 — Models & Types
-- Add `INTEREST` type; extend validators.
-- Add cash APY timeline store. Create accrual utilities (`cash/dailyRate`, `cash/accrue`).
-
-### Phase 2 — Returns & Benchmarks
-- Implement TWR calculators and ghost SPY. Handle external vs internal flows.
-
-### Phase 3 — Endpoints
-- Implement GET/POST routes with validation and OpenAPI.
-
-### Phase 4 — Frontend
-- Add line series and toggles; adjust KPI panel.
-
-### Phase 5 — Tests & CI
-- Unit + API tests, coverage gate, CI workflow.
-
-### Phase 6 — Docs
-- Write `docs/cash-benchmarks.md`, update README and OpenAPI.
+## 3) Security & Compliance
+- **API keys per portfolio:** enforce strong keys; never store raw secrets; provide clear user feedback on weak keys.
+- **Secret scanning:** ensure CI includes gitleaks (or equivalent). Do not commit `.env` or `data/`.
+- **CORS:** restrict allowed origins via `CORS_ALLOWED_ORIGINS`.
+- **Rate limiting & logging:** structured logs with levels (`LOG_LEVEL`); add rate limiting for sensitive endpoints if missing.
 
 ---
 
-## 7) Guardrails (Do/Don’t)
+## 4) Agent Workflow (PEV: Plan → Execute → Verify)
 
-- **Do** modify files directly, create migrations/scripts/tests, and open PRs.
-- **Do** preserve ID validation and file persistence semantics.
-- **Don’t** switch storage engine without explicit instruction.
-- **Don’t** introduce breaking API changes.
-- **Don’t** aggregate monthly interest into one day if computing daily TWR.
+### 4.1 Discover & Normalize
+- Read `AI_IMPLEMENTATION_PROMPT.md` and `PHASE2_IMPLEMENTATION_PROMPT.md`.
+- If `docs/HARDENING_SCOREBOARD.md` exists, **sync statuses** (create it otherwise).
+- Build a task list with **ID, title, status, acceptance criteria**.
+
+### 4.2 Execute
+1) **Branch:** `feat|fix/<id>-<slug>`  
+2) Implement minimal, safe changes that satisfy acceptance criteria.
+3) **Tests:** add/adjust tests (Vitest + fast‑check). Avoid flakes (shuffle; clean fixtures).
+4) **Deprecations:** migrate React/Vite/Express/Node APIs instead of suppressing warnings.
+
+### 4.3 Verify (local & CI)
+- Lint & format: `npm run lint` / `npm run format` (if present).
+- Tests with coverage; one strict pass with `NODE_OPTIONS` as above.
+- Vite build: `npm run build`.
+- Attach in the PR: CI link, coverage before→after, mutation score (if applicable), and a short list of fixed warnings.
+
+---
+
+## 5) Default Acceptance Criteria (for any agent PR)
+- ✅ **CI green** (tests, build, lint and/or typecheck if configured).
+- ✅ **Coverage not reduced**; global ≥ 80%, changed files ≥ 90%.
+- ✅ **Zero project‑originated deprecations** during tests/build.
+- ✅ **Documentation updated**: README, `docs/HARDENING_SCOREBOARD.md`, and a clear PR changelog.
+- ✅ **Scoped change**; breaking changes or large refactors go in separate PRs.
 
 ---
 
-## 8) Commands (developer ergonomics)
-- `npm run server` — start Express API
-- `npm run dev` — Vite dev (proxy to `/api`)
-- Suggested additions:
-  - `npm run lint`
-  - `npm run test`
-  - `npm run backfill -- --from=YYYY-MM-DD --to=YYYY-MM-DD`
+## 6) Common Task Menu
+
+### A. Stabilize tests & eliminate deprecations
+- Reproduce failures and warnings; fix root causes.
+- Implement `setupTests` to fail on `console.warn/error`.
+- Ensure one strict CI run with `NODE_OPTIONS` deprecation throwing.
+
+### B. “Test the tests” (harden the suite)
+- Enable order randomization; pass 5 consecutive runs.
+- StrykerJS or anti‑tests + metamorphic tests for ROI/cash/benchmark modules.
+- Strengthen assertions; cover invariants.
+
+### C. Sync scoreboard & implement the first pending item
+- Parse `AI_IMPLEMENTATION_PROMPT.md`, update `docs/HARDENING_SCOREBOARD.md`.
+- If everything is up to date, implement the **first unresolved** item (or the earliest Quick Win ≤ 2h).
+
+### D. Backend endpoints/services (Express)
+- Robust input validation, correct status codes, time & timezone handling.
+- Timeouts & retry for external price fetch; caching with TTL from `.env`.
+- Structured error handling; avoid leaking internals to clients.
+
+### E. UI/UX (React + Vite + Tailwind)
+- Form validations for transactions; basic accessibility.
+- Clear error feedback from backend; sync `VITE_API_BASE`; performance‑friendly updates.
 
 ---
 
-## 9) How to prompt Codex (short form)
-
-> **Implement Cash & Benchmarks (edit files; ship code)**
-> - Follow AGENTS.md. Modify code, write tests, update docs. Keep existing dev scripts intact.
-> - Add daily interest accrual (`INTEREST`), TWR series, ghost SPY, blended benchmark, endpoints and UI toggle.
-> - Use adjusted price data via provider interface (Stooq default, cached).
-> - Add logging, input validation, tests (≥85% new code), and CI gates.
-> - If blocked, split minimally and deliver behind a feature flag; leave TODOs in `docs/cash-benchmarks.md#todo`.
+## 7) Repo Layout (quick guide)
+- `src/` → frontend (React + Vite)
+- `server/` → backend (Express routes/controllers)
+- `shared/` → shared utilities (types & helpers)
+- `data/` → on‑disk persistence (**do not commit**)
+- `docs/` → guides & scoreboards
+- `.github/workflows/` → CI (tests, build, security)
+- `*.config.*` → ESLint, Tailwind, PostCSS, Vite, etc.
 
 ---
+
+## 8) Templates
+
+### 8.1 PR Description (paste into PR)
+- **Summary:** what changed and why.
+- **Evidence:** CI link(s) + coverage (before/after) + mutation score (if applicable).
+- **Risks:** compatibility, data, security.
+- **Follow‑ups:** linked issues/PRs.
+
+### 8.2 Conventional Commits (examples)
+- `fix(server): correct ROI calculation for out‑of‑order deposits`
+- `test: add property‑based tests with fast‑check`
+- `chore(ci): run tests with strict NODE_OPTIONS`
+- `docs: sync HARDENING_SCOREBOARD`
+
+---
+
+## 9) Guardrails
+- **Never** lower coverage thresholds to get green CI.
+- **Never** disable warnings globally; if necessary, narrowly filter specific third‑party modules and explain why in code comments + PR.
+- **Never** add heavy dependencies without justification; prefer lightweight devDeps.
+
+---
+
+## 10) Reference Commands
+```bash
+# install
+npm ci
+
+# local dev
+npm run server &
+npm run dev
+
+# quality
+npm run lint --if-present
+npm run format --if-present
+
+# tests
+npm test -- --coverage
+NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm test -- --coverage
+
+# build
+npm run build
+```
+
+---
+
+## 11) Optional — CI Skeleton (GitHub Actions)
+```yaml
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm run typecheck --if-present
+      - run: npm test -- --coverage
+      - run: NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm test -- --coverage
+      - run: npm run build
+```
