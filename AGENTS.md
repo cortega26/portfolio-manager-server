@@ -40,6 +40,7 @@ Persistence sanity‑check: after adding a portfolio you should observe files li
 ---
 
 ## 2) Quality Policy (tests, coverage, strictness)
+- **Reference:** Follow the detailed [testing strategy guide](docs/testing-strategy.md) for expectations across unit, integration, property, and mutation layers.
 - **Test runner:** Vitest (preferred). If Jest is present, keep parity; do not introduce heavy toolchains.
 - **Coverage:** enable `--coverage` and enforce thresholds (global ≥ **80%**, **changed files ≥ 90%**). Never lower thresholds.
 - **Order randomization:** run with shuffle to reveal order dependencies.
