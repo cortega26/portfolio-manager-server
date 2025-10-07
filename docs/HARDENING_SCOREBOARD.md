@@ -2,7 +2,7 @@
 
 # Security Hardening Scoreboard
 
-Last Updated: 2025-10-07 (Phase 3 sync: code refactor, UI virtualisation, API versioning)
+Last Updated: 2025-10-08 (Phase 3 sync: API version routing + request IDs)
 
 Verification 2025-10-07: Reviewed `AI_IMPLEMENTATION_PROMPT.md` items and confirmed
 P1-DOC-1 through P1-DX-1 remain satisfied (README onboarding, API key validation,
@@ -51,7 +51,7 @@ audit logging middleware, `.env.example` template), with no new unchecked tasks.
 | CODE-2    | Magic numbers extraction        | DONE                                   | fix/code-2-magic-numbers | —  | shared/constants.js; server/app.js; server/config.js; server/middleware/validation.js; src/utils/portfolioSchema.js | Rate limit + transaction caps centralized in shared constants and consumed across backend/frontend. |
 | PERF-4    | Virtual scrolling for transactions | DONE                                | feat/perf-virtualized-transactions | —  | Tests: `npm test -- --runInBand` (`a6decd†L1-L35`); src/components/TransactionsTab.jsx | `react-window` list keeps table semantics, scroll-to-row verified, and virtualization toggles off for filtered subsets. |
 | PERF-5    | Debounced search & filters        | DONE                                | feat/perf-virtualized-transactions | —  | Tests: `npm test -- --runInBand` (`a6decd†L1-L35`); src/hooks/useDebouncedValue.js | 300 ms debounce shared between search + virtualization with hook unit tests covering invalid delay paths. |
-| API-1     | API versioning & headers          | DONE                                | feat/phase3-phase3-deliverables | —  | server/app.js; server/__tests__/integration.test.js; docs/openapi.yaml | `/api/v1` prefix added with request-id propagation; legacy rewrite bug fixed so price/cache endpoints resolve via v1. |
+| API-1     | API versioning & headers          | DONE                                | feat/api-version-routing | —  | server/app.js; server/__tests__/integration.test.js; server/__tests__/api_contract.test.js; docs/openapi.yaml | `/api/v1` prefix covered by contract tests; request-id headers exposed to clients and UI; OpenAPI duplicated for v1 with header schema. |
 | DOC-TEST-STRATEGY | Testing strategy guide   | DONE                                | feat/phase3-phase3-deliverables | —  | docs/testing-strategy.md; README.md (Testing & quality gates) | Dedicated guide published and cross-linked from README/AGENTS. |
 
 > Historical scoreboard snapshots remain available in git history prior to this commit.

@@ -226,6 +226,10 @@ emit a `Warning: 299` header encouraging migration and mark responses with
 - Provide an `X-Request-ID` header when available. The server echoes the value
   back (and generates one when omitted) so logs, clients, and monitoring tools
   can trace requests end to end.
+- Client helpers in `src/utils/api.js` return an object with `{ data, requestId,
+  version }` and accept an optional `onRequestMetadata` callback so dashboards
+  (e.g. the Admin tab) can surface trace IDs without re-parsing `fetch`
+  responses.
 
 Example:
 

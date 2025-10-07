@@ -129,8 +129,8 @@ export default function App() {
       const priceEntries = await Promise.all(
         uniqueTickers.map(async (ticker) => {
           try {
-            const data = await fetchPrices(ticker);
-            const latest = data.at(-1);
+            const { data: priceSeries } = await fetchPrices(ticker);
+            const latest = priceSeries.at(-1);
             return [ticker, latest?.close ?? 0];
           } catch (error) {
             console.error(error);
@@ -245,7 +245,7 @@ export default function App() {
     if (!currentKey) {
       throw new Error("API key required");
     }
-    const data = await retrievePortfolio(portfolioId, { apiKey: currentKey });
+    const { data } = await retrievePortfolio(portfolioId, { apiKey: currentKey });
     dispatchLedger({
       type: "replace",
       transactions: Array.isArray(data.transactions) ? data.transactions : [],

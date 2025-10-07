@@ -150,7 +150,9 @@ back to the Express request identifier.
 - ✅ **Performance monitoring endpoint (OBS-1)** – `/api/monitoring` reports cache hit ratios,
   lock metrics (active + queued), brute-force lockouts, and rate limiter telemetry for dashboards.
 - ✅ **Request ID middleware (OBS-3)** – The Pino adapter assigns UUIDs per request and echoes
-  `X-Request-ID` headers for downstream correlation.
+  `X-Request-ID` headers for downstream correlation. The client helpers now pass
+  those IDs back to the Admin dashboard and error toasts so operations teams can
+  copy/paste trace IDs without digging through developer tools.
 - ✅ **Admin dashboard (OBS-2)** – React admin tab visualises `/api/monitoring`, `/api/security/stats`,
   and `/api/security/events` data so operators can triage issues without hitting the API manually.
 - **Codebase cleanup (CODE-1, CODE-2)** – Track audit items for large functions and remaining magic
