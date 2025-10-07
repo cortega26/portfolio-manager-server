@@ -160,6 +160,13 @@ test('security stats endpoint reports active lockouts', async () => {
   assert.equal(stats.status, 200);
   assert.ok(stats.body.bruteForce);
   assert.ok(stats.body.bruteForce.activeLockouts >= 1);
+  assert.ok(Array.isArray(stats.body.bruteForce.lockouts));
+  const [firstLockout] = stats.body.bruteForce.lockouts;
+  assert.ok(firstLockout);
+  assert.equal(firstLockout.portfolioId, portfolioId);
+  assert.ok(typeof firstLockout.ip === 'string' || firstLockout.ip === null);
+  assert.ok(firstLockout.lockoutCount >= 1);
+  assert.ok(Number.isFinite(firstLockout.retryAfterSeconds));
   assert.ok(stats.body.rateLimit);
   assert.ok(stats.body.rateLimit.scopes.portfolio);
 });

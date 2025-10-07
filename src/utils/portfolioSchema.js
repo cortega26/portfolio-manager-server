@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { MAX_TRANSACTIONS_PER_PORTFOLIO } from "../../shared/constants.js";
+
 const ISO_DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/u;
 const TICKER_REGEX = /^[A-Za-z0-9._-]{1,32}$/u;
 
@@ -149,7 +151,10 @@ const settingsSchema = z
 
 export const portfolioPayloadSchema = z
   .object({
-    transactions: z.array(transactionSchema).max(250_000).default([]),
+    transactions: z
+      .array(transactionSchema)
+      .max(MAX_TRANSACTIONS_PER_PORTFOLIO)
+      .default([]),
     signals: signalsSchema.optional().default({}),
     settings: settingsSchema.optional().default({ autoClip: false }),
   })

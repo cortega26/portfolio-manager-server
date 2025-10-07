@@ -31,6 +31,16 @@ function createLockoutCache({ maxLockoutSeconds, checkPeriodSeconds }) {
 
 const toKey = (portfolioId, ip) => `${portfolioId ?? 'unknown'}::${ip ?? 'unknown'}`;
 
+function fromKey(key) {
+  if (typeof key !== 'string') {
+    return { portfolioId: null, ip: null };
+  }
+  const [portfolioPart = 'unknown', ipPart = 'unknown'] = key.split('::');
+  const portfolioId = portfolioPart === 'unknown' ? null : portfolioPart;
+  const ip = ipPart === 'unknown' ? null : ipPart;
+  return { portfolioId, ip };
+}
+
 export function configureBruteForce(options = {}) {
   config = {
     ...DEFAULT_CONFIG,
@@ -100,10 +110,30 @@ export function checkBruteForceLockout(portfolioId, ip, now = Date.now()) {
 }
 
 export function getBruteForceStats() {
+  const now = Date.now();
+  const lockouts = [];
+  for (const key of lockoutCache.keys()) {
+    const entry = lockoutCache.get(key);
+    if (!entry || entry.lockedUntil <= now) {
+      continue;
+    }
+    const { portfolioId, ip } = fromKey(key);
+    lockouts.push({
+      portfolioId,
+      ip,
+      lockoutCount: entry.lockoutCount,
+      lockedUntil: new Date(entry.lockedUntil).toISOString(),
+      retryAfterSeconds: Math.max(1, Math.ceil((entry.lockedUntil - now) / 1000)),
+      attempts: entry.attempts,
+    });
+  }
+  lockouts.sort((a, b) => b.retryAfterSeconds - a.retryAfterSeconds);
+
   return {
     config: { ...config },
     activeFailureKeys: failureCache.keys().length,
     activeLockouts: lockoutCache.keys().length,
+    lockouts,
   };
 }
 
