@@ -2,11 +2,13 @@
 
 # Security Hardening Scoreboard
 
-Last Updated: 2025-10-08 (Phase 3 sync: API version routing + request IDs; testing strategy guide finalized)
+Last Updated: 2025-10-09 (Phase 3 observability deliverables verified; Phase 4 frontend backlog staged)
 
-Verification 2025-10-07: Reviewed `AI_IMPLEMENTATION_PROMPT.md` items and confirmed
-P1-DOC-1 through P1-DX-1 remain satisfied (README onboarding, API key validation,
-audit logging middleware, `.env.example` template), with no new unchecked tasks.
+Verification 2025-10-09: Re-reviewed `AI_IMPLEMENTATION_PROMPT.md` alongside the
+merged codebase to confirm Phase 3 items (CODE-1, PERF-4, PERF-5, API-1,
+DOC-TEST-STRATEGY) remain green. P1-DOC-1 through P1-DX-1 are still satisfied
+(README onboarding, API key validation, audit logging middleware, `.env.example`
+template) with no regressions detected.
 
 ## Phase 1 — Immediate Priorities
 
@@ -45,14 +47,22 @@ audit logging middleware, `.env.example` template), with no new unchecked tasks.
 | ID        | Title                           | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |-----------|---------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
 | OBS-1     | Performance monitoring endpoint | DONE                                   | main   | —  | server/app.js (/api/monitoring); server/metrics/performanceMetrics.js; server/__tests__/monitoring_endpoint.test.js | Returns cache, rate limit, brute force, and lock stats for ops dashboards. |
-| OBS-2     | Admin dashboard                 | DONE                                   | feat/obs-2-admin-dashboard | —  | server/security/eventsStore.js; server/__tests__/security_events.test.js; server/__tests__/events_store.test.js; src/components/AdminTab.jsx; src/__tests__/AdminTab.test.jsx | React admin tab renders monitoring/security data, backend event store enforces limits, new tests cover buffer handling and UI wiring; docs + env template refreshed. |
+| OBS-2     | Admin dashboard                 | DONE                                   | main   | —  | server/security/eventsStore.js; server/__tests__/security_events.test.js; server/__tests__/events_store.test.js; src/components/AdminTab.jsx; src/__tests__/AdminTab.test.jsx | React admin tab renders monitoring/security data, backend event store enforces limits, new tests cover buffer handling and UI wiring; docs + env template refreshed. |
 | OBS-3     | Request ID tracking middleware  | DONE                                   | main   | —  | server/app.js (pinoHttp genReqId); server/__tests__/audit_log.test.js | Pino assigns UUIDs per request and propagates to audit logs. |
 | CODE-1    | Complex function refactoring    | DONE                                   | feat/code-1-refactor | —  | server/finance/portfolio.js; server/finance/returns.js; server/__tests__/ledger.property.test.js | Refactored ledger valuation helpers (complexity ↓ to ≤5) with strengthened property tests covering nav/return invariants. |
 | CODE-2    | Magic numbers extraction        | DONE                                   | fix/code-2-magic-numbers | —  | shared/constants.js; server/app.js; server/config.js; server/middleware/validation.js; src/utils/portfolioSchema.js | Rate limit + transaction caps centralized in shared constants and consumed across backend/frontend. |
-| PERF-4    | Virtual scrolling for transactions | DONE                                | feat/perf-virtualized-transactions | —  | Tests: `npm test -- --runInBand` (`a6decd†L1-L35`); src/components/TransactionsTab.jsx | `react-window` list keeps table semantics, scroll-to-row verified, and virtualization toggles off for filtered subsets. |
-| PERF-5    | Debounced search & filters        | DONE                                | feat/perf-virtualized-transactions | —  | Tests: `npm test -- --runInBand` (`a6decd†L1-L35`); src/hooks/useDebouncedValue.js | 300 ms debounce shared between search + virtualization with hook unit tests covering invalid delay paths. |
+| PERF-4    | Virtual scrolling for transactions | DONE                                | main   | —  | Tests: `npm test -- --runInBand` (`a6decd†L1-L35`); src/components/TransactionsTab.jsx | `react-window` list keeps table semantics, scroll-to-row verified, and virtualization toggles off for filtered subsets. |
+| PERF-5    | Debounced search & filters        | DONE                                | main   | —  | Tests: `npm test -- --runInBand` (`a6decd†L1-L35`); src/hooks/useDebouncedValue.js | 300 ms debounce shared between search + virtualization with hook unit tests covering invalid delay paths. |
 | API-1     | API versioning & headers          | DONE                                | feat/api-version-routing | —  | server/app.js; server/__tests__/integration.test.js; server/__tests__/api_contract.test.js; docs/openapi.yaml | `/api/v1` prefix covered by contract tests; request-id headers exposed to clients and UI; OpenAPI duplicated for v1 with header schema. |
 | DOC-TEST-STRATEGY | Testing strategy guide   | DONE                                | feat/phase3-phase3-deliverables | —  | docs/testing-strategy.md; README.md (Testing & quality gates) | Dedicated guide published and cross-linked from README/AGENTS. |
+
+## Phase 4 — Frontend Experience (Upcoming)
+
+| ID        | Title                                      | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
+|-----------|--------------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
+| P4-UI-1   | Benchmark view toggles & blended charting  | TODO                                   | —      | —  | —                           | Derived from `docs/old_docs/AGENTS.md` Phase 4 plan: expose blended vs 100% SPY comparison controls in the dashboard chart. |
+| P4-UI-2   | KPI panel refresh for cash & benchmarks     | TODO                                   | —      | —  | —                           | Update dashboard KPIs to surface cash drag metrics alongside SPY benchmarks before Phase 4 sign-off. |
+| P4-DOC-1  | Frontend operations playbook                | TODO                                   | —      | —  | —                           | Document Admin tab workflows and benchmark toggles across README + docs once UI changes land. |
 
 > Historical scoreboard snapshots remain available in git history prior to this commit.
 

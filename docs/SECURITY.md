@@ -91,7 +91,8 @@ const strongEnough = isApiKeyStrong(candidateKey);
 2. Correlate with `req.log` output (the security audit middleware attaches the structured payload to
    the request logger) to gather request context.
 3. Mitigate by tightening rate limits at the edge or enabling upstream WAF rules.
-4. Capture metrics for long-term monitoring (see open item OBS-1 in the scoreboard).
+4. Capture metrics for long-term monitoring using `/api/v1/monitoring`
+   (OBS-1 is complete) to confirm cache hit ratios and limiter pressure.
 
 ## Security Event Reference
 
@@ -155,8 +156,8 @@ back to the Express request identifier.
   copy/paste trace IDs without digging through developer tools.
 - ✅ **Admin dashboard (OBS-2)** – React admin tab visualises `/api/monitoring`, `/api/security/stats`,
   and `/api/security/events` data so operators can triage issues without hitting the API manually.
-- **Codebase cleanup (CODE-1, CODE-2)** – Track audit items for large functions and remaining magic
-  numbers as described in the scoreboard.
+- ✅ **Codebase cleanup (CODE-1, CODE-2)** – Refactors merged on `main`; continue
+  running complexity checks to guard against regressions.
 
 ## Further Reading
 
