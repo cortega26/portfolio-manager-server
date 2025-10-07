@@ -130,7 +130,11 @@ function shuffle(list, seed) {
 }
 
 function resolveC8Bin() {
-  return path.join(PROJECT_ROOT, 'node_modules', '.bin', process.platform === 'win32' ? 'c8.cmd' : 'c8');
+  // Return the actual JS entry point for c8 so we can invoke it
+  // with the node executable. Spawning the wrapper scripts
+  // (c8 / c8.cmd) directly can cause spawn EINVAL inside
+  // bash-like environments on Windows.
+  return path.join(PROJECT_ROOT, 'node_modules', 'c8', 'bin', 'c8.js');
 }
 
 async function main() {
@@ -155,8 +159,12 @@ async function main() {
     let command = process.execPath;
     let args = nodeArgs;
     if (options.coverage) {
-      command = resolveC8Bin();
+      // Invoke c8 via the node executable to avoid executing
+      // platform-specific wrappers directly.
+      const c8Js = resolveC8Bin();
+      command = process.execPath;
       args = [
+        c8Js,
         '--reporter=text',
         '--reporter=lcov',
         '--check-coverage',
