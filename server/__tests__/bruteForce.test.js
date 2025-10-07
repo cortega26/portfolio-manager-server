@@ -8,12 +8,14 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 
 import { createApp } from '../app.js';
+import { resetRateLimitMetrics } from '../metrics/rateLimitMetrics.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
 
 let dataDir;
 
 beforeEach(() => {
+  resetRateLimitMetrics();
   dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-bruteforce-'));
 });
 
@@ -156,6 +158,8 @@ test('security stats endpoint reports active lockouts', async () => {
 
   const stats = await request(app).get('/api/security/stats');
   assert.equal(stats.status, 200);
-  assert.ok('activeLockouts' in stats.body);
-  assert.ok(stats.body.activeLockouts >= 1);
+  assert.ok(stats.body.bruteForce);
+  assert.ok(stats.body.bruteForce.activeLockouts >= 1);
+  assert.ok(stats.body.rateLimit);
+  assert.ok(stats.body.rateLimit.scopes.portfolio);
 });
