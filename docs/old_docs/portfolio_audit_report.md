@@ -1,3 +1,4 @@
+<!-- markdownlint-disable -->
 # Portfolio Manager - Complete Audit Report & Action Plan
 
 **Project**: Portfolio Manager (Server Edition)  

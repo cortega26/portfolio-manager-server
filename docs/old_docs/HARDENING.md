@@ -1,3 +1,4 @@
+<!-- markdownlint-disable -->
 # Portfolio Manager — HARDENING.md (Security, Integrity & Reliability Plan)
 
 > Purpose: turn the app into a **boringly robust** system. This re‑audits the uploaded report, tightens weak spots,
