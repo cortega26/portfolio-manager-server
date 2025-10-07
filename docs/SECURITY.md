@@ -69,7 +69,8 @@ const strongEnough = isApiKeyStrong(candidateKey);
 
 1. Tail the backend logs filtered by `event_type: security`.
 2. Locate repeated `auth_failed` events for the affected portfolio ID or IP address.
-3. Check the brute-force stats endpoint (`GET /api/security/bruteforce/stats`) for active lockouts.
+3. Check the security stats endpoint (`GET /api/security/stats`) or the Admin dashboard lockout table
+   for active lockouts.
 4. If lockouts continue, temporarily raise the lockout duration via environment overrides and block
    the offending IP at the proxy or firewall.
 5. Rotate the portfolio API key after verifying the legitimate owner still has access.
@@ -126,6 +127,13 @@ back to the Express request identifier.
 | `BRUTE_FORCE_MAX_LOCKOUT_SECONDS`      | number  | 3600    | yes      | Upper bound for exponential lockouts |
 | `BRUTE_FORCE_LOCKOUT_MULTIPLIER`       | number  | 2       | yes      | Exponential backoff multiplier for repeated lockouts |
 | `BRUTE_FORCE_CHECK_PERIOD`             | number  | 60      | yes      | Interval for sweeping expired brute force entries |
+| `RATE_LIMIT_GENERAL_WINDOW_MS`         | number  | 60000   | yes      | Rolling window (ms) for general request limiter |
+| `RATE_LIMIT_GENERAL_MAX`               | number  | 100     | yes      | Requests allowed per window for general scope |
+| `RATE_LIMIT_PORTFOLIO_WINDOW_MS`       | number  | 60000   | yes      | Portfolio limiter window (ms) |
+| `RATE_LIMIT_PORTFOLIO_MAX`             | number  | 20      | yes      | Requests allowed per window for portfolio scope |
+| `RATE_LIMIT_PRICES_WINDOW_MS`          | number  | 60000   | yes      | Price lookup limiter window (ms) |
+| `RATE_LIMIT_PRICES_MAX`                | number  | 60      | yes      | Requests allowed per window for price scope |
+| `SECURITY_AUDIT_MAX_EVENTS`            | number  | 200     | no       | Maximum security audit events retained in memory for the Admin dashboard and `/api/security/events`. |
 | `LOG_LEVEL`                            | string  | info    | no       | Pino logger level |
 | `JOB_NIGHTLY_HOUR`                     | number  | 4       | no       | Hour of day to run nightly freshness job |
 | `VITE_API_BASE`                        | string  | http://localhost:3000 | no       | Frontend override for API origin |
@@ -141,8 +149,10 @@ back to the Express request identifier.
   add alerting thresholds.
 - ✅ **Performance monitoring endpoint (OBS-1)** – `/api/monitoring` reports cache hit ratios,
   lock metrics (active + queued), brute-force lockouts, and rate limiter telemetry for dashboards.
-- **Request ID middleware (OBS-3)** – Add a lightweight middleware to guarantee every request has a
-  stable `request_id` for correlation across services.
+- ✅ **Request ID middleware (OBS-3)** – The Pino adapter assigns UUIDs per request and echoes
+  `X-Request-ID` headers for downstream correlation.
+- ✅ **Admin dashboard (OBS-2)** – React admin tab visualises `/api/monitoring`, `/api/security/stats`,
+  and `/api/security/events` data so operators can triage issues without hitting the API manually.
 - **Codebase cleanup (CODE-1, CODE-2)** – Track audit items for large functions and remaining magic
   numbers as described in the scoreboard.
 
