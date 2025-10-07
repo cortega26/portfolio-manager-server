@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import request from 'supertest';
 
 import { createApp } from '../app.js';
+import { resetRateLimitMetrics } from '../metrics/rateLimitMetrics.js';
 
 class SilentLogger {
   info() {}
@@ -29,6 +30,7 @@ describe('security audit logging', () => {
   beforeEach(() => {
     dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-audit-log-'));
     events = [];
+    resetRateLimitMetrics();
     app = createApp({
       dataDir,
       logger: new SilentLogger(),
@@ -113,17 +115,17 @@ describe('security audit logging', () => {
     const rateApp = createApp({
       dataDir: rateDir,
       logger: new SilentLogger(),
-      auditSink: (event) => {
-        if (event?.event_type === 'security') {
-          rateEvents.push(event);
-        }
-      },
       config: {
         featureFlags: { cashBenchmarks: true },
         cors: { allowedOrigins: [] },
         rateLimit: {
           portfolio: { windowMs: 5_000, max: 1 },
         },
+      },
+      auditSink: (event) => {
+        if (event?.event_type === 'security') {
+          rateEvents.push(event);
+        }
       },
     });
 
