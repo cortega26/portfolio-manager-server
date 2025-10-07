@@ -229,6 +229,8 @@ paths:
   /api/portfolio/{id}:
     get:
       summary: Load a persisted portfolio definition
+      security:
+        - PortfolioKey: []
       parameters:
         - $ref: '#/components/parameters/PortfolioId'
         - $ref: '#/components/parameters/PortfolioKey'
@@ -247,6 +249,8 @@ paths:
           description: Portfolio not provisioned
     post:
       summary: Persist a portfolio definition
+      security:
+        - PortfolioKey: []
       parameters:
         - $ref: '#/components/parameters/PortfolioId'
         - $ref: '#/components/parameters/PortfolioKey'
@@ -268,11 +272,64 @@ paths:
                   status:
                     type: string
         '400':
-          description: Validation failure
+          description: Validation failure or weak API key
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/WeakKeyErrorResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                weakKey:
+                  summary: Weak API key rejection
+                  value:
+                    error: WEAK_KEY
+                    message: API key does not meet strength requirements
+                    requirements:
+                      - At least 12 characters
+                      - At least 1 uppercase letter
+                      - At least 1 lowercase letter
+                      - At least 1 number
+                      - At least 1 special character (!@#$%^&*)
+                validation:
+                  summary: Portfolio payload validation failure
+                  value:
+                    error: VALIDATION_ERROR
+                    message: Request could not be processed
+                    details:
+                      - path:
+                          - transactions
+                          - 0
+                          - amount
+                        message: Amount must be a finite number
         '401':
           description: Missing portfolio API key header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: NO_KEY
+                message: Portfolio key required.
         '403':
           description: Invalid portfolio API key header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: INVALID_KEY
+                message: Invalid portfolio key.
+        '429':
+          description: Too many invalid key attempts (temporary lockout)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: TOO_MANY_KEY_ATTEMPTS
+                message: Too many invalid portfolio key attempts. Try again later.
+                retry_after_seconds: 900
   /api/admin/cash-rate:
     post:
       summary: Upsert a cash APY effective date
@@ -405,3 +462,46 @@ components:
           properties:
             autoClip:
               type: boolean
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Stable machine-readable error code (e.g., VALIDATION_ERROR, WEAK_KEY).
+        message:
+          type: string
+          description: Human-readable description safe to surface in clients.
+        details:
+          description: Optional validation metadata or failure context.
+          oneOf:
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+            - type: object
+              additionalProperties: true
+        requirements:
+          type: array
+          description: Present on WEAK_KEY responses; enumerates password requirements.
+          items:
+            type: string
+        retry_after_seconds:
+          type: integer
+          minimum: 0
+          description: Seconds clients must wait before retrying after a lockout.
+    WeakKeyErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          required:
+            - requirements
+          properties:
+            error:
+              type: string
+              enum: ['WEAK_KEY']
+            requirements:
+              type: array
+              items:
+                type: string
