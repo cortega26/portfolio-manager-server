@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { forwardRef, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import clsx from "clsx";
+import { FixedSizeList } from "react-window";
+
+import useDebouncedValue from "../hooks/useDebouncedValue.js";
 import { formatCurrency } from "../utils/format.js";
 
 const defaultForm = {
@@ -38,66 +42,198 @@ function reducer(state, action) {
 
 const DEFAULT_PAGE_SIZE = 50;
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
+const VIRTUALIZATION_THRESHOLD = 200;
+const ROW_HEIGHT = 56;
+const VIRTUALIZED_MAX_HEIGHT = 480;
+const GRID_TEMPLATE =
+  "140px minmax(100px, 1fr) 120px 140px 140px 120px minmax(120px, 1fr)";
 
-function TransactionsTable({ offset, transactions, onDeleteTransaction }) {
+function formatTransactionMatchValue(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value).toLowerCase();
+}
+
+function matchesTransaction(transaction, term) {
+  if (!term) {
+    return true;
+  }
+
+  const normalized = term.trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+
+  return [
+    transaction.ticker,
+    transaction.type,
+    transaction.date,
+    transaction.shares,
+    transaction.amount,
+    transaction.price,
+  ]
+    .map((value) => formatTransactionMatchValue(value))
+    .some((value) => value.includes(normalized));
+}
+
+function TransactionRow({
+  index,
+  item,
+  onDeleteTransaction,
+  style,
+  rowIndexOffset = 0,
+}) {
+  const { transaction, originalIndex } = item;
+  const sharesDisplay =
+    typeof transaction.shares === "number"
+      ? transaction.shares.toFixed(4)
+      : "—";
+
+  return (
+    <div
+      aria-rowindex={rowIndexOffset + index + 2}
+      className={clsx(
+        "grid items-center border-b border-slate-200 px-3 py-2 text-sm transition-colors last:border-none dark:border-slate-800",
+        index % 2 === 0
+          ? "bg-white dark:bg-slate-900"
+          : "bg-slate-50 dark:bg-slate-900/70",
+      )}
+      role="row"
+      style={{
+        ...style,
+        display: "grid",
+        gridTemplateColumns: GRID_TEMPLATE,
+        width: "100%",
+      }}
+    >
+      <span className="truncate" role="cell">
+        {transaction.date}
+      </span>
+      <span className="font-semibold" role="cell">
+        {transaction.ticker}
+      </span>
+      <span role="cell">{transaction.type}</span>
+      <span role="cell">{formatCurrency(transaction.amount)}</span>
+      <span role="cell">{formatCurrency(transaction.price)}</span>
+      <span role="cell">{sharesDisplay}</span>
+      <span className="flex justify-end" role="cell">
+        <button
+          type="button"
+          onClick={() => onDeleteTransaction?.(originalIndex)}
+          className="rounded-md border border-transparent px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10"
+          aria-label={`Undo transaction for ${transaction.ticker} on ${transaction.date}`}
+        >
+          Undo
+        </button>
+      </span>
+    </div>
+  );
+}
+
+function VirtualizedRow({ index, style, data }) {
+  return (
+    <TransactionRow
+      index={index}
+      item={data.transactions[index]}
+      onDeleteTransaction={data.onDeleteTransaction}
+      style={style}
+      rowIndexOffset={0}
+    />
+  );
+}
+
+const VirtualizedRowGroup = forwardRef(function VirtualizedRowGroup(props, ref) {
+  return (
+    <div
+      {...props}
+      ref={ref}
+      role="rowgroup"
+      data-testid="transactions-virtual-list"
+      className={clsx("focus:outline-none", props.className)}
+    />
+  );
+});
+
+const VirtualizedInner = forwardRef(function VirtualizedInner(props, ref) {
+  return <div {...props} ref={ref} role="presentation" />;
+});
+
+function TransactionsTable({
+  transactions,
+  onDeleteTransaction,
+  virtualized,
+  rowIndexOffset = 0,
+  listRef,
+  hasSearch = false,
+  totalTransactions = 0,
+}) {
   if (transactions.length === 0) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        No transactions recorded yet.
+      <p className="text-sm text-slate-500 dark:text-slate-400" role="status">
+        {totalTransactions === 0
+          ? "No transactions recorded yet."
+          : hasSearch
+            ? "No transactions match your filters yet."
+            : "No transactions available."}
       </p>
     );
   }
 
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-        <thead className="bg-slate-50 dark:bg-slate-800/60">
-          <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-            <th className="px-3 py-2">Date</th>
-            <th className="px-3 py-2">Ticker</th>
-            <th className="px-3 py-2">Type</th>
-            <th className="px-3 py-2">Amount</th>
-            <th className="px-3 py-2">Price</th>
-            <th className="px-3 py-2">Shares</th>
-            <th className="px-3 py-2 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-          {transactions.map((transaction, index) => {
-            const globalIndex = offset + index;
-            const sharesDisplay =
-              typeof transaction.shares === "number"
-                ? transaction.shares.toFixed(4)
-                : "—";
+  const listHeight = Math.min(
+    Math.max(ROW_HEIGHT * 6, transactions.length * ROW_HEIGHT),
+    VIRTUALIZED_MAX_HEIGHT,
+  );
 
-            return (
-              <tr
-                key={`${transaction.ticker}-${transaction.date}-${globalIndex}`}
-                className="bg-white dark:bg-slate-900"
-              >
-                <td className="px-3 py-2">{transaction.date}</td>
-                <td className="px-3 py-2 font-semibold">{transaction.ticker}</td>
-                <td className="px-3 py-2">{transaction.type}</td>
-                <td className="px-3 py-2">
-                  {formatCurrency(transaction.amount)}
-                </td>
-                <td className="px-3 py-2">{formatCurrency(transaction.price)}</td>
-                <td className="px-3 py-2">{sharesDisplay}</td>
-                <td className="px-3 py-2 text-right">
-                  <button
-                    type="button"
-                    onClick={() => onDeleteTransaction?.(globalIndex)}
-                    className="rounded-md border border-transparent px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10"
-                    aria-label={`Undo transaction for ${transaction.ticker} on ${transaction.date}`}
-                  >
-                    Undo
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
+      <div role="table" aria-label="Transactions" className="w-full">
+        <div
+          role="rowgroup"
+          className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-300"
+        >
+          <div
+            role="row"
+            className="grid grid-cols-[140px_minmax(100px,1fr)_120px_140px_140px_120px_minmax(120px,1fr)] items-center px-3 py-2"
+          >
+            <span role="columnheader">Date</span>
+            <span role="columnheader">Ticker</span>
+            <span role="columnheader">Type</span>
+            <span role="columnheader">Amount</span>
+            <span role="columnheader">Price</span>
+            <span role="columnheader">Shares</span>
+            <span className="text-right" role="columnheader">
+              Actions
+            </span>
+          </div>
+        </div>
+        {virtualized ? (
+          <FixedSizeList
+            height={listHeight}
+            innerElementType={VirtualizedInner}
+            itemCount={transactions.length}
+            itemData={{ transactions, onDeleteTransaction }}
+            itemSize={ROW_HEIGHT}
+            outerElementType={VirtualizedRowGroup}
+            ref={listRef ?? undefined}
+            width="100%"
+          >
+            {VirtualizedRow}
+          </FixedSizeList>
+        ) : (
+          <div role="rowgroup">
+            {transactions.map((item, index) => (
+              <TransactionRow
+                key={`${item.transaction.ticker}-${item.transaction.date}-${item.originalIndex}`}
+                index={index}
+                item={item}
+                onDeleteTransaction={onDeleteTransaction}
+                rowIndexOffset={rowIndexOffset}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -111,30 +247,64 @@ export default function TransactionsTab({
   const { form, error } = state;
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const listRef = useRef(null);
 
-  const pagination = useMemo(() => {
-    const total = transactions.length;
-    const safePageSize = pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE;
-    const totalPages = Math.max(1, Math.ceil(total / safePageSize));
-    const currentPage = Math.min(page, totalPages);
-    const startIndex = (currentPage - 1) * safePageSize;
-    const endIndex = Math.min(startIndex + safePageSize, total);
+  const indexedTransactions = useMemo(
+    () =>
+      transactions.map((transaction, originalIndex) => ({
+        originalIndex,
+        transaction,
+      })),
+    [transactions],
+  );
 
-    return {
-      currentPage,
-      endIndex,
-      startIndex,
-      totalPages,
-      totalTransactions: total,
-      visibleTransactions: transactions.slice(startIndex, endIndex),
-    };
-  }, [page, pageSize, transactions]);
+  const filteredTransactions = useMemo(() => {
+    if (!debouncedSearch) {
+      return indexedTransactions;
+    }
+
+    return indexedTransactions.filter(({ transaction }) =>
+      matchesTransaction(transaction, debouncedSearch),
+    );
+  }, [debouncedSearch, indexedTransactions]);
+
+  const totalTransactions = indexedTransactions.length;
+  const filteredCount = filteredTransactions.length;
+  const safePageSize = pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE;
+  const virtualized = filteredCount > VIRTUALIZATION_THRESHOLD;
+  const totalPages = virtualized
+    ? 1
+    : Math.max(1, Math.ceil(filteredCount / safePageSize));
+  const currentPage = virtualized ? 1 : Math.min(page, totalPages);
+  const startIndex = virtualized ? 0 : (currentPage - 1) * safePageSize;
+  const endIndex = virtualized
+    ? filteredCount
+    : Math.min(startIndex + safePageSize, filteredCount);
+
+  const visibleTransactions = useMemo(() => {
+    if (virtualized) {
+      return filteredTransactions;
+    }
+    return filteredTransactions.slice(startIndex, endIndex);
+  }, [filteredTransactions, startIndex, endIndex, virtualized]);
 
   useEffect(() => {
-    if (pagination.currentPage !== page) {
-      setPage(pagination.currentPage);
+    if (!virtualized && currentPage !== page) {
+      setPage(currentPage);
     }
-  }, [page, pagination.currentPage]);
+  }, [currentPage, page, virtualized]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    if (listRef.current && typeof listRef.current.scrollTo === "function") {
+      listRef.current.scrollTo(0);
+    }
+  }, [debouncedSearch, filteredCount, virtualized]);
 
   function updateForm(field, value) {
     dispatch({ type: "update", field, value });
@@ -169,11 +339,6 @@ export default function TransactionsTab({
       return;
     }
 
-    if (Math.abs(amountValue) <= 0) {
-      recordError("Amount must be non-zero.");
-      return;
-    }
-
     const shares = Math.abs(amountValue) / Math.abs(priceValue);
 
     const payload = {
@@ -198,8 +363,34 @@ export default function TransactionsTab({
         Math.abs(Number.parseFloat(form.price || 1))
       : null;
 
-  const { currentPage, endIndex, startIndex, totalPages, totalTransactions, visibleTransactions } =
-    pagination;
+  const hasSearch = Boolean(debouncedSearch?.trim());
+  const showingStart =
+    filteredCount === 0 ? 0 : virtualized ? 1 : startIndex + 1;
+  const showingEnd = virtualized
+    ? filteredCount
+    : Math.min(endIndex, filteredCount);
+  const startLabel = showingStart.toLocaleString();
+  const endLabel = showingEnd.toLocaleString();
+  const filteredLabel = filteredCount.toLocaleString();
+  const totalLabel = totalTransactions.toLocaleString();
+  const summaryText = (() => {
+    if (totalTransactions === 0) {
+      return "No transactions recorded yet.";
+    }
+    if (filteredCount === 0) {
+      return hasSearch
+        ? "No transactions match your filters."
+        : "No transactions recorded yet.";
+    }
+    if (virtualized) {
+      const base = `Showing ${filteredLabel} of ${totalLabel} transactions`;
+      return hasSearch ? `${base} (filtered)` : base;
+    }
+    const base = `Showing ${startLabel}-${endLabel} of ${filteredLabel} transactions`;
+    return hasSearch
+      ? `${base} (filtered from ${totalLabel})`
+      : base;
+  })();
 
   return (
     <div className="space-y-6">
@@ -225,8 +416,8 @@ export default function TransactionsTab({
                 type="text"
                 value={form.ticker}
                 onChange={(event) => updateForm("ticker", event.target.value)}
-                placeholder="e.g. AAPL"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                placeholder="Enter ticker symbol"
               />
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -236,49 +427,42 @@ export default function TransactionsTab({
                 onChange={(event) => updateForm("type", event.target.value)}
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               >
-                <option value="BUY">BUY</option>
-                <option value="SELL">SELL</option>
-                <option value="DIVIDEND">DIVIDEND</option>
-                <option value="DEPOSIT">DEPOSIT</option>
-                <option value="WITHDRAWAL">WITHDRAWAL</option>
-                <option value="INTEREST">INTEREST</option>
-                <option value="FEE">FEE</option>
+                <option value="BUY">Buy</option>
+                <option value="SELL">Sell</option>
+                <option value="DEPOSIT">Deposit</option>
+                <option value="WITHDRAWAL">Withdrawal</option>
+                <option value="DIVIDEND">Dividend</option>
+                <option value="INTEREST">Interest</option>
               </select>
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Amount (USD)
+              Amount
               <input
                 type="number"
                 value={form.amount}
                 onChange={(event) => updateForm("amount", event.target.value)}
-                placeholder="e.g. 1000"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                step="0.01"
+                placeholder="Amount in USD"
               />
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Price (USD)
+              Price
               <input
                 type="number"
                 value={form.price}
                 onChange={(event) => updateForm("price", event.target.value)}
-                placeholder="e.g. 100"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                step="0.01"
+                placeholder="Price per share"
               />
             </label>
-            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Computed Shares
-              <input
-                type="text"
-                readOnly
-                value={
-                  computedShares === null
-                    ? "—"
-                    : Number(computedShares).toFixed(4)
-                }
-                className="mt-1 cursor-not-allowed rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                aria-live="polite"
-              />
-            </label>
+            <div className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+              Estimated Shares
+              <div className="mt-1 rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                {computedShares ? computedShares.toFixed(4) : "—"}
+              </div>
+            </div>
           </div>
 
           {error ? (
@@ -303,41 +487,57 @@ export default function TransactionsTab({
           Recent Activity
         </h2>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-600 dark:text-slate-300">
-            {totalTransactions === 0
-              ? "No transactions recorded yet."
-              : `Showing ${startIndex + 1}-${endIndex} of ${totalTransactions} transactions`}
-          </p>
+          <p className="text-sm text-slate-600 dark:text-slate-300">{summaryText}</p>
           {totalTransactions > 0 ? (
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-              Rows per page
-              <select
-                aria-label="Rows per page"
-                className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                onChange={(event) => {
-                  const nextValue = Number.parseInt(event.target.value, 10);
-                  setPageSize(Number.isFinite(nextValue) ? nextValue : DEFAULT_PAGE_SIZE);
-                  setPage(1);
-                }}
-                value={pageSize}
-              >
-                {PAGE_SIZE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                <span className="whitespace-nowrap">Rows per page</span>
+                <select
+                  aria-label="Rows per page"
+                  className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  onChange={(event) => {
+                    const nextValue = Number.parseInt(event.target.value, 10);
+                    setPageSize(
+                      Number.isFinite(nextValue) ? nextValue : DEFAULT_PAGE_SIZE,
+                    );
+                    setPage(1);
+                  }}
+                  value={pageSize}
+                  disabled={virtualized}
+                >
+                  {PAGE_SIZE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                <span className="whitespace-nowrap">Search</span>
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Ticker, type, date…"
+                  className="w-full min-w-[200px] rounded-md border border-slate-300 px-3 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  aria-label="Search transactions"
+                />
+              </label>
+            </div>
           ) : null}
         </div>
 
         <TransactionsTable
-          offset={startIndex}
           onDeleteTransaction={onDeleteTransaction}
           transactions={visibleTransactions}
+          virtualized={virtualized}
+          listRef={virtualized ? listRef : null}
+          rowIndexOffset={virtualized ? 0 : startIndex}
+          hasSearch={hasSearch}
+          totalTransactions={totalTransactions}
         />
 
-        {totalTransactions > pageSize ? (
+        {!virtualized && filteredCount > pageSize ? (
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"

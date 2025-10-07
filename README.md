@@ -174,17 +174,17 @@ curl "http://localhost:3000/api/v1/returns/daily?from=2024-01-01&to=2024-12-31" 
 
 ### Handling large portfolios
 
-- The **Transactions** tab now renders via `react-window`. You can scroll through
-  10 000+ rows smoothly while the component only mounts the visible subset.
-- Search and filter inputs are debounced (~300 ms) so repeated keystrokes no
-  longer trigger full re-renders. Combine the ticker/type filters to narrow the
-  data set quickly.
-- When the filtered list drops below 250 rows the table automatically returns to
-  paginated mode—ideal for quick comparisons without a scrollbar.
-
-Performance guardrails live in
-[`src/__tests__/Transactions.integration.test.jsx`](src/__tests__/Transactions.integration.test.jsx);
-update them if you adjust the debounce window or row height.
+- The **Transactions** tab renders via `react-window`, virtualising anything
+  above ~200 rows. Scroll through 10 000+ items while only the visible subset is
+  mounted, preserving the existing table semantics and Undo actions.
+- Search input changes flow through a shared 300 ms debounce so rapid typing
+  does not churn the virtualised list. When a filter narrows the results below
+  the threshold the component automatically snaps back to paginated mode for
+  quick comparisons.
+- Tests in
+  [`src/__tests__/Transactions.integration.test.jsx`](src/__tests__/Transactions.integration.test.jsx)
+  exercise virtual scroll, filter resets, and the scroll-to-row behaviour—tune
+  the debounce window or row height in lockstep with those assertions.
 
 ### Bulk CSV import
 
