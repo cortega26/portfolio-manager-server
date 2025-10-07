@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
 import {
+  MAX_TRANSACTIONS_PER_PORTFOLIO,
+  SECURITY_AUDIT_DEFAULT_QUERY_LIMIT,
+  SECURITY_AUDIT_MAX_QUERY_LIMIT,
+} from '../../shared/constants.js';
+
+import {
   API_KEY_MIN_LENGTH,
   API_KEY_REGEX,
   API_KEY_REQUIREMENTS,
@@ -176,7 +182,10 @@ const signalsSchema = z
 
 const portfolioBodySchema = z
   .object({
-    transactions: z.array(transactionSchema).max(250_000).default([]),
+    transactions: z
+      .array(transactionSchema)
+      .max(MAX_TRANSACTIONS_PER_PORTFOLIO)
+      .default([]),
     signals: signalsSchema.optional().default({}),
     settings: z
       .object({
@@ -235,6 +244,22 @@ const rangeQuerySchema = z
     perPage: value.per_page,
   }));
 
+const securityEventsQuerySchema = z
+  .object({
+    limit: z
+      .coerce.number({ invalid_type_error: 'Limit must be a number' })
+      .int('Limit must be an integer')
+      .min(1, 'Limit must be at least 1')
+      .max(
+        SECURITY_AUDIT_MAX_QUERY_LIMIT,
+        `Limit cannot exceed ${SECURITY_AUDIT_MAX_QUERY_LIMIT}`,
+      )
+      .default(SECURITY_AUDIT_DEFAULT_QUERY_LIMIT),
+  })
+  .transform((value) => ({
+    limit: value.limit,
+  }));
+
 const cashRateBodySchema = z.object({
   effective_date: isoDateSchema,
   apy: numeric('APY must be a finite number'),
@@ -279,6 +304,10 @@ export const validatePortfolioBody = parseWith(portfolioBodySchema, 'body');
 export const validateCashRateBody = parseWith(cashRateBodySchema, 'body');
 export const validateReturnsQuery = parseWith(returnsQuerySchema, 'query');
 export const validateRangeQuery = parseWith(rangeQuerySchema, 'query');
+export const validateSecurityEventsQuery = parseWith(
+  securityEventsQuerySchema,
+  'query',
+);
 
 export {
   isoDateSchema,
@@ -287,6 +316,7 @@ export {
   returnsQuerySchema,
   rangeQuerySchema,
   cashRateBodySchema,
+  securityEventsQuerySchema,
   apiKeySchema,
   validationErrorFromZod,
   API_KEY_REQUIREMENTS,
