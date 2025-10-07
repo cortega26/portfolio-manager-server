@@ -46,7 +46,7 @@ function buildPortfolioHeaders({ apiKey, newApiKey } = {}, baseHeaders = {}) {
 }
 
 function trimTrailingSlash(value) {
-  return value.replace(/\/+$\/u, "");
+  return value.replace(/\/+$/u, "");
 }
 
 function normalizePath(path) {
@@ -197,6 +197,65 @@ export async function fetchPrices(symbol, range = "1y", options = {}) {
   return requestJson(`/prices/${encodedSymbol}${query ? `?${query}` : ""}`, {
     signal: options.signal,
     onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+const RETURN_VIEWS = new Set(["port", "excash", "spy", "bench", "cash"]);
+
+function normalizeDateParam(value) {
+  if (!value) {
+    return undefined;
+  }
+  if (value instanceof Date && Number.isFinite(value.getTime?.())) {
+    return value.toISOString().slice(0, 10);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return undefined;
+}
+
+function buildReturnViewsParam(views) {
+  if (!Array.isArray(views) || views.length === 0) {
+    return "port,spy,bench";
+  }
+  const normalized = Array.from(
+    new Set(
+      views
+        .map((view) => String(view).toLowerCase())
+        .filter((view) => RETURN_VIEWS.has(view)),
+    ),
+  );
+  if (normalized.length === 0) {
+    return "port,spy,bench";
+  }
+  return normalized.join(",");
+}
+
+export async function fetchDailyReturns({
+  from,
+  to,
+  views,
+  signal,
+  onRequestMetadata,
+} = {}) {
+  const params = new URLSearchParams();
+  const normalizedFrom = normalizeDateParam(from);
+  const normalizedTo = normalizeDateParam(to);
+  if (normalizedFrom) {
+    params.set("from", normalizedFrom);
+  }
+  if (normalizedTo) {
+    params.set("to", normalizedTo);
+  }
+  params.set("views", buildReturnViewsParam(views));
+  const query = params.toString();
+  return requestJson(`/returns/daily${query ? `?${query}` : ""}`, {
+    signal,
+    onRequestMetadata,
   });
 }
 
