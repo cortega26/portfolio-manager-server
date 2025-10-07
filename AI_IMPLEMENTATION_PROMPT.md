@@ -1,115 +1,87 @@
 <!-- markdownlint-disable -->
-# Task: Advance Phase 3 Improvements for Portfolio Manager
+# Task: Kick Off Phase 4 Frontend Experience for Portfolio Manager
 
 ## Context Snapshot (October 2025)
 - **Project**: Node.js/React portfolio manager with Express backend (`server/`) and Vite frontend (`src/`).
-- **Baseline**: Phases 1 & 2 from `comprehensive_audit_v3.md` are complete on `main`.
-  - README onboarding, API key policy, audit logging, `.env.example`, brute-force guard, caching, compression, bundle splits, and admin observability are already merged. See `docs/HARDENING_SCOREBOARD.md` for verification.
-- **Remaining Gaps**: Audit section 5 (CODE-1) and section 4 (PERF-4, PERF-5) call out maintainability and UI scalability gaps that are still open in the current repo state.
-- **Primary Sources**: `comprehensive_audit_v3.md`, `docs/HARDENING_SCOREBOARD.md`, `README.md`, and existing implementation in `server/` + `src/`.
+- **Baseline**: Phases 1–3 from `comprehensive_audit_v3.md` are merged on `main` (security hardening, documentation refresh, observability dashboards, virtualization, API versioning, testing strategy).
+- **Current Focus**: Phase 4 items highlighted in `docs/HARDENING_SCOREBOARD.md` under "Frontend Experience" — benchmark view toggles (P4-UI-1), KPI panel refresh (P4-UI-2), and frontend operations playbook (P4-DOC-1).
+- **Primary Sources**: `comprehensive_audit_v3.md` (UX + benchmark findings), `docs/HARDENING_SCOREBOARD.md`, `docs/cash-benchmarks.md`, existing dashboard implementation in `src/components/` and shared utilities in `shared/`.
 
-## Active Objectives (Phase 3)
+## Active Objectives (Phase 4)
 
-### 1. CODE-1 — Refactor High-Complexity Finance Functions (Priority: 🟢 Low, Effort: 4h)
-**Goal**: Reduce cyclomatic complexity for `buildHoldings` and `computeDailyReturnRows` (see audit §5 "Code Quality" and §8 "Quarter 1").
-
-**Scope**:
-- `server/finance/portfolio.js` (`buildHoldings`, `computeDailyStates`, helpers).
-- `server/finance/returns.js` (`computeDailyReturnRows`).
-
-**Requirements**:
-1. Break each complex function into focused helpers (e.g., sorting, ledger updates, position valuation, signal application).
-2. Keep all math identical. Extend unit/property tests (`server/__tests__/holdings.test.js`, `server/__tests__/returns.test.js`, `server/__tests__/ledger.property.test.js`, `src/__tests__/holdings_ledger.test.js`) to guard refactors.
-3. Target complexity ≤8 per function and ≤80 LOC per helper (justify in PR if exceeding for correctness).
-4. Preserve immutability guarantees and existing shared utilities (`shared/constants.js`, decimal helpers).
-5. Update docs/comments where algorithms change; ensure README performance claims remain true.
-
-**Acceptance Criteria**:
-- Static analysis shows reduced complexity (add ESLint rule or manual report in PR notes).
-- All tests pass with unchanged snapshots/property distributions.
-- `docs/HARDENING_SCOREBOARD.md` row `CODE-1` flipped to DONE with references to new helpers/tests.
-
-### 2. PERF-4 — Virtual Scrolling for Large Transaction Tables (Priority: 🟢 Low, Effort: 4h)
-**Goal**: Keep UI responsive for 10k+ transactions per audit §4 and §8.
+### 1. P4-UI-1 — Benchmark Toggle & Blended Charting (Priority: 🟡 Medium, Effort: 4h)
+**Goal**: Give users control over ROI comparisons between the default 100% SPY benchmark and blended benchmark views derived from actual cash vs equity weights (audit §4 UX notes, scoreboard P4-UI-1).
 
 **Scope**:
-- `src/components/TransactionsTab.jsx` (currently paginated only).
-- Consider `src/components/Holdings.jsx` if large holdings lists benefit.
+- `src/components/DashboardTab.jsx` (chart + controls) and any shared control surfaces such as `src/components/PortfolioControls.jsx`.
+- Supporting hooks/utilities (`src/hooks/` directory) for persisted UI preferences or data shaping.
+- Related tests (`src/__tests__/DashboardTab.test.jsx`, property-based ROI checks if applicable).
 
 **Requirements**:
-1. Introduce virtualization (`react-window` preferred) with graceful fallback for small datasets.
-2. Maintain accessibility: table semantics, keyboard navigation, and screen reader support.
-3. Ensure delete actions, alternating row styles, and totals still render correctly.
-4. Add/adjust tests (`src/__tests__/Transactions.integration.test.jsx`, new component tests) for virtualization behavior (initial render, scroll-to-row, deletion).
-5. Document changes in README (usage/performance tips) and update bundle analysis if dependency impact occurs.
+1. Introduce accessible toggle controls (buttons, segmented control, or dropdown) that switch ROI chart lines between at least two benchmark modes: 100% SPY and blended benchmark from backend data. Include ability to compare multiple series concurrently when feasible.
+2. Adjust chart data preparation to consume benchmark series already exposed by backend endpoints (`/api/returns/daily`, `/api/benchmarks/summary`). Ensure legend labels, colors, and aria attributes remain descriptive.
+3. Persist user selection across sessions (use existing localStorage helpers if present; otherwise add a hook with tests) with sane defaults when data missing.
+4. Validate behavior with unit/integration tests that simulate toggle interaction, assert correct series visibility, and guard against regressions (e.g., fallback when benchmark data absent).
+5. Update README dashboard section and `docs/HARDENING_SCOREBOARD.md` row P4-UI-1 with implementation details, evidence (test command, screenshots/metrics), and any limitations.
 
 **Acceptance Criteria**:
-- Large fixture (>=10k rows) renders within 60 FPS in Vitest DOM benchmark (use `@testing-library/react` + `performance.now`).
-- No regression in pagination controls (keep for fallback or remove with rationale).
-- README gains subsection on "Handling large portfolios" referencing virtualization.
-- `docs/HARDENING_SCOREBOARD.md` new row `PERF-4` marked DONE with CI evidence.
+- ROI chart renders the selected benchmark mode without layout regressions (verified in Vitest DOM tests or Storybook snapshot if available).
+- Toggled state persists after reload (tested via jsdom localStorage mock).
+- Accessibility audit (axe or manual) shows controls are keyboard operable and labelled.
+- Scoreboard marks P4-UI-1 as DONE referencing commit/PR.
 
-### 3. PERF-5 — Debounced Search & Filters (Priority: 🟢 Low, Effort: 1h)
-**Goal**: Reduce rerenders while filtering transactions per audit §4.
-
-**Scope**: `src/components/TransactionsTab.jsx` (search/filter inputs) and supporting utils.
-
-**Requirements**:
-1. Add client-side search/filter with debounce (≈300 ms). Use lightweight utility (`useMemo` + `setTimeout` or `lodash.debounce`). Avoid global state pollution.
-2. Ensure filter integrates with virtualization (only filtered rows virtualized).
-3. Provide clear UX (placeholder text, empty states) and maintain accessible labels.
-4. Extend tests to cover debounce timing (use fake timers in Vitest) and filter correctness.
-5. Update README troubleshooting/performance tips accordingly.
-
-**Acceptance Criteria**:
-- Filtering 10k rows completes within 50 ms after debounce flush.
-- Tests prove debounce and filtering logic works; coverage for new utilities ≥90%.
-- Scoreboard entry `PERF-5` added/updated with DONE status.
-
-### 4. API Versioning & Client Compatibility (Priority: 🟢 Low, Effort: 2h)
-**Goal**: Prepare for backward-compatible releases (audit §8 tasks 14 & 15).
+### 2. P4-UI-2 — KPI Panel Refresh for Cash & Benchmarks (Priority: 🟡 Medium, Effort: 3h)
+**Goal**: Surface cash drag and benchmark-relative metrics inline with audit recommendations so users can quickly evaluate performance drivers.
 
 **Scope**:
-- `server/app.js` (routing), `server/index.js` (app creation), `src/utils/api.js`, and any frontend calls.
+- `src/components/DashboardTab.jsx` KPI cards and any helper components.
+- Metrics computation layers (`src/hooks/usePortfolioMetrics.js`, `shared/metrics/` if present) to expose cash drag %, blended benchmark delta, SPY delta, etc.
+- Tests covering new metrics (`src/__tests__/DashboardTab.metrics.test.jsx`, `src/__tests__/metrics/`).
 
 **Requirements**:
-1. Introduce `/api/v1` prefix while keeping legacy `/api` routes temporarily (feature-flag or dual routing) to avoid breaking clients.
-2. Propagate `X-Request-ID` (already generated via `pinoHttp`) to clients via response headers and document usage.
-3. Update tests (integration + contract) to hit versioned routes. Ensure OpenAPI spec (`docs/openapi.yaml`) reflects versioning.
-4. Document migration in README + `docs/SECURITY.md` (traceability of requests with IDs).
-5. Update scoreboard with new row `API-1` (or reuse existing if present) marking status.
+1. Extend metrics hook/utilities to compute: cash allocation %, cash drag impact (difference between blended benchmark and 100% SPY), and benchmark-relative ROI deltas.
+2. Refresh KPI card layout to display the new metrics without sacrificing responsiveness (sm, md, lg breakpoints) and ensure dark mode compatibility.
+3. Provide contextual descriptions/tooltips referencing `docs/cash-benchmarks.md` definitions so users understand calculations.
+4. Add tests verifying metric math and formatting (use deterministic fixtures). Ensure coverage ≥90% for changed modules.
+5. Update README (dashboard metrics subsection) and scoreboard row P4-UI-2 with evidence and coverage stats.
 
 **Acceptance Criteria**:
-- All API endpoints respond under `/api/v1/*` with identical payloads.
-- Legacy paths either proxy to versioned handlers or return informative deprecation warnings (non-breaking).
-- Contract tests pass against updated OpenAPI schema.
+- KPI section renders new metrics alongside existing totals with no overflow on mobile widths.
+- Tests validate numerical accuracy for sample portfolios (cash-heavy vs equity-heavy) and guard against regressions.
+- Documentation explains each KPI and links to deeper references.
+- Scoreboard shows P4-UI-2 as DONE with proof.
 
-### 5. Documentation Debt — Testing Strategy Guide (Priority: 🟡 Medium, Effort: 1h)
-**Goal**: Close remaining doc gap flagged in audit §1 deliverables.
+### 3. P4-DOC-1 — Frontend Operations Playbook (Priority: 🟡 Medium, Effort: 2h)
+**Goal**: Document how to operate, verify, and troubleshoot the refreshed frontend experience per scoreboard guidance.
 
-**Scope**: Create `docs/testing-strategy.md` and cross-link from README/AGENTS.
+**Scope**:
+- New doc `docs/frontend-operations.md` (or update existing if specified).
+- README cross-links (navigation + operations sections).
+- Any references in `AGENTS.md`, `AI_CODE_ASSISTANT_PROMPTS.md`, or onboarding docs that need alignment.
 
 **Requirements**:
-1. Document unit/integration/property test approach, coverage thresholds, mutation testing usage, and how to run strict suites.
-2. Reference tooling commands (`npm test`, `npm run test:stress`, Stryker) and console warning policy.
-3. Update README "Testing" section to link to the guide.
-4. Reflect status in scoreboard (add `DOC-TEST-STRATEGY` row if missing).
+1. Produce an actionable playbook covering: dashboard smoke test checklist, benchmark toggle verification, KPI validation steps, accessibility spot checks, and deployment roll-back plan.
+2. Include table of key configuration flags (`VITE_API_BASE`, feature toggles) with type/default/description per R4 docs policy.
+3. Reference monitoring hooks (Admin tab, `/api/monitoring`) and describe how frontend changes integrate with observability (tie back to Phase 3 work).
+4. Sync README (link to the new playbook + summary of operations workflow) and update scoreboard row P4-DOC-1 with status + evidence.
+5. Ensure no instructions contradict existing security guardrails (structured logging, API key policies).
 
 **Acceptance Criteria**:
-- New doc committed with actionable guidance (no placeholders).
-- README and AGENTS updated with link to the strategy doc.
+- New documentation passes markdown lint (if configured) and contains no placeholders.
+- README + AGENTS (if touched) link to the playbook and summarize updates.
+- Scoreboard row P4-DOC-1 updated to DONE with references to tests/docs.
 
-## Delivery Checklist (apply to every PR)
-1. **Branch**: `feat/phase3-refactors` or similar (Conventional Commit on merge).
-2. **Code**: Implement objectives above with minimal, well-tested diffs.
-3. **Tests**: Run `npm run lint`, `npm test -- --coverage`, and `npm run build`. For virtualization performance, include measured timings in PR.
-4. **Docs**: Update README, `docs/HARDENING_SCOREBOARD.md`, OpenAPI spec, and new testing guide as applicable.
-5. **Evidence**: Attach CI links, coverage diff, and performance metrics in PR description.
-6. **Compliance**: Follow security guardrails (no `shell=true`, no console noise, maintain structured logging).
+## Delivery Checklist (apply to every Phase 4 PR)
+1. **Branch**: `feat/phase4-<slug>`.
+2. **Code**: Implement only the scoped objective (P4-UI-1, P4-UI-2, or P4-DOC-1) unless pairing tasks in same PR is explicitly justified.
+3. **Tests**: Run `npm run lint`, `npm test -- --coverage`, `npm run build`. Capture performance or accessibility metrics if UI renders change.
+4. **Docs**: Update README, `docs/HARDENING_SCOREBOARD.md`, and any affected guides simultaneously.
+5. **Evidence**: Attach CI links, coverage deltas, UX/performance metrics, and screenshots (desktop + mobile) in PR description when UI changes occur.
+6. **Compliance**: Follow security guardrails (no `shell=true`, maintain structured logging, respect rate limiting and feature toggles).
 
 ## Kickoff Questions (confirm before coding)
-- Which objective (CODE-1, PERF-4, PERF-5, API versioning, or docs) are you starting with?
-- Have you reviewed related tests and docs so updates stay in sync?
-- What performance or complexity metrics will you capture to prove success?
+- Which Phase 4 objective (P4-UI-1, P4-UI-2, or P4-DOC-1) are you addressing first?
+- Have you reviewed current dashboard components, hooks, and docs to avoid regressions?
+- What metrics or screenshots will you produce to demonstrate improved UX/performance?
 
-Once confirmed, begin with CODE-1 refactor unless a higher-priority incident overrides it.
+Once confirmed, begin with P4-UI-1 unless an incident demands a different priority.
