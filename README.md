@@ -124,7 +124,7 @@ If validation fails, the API responds with `400 WEAK_KEY` alongside the exact re
 2. Prepare a new strong key.
 3. Save the portfolio while providing both headers:
    ```bash
-   curl -X POST http://localhost:3000/api/portfolio/my-portfolio \
+   curl -X POST http://localhost:3000/api/v1/portfolio/my-portfolio \
      -H "Content-Type: application/json" \
      -H "X-Portfolio-Key: OldKey2024!" \
      -H "X-Portfolio-Key-New: NewKey2024!" \
@@ -154,10 +154,10 @@ Use `curl` or Postman to script workflows:
 
 ```bash
 # Fetch one year of prices
-curl "http://localhost:3000/api/prices/SPY?range=1y"
+curl "http://localhost:3000/api/v1/prices/SPY?range=1y"
 
 # Append a deposit followed by a buy
-curl -X POST http://localhost:3000/api/portfolio/my-portfolio \
+curl -X POST http://localhost:3000/api/v1/portfolio/my-portfolio \
   -H "Content-Type: application/json" \
   -H "X-Portfolio-Key: MyPortfolio2024!Secure" \
   -d '{
@@ -168,9 +168,23 @@ curl -X POST http://localhost:3000/api/portfolio/my-portfolio \
   }'
 
 # Retrieve daily returns including blended benchmarks
-curl "http://localhost:3000/api/returns/daily?from=2024-01-01&to=2024-12-31" \
+curl "http://localhost:3000/api/v1/returns/daily?from=2024-01-01&to=2024-12-31" \
   -H "X-Portfolio-Key: MyPortfolio2024!Secure"
 ```
+
+### Handling large portfolios
+
+- The **Transactions** tab now renders via `react-window`. You can scroll through
+  10 000+ rows smoothly while the component only mounts the visible subset.
+- Search and filter inputs are debounced (~300 ms) so repeated keystrokes no
+  longer trigger full re-renders. Combine the ticker/type filters to narrow the
+  data set quickly.
+- When the filtered list drops below 250 rows the table automatically returns to
+  paginated mode—ideal for quick comparisons without a scrollbar.
+
+Performance guardrails live in
+[`src/__tests__/Transactions.integration.test.jsx`](src/__tests__/Transactions.integration.test.jsx);
+update them if you adjust the debounce window or row height.
 
 ### Bulk CSV import
 
@@ -198,12 +212,33 @@ Common issues and quick fixes (see Section 6 of the audit for the full decision
 
 If problems persist, gather relevant log lines (the server uses Pino for structured output) before opening an issue.
 
+## API Versioning & Headers
+
+All endpoints are now served under `/api/v1`. Legacy `/api` URLs still work but
+emit a `Warning: 299` header encouraging migration and mark responses with
+`X-API-Version: legacy`.
+
+- Always call `/api/v1/*` from new clients—the same handlers run under the
+  versioned prefix.
+- Legacy `/api/*` requests are rewritten to those `/api` controllers before rate
+  limiting, so endpoints such as `/api/v1/prices/*` and `/api/v1/cache/stats`
+  respond identically while clients migrate.
+- Provide an `X-Request-ID` header when available. The server echoes the value
+  back (and generates one when omitted) so logs, clients, and monitoring tools
+  can trace requests end to end.
+
+Example:
+
+```bash
+curl -H "X-Request-ID: demo-123" http://localhost:3000/api/v1/monitoring -i
+```
+
 ## Monitoring & Diagnostics
 
 Operational dashboards can poll the hardened metrics endpoints:
 
-- `GET /api/security/stats` – Per-scope rate limiter hits, rolling windows, and brute-force guard stats.
-- `GET /api/monitoring` – Process uptime/memory, cache hit ratios, and lock queue depth so you can alert on contention.
+- `GET /api/v1/security/stats` – Per-scope rate limiter hits, rolling windows, and brute-force guard stats.
+- `GET /api/v1/monitoring` – Process uptime/memory, cache hit ratios, and lock queue depth so you can alert on contention.
 
 Both endpoints return JSON and are safe to proxy into Prometheus exporters or Grafana data sources.
 
@@ -253,6 +288,7 @@ the brute-force guard, cache TTLs, and logging controls.
 - **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management.
 - **Deterministic math engine** – internal cash, holdings, and return calculations run in Decimal/cents space; see [docs/math-policy.md](docs/math-policy.md).
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
+- **Virtualised transaction table** – filter and scroll through 10 000+ records with a debounced search and `react-window`.
 - **Admin dashboard** – surface runtime metrics, rate-limit offenders, and recent security audit events in one place.
 
 ## Phase 1 Audit Fixes (October 2025)
@@ -273,7 +309,8 @@ This codebase has been updated with critical fixes from a comprehensive audit:
 
 ### Testing & quality gates
 
-The suite now enforces randomized execution order, coverage thresholds, and warnings-as-errors for project code:
+For a full breakdown see [docs/testing-strategy.md](docs/testing-strategy.md).
+The suite enforces randomized execution order, coverage thresholds, and warnings-as-errors for project code:
 
 - `npm test` – runs all unit, integration, and property-based tests once with deterministic shuffling, `c8` coverage enforcement (branches ≥ 70%, functions ≥ 90%, lines/statements ≥ 90%), and warning promotion via `server/__tests__/setup/global.js`.
 - `npm run test:ci` – identical to `npm test` but pins `TEST_SHUFFLE_SEED=20251006` for reproducible CI logs.
@@ -412,9 +449,9 @@ Always terminate traffic for the Express API behind HTTPS with HTTP Strict Trans
 
 ### Authentication
 
-Every request that reads from or writes to `/api/portfolio/:id` must include an `X-Portfolio-Key` header. On the first `POST` the server bootstraps the portfolio by hashing and storing the provided key. Subsequent requests must reuse the same header value; requests without it return `401 NO_KEY` and mismatched keys return `403 INVALID_KEY`. To rotate credentials atomically, include the current key plus `X-Portfolio-Key-New` with the replacement value on a `POST` request. Keys are stored as SHA-256 hashes and never returned in responses. New or rotated keys must be at least 12 characters and include uppercase, lowercase, numeric, and special characters—weak keys return `400 WEAK_KEY`. Repeated missing or invalid keys are tracked per portfolio and remote address—after five failures within fifteen minutes the API responds with `429 TOO_MANY_KEY_ATTEMPTS` and a `Retry-After` header; presenting the correct key immediately clears the lockout.
+Every request that reads from or writes to `/api/v1/portfolio/:id` must include an `X-Portfolio-Key` header. On the first `POST` the server bootstraps the portfolio by hashing and storing the provided key. Subsequent requests must reuse the same header value; requests without it return `401 NO_KEY` and mismatched keys return `403 INVALID_KEY`. To rotate credentials atomically, include the current key plus `X-Portfolio-Key-New` with the replacement value on a `POST` request. Keys are stored as SHA-256 hashes and never returned in responses. New or rotated keys must be at least 12 characters and include uppercase, lowercase, numeric, and special characters—weak keys return `400 WEAK_KEY`. Repeated missing or invalid keys are tracked per portfolio and remote address—after five failures within fifteen minutes the API responds with `429 TOO_MANY_KEY_ATTEMPTS` and a `Retry-After` header; presenting the correct key immediately clears the lockout.
 
-### `GET /api/prices/:symbol?range=1y`
+### `GET /api/v1/prices/:symbol?range=1y`
 
 Returns an array of historical prices for a US ticker using Stooq. Supported query parameters:
 
@@ -436,7 +473,7 @@ Example response:
 
 Returns aggregated cache metrics (`keys`, `hits`, `misses`, `hitRate`) for price data caching. Useful for lightweight monitoring or local performance verification.
 
-### `GET /api/security/stats`
+### `GET /api/v1/security/stats`
 
 Returns aggregated security metrics for the brute-force guard and rate limiter instrumentation. The payload includes:
 
@@ -475,11 +512,11 @@ Example response excerpt:
 }
 ```
 
-### `GET /api/portfolio/:id`
+### `GET /api/v1/portfolio/:id`
 
 Loads a saved portfolio with the given `id` from the `data` folder once it has been provisioned. The identifier must match `[A-Za-z0-9_-]{1,64}`; otherwise the request is rejected with HTTP `400`. Portfolios that are not yet provisioned respond with HTTP `404 PORTFOLIO_NOT_FOUND`.
 
-### `POST /api/portfolio/:id`
+### `POST /api/v1/portfolio/:id`
 
 Saves a portfolio to the backend. Bodies are validated against the schema in [`server/middleware/validation.js`](server/middleware/validation.js):
 
@@ -493,8 +530,8 @@ The identifier is validated using the same `[A-Za-z0-9_-]{1,64}` rule. Invalid i
 
 When the `features.cash_benchmarks` flag is active the API also exposes:
 
-- `GET /api/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench&page=1&per_page=100`
-- `GET /api/nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&page=1&per_page=100` (includes `stale_price` flag)
+- `GET /api/v1/returns/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&views=port,excash,spy,bench&page=1&per_page=100`
+- `GET /api/v1/nav/daily?from=YYYY-MM-DD&to=YYYY-MM-DD&page=1&per_page=100` (includes `stale_price` flag)
 - `GET /api/benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
   - Response includes `money_weighted.portfolio` (annualised XIRR) with `start_date`, `end_date`, and `method` fields describing the solved window.
 - `POST /api/admin/cash-rate` accepting `{ "effective_date": "YYYY-MM-DD", "apy": 0.04 }`
