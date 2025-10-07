@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { buildRoiSeries } from "../utils/roi.js";
+import { buildRoiSeries, mergeReturnSeries } from "../utils/roi.js";
 
 const transactions = [
   { date: "2024-01-01", ticker: "AAPL", type: "BUY", shares: 1, amount: -100 },
@@ -21,6 +21,58 @@ const priceMap = {
 };
 
 describe("ROI utilities", () => {
+  it("merges API return series into chart-friendly rows", () => {
+    const merged = mergeReturnSeries({
+      r_port: [
+        { date: "2024-01-01", value: 0 },
+        { date: "2024-01-02", value: 1.23456 },
+      ],
+      r_spy_100: [
+        { date: "2024-01-01", value: 0.5 },
+        { date: "2024-01-02", value: 1.11119 },
+      ],
+      r_bench_blended: [
+        { date: "2024-01-01", value: 0.25 },
+        { date: "2024-01-02", value: 0.98765 },
+      ],
+      r_ex_cash: [{ date: "2024-01-02", value: 1.55555 }],
+      r_cash: [{ date: "2024-01-01", value: 0.02 }],
+    });
+
+    assert.deepEqual(merged, [
+      {
+        date: "2024-01-01",
+        portfolio: 0,
+        spy: 0.5,
+        blended: 0.25,
+        exCash: 0,
+        cash: 0.02,
+      },
+      {
+        date: "2024-01-02",
+        portfolio: 1.2346,
+        spy: 1.1112,
+        blended: 0.9877,
+        exCash: 1.5556,
+        cash: 0,
+      },
+    ]);
+  });
+
+  it("guards against malformed API payloads", () => {
+    const merged = mergeReturnSeries({ r_port: [{ date: "2024-01-01" }] });
+    assert.deepEqual(merged, [
+      {
+        date: "2024-01-01",
+        portfolio: 0,
+        spy: 0,
+        blended: 0,
+        exCash: 0,
+        cash: 0,
+      },
+    ]);
+  });
+
   it("builds ROI series relative to SPY", async () => {
     const fetcher = async (symbol) => priceMap[symbol.toUpperCase()];
     const series = await buildRoiSeries(transactions, fetcher);

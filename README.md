@@ -378,7 +378,7 @@ These changes improve data integrity and mathematical correctness.
 
 The interface organises the experience across focused tabs:
 
-- **Dashboard** – portfolio KPIs, ROI vs. SPY line chart, and quick actions to refresh analytics or open reference material.
+- **Dashboard** – portfolio KPIs, ROI comparisons with benchmark toggles (SPY, blended, ex-cash, cash), and quick actions to refresh analytics or open reference material.
 - **Holdings** – consolidated holdings table plus configurable buy/trim signal bands for each ticker.
 - **Transactions** – dedicated form for capturing trades and a chronological activity table.
 - **History** – contribution trends and a chronological timeline of activity, grouped by calendar month.
@@ -418,6 +418,10 @@ The interface organises the experience across focused tabs:
 | `CORS_ALLOWED_ORIGINS`   | string (CSV)  | _(empty)_ | No      | Comma-separated origins allowed by the API CORS policy. |
 
 Price data for interactive queries is fetched from [Stooq](https://stooq.com/). Benchmark processing uses the Yahoo Finance adjusted-close feed via the provider interface documented in [`docs/cash-benchmarks.md`](docs/cash-benchmarks.md).
+
+#### Benchmark toggles & ROI comparisons
+
+The Dashboard ROI chart now consumes `/api/returns/daily` and `/api/benchmarks/summary` to layer 100% SPY, blended, risk-sleeve (ex-cash), and cash yield series alongside the portfolio. Users can toggle any combination of benchmarks, and the selection is saved to browser storage so the chart opens with the same comparison after refresh or sign-in. Each toggle is keyboard accessible, labelled for assistive tech, and mirrors the colors used in the legend for clarity.
 
 3. **Start the frontend:**
 
