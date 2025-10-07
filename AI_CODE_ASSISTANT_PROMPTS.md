@@ -3,55 +3,48 @@
 
 Use these prompts to align any AI helper with the current repository state, audit findings, and guardrails. Each block can be pasted directly into an AI session before sharing follow-up instructions or diffs.
 
-## 1. Phase 3 Context Sync
+## 1. Phase 4 Context Sync
 ```
 You are contributing to cortega26/portfolio-manager-server (React + Vite frontend, Express backend).
-Baseline: Phase 1 & 2 items from comprehensive_audit_v3.md are complete (README onboarding, API key enforcement, audit logging, `.env.example`, brute force guard, caching, compression, bundle splits, admin monitoring).
-Outstanding focus: Phase 3 deliverables from AI_IMPLEMENTATION_PROMPT.md (CODE-1 refactor, PERF-4 virtualization, PERF-5 debounced filters, API versioning, testing strategy doc).
-Before coding, read AI_IMPLEMENTATION_PROMPT.md, docs/HARDENING_SCOREBOARD.md, and comprehensive_audit_v3.md sections 4 & 5. Confirm any assumptions explicitly.
-Follow repository guardrails: no shell=true, maintain structured logging, keep coverage ≥90% for touched files, sync docs and scoreboard in the same PR.
+Baseline: Phases 1–3 from comprehensive_audit_v3.md are complete (security hardening, documentation refresh, observability, virtualized tables, API versioning, testing strategy guide).
+Outstanding focus: Phase 4 deliverables from AI_IMPLEMENTATION_PROMPT.md (P4-UI-1 benchmark toggles, P4-UI-2 KPI refresh, P4-DOC-1 frontend ops playbook).
+Before coding, review AI_IMPLEMENTATION_PROMPT.md, docs/HARDENING_SCOREBOARD.md (Phase 4 table), and the current Dashboard/Portfolio UI implementation under src/components/.
+Follow repository guardrails: no shell=true, maintain structured logging, keep coverage ≥90% for touched files, and update docs/HARDENING_SCOREBOARD.md + README together with UI changes.
 ```
 
-## 2. CODE-1 Refactor Helper
+## 2. P4-UI-1 Benchmark Toggle Helper
 ```
-Task: Deliver CODE-1 from AI_IMPLEMENTATION_PROMPT.md.
-Refactor buildHoldings/computeDailyReturnRows to reduce complexity while preserving math.
-Files: server/finance/portfolio.js, server/finance/returns.js, related tests in server/__tests__ and src/__tests__.
+Task: Deliver P4-UI-1 from AI_IMPLEMENTATION_PROMPT.md.
+Add benchmark view toggles and blended charting controls to the dashboard ROI visualizations.
+Files: src/components/DashboardTab.jsx, src/components/PortfolioControls.jsx (if shared controls needed), src/hooks (create or update), src/__tests__/DashboardTab.test.jsx (or add new test files), shared formatting utilities.
 Steps:
-1. Identify logical sub-steps and extract helpers (sorting, ledger projection, valuation, signal application).
-2. Update/extend property tests to prove behavior unchanged.
-3. Report complexity improvements and ensure docs/HARDENING_SCOREBOARD.md marks CODE-1 as DONE with references.
+1. Introduce UI controls to switch between 100% SPY, blended benchmark, and other benchmark series exposed by the backend.
+2. Extend ROI chart data handling to plot the selected blend while preserving accessibility (legends, aria attributes) and responsive layout.
+3. Add state synchronization with persisted preferences if available (localStorage hook already exists? confirm; otherwise document TODO) and update tests to cover toggle interactions and chart data mapping.
+4. Update README (dashboard section) to describe the new benchmark toggle and cite relevant API endpoints; mark docs/HARDENING_SCOREBOARD.md row P4-UI-1 as DONE with evidence links.
 Run npm run lint, npm test -- --coverage, npm run build before finalizing.
 ```
 
-## 3. Virtual Scrolling & Filters Prompt
+## 3. P4-UI-2 KPI Panel Refresh Prompt
 ```
-Task: Implement PERF-4 and PERF-5 (virtual scrolling + debounced search) from AI_IMPLEMENTATION_PROMPT.md.
-Focus files: src/components/TransactionsTab.jsx (and Holdings.jsx if needed), src/__tests__/Transactions.integration.test.jsx.
-Requirements: integrate react-window (or similar) with accessible table semantics, keep delete actions working, add debounced filtering (≈300 ms) that cooperates with virtualization, and update README with a "Handling large portfolios" subsection.
-Add tests covering virtualization rendering, scroll behavior, and debounce timing (use fake timers). Update docs/HARDENING_SCOREBOARD.md with new PERF-4/PERF-5 rows marked DONE.
-```
-
-## 4. API Versioning & Observability Prompt
-```
-Task: Add /api/v1 routing while maintaining legacy /api paths, surface X-Request-ID headers, and sync OpenAPI (AI_IMPLEMENTATION_PROMPT.md phase 3 objective 4).
-Touch points: server/app.js, server/index.js, src/utils/api.js, docs/openapi.yaml, README.md, docs/SECURITY.md, contract tests in server/__tests__.
-Ensure both route prefixes work during migration, tests cover the new prefix, and scoreboard records completion.
+Task: Deliver P4-UI-2 (dashboard KPI refresh for cash & benchmarks).
+Focus files: src/components/DashboardTab.jsx, src/utils/format.js, src/hooks/usePortfolioMetrics.js (or equivalent), src/__tests__/DashboardTab.metrics.test.jsx.
+Requirements: surface cash drag metrics, benchmark comparisons, and ensure cards remain responsive (sm/ lg breakpoints). Computations must align with shared helpers and include tests verifying numeric accuracy and formatting. Document any new derived metrics in README.
 ```
 
-## 5. Testing Strategy Documentation Prompt
+## 4. P4-DOC-1 Frontend Operations Playbook Prompt
 ```
-Task: Create docs/testing-strategy.md per AI_IMPLEMENTATION_PROMPT.md phase 3 objective 5.
-Document unit/integration/property testing approach, coverage thresholds (global ≥80%, touched files ≥90%), strict console warning policy, mutation testing (Stryker), and commands (npm test, npm run test:stress, npm run test:mutation).
-Update README and AGENTS.md to link to the new guide and sync docs/HARDENING_SCOREBOARD.md.
+Task: Deliver P4-DOC-1 (frontend operations playbook).
+Touch points: docs/frontend-operations.md (new), README.md (link updates), docs/HARDENING_SCOREBOARD.md (Phase 4 notes), AGENTS.md references if workflows change.
+Document Admin tab workflows, benchmark toggles, KPI refresh behaviors, and incident response for UI regressions. Include deployment verification steps (smoke tests, accessibility checks) and tie them back to scoreboard evidence.
 ```
 
-## 6. PR Completion Checklist Prompt
+## 5. PR Completion Checklist Prompt
 ```
 Before final response:
 - Provide diffs and cite files.
-- Summarize complexity or performance metrics collected.
+- Summarize performance or UX metrics captured (e.g., render timings, Lighthouse, accessibility notes).
 - List commands executed (lint, tests, build) with results; mark "Deferred to CI" if tooling unavailable.
-- Confirm docs/HARDENING_SCOREBOARD.md updated for completed objectives.
+- Confirm docs/HARDENING_SCOREBOARD.md updated for completed objectives (P4-UI-1, P4-UI-2, P4-DOC-1 as applicable).
 - Prepare PR body using make_pr tool with compliance summary: 📊 COMPLIANCE line, model used, tests, security scans, failures.
 ```
