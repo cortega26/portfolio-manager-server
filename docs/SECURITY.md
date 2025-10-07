@@ -136,10 +136,11 @@ back to the Express request identifier.
 
 ## Monitoring & Open Items
 
-- **Rate limit monitoring (SEC-12)** – Implement metrics or alerting for rate limiter status (e.g.
-  Prometheus counters) and surface dashboards for on-call use.
-- **Performance monitoring endpoint (OBS-1)** – Expose a `/api/monitoring` or `/metrics` endpoint
-  that reports cache hit ratios, lockout counts, and queue depth.
+- ✅ **Rate limit monitoring (SEC-12)** – `/api/security/stats` exposes limiter hit totals, rolling windows,
+  unique offender counts, and top offenders for each scope. Connect these fields to Prometheus/Grafana to
+  add alerting thresholds.
+- ✅ **Performance monitoring endpoint (OBS-1)** – `/api/monitoring` reports cache hit ratios,
+  lock metrics (active + queued), brute-force lockouts, and rate limiter telemetry for dashboards.
 - **Request ID middleware (OBS-3)** – Add a lightweight middleware to guarantee every request has a
   stable `request_id` for correlation across services.
 - **Codebase cleanup (CODE-1, CODE-2)** – Track audit items for large functions and remaining magic
