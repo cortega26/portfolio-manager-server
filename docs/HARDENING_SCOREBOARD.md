@@ -1,4 +1,20 @@
 <!-- markdownlint-disable -->
+
+# Security Hardening Scoreboard
+
+Last Updated: 2025-10-07
+
+| ID    | Title                           | Status | Branch                         | PR | Evidence (CI/logs/coverage)                      | Notes |
+|-------|---------------------------------|--------|--------------------------------|----|--------------------------------------------------|-------|
+| DOC-1 | Enhanced user guide             | DONE   | main                           | —  | README.md Getting Started/API Key sections       | Content verified from audit checklist |
+| DOC-2 | Security documentation          | TODO   | —                              | —  | Missing `docs/SECURITY.md`                      | Needs incident response & key guidance |
+| SEC-10| API key strength enforcement    | DONE   | main                           | —  | server/middleware/validation.js; shared/apiKey.js | Zod schema + shared evaluator |
+| SEC-11| Security audit logging          | DONE   | main                           | —  | server/middleware/auditLog.js tests               | Structured logging in place |
+| DX-2  | Environment template            | DONE   | main                           | —  | `.env.example`; README environment table          | Template committed |
+| PERF-3| Transactions pagination rollout | DONE   | feat/perf-3-ui-virtualization | —  | `src/__tests__/Transactions.integration.test.jsx` | Client-side pagination + RTL coverage |
+
+---
+
 | ID      | Title                            | Severity | Owner | Status       | Branch            | PR | Evidence (CI) |
 |---------|----------------------------------|----------|-------|--------------|-------------------|----|---------------|
 | G1      | Coverage gate                    | HIGH     |       | DONE         | feat/ci-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/ci-hardening) | GitHub Actions: CI (nyc check-coverage) |
@@ -33,7 +49,7 @@
 | DX-2    | Environment template             | LOW      |       | DONE         | main              |    | `.env.example` committed; README "Environment configuration" section |
 | PERF-1  | Price caching + stale guard      | HIGH     |       | DONE         | feat\|fix/cache-etag-cache | Local: node --test cache_behaviors; Phase2 Item1 tests (`server/__tests__/api_cache.test.js`) |               |
 | PERF-2  | Incremental holdings             | MEDIUM   |       | DONE         | feat/perf-incremental-holdings | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/perf-incremental-holdings) | Local: npm test (storage concurrency failing pre-existing) |
-| PERF-3  | UI virtualization/pagination     | LOW      |       | TODO         |                   |    |               |
+| PERF-3  | UI virtualization/pagination     | LOW      |       | DONE         | feat/perf-3-ui-virtualization |    | Local: npm test -- --coverage (2025-10-07) |
 | PERF-4  | DB migration trigger             | LOW→MED  |       | TODO         |                   |    |               |
 | PERF-5  | Response compression             | MEDIUM   |       | DONE         | main              |    | `server/__tests__/compression.test.js` (Phase2 Item3) |
 | TEST-1  | Unit tests                       | HIGH     |       | DONE         | main              |    | Local: npm test (node --test coverage + src/__tests__/portfolioSchema.test.js) |

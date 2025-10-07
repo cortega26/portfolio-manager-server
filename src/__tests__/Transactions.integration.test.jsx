@@ -86,3 +86,42 @@ test('shows validation feedback when required fields are missing', () => {
 
   assert.ok(screen.getByText(/Please fill in all fields\./i));
 });
+
+test('paginates transactions and preserves original indices', () => {
+  const transactions = Array.from({ length: 120 }, (_, index) => ({
+    date: `2024-01-${String((index % 28) + 1).padStart(2, '0')}`,
+    ticker: `SYM${index}`,
+    type: 'BUY',
+    amount: 100 + index,
+    price: 10,
+    shares: 1,
+  }));
+  const deleteCalls = [];
+
+  render(
+    <TransactionsTab
+      transactions={transactions}
+      onAddTransaction={() => {}}
+      onDeleteTransaction={(index) => deleteCalls.push(index)}
+    />,
+  );
+
+  const initialSummary = screen.getByText(/Showing 1-50 of 120 transactions/i);
+  assert.ok(initialSummary);
+  assert.equal(document.querySelectorAll('tbody tr').length, 50);
+
+  fireEvent.click(screen.getByRole('button', { name: /next page/i }));
+  assert.ok(screen.getByText(/Showing 51-100 of 120 transactions/i));
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: /Undo transaction for SYM50 on 2024-01-23/i,
+    }),
+  );
+  assert.deepEqual(deleteCalls, [50]);
+
+  fireEvent.change(screen.getByLabelText(/Rows per page/i), {
+    target: { value: '25' },
+  });
+  assert.ok(screen.getByText(/Showing 1-25 of 120 transactions/i));
+  assert.equal(document.querySelectorAll('tbody tr').length, 25);
+});
