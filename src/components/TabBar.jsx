@@ -8,6 +8,7 @@ const tabs = [
   "Metrics",
   "Reports",
   "Settings",
+  "Admin",
 ];
 
 export default function TabBar({ activeTab, onTabChange }) {

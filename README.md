@@ -44,6 +44,8 @@ The template groups settings by concern; adjust at minimum:
 - `LOG_LEVEL` – adjust Pino verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`).
 - `API_CACHE_TTL_SECONDS` / `PRICE_CACHE_TTL_SECONDS` / `PRICE_CACHE_CHECK_PERIOD` / `PRICE_FETCH_TIMEOUT_MS` – tune response caching, price cache maintenance, and upstream HTTP timeout behaviour.
 - `BRUTE_FORCE_MAX_ATTEMPTS` / `BRUTE_FORCE_ATTEMPT_WINDOW_SECONDS` / `BRUTE_FORCE_LOCKOUT_SECONDS` / `BRUTE_FORCE_MAX_LOCKOUT_SECONDS` / `BRUTE_FORCE_LOCKOUT_MULTIPLIER` – configure the progressive lockout guard for portfolio authentication.
+- `RATE_LIMIT_GENERAL_*` / `RATE_LIMIT_PORTFOLIO_*` / `RATE_LIMIT_PRICES_*` – adjust per-scope request limiting windows and max requests before a `429`.
+- `SECURITY_AUDIT_MAX_EVENTS` – size of the in-memory audit buffer surfaced in the Admin dashboard.
 - `JOB_NIGHTLY_HOUR` / `FRESHNESS_MAX_STALE_TRADING_DAYS` – govern when the nightly close runs and how long benchmark data may stay stale before returning `503`.
 
 Refer back to Appendix B of the audit for the full catalog of supported variables.
@@ -205,6 +207,10 @@ Operational dashboards can poll the hardened metrics endpoints:
 
 Both endpoints return JSON and are safe to proxy into Prometheus exporters or Grafana data sources.
 
+Prefer a UI? The **Admin** tab in the frontend consumes the same endpoints plus the in-memory security
+audit buffer to visualise active lockouts, top rate-limit offenders, and recent authentication events
+without leaving the dashboard.
+
 ## Holdings utility hooks
 
 When calling the client-side holdings helpers you can subscribe to structured warning events instead of watching for console output.
@@ -247,6 +253,7 @@ the brute-force guard, cache TTLs, and logging controls.
 - **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management.
 - **Deterministic math engine** – internal cash, holdings, and return calculations run in Decimal/cents space; see [docs/math-policy.md](docs/math-policy.md).
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
+- **Admin dashboard** – surface runtime metrics, rate-limit offenders, and recent security audit events in one place.
 
 ## Phase 1 Audit Fixes (October 2025)
 
@@ -329,6 +336,7 @@ The interface organises the experience across focused tabs:
 - **Metrics** – allocation concentration, return ratios, and performance highlights derived from the ROI series.
 - **Reports** – CSV export hub covering transactions, holdings, and ROI comparisons for downstream analysis.
 - **Settings** – privacy, notification, and display preferences persisted to the browser for future sessions.
+- **Admin** – inspect runtime metrics, lockout activity, and security audit trails without leaving the app.
 
 ## Getting Started
 

@@ -48,6 +48,7 @@ const MetricsTab = lazy(() => import("./components/MetricsTab.jsx"));
 const ReportsTab = lazy(() => import("./components/ReportsTab.jsx"));
 const SettingsTab = lazy(() => import("./components/SettingsTab.jsx"));
 const TransactionsTab = lazy(() => import("./components/TransactionsTab.jsx"));
+const AdminTab = lazy(() => import("./components/AdminTab.jsx"));
 
 function LoadingFallback() {
   return (
@@ -389,6 +390,8 @@ export default function App() {
                 onPortfolioSettingChange={handlePortfolioSettingChange}
               />
             )}
+
+            {activeTab === "Admin" && <AdminTab />}
           </Suspense>
         </main>
       </div>

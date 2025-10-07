@@ -78,3 +78,39 @@ export async function retrievePortfolio(portfolioId, options = {}) {
 
   return response.json();
 }
+
+export async function fetchMonitoringSnapshot(options = {}) {
+  const response = await fetch(`${API_BASE}/api/monitoring`, {
+    signal: options.signal,
+  });
+  if (!response.ok) {
+    throw new Error("Unable to load monitoring snapshot");
+  }
+  return response.json();
+}
+
+export async function fetchSecurityStats(options = {}) {
+  const response = await fetch(`${API_BASE}/api/security/stats`, {
+    signal: options.signal,
+  });
+  if (!response.ok) {
+    throw new Error("Unable to load security statistics");
+  }
+  return response.json();
+}
+
+export async function fetchSecurityEvents({ limit, signal } = {}) {
+  const params = new URLSearchParams();
+  if (Number.isFinite(limit)) {
+    params.set("limit", String(Math.max(1, Math.floor(limit))));
+  }
+  const query = params.toString();
+  const response = await fetch(
+    `${API_BASE}/api/security/events${query ? `?${query}` : ""}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error("Unable to load security audit events");
+  }
+  return response.json();
+}
