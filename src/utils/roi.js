@@ -28,8 +28,14 @@ export async function buildRoiSeries(transactions, priceFetcher) {
   const symbols = [...tickers, "spy"];
   const priceMapEntries = await Promise.all(
     symbols.map(async (symbol) => {
-      const data = await priceFetcher(symbol);
-      return [symbol, data];
+      const result = await priceFetcher(symbol);
+      if (Array.isArray(result)) {
+        return [symbol, result];
+      }
+      if (result && Array.isArray(result.data)) {
+        return [symbol, result.data];
+      }
+      return [symbol, []];
     }),
   );
   const priceMap = Object.fromEntries(priceMapEntries);
