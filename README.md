@@ -222,6 +222,10 @@ For production deployments forward these logs to a central aggregator (Grafana L
 Datadog) using your log shipper of choice. Shipping on the `event_type=security` channel keeps audit
 trails searchable and enables alerting for repeated failures or rate-limit violations.
 
+📚 **Need the full runbook?** Read [docs/SECURITY.md](docs/SECURITY.md) for detailed incident
+response procedures, API key management guidance, and a complete configuration reference covering
+the brute-force guard, cache TTLs, and logging controls.
+
 ## Features
 
 - **Server‑side persistence** – save and load your portfolio on any device via REST endpoints.
