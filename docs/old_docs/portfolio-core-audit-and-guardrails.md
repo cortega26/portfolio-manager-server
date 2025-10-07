@@ -1,5 +1,4 @@
-
-<!-- markdownlint-disable MD013 MD024 -->
+<!-- markdownlint-disable -->
 # Portfolio Manager — Core Audit, Fix Plan & Guardrails (for GPT Codex‑5)
 
 **Repository**: `cortega26/portfolio-manager-server`  

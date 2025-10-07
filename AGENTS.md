@@ -1,3 +1,4 @@
+<!-- markdownlint-disable -->
 # AGENTS — Playbook for Automated Contributions (React/Vite/Express/Tailwind)
 
 > **Repository:** `cortega26/portfolio-manager-server`  
