@@ -100,6 +100,15 @@ Make sure this file is referenced in `vitest.config.ts` under `test.setupFiles`.
 - Vite build: `npm run build`.
 - Attach in the PR: CI link, coverage before→after, mutation score (if applicable), and a short list of fixed warnings.
 
+### 4.4 Roadmap snapshot (refreshed 2025-10-07)
+- **Phase 1 — Immediate**: Completed. README, API key enforcement, security audit logging, and `.env.example` all landed on
+  `main`; treat these as baselines when reviewing regressions.
+- **Phase 2 — Documentation**: `docs/openapi.yaml` now documents machine-readable errors (including `WEAK_KEY`), and this
+  `AGENTS.md` plus `docs/HARDENING_SCOREBOARD.md` were refreshed together. When instructions evolve, update all three (OpenAPI,
+  README, scoreboard) in the same PR to avoid drift.
+- **Phase 3 — Observability**: Upcoming work includes request-id propagation and admin tooling (see scoreboard entries `OBS-2`
+  and `OBS-3`). Start new work by confirming status in `docs/HARDENING_SCOREBOARD.md`.
+
 ---
 
 ## 5) Default Acceptance Criteria (for any agent PR)
