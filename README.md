@@ -196,6 +196,15 @@ Common issues and quick fixes (see Section 6 of the audit for the full decision
 
 If problems persist, gather relevant log lines (the server uses Pino for structured output) before opening an issue.
 
+## Monitoring & Diagnostics
+
+Operational dashboards can poll the hardened metrics endpoints:
+
+- `GET /api/security/stats` – Per-scope rate limiter hits, rolling windows, and brute-force guard stats.
+- `GET /api/monitoring` – Process uptime/memory, cache hit ratios, and lock queue depth so you can alert on contention.
+
+Both endpoints return JSON and are safe to proxy into Prometheus exporters or Grafana data sources.
+
 ## Holdings utility hooks
 
 When calling the client-side holdings helpers you can subscribe to structured warning events instead of watching for console output.
@@ -421,7 +430,42 @@ Returns aggregated cache metrics (`keys`, `hits`, `misses`, `hitRate`) for price
 
 ### `GET /api/security/stats`
 
-Exposes brute-force protection metrics (`activeFailureKeys`, `activeLockouts`, and current thresholds) to help validate security posture in staging environments.
+Returns aggregated security metrics for the brute-force guard and rate limiter instrumentation. The payload includes:
+
+- `bruteForce` – existing lockout counters and configuration thresholds.
+- `rateLimit` – global limiter hit totals plus per-scope breakdowns (`general`, `portfolio`, `prices`). Each scope reports
+  `limit`, `windowMs`, `totalHits`, rolling hit counters (`hitsLastMinute`, `hitsLastWindow`, `hitsLast15m`), the number of
+  unique offending IPs observed in the last 15 minutes, the most recent hit timestamp, and up to five recent offenders with hit
+  counts.
+
+Example response excerpt:
+
+```json
+{
+  "bruteForce": {
+    "activeLockouts": 0,
+    "config": { "maxAttempts": 5, "attemptWindowSeconds": 900 }
+  },
+  "rateLimit": {
+    "totalHits": 3,
+    "scopes": {
+      "portfolio": {
+        "limit": 20,
+        "windowMs": 60000,
+        "totalHits": 2,
+        "hitsLastMinute": 1,
+        "hitsLastWindow": 2,
+        "hitsLast15m": 2,
+        "uniqueIpCount": 1,
+        "lastHitAt": "2025-10-07T05:15:30.123Z",
+        "topOffenders": [
+          { "ip": "127.0.0.1", "hits": 2, "lastHitAt": "2025-10-07T05:15:30.123Z" }
+        ]
+      }
+    }
+  }
+}
+```
 
 ### `GET /api/portfolio/:id`
 

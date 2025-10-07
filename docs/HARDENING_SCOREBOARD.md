@@ -10,7 +10,7 @@ Last Updated: 2025-10-07 (synced with AI_IMPLEMENTATION_PROMPT.md)
 | DOC-2 | Security documentation       | DONE   | feat/DOC-2-security-doc   | —  | `docs/SECURITY.md`; README security cross-link      | Incident response + key guidance documented |
 | SEC-10| API key strength enforcement | DONE   | main                      | —  | server/middleware/validation.js; shared/apiKey.js    | Zod schema + shared evaluator |
 | SEC-11| Security audit logging       | DONE   | main                      | —  | server/middleware/auditLog.js; audit log tests       | Structured logging in place |
-| SEC-12| Rate limit monitoring        | TODO   | —                         | —  | No metrics exports yet                                | Need observability around rate limiter |
+| SEC-12| Rate limit monitoring        | DONE   | feat/SEC-12-rate-limit-monitoring | —  | `server/__tests__/rate_limit_monitoring.test.js`; README `/api/security/stats` | Limiter metrics + offender tracking live |
 | TEST-9| Security event log tests     | DONE   | main                      | —  | `server/__tests__/audit_log.test.js`                  | Weak key + rate limit audit coverage |
 | DX-2  | Environment template         | DONE   | main                      | —  | `.env.example`; README environment table             | Template committed |
 | PERF-1| Price data caching           | DONE   | main                      | —  | `server/cache/priceCache.js`; cache tests             | Cache TTL + ETag negotiation |
@@ -39,7 +39,7 @@ Last Updated: 2025-10-07 (synced with AI_IMPLEMENTATION_PROMPT.md)
 | SEC-9   | Brute-force API key guard        | CRITICAL |       | DONE         | main              |    | server/app.js (key failure tracker); Local: npm test (2025-10-05) |
 | SEC-10  | API key strength enforcement     | HIGH     |       | DONE         | main              |    | server/middleware/validation.js; shared/apiKey.js; server/__tests__/api_errors.test.js |
 | SEC-11  | Security audit logging           | MEDIUM   |       | DONE         | main              |    | server/middleware/auditLog.js; server/__tests__/audit_log.test.js |
-| SEC-12  | Rate limit monitoring               | HIGH     |       | TODO         |                   |    | Missing dashboards/alerting hooks |
+| SEC-12  | Rate limit monitoring               | HIGH     |       | DONE         | feat/SEC-12-rate-limit-monitoring |    | Metrics exposed via `/api/security/stats`; monitor offenders |
 | STO-1   | Atomic writes                    | CRITICAL |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | STO-2   | Per-portfolio mutex              | CRITICAL |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
 | STO-3   | Idempotent tx IDs                | HIGH     |       | DONE         | feat/sto-hardening | [Compare](https://github.com/cortega26/portfolio-manager-server/compare/main...feat/sto-hardening) | Local: lint/test |
@@ -68,7 +68,7 @@ Last Updated: 2025-10-07 (synced with AI_IMPLEMENTATION_PROMPT.md)
 | TEST-7  | Edge-case regression tests       | HIGH     |       | DONE         | main              |    | server/__tests__/edge_cases.test.js; Local: npm test (2025-10-05) |
 | TEST-8  | Frontend integration tests       | MEDIUM   |       | DONE         | main              |    | src/__tests__/Transactions.integration.test.jsx; Local: npm test (2025-10-05) |
 | TEST-9  | Security event logging tests       | HIGH     |       | DONE         | main              |    | server/__tests__/audit_log.test.js |
-| OBS-1   | Performance monitoring endpoint    | MEDIUM   |       | TODO         |                   |    | Missing `/api/monitoring`/metrics exposure |
+| OBS-1   | Performance monitoring endpoint    | MEDIUM   |       | DONE         | feat/OBS-1-performance-monitoring |    | `server/__tests__/monitoring_endpoint.test.js`; `/api/monitoring` exposes cache/lock/security metrics |
 | OBS-2   | Admin dashboard                    | MEDIUM   |       | TODO         |                   |    | UI/route not implemented |
 | OBS-3   | Request ID tracking                | MEDIUM   |       | TODO         |                   |    | No middleware setting req.id/global correlation |
 | CODE-1  | Complex function refactoring       | LOW      |       | TODO         |                   |    | Pending audit of server/app.js long handlers |
