@@ -1,4 +1,26 @@
 <!-- markdownlint-disable -->
+
+## Execution Modes
+
+**FAST lane (default)**
+- Install: `npm ci --no-fund --no-audit`
+- Lint: `npm run lint`
+- Tests: `NO_NETWORK_TESTS=1 npm run test:fast`
+- Do **not** run coverage, mutation testing, gitleaks, or npm audit unless explicitly requested.
+
+**HEAVY lane (opt-in)**
+- Coverage (single run): `npm run test:coverage`
+- Secret scan: `npm run leaks:repo` (if gitleaks is available)
+- Dependency scan: `npm run audit:quick`
+- Mutation testing: `npm run mutate` (full) or `npm run mutate:changed` for incremental scope
+- Per-file mutation: `npx stryker run --mutate "path/to/file.{js,ts}"`
+- Networked suites: unset `NO_NETWORK_TESTS` to run live HTTP checks when explicitly required
+
+**Constraints for this task**
+- Use FAST lane only unless I say **HEAVY**.
+- If you need coverage, run `npm run test:coverage` (single run; don’t run tests twice).
+- Do not run gitleaks, npm audit, or mutation unless I say **HEAVY**.
+
 # AGENTS — Playbook for Automated Contributions (React/Vite/Express/Tailwind)
 
 > **Repository:** `cortega26/portfolio-manager-server`  
