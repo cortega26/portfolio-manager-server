@@ -14,6 +14,7 @@ import { createApp } from '../app.js';
 import JsonTableStorage from '../data/storage.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
+const API_PREFIXES = ['/api', '/api/v1'];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const specPath = path.resolve(__dirname, '../../docs/openapi.yaml');
@@ -77,139 +78,149 @@ afterEach(() => {
   validatorCache.clear();
 });
 
-test('GET /api/returns/daily matches the OpenAPI contract', async () => {
-  await storage.writeTable('returns_daily', [
-    {
-      date: '2024-01-01',
-      r_port: 0.01,
-      r_ex_cash: 0.009,
-      r_spy_100: 0.012,
-      r_bench_blended: 0.011,
-      r_cash: 0.0001,
-    },
-    {
-      date: '2024-01-02',
-      r_port: 0.015,
-      r_ex_cash: 0.014,
-      r_spy_100: 0.017,
-      r_bench_blended: 0.016,
-      r_cash: 0.0001,
-    },
-  ]);
+for (const basePath of API_PREFIXES) {
+  test(`GET ${basePath}/returns/daily matches the OpenAPI contract`, async () => {
+    await storage.writeTable('returns_daily', [
+      {
+        date: '2024-01-01',
+        r_port: 0.01,
+        r_ex_cash: 0.009,
+        r_spy_100: 0.012,
+        r_bench_blended: 0.011,
+        r_cash: 0.0001,
+      },
+      {
+        date: '2024-01-02',
+        r_port: 0.015,
+        r_ex_cash: 0.014,
+        r_spy_100: 0.017,
+        r_bench_blended: 0.016,
+        r_cash: 0.0001,
+      },
+    ]);
 
-  const app = buildApp();
-  const response = await request(app).get(
-    '/api/returns/daily?from=2024-01-01&to=2024-01-02&views=port,excash,spy,bench',
-  );
+    const app = buildApp();
+    const response = await request(app).get(
+      `${basePath}/returns/daily?from=2024-01-01&to=2024-01-02&views=port,excash,spy,bench`,
+    );
 
-  assert.equal(response.status, 200);
-  const validator = getValidator('/api/returns/daily');
-  expectValidResponse(validator, response.body);
-});
-
-test('GET /api/nav/daily matches the OpenAPI contract', async () => {
-  await storage.writeTable('nav_snapshots', [
-    {
-      date: '2024-01-01',
-      portfolio_nav: 1000,
-      ex_cash_nav: 800,
-      cash_balance: 200,
-      risk_assets_value: 800,
-      stale_price: false,
-    },
-    {
-      date: '2024-01-02',
-      portfolio_nav: 1010,
-      ex_cash_nav: 805,
-      cash_balance: 205,
-      risk_assets_value: 805,
-      stale_price: true,
-    },
-  ]);
-
-  const app = buildApp();
-  const response = await request(app).get('/api/nav/daily?from=2024-01-01&to=2024-01-02');
-
-  assert.equal(response.status, 200);
-  const validator = getValidator('/api/nav/daily');
-  expectValidResponse(validator, response.body);
-});
-
-test('GET /api/benchmarks/summary matches the OpenAPI contract', async () => {
-  await storage.writeTable('returns_daily', [
-    {
-      date: '2024-01-01',
-      r_port: 0.01,
-      r_ex_cash: 0.009,
-      r_spy_100: 0.012,
-      r_bench_blended: 0.011,
-      r_cash: 0.0001,
-    },
-    {
-      date: '2024-01-02',
-      r_port: 0.015,
-      r_ex_cash: 0.014,
-      r_spy_100: 0.017,
-      r_bench_blended: 0.016,
-      r_cash: 0.0002,
-    },
-  ]);
-  await storage.writeTable('nav_snapshots', [
-    {
-      date: '2024-01-01',
-      portfolio_nav: 1000,
-      ex_cash_nav: 800,
-      cash_balance: 200,
-      risk_assets_value: 800,
-      stale_price: false,
-    },
-    {
-      date: '2024-01-02',
-      portfolio_nav: 1015,
-      ex_cash_nav: 805,
-      cash_balance: 210,
-      risk_assets_value: 805,
-      stale_price: false,
-    },
-  ]);
-  await storage.writeTable('transactions', [
-    { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
-  ]);
-
-  const app = buildApp();
-  const response = await request(app).get('/api/benchmarks/summary?from=2024-01-01&to=2024-01-02');
-
-  assert.equal(response.status, 200);
-  const validator = getValidator('/api/benchmarks/summary');
-  expectValidResponse(validator, response.body);
-});
-
-test('GET /api/prices/:symbol matches the OpenAPI contract', async () => {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const todayKey = today.toISOString().slice(0, 10);
-  const yesterdayKey = yesterday.toISOString().slice(0, 10);
-  const priceProvider = {
-    async getDailyAdjustedClose() {
-      return [
-        { date: yesterdayKey, adjClose: 123.45 },
-        { date: todayKey, adjClose: 124.56 },
-      ];
-    },
-  };
-
-  const app = buildApp({
-    priceProvider,
-    config: {
-      featureFlags: { cashBenchmarks: true },
-      cors: { allowedOrigins: [] },
-      freshness: { maxStaleTradingDays: 30 },
-    },
+    assert.equal(response.status, 200);
+    const validator = getValidator(`${basePath}/returns/daily`);
+    expectValidResponse(validator, response.body);
   });
-  const response = await request(app).get('/api/prices/AAPL');
+}
 
-  assert.equal(response.status, 200);
-  const validator = getValidator('/api/prices/{symbol}');
-  expectValidResponse(validator, response.body);
-});
+for (const basePath of API_PREFIXES) {
+  test(`GET ${basePath}/nav/daily matches the OpenAPI contract`, async () => {
+    await storage.writeTable('nav_snapshots', [
+      {
+        date: '2024-01-01',
+        portfolio_nav: 1000,
+        ex_cash_nav: 800,
+        cash_balance: 200,
+        risk_assets_value: 800,
+        stale_price: false,
+      },
+      {
+        date: '2024-01-02',
+        portfolio_nav: 1010,
+        ex_cash_nav: 805,
+        cash_balance: 205,
+        risk_assets_value: 805,
+        stale_price: true,
+      },
+    ]);
+
+    const app = buildApp();
+    const response = await request(app).get(`${basePath}/nav/daily?from=2024-01-01&to=2024-01-02`);
+
+    assert.equal(response.status, 200);
+    const validator = getValidator(`${basePath}/nav/daily`);
+    expectValidResponse(validator, response.body);
+  });
+}
+
+for (const basePath of API_PREFIXES) {
+  test(`GET ${basePath}/benchmarks/summary matches the OpenAPI contract`, async () => {
+    await storage.writeTable('returns_daily', [
+      {
+        date: '2024-01-01',
+        r_port: 0.01,
+        r_ex_cash: 0.009,
+        r_spy_100: 0.012,
+        r_bench_blended: 0.011,
+        r_cash: 0.0001,
+      },
+      {
+        date: '2024-01-02',
+        r_port: 0.015,
+        r_ex_cash: 0.014,
+        r_spy_100: 0.017,
+        r_bench_blended: 0.016,
+        r_cash: 0.0002,
+      },
+    ]);
+    await storage.writeTable('nav_snapshots', [
+      {
+        date: '2024-01-01',
+        portfolio_nav: 1000,
+        ex_cash_nav: 800,
+        cash_balance: 200,
+        risk_assets_value: 800,
+        stale_price: false,
+      },
+      {
+        date: '2024-01-02',
+        portfolio_nav: 1015,
+        ex_cash_nav: 805,
+        cash_balance: 210,
+        risk_assets_value: 805,
+        stale_price: false,
+      },
+    ]);
+    await storage.writeTable('transactions', [
+      { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+    ]);
+
+    const app = buildApp();
+    const response = await request(app).get(
+      `${basePath}/benchmarks/summary?from=2024-01-01&to=2024-01-02`,
+    );
+
+    assert.equal(response.status, 200);
+    const validator = getValidator(`${basePath}/benchmarks/summary`);
+    expectValidResponse(validator, response.body);
+  });
+}
+
+for (const basePath of API_PREFIXES) {
+  test(`GET ${basePath}/prices/:symbol matches the OpenAPI contract`, async () => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const todayKey = today.toISOString().slice(0, 10);
+    const yesterdayKey = yesterday.toISOString().slice(0, 10);
+    const priceProvider = {
+      async getDailyAdjustedClose() {
+        return [
+          { date: yesterdayKey, adjClose: 123.45 },
+          { date: todayKey, adjClose: 124.56 },
+        ];
+      },
+    };
+
+    const app = buildApp({
+      priceProvider,
+      config: {
+        featureFlags: { cashBenchmarks: true },
+        cors: { allowedOrigins: [] },
+        freshness: { maxStaleTradingDays: 30 },
+      },
+    });
+    const response = await request(app).get(`${basePath}/prices/AAPL`);
+
+    assert.equal(response.status, 200);
+    const validator = getValidator(`${basePath}/prices/{symbol}`);
+    expectValidResponse(validator, response.body);
+  });
+}
