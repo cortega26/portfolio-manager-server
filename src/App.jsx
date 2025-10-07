@@ -10,6 +10,7 @@ import {
 import PortfolioControls from "./components/PortfolioControls.jsx";
 import TabBar from "./components/TabBar.jsx";
 import {
+  fetchDailyReturns,
   fetchPrices,
   persistPortfolio,
   retrievePortfolio,
@@ -28,7 +29,7 @@ import {
   buildHoldingsCsv,
   triggerCsvDownload,
 } from "./utils/reports.js";
-import { buildRoiSeries } from "./utils/roi.js";
+import { buildRoiSeries, mergeReturnSeries } from "./utils/roi.js";
 import {
   createDefaultSettings,
   loadSettingsFromStorage,
@@ -160,16 +161,38 @@ export default function App() {
         return;
       }
 
+      const orderedDates = transactions
+        .map((tx) => tx.date)
+        .filter((date) => typeof date === "string" && date.trim().length > 0)
+        .sort((a, b) => a.localeCompare(b));
+      if (orderedDates.length === 0) {
+        setRoiData([]);
+        return;
+      }
+
       setLoadingRoi(true);
       try {
-        const series = await buildRoiSeries(transactions, fetchPrices);
+        const { data } = await fetchDailyReturns({
+          from: orderedDates[0],
+          to: orderedDates[orderedDates.length - 1],
+          views: ["port", "spy", "bench", "excash", "cash"],
+        });
+        const mergedSeries = mergeReturnSeries(data?.series);
         if (!cancelled) {
-          setRoiData(series);
+          setRoiData(mergedSeries);
         }
       } catch (error) {
         console.error(error);
-        if (!cancelled) {
-          setRoiData([]);
+        try {
+          const fallbackSeries = await buildRoiSeries(transactions, fetchPrices);
+          if (!cancelled) {
+            setRoiData(fallbackSeries);
+          }
+        } catch (fallbackError) {
+          console.error(fallbackError);
+          if (!cancelled) {
+            setRoiData([]);
+          }
         }
       } finally {
         if (!cancelled) {
