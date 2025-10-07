@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { externalFlowsByDate, computeDailyStates } from '../finance/portfolio.js';
+import {
+  externalFlowsByDate,
+  computeDailyStates,
+  holdingsToObject,
+  weightsFromState,
+} from '../finance/portfolio.js';
 import { d, roundDecimal } from '../finance/decimal.js';
 import { toDateKey } from '../finance/cash.js';
 
@@ -77,4 +82,20 @@ test('computeDailyStates valuations remain stable across long ledgers', () => {
     assert.ok(d(state.nav).minus(expectedNav).abs().lt(0.01));
     assert.ok(roundDecimal(d(state.riskValue), 2).minus(manualHoldings).abs().lt(0.01));
   }
+});
+
+test('holdingsToObject and weightsFromState provide stable transforms', () => {
+  const holdings = new Map([
+    ['AAPL', 5.25],
+    ['MSFT', 3],
+  ]);
+  const object = holdingsToObject(holdings);
+  assert.deepEqual(object, { AAPL: 5.25, MSFT: 3 });
+
+  const weights = weightsFromState({ nav: 200, cash: 80, riskValue: 120 });
+  assert.ok(Math.abs(weights.cash - 0.4) < 1e-9);
+  assert.ok(Math.abs(weights.risk - 0.6) < 1e-9);
+
+  const zeroWeights = weightsFromState({ nav: 0, cash: 0, riskValue: 0 });
+  assert.deepEqual(zeroWeights, { cash: 0, risk: 0 });
 });
