@@ -258,12 +258,15 @@ The suite now enforces randomized execution order, coverage thresholds, and warn
 - `npm test` – runs all unit, integration, and property-based tests once with deterministic shuffling, `c8` coverage enforcement (branches ≥ 70%, functions ≥ 90%, lines/statements ≥ 90%), and warning promotion via `server/__tests__/setup/global.js`.
 - `npm run test:ci` – identical to `npm test` but pins `TEST_SHUFFLE_SEED=20251006` for reproducible CI logs.
 - `npm run test:stress` – executes the full suite five times (without coverage) to expose order-dependent or flaky behaviour.
+- `npm run test:mutation` – executes [StrykerJS](https://stryker-mutator.io) against portfolio math modules via the deterministic shuffle runner (coverage disabled) and reports the mutation score. Use for nightly/weekly assurance.
 
 | Name               | Type      | Default                         | Required | Description |
 | ------------------ | --------- | ------------------------------- | -------- | ----------- |
 | `TEST_SHUFFLE_SEED` | int/string | Random per run (CI: `20251006`) | No       | Overrides the deterministic shuffle used by `tools/run-tests.mjs`. Set to reproduce a failing order locally. |
 | `FC_SEED`          | int       | Derived from `TEST_SHUFFLE_SEED` | No      | Controls the Fast-Check property test seeds; helps reproduce counterexamples. |
 | `FC_RUNS`          | int       | `80`                            | No       | Adjusts the number of Fast-Check executions per property test (increase for additional assurance). |
+
+> Mutation testing: the ROI property harness scores ≥70% mutation coverage on `src/utils/roi.js`. Run `npm run test:mutation` before shipping pricing/benchmark changes to confirm the ROI guardrails still hold.
 
 The coverage-aware runner still loads [`docs/openapi.yaml`](docs/openapi.yaml) via `server/__tests__/api_contract.test.js`, exercises the React zod validator in `src/__tests__/portfolioSchema.test.js`, and drives a full portfolio lifecycle in `server/__tests__/integration.test.js`. API failure paths, edge cases, and math policies remain covered; the new property tests harden ROI, benchmark, and cash accrual logic against seeded bugs.
 

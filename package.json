@@ -13,6 +13,7 @@
     "test": "node tools/run-tests.mjs",
     "test:ci": "TEST_SHUFFLE_SEED=20251006 node tools/run-tests.mjs --ci",
     "test:stress": "TEST_SHUFFLE_SEED=20251006 node tools/run-tests.mjs --repeat=5 --no-coverage",
+    "test:mutation": "stryker run",
     "backfill": "node server/cli/backfill.js"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
   "devDependencies": {
     "@apidevtools/swagger-parser": "^12.0.0",
     "@eslint/js": "^9.11.1",
+    "@stryker-mutator/core": "^9.2.0",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.4.3",
     "@vitejs/plugin-react": "^4.0.0",
