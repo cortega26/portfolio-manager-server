@@ -3,6 +3,14 @@
 
 This project provides a full‑stack portfolio manager that runs client‑side in the browser but persists data on the server. It allows you to record transactions (buy, sell, dividends, deposits and withdrawals) using amounts and exact prices, computes holdings and portfolio value, tracks return on investment (ROI) relative to the S&P 500 (SPY) and displays configurable trading signals for each ticker.
 
+## Project status
+
+- Phase 3 observability deliverables—request ID propagation, monitoring endpoints, and the Admin
+  dashboard—are live on `main` (see `OBS-1` through `OBS-3` plus CODE/PERF items in
+  [docs/HARDENING_SCOREBOARD.md](docs/HARDENING_SCOREBOARD.md)).
+- Phase 4 focuses on frontend UX updates. Track backlog items `P4-UI-1`, `P4-UI-2`, and `P4-DOC-1`
+  in the scoreboard before beginning new UI work.
+
 ## Getting Started
 
 Content adapted from Section 6 ("Complete User Guide") of `comprehensive_audit_v3.md` so new contributors can follow a single source of truth.
