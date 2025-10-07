@@ -319,6 +319,11 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [requestMetadata, setRequestMetadata] = useState({
+    monitoring: null,
+    security: null,
+    events: null,
+  });
 
   const systemMetrics = useMemo(
     () => buildSystemMetrics(monitoringSnapshot),
@@ -368,9 +373,17 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
         if (!isSubscribed) {
           return;
         }
-        setMonitoringSnapshot(monitoring);
-        setSecurityStats(security);
-        setEvents(Array.isArray(audit?.events) ? audit.events : []);
+        const monitoringData = monitoring?.data ?? monitoring;
+        const securityData = security?.data ?? security;
+        const auditData = audit?.data ?? audit;
+        setMonitoringSnapshot(monitoringData);
+        setSecurityStats(securityData);
+        setEvents(Array.isArray(auditData?.events) ? auditData.events : []);
+        setRequestMetadata({
+          monitoring: monitoring?.requestId ?? null,
+          security: security?.requestId ?? null,
+          events: audit?.requestId ?? null,
+        });
       } catch (fetchError) {
         if (fetchError.name === "AbortError") {
           return;
@@ -409,9 +422,35 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
                 Last refreshed {lastUpdated}
               </p>
             )}
+            {Object.values(requestMetadata).some((value) => typeof value === "string" && value.length > 0) && (
+              <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+                <p className="font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Last request IDs
+                </p>
+                <dl className="mt-2 space-y-1 font-mono">
+                  <div className="flex items-center gap-2">
+                    <dt className="text-slate-500 dark:text-slate-400">monitoring</dt>
+                    <dd>{requestMetadata.monitoring ?? "—"}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <dt className="text-slate-500 dark:text-slate-400">security</dt>
+                    <dd>{requestMetadata.security ?? "—"}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <dt className="text-slate-500 dark:text-slate-400">events</dt>
+                    <dd>{requestMetadata.events ?? "—"}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
             {error && (
               <p className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
                 Failed to load admin data: {error.message}
+                {error.requestId && (
+                  <span className="mt-1 block font-mono text-xs">
+                    Request ID: {error.requestId}
+                  </span>
+                )}
               </p>
             )}
           </div>

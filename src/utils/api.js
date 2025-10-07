@@ -5,6 +5,11 @@ export const API_BASE =
   "https://portfolio-api.carlosortega77.workers.dev";
 
 const PORTFOLIO_ID_REGEX = /^[A-Za-z0-9_-]{1,64}$/;
+const API_VERSION_ROUTES = [
+  { id: "v1", prefix: "/api/v1" },
+  { id: "legacy", prefix: "/api" },
+];
+const LEGACY_FALLBACK_STATUS = new Set([404, 410]);
 
 function normalizePortfolioId(portfolioId) {
   if (typeof portfolioId !== "string") {
@@ -40,77 +45,211 @@ function buildPortfolioHeaders({ apiKey, newApiKey } = {}, baseHeaders = {}) {
   return headers;
 }
 
-export async function fetchPrices(symbol, range = "1y") {
-  const response = await fetch(
-    `${API_BASE}/api/prices/${symbol}?range=${range}`,
+function trimTrailingSlash(value) {
+  return value.replace(/\/+$\/u, "");
+}
+
+function normalizePath(path) {
+  if (typeof path !== "string" || path.length === 0) {
+    throw new Error("Path must be a non-empty string");
+  }
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+function createHeaders(headers) {
+  const next = new Headers(headers ?? {});
+  if (!next.has("accept")) {
+    next.set("Accept", "application/json");
+  }
+  return next;
+}
+
+function extractRequestId(response) {
+  const requestId = response.headers.get("X-Request-ID");
+  if (typeof requestId !== "string") {
+    return undefined;
+  }
+  const trimmed = requestId.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+async function buildApiError({ response, requestId, version, method, url, path }) {
+  const error = new Error(
+    `${method.toUpperCase()} ${url} failed with status ${response.status}`,
   );
-  if (!response.ok) {
-    throw new Error(`Failed to fetch prices for ${symbol}`);
+  error.name = "ApiError";
+  error.status = response.status;
+  error.version = version;
+  error.path = path;
+  error.url = url;
+  error.method = method.toUpperCase();
+  if (requestId) {
+    error.requestId = requestId;
+  }
+  let rawBody = "";
+  try {
+    rawBody = await response.text();
+  } catch (readError) {
+    error.body = undefined;
+    error.cause = readError;
+    return error;
+  }
+  if (!rawBody) {
+    return error;
+  }
+  try {
+    error.body = JSON.parse(rawBody);
+  } catch (parseError) {
+    error.body = rawBody;
+    error.cause = parseError;
+  }
+  return error;
+}
+
+async function requestApi(path, options = {}) {
+  const {
+    method = "GET",
+    headers,
+    body,
+    signal,
+    allowLegacyFallback = true,
+  } = options;
+  const normalizedPath = normalizePath(path);
+  const baseUrl = trimTrailingSlash(API_BASE);
+  const versions = allowLegacyFallback
+    ? API_VERSION_ROUTES
+    : API_VERSION_ROUTES.slice(0, 1);
+  let lastError;
+
+  for (const { id, prefix } of versions) {
+    const url = `${baseUrl}${prefix}${normalizedPath}`;
+    const response = await fetch(url, {
+      method,
+      headers: createHeaders(headers),
+      body,
+      signal,
+    });
+    const requestId = extractRequestId(response);
+    if (response.ok) {
+      return { response, version: id, requestId };
+    }
+    const error = await buildApiError({
+      response,
+      requestId,
+      version: id,
+      method,
+      url,
+      path: normalizedPath,
+    });
+    if (id === "v1" && allowLegacyFallback && LEGACY_FALLBACK_STATUS.has(response.status)) {
+      lastError = error;
+      continue;
+    }
+    throw error;
   }
 
-  return response.json();
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error(`No API versions responded for ${normalizedPath}`);
+}
+
+async function parseJson(response, { allowEmptyObject = false, requestId, version } = {}) {
+  try {
+    return await response.json();
+  } catch (parseError) {
+    if (allowEmptyObject) {
+      return {};
+    }
+    const error = new Error("Failed to parse JSON response");
+    error.cause = parseError;
+    if (requestId) {
+      error.requestId = requestId;
+    }
+    if (version) {
+      error.version = version;
+    }
+    throw error;
+  }
+}
+
+async function requestJson(path, options = {}) {
+  const {
+    allowEmptyObject = false,
+    onRequestMetadata,
+    ...requestOptions
+  } = options;
+  const { response, requestId, version } = await requestApi(path, requestOptions);
+  if (typeof onRequestMetadata === "function") {
+    onRequestMetadata({ requestId, version });
+  }
+  const data = await parseJson(response, { allowEmptyObject, requestId, version });
+  return { data, requestId, version };
+}
+
+export async function fetchPrices(symbol, range = "1y", options = {}) {
+  const params = new URLSearchParams();
+  if (range !== undefined && range !== null) {
+    params.set("range", String(range));
+  }
+  const encodedSymbol = encodeURIComponent(String(symbol));
+  const query = params.toString();
+  return requestJson(`/prices/${encodedSymbol}${query ? `?${query}` : ""}`, {
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
 }
 
 export async function persistPortfolio(portfolioId, body, options = {}) {
+  const { signal, onRequestMetadata, ...headerOptions } = options;
   const normalizedId = normalizePortfolioId(portfolioId);
   const payload = validateAndNormalizePortfolioPayload(body ?? {});
-  const response = await fetch(`${API_BASE}/api/portfolio/${normalizedId}`, {
-    method: "POST",
-    headers: buildPortfolioHeaders(options, { "Content-Type": "application/json" }),
-    body: JSON.stringify(payload),
+  const headers = buildPortfolioHeaders(headerOptions, {
+    "Content-Type": "application/json",
   });
-
-  if (!response.ok) {
-    throw new Error(`Unable to save portfolio ${normalizedId}`);
-  }
-
-  return response.json().catch(() => ({}));
+  return requestJson(`/portfolio/${normalizedId}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    allowEmptyObject: true,
+    signal,
+    onRequestMetadata,
+  });
 }
 
 export async function retrievePortfolio(portfolioId, options = {}) {
+  const { signal, onRequestMetadata, ...headerOptions } = options;
   const normalizedId = normalizePortfolioId(portfolioId);
-  const headers = buildPortfolioHeaders(options);
-  const fetchOptions = Object.keys(headers).length > 0 ? { headers } : undefined;
-  const response = await fetch(`${API_BASE}/api/portfolio/${normalizedId}`, fetchOptions);
-  if (!response.ok) {
-    throw new Error(`Unable to load portfolio ${normalizedId}`);
+  const headers = buildPortfolioHeaders(headerOptions);
+  const requestOptions = { signal, onRequestMetadata };
+  if (Object.keys(headers).length > 0) {
+    requestOptions.headers = headers;
   }
-
-  return response.json();
+  return requestJson(`/portfolio/${normalizedId}`, requestOptions);
 }
 
 export async function fetchMonitoringSnapshot(options = {}) {
-  const response = await fetch(`${API_BASE}/api/monitoring`, {
+  return requestJson("/monitoring", {
     signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
   });
-  if (!response.ok) {
-    throw new Error("Unable to load monitoring snapshot");
-  }
-  return response.json();
 }
 
 export async function fetchSecurityStats(options = {}) {
-  const response = await fetch(`${API_BASE}/api/security/stats`, {
+  return requestJson("/security/stats", {
     signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
   });
-  if (!response.ok) {
-    throw new Error("Unable to load security statistics");
-  }
-  return response.json();
 }
 
-export async function fetchSecurityEvents({ limit, signal } = {}) {
+export async function fetchSecurityEvents({ limit, signal, onRequestMetadata } = {}) {
   const params = new URLSearchParams();
   if (Number.isFinite(limit)) {
     params.set("limit", String(Math.max(1, Math.floor(limit))));
   }
   const query = params.toString();
-  const response = await fetch(
-    `${API_BASE}/api/security/events${query ? `?${query}` : ""}`,
-    { signal },
-  );
-  if (!response.ok) {
-    throw new Error("Unable to load security audit events");
-  }
-  return response.json();
+  return requestJson(`/security/events${query ? `?${query}` : ""}`, {
+    signal,
+    onRequestMetadata,
+  });
 }
