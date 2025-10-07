@@ -2,7 +2,7 @@
 
 # Security Hardening Scoreboard
 
-Last Updated: 2025-10-08 (Phase 3 sync: API version routing + request IDs)
+Last Updated: 2025-10-08 (Phase 3 sync: API version routing + request IDs; testing strategy guide finalized)
 
 Verification 2025-10-07: Reviewed `AI_IMPLEMENTATION_PROMPT.md` items and confirmed
 P1-DOC-1 through P1-DX-1 remain satisfied (README onboarding, API key validation,
