@@ -7,6 +7,7 @@ import {
   computeReturnStep,
   summarizeReturns,
   computeMoneyWeightedReturn,
+  cumulativeDifference,
 } from '../finance/returns.js';
 import { d, roundDecimal } from '../finance/decimal.js';
 import { computeDailyStates } from '../finance/portfolio.js';
@@ -248,4 +249,23 @@ test('computeMoneyWeightedReturn balances NPV for mixed flows', () => {
     return acc + flow.amount / discount;
   }, 0);
   assert.ok(Math.abs(presentValue) < 1e-6);
+});
+
+test('cumulativeDifference compares blended drag to portfolio growth', () => {
+  const rows = [
+    { r_port: 0.01, r_ex_cash: 0.005 },
+    { r_port: -0.002, r_ex_cash: 0.001 },
+  ];
+  const drag = cumulativeDifference(rows);
+  const blended = d(1)
+    .plus(rows[0].r_port)
+    .times(d(1).plus(rows[1].r_port));
+  const exCash = d(1)
+    .plus(rows[0].r_ex_cash)
+    .times(d(1).plus(rows[1].r_ex_cash));
+  const expected = exCash.minus(blended).dividedBy(blended);
+  assert.ok(
+    expected.minus(d(drag)).abs().lt(5e-6),
+    'drag mismatch exceeds rounding tolerance',
+  );
 });
