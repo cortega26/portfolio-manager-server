@@ -16,6 +16,63 @@ function cloneHoldings(holdings) {
   return result;
 }
 
+function createLedgerState() {
+  return { cashCents: 0, holdings: new Map() };
+}
+
+function applyTransactionsThroughDate({
+  state,
+  transactions,
+  startIndex,
+  dateKey,
+}) {
+  let index = startIndex;
+  while (index < transactions.length && transactions[index].date <= dateKey) {
+    applyTransaction(state, transactions[index]);
+    index += 1;
+  }
+  return index;
+}
+
+function holdingsToShareMap(holdingsSnapshot) {
+  const holdingsForOutput = new Map();
+  for (const [ticker, qtyMicro] of holdingsSnapshot.entries()) {
+    holdingsForOutput.set(ticker, fromMicroShares(qtyMicro).toNumber());
+  }
+  return holdingsForOutput;
+}
+
+function computeRiskValueCents(holdingsSnapshot, priceMap) {
+  let riskValueCents = 0;
+  for (const [ticker, qtyMicro] of holdingsSnapshot.entries()) {
+    if (ticker === 'CASH') {
+      continue;
+    }
+    const price = Number.parseFloat(priceMap.get(ticker) ?? 0);
+    if (!Number.isFinite(price)) {
+      continue;
+    }
+    const qty = fromMicroShares(qtyMicro);
+    const value = qty.times(price);
+    riskValueCents += toCents(value);
+  }
+  return riskValueCents;
+}
+
+function buildDailyState({ dateKey, ledgerState, priceMap }) {
+  const holdingsSnapshot = cloneHoldings(ledgerState.holdings);
+  const riskValueCents = computeRiskValueCents(holdingsSnapshot, priceMap);
+  const navCents = ledgerState.cashCents + riskValueCents;
+
+  return {
+    date: dateKey,
+    cash: fromCents(ledgerState.cashCents).toNumber(),
+    holdings: holdingsToShareMap(holdingsSnapshot),
+    riskValue: fromCents(riskValueCents).toNumber(),
+    nav: fromCents(navCents).toNumber(),
+  };
+}
+
 /**
  * Sort transactions deterministically.
  *
@@ -171,49 +228,24 @@ export function externalFlowsByDate(transactions) {
 export function computeDailyStates({ transactions, pricesByDate, dates }) {
   const sortedTransactions = sortTransactions(transactions);
   const states = [];
-  const state = { cashCents: 0, holdings: new Map() };
+  const ledgerState = createLedgerState();
   let txIndex = 0;
 
   for (const dateKey of dates) {
-    while (
-      txIndex < sortedTransactions.length &&
-      sortedTransactions[txIndex].date <= dateKey
-    ) {
-      applyTransaction(state, sortedTransactions[txIndex]);
-      txIndex += 1;
-    }
-    const holdingsSnapshot = cloneHoldings(state.holdings);
-    const priceMap = pricesByDate.get(dateKey) ?? new Map();
-    let riskValueCents = 0;
-    for (const [ticker, qtyMicro] of holdingsSnapshot.entries()) {
-      if (ticker === 'CASH') {
-        continue;
-      }
-      const price = Number.parseFloat(priceMap.get(ticker) ?? 0);
-      if (!Number.isFinite(price)) {
-        continue;
-      }
-      const qty = fromMicroShares(qtyMicro);
-      const value = qty.times(price);
-      riskValueCents += toCents(value);
-    }
-    const cash = fromCents(state.cashCents);
-    const riskValue = fromCents(riskValueCents);
-    const navCents = state.cashCents + riskValueCents;
-    const holdingsForOutput = new Map();
-    for (const [ticker, qtyMicro] of holdingsSnapshot.entries()) {
-      holdingsForOutput.set(
-        ticker,
-        fromMicroShares(qtyMicro).toNumber(),
-      );
-    }
-    states.push({
-      date: dateKey,
-      cash: cash.toNumber(),
-      holdings: holdingsForOutput,
-      riskValue: riskValue.toNumber(),
-      nav: fromCents(navCents).toNumber(),
+    txIndex = applyTransactionsThroughDate({
+      state: ledgerState,
+      transactions: sortedTransactions,
+      startIndex: txIndex,
+      dateKey,
     });
+    const priceMap = pricesByDate.get(dateKey) ?? new Map();
+    states.push(
+      buildDailyState({
+        dateKey,
+        ledgerState,
+        priceMap,
+      }),
+    );
   }
   return states;
 }

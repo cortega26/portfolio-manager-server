@@ -7,8 +7,9 @@ import { toDateKey } from '../finance/cash.js';
 import {
   computeDailyStates,
   sortTransactions,
+  externalFlowsByDate,
 } from '../finance/portfolio.js';
-import { computeDailyReturnRows } from '../finance/returns.js';
+import { computeDailyReturnRows, computeReturnStep } from '../finance/returns.js';
 import {
   d,
   fromCents,
@@ -232,6 +233,27 @@ test('ledger transactions preserve invariants under random scenarios', async () 
       }
 
       for (const state of states) {
+        const priceMap = pricesByDate.get(state.date) ?? new Map();
+        let expectedRiskValue = 0;
+        for (const [ticker, qty] of state.holdings.entries()) {
+          if (ticker === 'CASH') {
+            continue;
+          }
+          const price = Number.parseFloat(priceMap.get(ticker) ?? '0');
+          if (!Number.isFinite(price) || price <= 0) {
+            continue;
+          }
+          expectedRiskValue += qty * price;
+        }
+
+        assert.ok(
+          Math.abs(expectedRiskValue - state.riskValue) < 0.25,
+          `risk value mismatch on ${state.date}`,
+        );
+        assert.ok(
+          Math.abs(state.cash + expectedRiskValue - state.nav) < 0.25,
+          `nav mismatch on ${state.date}`,
+        );
         assert.ok(
           state.cash >= -0.01,
           `cash dipped negative on ${state.date}: ${state.cash}`,
@@ -264,6 +286,39 @@ test('ledger transactions preserve invariants under random scenarios', async () 
         transactions: sortedTransactions,
       });
       assert.equal(rows.length, states.length);
+
+      const flowsByDate = externalFlowsByDate(sortedTransactions);
+      for (let index = 0; index < rows.length; index += 1) {
+        const state = states[index];
+        const prevState = states[index - 1];
+        const flow = flowsByDate.get(state.date) ?? d(0);
+        const row = rows[index];
+
+        if (!prevState) {
+          if (flow.gt(0) && state.nav > 0) {
+            const expected = d(state.nav).minus(flow).dividedBy(flow);
+            assert.ok(
+              expected.minus(d(row.r_port)).abs().lt(1e-6),
+              'inception return drift',
+            );
+          } else {
+            assert.ok(Math.abs(row.r_port) < 1e-8);
+          }
+          continue;
+        }
+
+        const expectedPort = computeReturnStep(prevState.nav, state.nav, flow);
+        assert.ok(
+          expectedPort.minus(d(row.r_port)).abs().lt(1e-6),
+          'twr mismatch',
+        );
+
+        const expectedRisk = computeReturnStep(prevState.riskValue, state.riskValue, d(0));
+        assert.ok(
+          expectedRisk.minus(d(row.r_ex_cash)).abs().lt(1e-6),
+          'ex cash return mismatch',
+        );
+      }
 
       const serializedStates = states.map((state) => ({
         ...state,
