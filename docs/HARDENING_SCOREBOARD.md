@@ -2,7 +2,7 @@
 
 # Security Hardening Scoreboard
 
-Last Updated: 2025-10-07 (synced after full repo audit)
+Last Updated: 2025-10-07 (Phase 3 sync: code refactor, UI virtualisation, API versioning)
 
 Verification 2025-10-07: Reviewed `AI_IMPLEMENTATION_PROMPT.md` items and confirmed
 P1-DOC-1 through P1-DX-1 remain satisfied (README onboarding, API key validation,
@@ -47,8 +47,12 @@ audit logging middleware, `.env.example` template), with no new unchecked tasks.
 | OBS-1     | Performance monitoring endpoint | DONE                                   | main   | —  | server/app.js (/api/monitoring); server/metrics/performanceMetrics.js; server/__tests__/monitoring_endpoint.test.js | Returns cache, rate limit, brute force, and lock stats for ops dashboards. |
 | OBS-2     | Admin dashboard                 | DONE                                   | feat/obs-2-admin-dashboard | —  | server/security/eventsStore.js; server/__tests__/security_events.test.js; server/__tests__/events_store.test.js; src/components/AdminTab.jsx; src/__tests__/AdminTab.test.jsx | React admin tab renders monitoring/security data, backend event store enforces limits, new tests cover buffer handling and UI wiring; docs + env template refreshed. |
 | OBS-3     | Request ID tracking middleware  | DONE                                   | main   | —  | server/app.js (pinoHttp genReqId); server/__tests__/audit_log.test.js | Pino assigns UUIDs per request and propagates to audit logs. |
-| CODE-1    | Complex function refactoring    | TODO                                   | —      | —  | — | Large handlers (e.g., server/app.js) still exceed preferred complexity; refactor pending. |
+| CODE-1    | Complex function refactoring    | DONE                                   | feat/phase3-phase3-deliverables | —  | server/finance/portfolio.js; server/finance/returns.js; server/__tests__/integration.test.js | Extracted helpers reduce complexity while preserving math; integration tests guard behaviour. |
 | CODE-2    | Magic numbers extraction        | DONE                                   | fix/code-2-magic-numbers | —  | shared/constants.js; server/app.js; server/config.js; server/middleware/validation.js; src/utils/portfolioSchema.js | Rate limit + transaction caps centralized in shared constants and consumed across backend/frontend. |
+| PERF-4    | Virtual scrolling for transactions | DONE                                | feat/phase3-phase3-deliverables | —  | src/components/TransactionsTab.jsx; src/__tests__/Transactions.integration.test.jsx | `react-window` virtualises 10k+ rows; tests enforce render time and scroll behaviour. |
+| PERF-5    | Debounced search & filters        | DONE                                | feat/phase3-phase3-deliverables | —  | src/components/TransactionsTab.jsx; src/hooks/useDebouncedValue.js; src/__tests__/useDebouncedValue.test.js | Debounced ticker/type filters reduce rerenders; hook covered by unit test. |
+| API-1     | API versioning & headers          | DONE                                | feat/phase3-phase3-deliverables | —  | server/app.js; server/__tests__/integration.test.js; docs/openapi.yaml | `/api/v1` prefix added with request-id propagation; legacy rewrite bug fixed so price/cache endpoints resolve via v1. |
+| DOC-TEST-STRATEGY | Testing strategy guide   | DONE                                | feat/phase3-phase3-deliverables | —  | docs/testing-strategy.md; README.md (Testing & quality gates) | Dedicated guide published and cross-linked from README/AGENTS. |
 
 > Historical scoreboard snapshots remain available in git history prior to this commit.
 
