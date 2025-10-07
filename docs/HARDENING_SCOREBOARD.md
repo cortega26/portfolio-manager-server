@@ -24,7 +24,7 @@ Last Updated: 2025-10-07 (revalidated for AI_IMPLEMENTATION_PROMPT.md)
 | P2-DOC-1  | README deep-dive sections              | DONE                                   | main   | —  | README.md (Usage Examples, Monitoring, CI, Known Limitations) | Adds usage walkthroughs, troubleshooting, and operational guidance. |
 | P2-DOC-2  | HARDENING_SCOREBOARD sync process      | DONE                                   | main   | —  | docs/HARDENING_SCOREBOARD.md (this file) | Status verified against AI_IMPLEMENTATION_PROMPT.md. |
 | P2-DOC-3  | OpenAPI error codes (WEAK_KEY, etc.)   | DONE                                   | main   | —  | docs/openapi.yaml (WEAK_KEY examples, ErrorResponse schema) | 400/401/403/429 now document error payloads and security requirements. |
-| P2-DOC-4  | AGENTS.md roadmap refresh              | TODO                                   | —      | —  | —                           | Review required to incorporate latest timelines once OpenAPI docs are updated. |
+| P2-DOC-4  | AGENTS.md roadmap refresh              | IN PROGRESS                           | docs/p2-doc-4-agents-roadmap | —      | AGENTS.md §4.4 roadmap snapshot | Refreshed alongside docs/openapi.yaml; keep README + scoreboard in sync within the same PR. |
 
 ## Phase 3 — Observability & Future Work
 
