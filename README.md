@@ -327,14 +327,14 @@ For Phase 5 UI hardening we rely on a streamlined Vitest setup that targets the
 
 - `npm run lint` – ESLint with `--max-warnings=0` across the repo.
 - `npm run test:fast` – Vitest in jsdom mode without coverage for quick iteration.
-- `npm run test:coverage` – Vitest + `@vitest/coverage-v8` (text-summary + lcov) with offline guards and console noise enforcement via `src/setupTests.ts`.
+- `npm run test:coverage` – Vitest + `@vitest/coverage-v8` (text-summary + lcov) with offline guards and console noise enforcement via `src/setupTests.ts`. Latest run drives `src/components/HoldingsTab.jsx` to **166/168** lines (**98.8 %**) and **28/33** branches (**84.8 %**), covering the new signal configuration cases end-to-end.
 - `npm run test:perf` – Synthetic 12k-transaction ledger processed through the holdings builder; fails if runtime exceeds **1 000 ms** or the NAV series is inconsistent. Structured JSON logs emit duration, heap delta, and NAV samples for CI dashboards.
 - `npm run test:e2e` – Playwright smoke flow exercising portfolio authentication, dashboard KPIs, and benchmark toggles in headless Chromium. Requires `npx playwright install --with-deps chromium` once per environment; artefacts land in `playwright-report/` (HTML + trace) and `test-results/e2e-junit.xml` (JUnit) for CI ingestion.
 
 Sample output (newline-delimited JSON for log aggregation):
 
 ```json
-{"ts":"2025-10-08T04:26:43.158Z","level":"info","event":"perf_metric","metric":"holdings_builder_duration","transactionCount":12289,"dateCount":3073,"thresholdMs":1000,"durationMs":197.01,"heapDeltaMb":10.146,"navSample":1504363.75}
+{"ts":"2025-10-08T06:17:07.657Z","level":"info","event":"perf_metric","metric":"holdings_builder_duration","transactionCount":12289,"dateCount":3073,"thresholdMs":1000,"durationMs":212.59,"heapDeltaMb":-4.172,"navSample":1504363.75}
 ```
 - `npm run build` – Production build through Vite.
 
