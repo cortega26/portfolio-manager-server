@@ -9,6 +9,8 @@ dist/
 
 # Test output
 coverage/
+playwright-report/
+test-results/
 .DS_Store
 npm-debug.log*
 
