@@ -423,7 +423,7 @@ Price data for interactive queries is fetched from [Stooq](https://stooq.com/). 
 
 #### Benchmark toggles & ROI comparisons
 
-The Dashboard ROI chart now consumes `/api/returns/daily` and `/api/benchmarks/summary` to layer 100% SPY, blended, risk-sleeve (ex-cash), and cash yield series alongside the portfolio. Users can toggle any combination of benchmarks, and the selection is saved to browser storage so the chart opens with the same comparison after refresh or sign-in. Each toggle is keyboard accessible, labelled for assistive tech, and mirrors the colors used in the legend for clarity.
+The Dashboard ROI chart now consumes `/api/returns/daily` and `/api/benchmarks/summary` to layer 100% SPY, blended, risk-sleeve (ex-cash), and cash yield series alongside the portfolio. Users can toggle any combination of benchmarks, reset to the recommended comparison with a dedicated control, and the selection is saved to browser storage so the chart opens with the same comparison after refresh or sign-in. Each toggle is keyboard accessible, labelled for assistive tech, and mirrors the colors used in the legend for clarity. The reset button is disabled while the default blend is active so keyboard/screen-reader users receive clear affordances about state.
 
 #### KPI panel for cash & benchmarks
 
