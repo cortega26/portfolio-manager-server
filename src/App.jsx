@@ -358,6 +358,7 @@ export default function App() {
               <DashboardTab
                 metrics={metrics}
                 roiData={roiData}
+                transactions={transactions}
                 loadingRoi={loadingRoi}
                 onRefreshRoi={handleRefreshRoi}
               />
