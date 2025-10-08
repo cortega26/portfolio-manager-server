@@ -95,6 +95,10 @@ export default function ReportsTab({ summaryCards, onExportTransactions, onExpor
           <li>Use exports to reconcile against brokerage statements or share with your accountant.</li>
           <li>Combine holdings and performance files to calculate exposure-adjusted returns in spreadsheets.</li>
           <li>Run exports after major allocation changes to maintain an audit-ready history.</li>
+          <li>
+            Need to ingest historical trades? The importer is still in development—follow the README
+            instructions for posting normalised transactions to <code>/api/v1/portfolio/&lt;id&gt;</code>.
+          </li>
         </ul>
       </section>
     </div>

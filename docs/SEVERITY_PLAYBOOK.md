@@ -93,7 +93,7 @@ rank,pain_id,type(change|bugfix|doc|test),owner,branch,status(todo|in_progress|b
 | rank | pain_id | summary | status | risk_score | ICE | effort | acceptance_criteria |
 |---:|---|---|---|---:|---:|---:|---|
 | 1 | P004 | Cash-only transactions require a price input | ✅ Done | 20 | 2.50 | 2 | Cash transactions submit without price and hide the field. |
-| 2 | P003 | README promises an import workflow that the UI lacks | ⏳ Todo | 20 | 1.25 | 4 | Docs/UI align on supported import workflow or importer restored. |
+| 2 | P003 | README promised an Import flow that is still pending | ✅ Done | 20 | 1.25 | 4 | Docs flag importer as upcoming and document the API upload workaround. |
 | 3 | P001 | Portfolio Controls surfaces raw HTTP errors | ⏳ Todo | 16 | 2.00 | 2 | Error copy mapped to friendly messages with request IDs. |
 | 4 | P002 | Price fetch failures zero out holdings | ⏳ Todo | 16 | 1.33 | 3 | Holdings retain last values and banner appears on failure. |
 | 5 | P007 | Display settings persist only locally | ⏳ Todo | 16 | 1.00 | 3 | Settings persist with portfolio payload across devices. |
