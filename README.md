@@ -328,12 +328,19 @@ For Phase 5 UI hardening we rely on a streamlined Vitest setup that targets the
 - `npm run lint` – ESLint with `--max-warnings=0` across the repo.
 - `npm run test:fast` – Vitest in jsdom mode without coverage for quick iteration.
 - `npm run test:coverage` – Vitest + `@vitest/coverage-v8` (text-summary + lcov) with offline guards and console noise enforcement via `src/setupTests.ts`.
+- `npm run test:perf` – Synthetic 12k-transaction ledger processed through the holdings builder; fails if runtime exceeds **1 000 ms** or the NAV series is inconsistent. Structured JSON logs emit duration, heap delta, and NAV samples for CI dashboards.
+
+Sample output (newline-delimited JSON for log aggregation):
+
+```json
+{"ts":"2025-10-08T04:26:43.158Z","level":"info","event":"perf_metric","metric":"holdings_builder_duration","transactionCount":12289,"dateCount":3073,"thresholdMs":1000,"durationMs":197.01,"heapDeltaMb":10.146,"navSample":1504363.75}
+```
 - `npm run build` – Production build through Vite.
 
 The shared test harness automatically opts into the React Router v7 transition behaviour, restores console spies between tests, and sets `process.env.NO_NETWORK_TESTS = '1'` to guarantee offline execution. Tests should stub API layers (`src/utils/api.js`) or other network clients explicitly.
 
-| Name              | Type   | Default | Required | Description |
-| ----------------- | ------ | ------- | -------- | ----------- |
+| Name               | Type   | Default | Required | Description |
+| ------------------ | ------ | ------- | -------- | ----------- |
 | `NO_NETWORK_TESTS` | string | `'1'`   | No       | Forces component tests to remain offline; mock fetchers/HTTP clients instead of performing live calls. |
 
 ## Continuous Integration

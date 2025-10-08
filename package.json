@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:fast": "vitest run --coverage=false --reporter=dot",
     "test:coverage": "vitest run --coverage --coverage.reporter=text-summary --coverage.reporter=lcov",
+    "test:perf": "node tools/perf/run-perf-suite.mjs",
     "leaks:repo": "gitleaks detect --no-banner",
     "audit:quick": "npm audit --audit-level=critical || true",
     "mutate": "stryker run",
