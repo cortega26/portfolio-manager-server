@@ -210,23 +210,32 @@ supported options below to ingest historical activity:
    `npx csvtojson`) and then POST the payload:
 
    ```bash
-   curl -X POST "http://localhost:3000/api/v1/portfolio/<portfolioId>" \
-     -H "Content-Type: application/json" \
-     -H "X-Portfolio-Key: <YourStrongKey>" \
-     -d '{
-       "transactions": [
-         { "date": "2024-01-01", "type": "DEPOSIT", "amount": 10000 },
-         { "date": "2024-01-05", "type": "BUY", "ticker": "AAPL", "amount": -3000, "price": 150, "shares": 20 },
-         { "date": "2024-02-15", "type": "DIVIDEND", "amount": 50 }
-       ],
-       "signals": {},
-       "settings": {}
-     }'
-   ```
+    curl -X POST "http://localhost:3000/api/v1/portfolio/<portfolioId>" \
+      -H "Content-Type: application/json" \
+      -H "X-Portfolio-Key: <YourStrongKey>" \
+      -d '{
+        "transactions": [
+          { "date": "2024-01-01", "type": "DEPOSIT", "amount": 10000 },
+          { "date": "2024-01-05", "type": "BUY", "ticker": "AAPL", "amount": -3000, "price": 150, "shares": 20 },
+          { "date": "2024-02-15", "type": "DIVIDEND", "amount": 50 }
+        ],
+        "signals": {},
+        "settings": {}
+      }'
+    ```
 
-   The endpoint merges transactions by UID, so repeated uploads can append or
-   amend rows safely. Confirm the new ledger in the UI or by calling
-   `/api/v1/portfolio/<portfolioId>`.
+    The **Reports** tab exports CSVs tailored to downstream consumers:
+
+    - `portfolio-performance.csv` lists `date`, `portfolio_roi`, `spy_roi`,
+      `blended_roi`, `ex_cash_roi`, `cash_roi`, and `spy_spread`, mirroring the
+      benchmark series shown on the dashboard chart.
+    - `security-events.csv` captures `timestamp`, `event`, `portfolio_id`, `ip`,
+      `user_agent`, `request_id`, and JSON-encoded `metadata` for compliance
+      audits.
+
+    The endpoint merges transactions by UID, so repeated uploads can append or
+    amend rows safely. Confirm the new ledger in the UI or by calling
+    `/api/v1/portfolio/<portfolioId>`.
 
 Track importer delivery status in `docs/scoreboard.csv` (item **P003**).
 
@@ -433,7 +442,7 @@ The interface organises the experience across focused tabs:
 - **History** – contribution trends and a chronological timeline of activity, grouped by calendar month.
 - **Metrics** – allocation concentration, return ratios, and performance highlights derived from the ROI series.
 - **Reports** – CSV export hub covering transactions, holdings, and ROI comparisons for downstream analysis.
-- **Settings** – privacy, notification, and display preferences persisted to the browser for future sessions.
+- **Settings** – privacy, notification, and display preferences saved with each portfolio and synced across devices (with a local cache for instant reloads).
 - **Admin** – inspect runtime metrics, lockout activity, and security audit trails without leaving the app.
 
 ## Getting Started
@@ -502,7 +511,7 @@ Each card keeps the prior responsive layout (two columns on small screens, three
    - Audit deposits, withdrawals, and realised cash flow via the **History** tab’s contribution trends and timeline.
    - Inspect diversification, return ratios, and ROI highlights through the **Metrics** tab.
    - Export ledger, holdings, and ROI data from the **Reports** tab for compliance or reporting workflows.
-   - Adjust notification, privacy, and workspace preferences from the **Settings** tab; values persist locally.
+   - Adjust notification, privacy, and workspace preferences from the **Settings** tab; values are stored with the portfolio so they travel with you between devices (local storage keeps a fast-start cache).
    - Save or load your portfolio by choosing a portfolio ID and pressing **Save** or **Load**. Portfolios are stored in the backend’s `data/` folder.
 
 ### Production Deployment

@@ -112,13 +112,56 @@ export function buildPerformanceCsv(roiSeries) {
     return "";
   }
 
-  const header = ["date", "portfolio_roi", "spy_roi", "spread"];
+  const header = [
+    "date",
+    "portfolio_roi",
+    "spy_roi",
+    "blended_roi",
+    "ex_cash_roi",
+    "cash_roi",
+    "spy_spread",
+  ];
   const rows = roiSeries.map((point) => [
     point.date,
     formatPercent(point.portfolio, 3),
     formatPercent(point.spy ?? 0, 3),
+    formatPercent(point.blended ?? 0, 3),
+    formatPercent(point.exCash ?? 0, 3),
+    formatPercent(point.cash ?? 0, 3),
     formatPercent((point.portfolio ?? 0) - (point.spy ?? 0), 3),
   ]);
+  return toCsv([header, ...rows]);
+}
+
+export function buildSecurityEventsCsv(events) {
+  if (!Array.isArray(events) || events.length === 0) {
+    return "";
+  }
+
+  const header = [
+    "timestamp",
+    "event",
+    "portfolio_id",
+    "ip",
+    "user_agent",
+    "request_id",
+    "metadata",
+  ];
+
+  const rows = events.map((event) => {
+    const {
+      timestamp,
+      event: eventName,
+      portfolio_id: portfolioId,
+      ip,
+      user_agent: userAgent,
+      request_id: requestId,
+      ...rest
+    } = event ?? {};
+    const metadata = Object.keys(rest).length > 0 ? JSON.stringify(rest) : "";
+    return [timestamp, eventName, portfolioId, ip, userAgent, requestId, metadata];
+  });
+
   return toCsv([header, ...rows]);
 }
 
