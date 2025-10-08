@@ -12,7 +12,10 @@ function HoldingsTable({ holdings, currentPrices }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+      <table
+        className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700"
+        aria-label="Holdings"
+      >
         <thead className="bg-slate-50 dark:bg-slate-800/60">
           <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
             <th className="px-3 py-2">Ticker</th>
@@ -24,7 +27,10 @@ function HoldingsTable({ holdings, currentPrices }) {
             <th className="px-3 py-2">Realised PnL</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+        <tbody
+          className="divide-y divide-slate-200 dark:divide-slate-800"
+          data-testid="holdings-tbody"
+        >
           {holdings.map((holding) => {
             const enriched = deriveHoldingStats(
               holding,
