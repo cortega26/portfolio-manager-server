@@ -1,26 +1,157 @@
-# Severity Matrix & Scoreboard (Live)
+# Severity Matrix + Implementation Playbook
+_Generated: 2025-10-08T15:51:03_
 
-This document reflects the latest normalization of persona pains into a ranked backlog. The artifacts are generated from `audit/personas/*` sources per the repository playbook.
+This document consolidates a **Severity Matrix (Impact × Probability)** and an **Execution Scoreboard** derived from the artifacts in `audit/personas/*`. It is designed to be **self-executing** for an AI code assistant: you can say _“Read `docs/SEVERITY_PLAYBOOK.md` and proceed with the implementation.”_
 
-- **Matrix data**: [`docs/severity_matrix.csv`](severity_matrix.csv)
-- **Prioritized backlog**: [`docs/scoreboard.csv`](scoreboard.csv)
+## Overview
+- **Inputs**: `audit/personas/personas.md`, `audit/personas/journeys.md`, `audit/personas/pains_to_requirements.csv`, `audit/personas/quick_wins.md`, plus any repo code/docs/tests referenced therein.
+- **Outputs** (created/maintained by this process):
+  - `docs/severity_matrix.csv` — normalized scoring table.
+  - `docs/scoreboard.csv` — prioritized backlog with implementation fields.
+  - `docs/SEVERITY_PLAYBOOK.md` — this playbook.
 
-## Top 5 Priorities
+---
+
+## Scales & Formulas (use verbatim)
+
+### Impact (1–5)
+- **5** = Blocks core flows or corrupts data / wrong money math  
+- **4** = Major UX/accuracy issue; frequent user harm / misleading ROI  
+- **3** = Noticeable friction or wrong edge-case math; workarounds exist  
+- **2** = Minor friction; limited scope impact  
+- **1** = Cosmetic / copy only; no measurable harm
+
+### Probability (1–5)
+- **5** = Happens to most users, every session or daily  
+- **4** = Common in normal usage (weekly)  
+- **3** = Occasional (monthly) or persona-specific  
+- **2** = Rare edge cases / specific data patterns  
+- **1** = Very rare / contrived
+
+### Risk Score
+- `risk_score = impact * probability` (range 1–25)
+
+### Confidence (0.5–1.0)
+- **1.0** = Evidence strong (reproducible steps + code refs)
+- **0.75** = Good signal, minor gaps
+- **0.5** = Mostly inferred from personas; weak evidence
+
+### Effort (1–5)
+- **1** = ≤2h, **2** = ≤1d, **3** = 1–2d, **4** = 3–5d, **5** = >1w
+
+### Ties & Trade-offs
+- Use **ICE = (Impact * Confidence) / Effort** as a tie-breaker.
+- Prefer higher `risk_score`; then higher `ICE`.
+
+---
+
+## How to Build the Matrix & Scoreboard
+
+### Step A — Extract pains
+- Parse `audit/personas/pains_to_requirements.csv` and `audit/personas/journeys.md`.
+- Normalize each pain into a row with a unique **pain_id** and capture all **evidence_refs** (file paths + line ranges, test names, commit SHAs).
+
+### Step B — Score each pain
+- Assign **Impact**, **Probability**, **Confidence**, **Effort** per the scales above.
+- Compute **risk_score** and **ICE**.
+
+### Step C — Group & de-duplicate
+- Merge duplicates (same root cause / same code path). Keep the highest scores and union the evidence list.
+
+### Step D — Prioritize
+- Sort by `risk_score` (desc), tie-break with `ICE` (desc), then `Effort` (asc).
+
+### Step E — Map to concrete work
+For each top item, propose implementation tasks including:
+- Exact files/functions to touch
+- Planned diff hints or small code snippets
+- Tests to add/update (unit/e2e) with exact test names
+- Testable acceptance criteria
+- Migration/seed/data notes if applicable
+
+---
+
+## Output Artifacts
+
+### 1) `docs/severity_matrix.csv`
+Headers (exactly):
+```
+pain_id,persona,flow_step,impact,probability,confidence,effort,risk_score,ICE,summary,why_it_hurts,evidence_refs
+```
+
+### 2) `docs/scoreboard.csv`
+Headers (exactly):
+```
+rank,pain_id,type(change|bugfix|doc|test),owner,branch,status(todo|in_progress|blocked|done),acceptance_criteria,tests(required),evidence_refs,planned_diff_hint,eta,pr_link
+```
+
+---
+
+## Top-N Priorities (live view)
+> Populate from `docs/scoreboard.csv` (highest `risk_score`, then `ICE`).
 
 | rank | pain_id | summary | risk_score | ICE | effort | acceptance_criteria |
-| ---: | --- | --- | ---: | ---: | ---: | --- |
-| 1 | P-004 | Cash submissions require a price | 16 | 2.0 | 2 | Submitting a DEPOSIT with blank price succeeds and records the entry. |
-| 2 | P-002 | Price fetch failures silently zero holdings | 15 | 1.25 | 3 | Triggering fetchPrices failure leaves previous values on screen and shows a visible error message. |
-| 3 | P-001 | Portfolio Controls surface raw HTTP errors | 12 | 1.5 | 2 | Submitting with an invalid key shows a descriptive inline error without raw URL and includes the request ID. |
-| 4 | P-006 | ROI fallback runs silently after API errors | 12 | 1.5 | 2 | After forcing a 500 from /returns/daily, the UI shows an error banner and labels fallback ROI data. |
-| 5 | P-003 | README references importer that UI lacks | 12 | 1.125 | 2 | Either a Reports importer exists with preview/confirm or README/docs explicitly remove the workflow. |
+|---:|---|---|---:|---:|---:|---|
+| 1 |  |  |  |  |  |  |
+| 2 |  |  |  |  |  |  |
+| 3 |  |  |  |  |  |  |
+| 4 |  |  |  |  |  |  |
+| 5 |  |  |  |  |  |  |
 
-## How to Execute
+---
 
-1. Checkout the branch listed for the highest priority item in [`docs/scoreboard.csv`](scoreboard.csv) or create it if absent.
-2. Implement the scoped diff described in `planned_diff_hint`, keeping changes minimal and reversible.
-3. Add or update the tests named in `tests(required)`, ensuring they fail before the fix and pass afterwards.
-4. Run the FAST lane quality gates (`npm run lint`, `NO_NETWORK_TESTS=1 npm run test:fast`) unless otherwise instructed.
-5. Update the scoreboard row with the new status, ETA adjustments, and PR link when ready.
+## Implementation Checklist (Self‑Executing)
 
-For blocked items, downgrade the confidence to **0.5**, capture the blocker in the scoreboard `status` notes, and move to the next ranked pain.
+1. **Branch**
+   - Create/checkout: `fix/<pain_id>-<slug>`
+
+2. **Apply the planned change**
+   - Modify the exact files/functions listed in **planned_diff_hint**.
+   - Keep changes minimal and reversible.
+
+3. **Tests**
+   - Add/adjust tests listed under **tests(required)**. Make them fail first, then pass.
+   - Run coverage and keep/raise thresholds for changed modules.
+
+4. **CI Commands** (use what the repo supports):
+   - `npm run lint`  _or_  `pnpm lint`
+   - `npm test -- --coverage`  _or_  `pnpm test --coverage`
+   - Backend tests (if applicable): `npm run test:server`
+
+5. **Verify Definition of Done (per task)**
+   - All **acceptance_criteria** pass
+   - New/updated tests green and prove the fix
+   - No new lint/TypeScript errors (if TS); build succeeds
+   - Screenshots or terminal outputs for user-visible changes
+
+6. **PR & Evidence**
+   - Open PR titled: `[FIX] <pain_id> <summary>`
+   - Paste: commands run, coverage deltas, and evidence refs
+   - Update `docs/scoreboard.csv` (status, branch, PR link, notes)
+
+---
+
+## Definition of Done (per task)
+- Acceptance criteria satisfied
+- Tests demonstrate the fix and guard regressions
+- Build, lint, and type checks pass
+- Observability/evidence captured in PR
+- Scoreboard updated
+
+---
+
+## Audit Trail
+- Keep `docs/scoreboard.csv` current (`status`, `owner`, `branch`, `pr_link`, blockers if any).
+- If blocked, record reason + next action and downgrade **Confidence** to `0.5`.
+
+---
+
+## Invocation Snippet (for AI assistant)
+> **Run exactly:**  
+> “Read `docs/SEVERITY_PLAYBOOK.md`. Execute the ‘Implementation Checklist’ for the top 5 ranked items in `docs/scoreboard.csv`, one by one, opening a separate PR for each. Do not brainstorm features; only implement what’s specified. If evidence is missing for an item, downgrade Confidence to 0.5, mark **blocked**, and proceed to the next item.”
+
+---
+
+## Notes
+- No destructive changes (migrations/data wipes) without explicit acceptance criteria and backups.
+- Prefer minimal diffs that close the pain with high verification power (tests + observability).
