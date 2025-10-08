@@ -378,7 +378,7 @@ These changes improve data integrity and mathematical correctness.
 
 The interface organises the experience across focused tabs:
 
-- **Dashboard** – portfolio KPIs, ROI comparisons with benchmark toggles (SPY, blended, ex-cash, cash), and quick actions to refresh analytics or open reference material.
+- **Dashboard** – portfolio KPIs, cash allocation, ROI comparisons with benchmark toggles (SPY, blended, ex-cash, cash), and quick actions to refresh analytics or open reference material.
 - **Holdings** – consolidated holdings table plus configurable buy/trim signal bands for each ticker.
 - **Transactions** – dedicated form for capturing trades and a chronological activity table.
 - **History** – contribution trends and a chronological timeline of activity, grouped by calendar month.
@@ -423,6 +423,19 @@ Price data for interactive queries is fetched from [Stooq](https://stooq.com/). 
 
 The Dashboard ROI chart now consumes `/api/returns/daily` and `/api/benchmarks/summary` to layer 100% SPY, blended, risk-sleeve (ex-cash), and cash yield series alongside the portfolio. Users can toggle any combination of benchmarks, and the selection is saved to browser storage so the chart opens with the same comparison after refresh or sign-in. Each toggle is keyboard accessible, labelled for assistive tech, and mirrors the colors used in the legend for clarity.
 
+#### KPI panel for cash & benchmarks
+
+The dashboard KPI panel blends ledger balances with the benchmark snapshot documented in [`docs/cash-benchmarks.md`](docs/cash-benchmarks.md):
+
+- **Net Asset Value** – total risk assets plus cash, with the description surfacing the current cash balance tracked by the ledger.
+- **Total Return** – realised + unrealised P&L alongside the cumulative ROI in percentage points.
+- **Invested Capital** – capital deployed into positions with a quick count of tracked holdings and their combined risk-asset value.
+- **Cash Allocation** – start-of-day cash weight (cash ÷ NAV) rounded to one decimal place per the benchmark spec.
+- **Cash Drag** – difference between the 100% SPY track and the blended benchmark, highlighting the opportunity cost of idle cash.
+- **Benchmark Delta** – side-by-side ROI deltas versus SPY and the blended sleeve so deviations stand out without opening the full chart.
+
+Each card keeps the prior responsive layout (two columns on small screens, three on large, expanding to six cards on wide displays) and inherits dark-mode styling so the refreshed metrics remain legible in both themes.
+
 3. **Start the frontend:**
 
    ```bash
@@ -435,7 +448,7 @@ The Dashboard ROI chart now consumes `/api/returns/daily` and `/api/benchmarks/s
    - Navigate using the tab bar at the top of the workspace. The active tab is persisted while you save or load data.
   - Add transactions via the **Transactions** tab. Enter **amount** and **price**; shares are computed automatically before submission.
   - Scroll-free pagination keeps transaction tables responsive — 50 rows per page by default with controls to change the page size or step through history.
-   - Review metrics, ROI performance and quick actions from the **Dashboard** tab.
+   - Review metrics, ROI performance, cash allocation, and benchmark deltas from the **Dashboard** tab.
    - Configure signals and monitor allocation details from the **Holdings** tab. Percentage windows determine when the last price falls below or above your buy/trim zones.
    - Audit deposits, withdrawals, and realised cash flow via the **History** tab’s contribution trends and timeline.
    - Inspect diversification, return ratios, and ROI highlights through the **Metrics** tab.
