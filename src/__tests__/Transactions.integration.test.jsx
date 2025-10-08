@@ -52,6 +52,54 @@ test("shows validation feedback when required fields are missing", () => {
   assert.ok(screen.getByText(/Please fill in all fields\./i));
 });
 
+test("hides the price input for cash-only types and accepts submissions without a price", () => {
+  const addTransaction = mock.fn();
+
+  render(
+    <TransactionsTab
+      transactions={[]}
+      onAddTransaction={addTransaction}
+      onDeleteTransaction={() => {}}
+    />,
+  );
+
+  // Price is visible for equity trades by default.
+  assert.ok(screen.getByLabelText(/Price/i));
+
+  const typeSelect = screen.getByLabelText(/Type/i);
+  fireEvent.change(typeSelect, { target: { value: "DEPOSIT" } });
+  assert.equal(screen.queryByLabelText(/Price/i), null);
+
+  fireEvent.change(typeSelect, { target: { value: "SELL" } });
+  assert.ok(screen.getByLabelText(/Price/i));
+
+  fireEvent.change(typeSelect, { target: { value: "DEPOSIT" } });
+  assert.equal(screen.queryByLabelText(/Price/i), null);
+
+  fireEvent.change(screen.getByLabelText(/date/i), {
+    target: { value: "2024-02-10" },
+  });
+  fireEvent.change(screen.getByLabelText(/ticker/i), {
+    target: { value: "cash" },
+  });
+  fireEvent.change(screen.getByLabelText(/amount/i), {
+    target: { value: "2500" },
+  });
+
+  fireEvent.submit(screen.getByRole("form"));
+
+  assert.equal(addTransaction.mock.calls.length, 1);
+  const payload = addTransaction.mock.calls[0].arguments[0];
+  assert.deepEqual(payload, {
+    date: "2024-02-10",
+    ticker: "CASH",
+    type: "DEPOSIT",
+    amount: 2500,
+    price: 0,
+    shares: 0,
+  });
+});
+
 test("paginates transactions and preserves original indices", () => {
   const transactions = Array.from({ length: 120 }, (_, index) => ({
     date: `2024-01-${String((index % 28) + 1).padStart(2, "0")}`,

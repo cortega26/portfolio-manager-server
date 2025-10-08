@@ -13,6 +13,12 @@ const defaultForm = {
   price: "",
 };
 
+const CASH_ONLY_TYPES = new Set(["DEPOSIT", "WITHDRAWAL", "DIVIDEND", "INTEREST"]);
+
+function isCashOnlyType(type) {
+  return CASH_ONLY_TYPES.has(type);
+}
+
 const initialState = {
   form: { ...defaultForm },
   error: null,
@@ -326,11 +332,18 @@ export default function TransactionsTab({
 
   function updateForm(field, value) {
     dispatch({ type: "update", field, value });
+
     if (error) {
       dispatch({ type: "clear-error" });
     }
     if (fieldErrors[field]) {
       dispatch({ type: "clear-field-error", field });
+    }
+    if (field === "type" && isCashOnlyType(value)) {
+      dispatch({ type: "update", field: "price", value: "" });
+      if (fieldErrors.price) {
+        dispatch({ type: "clear-field-error", field: "price" });
+      }
     }
   }
 
@@ -341,6 +354,7 @@ export default function TransactionsTab({
   function handleSubmit(event) {
     event.preventDefault();
     const { date, ticker, type, amount, price } = form;
+    const cashOnly = isCashOnlyType(type);
 
     const normalizedTicker = ticker.trim();
     const missingFields = {};
@@ -356,7 +370,7 @@ export default function TransactionsTab({
     if (!amount) {
       missingFields.amount = "Amount is required.";
     }
-    if (!price) {
+    if (!price && !cashOnly) {
       missingFields.price = "Price is required.";
     }
 
@@ -366,7 +380,6 @@ export default function TransactionsTab({
     }
 
     const amountValue = Number.parseFloat(amount);
-    const priceValue = Number.parseFloat(price);
 
     if (!Number.isFinite(amountValue)) {
       recordError("Amount must be a valid number.", {
@@ -375,21 +388,27 @@ export default function TransactionsTab({
       return;
     }
 
-    if (!Number.isFinite(priceValue) || priceValue <= 0) {
-      recordError("Price must be a positive number.", {
-        price: "Price must be greater than zero.",
-      });
-      return;
+    let priceValue = null;
+    if (!cashOnly) {
+      priceValue = Number.parseFloat(price);
+      if (!Number.isFinite(priceValue) || priceValue <= 0) {
+        recordError("Price must be a positive number.", {
+          price: "Price must be greater than zero.",
+        });
+        return;
+      }
     }
 
-    const shares = Math.abs(amountValue) / Math.abs(priceValue);
+    const shares = cashOnly
+      ? 0
+      : Math.abs(amountValue) / Math.abs(priceValue);
 
     const payload = {
       date,
       ticker: normalizedTicker.toUpperCase(),
       type,
       amount: type === "BUY" ? -Math.abs(amountValue) : Math.abs(amountValue),
-      price: Math.abs(priceValue),
+      price: cashOnly ? 0 : Math.abs(priceValue),
       shares: Number(shares.toFixed(8)),
     };
 
@@ -397,7 +416,9 @@ export default function TransactionsTab({
     dispatch({ type: "reset" });
   }
 
+  const requiresPrice = !isCashOnlyType(form.type);
   const computedShares =
+    requiresPrice &&
     form.amount &&
     form.price &&
     Number.isFinite(Number.parseFloat(form.price)) &&
@@ -525,26 +546,28 @@ export default function TransactionsTab({
                 </span>
               ) : null}
             </label>
-            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Price
-              <input
-                type="number"
-                value={form.price}
-                onChange={(event) => updateForm("price", event.target.value)}
-                className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                step="0.01"
-                placeholder="Price per share"
-                aria-invalid={Boolean(fieldErrors.price)}
-              />
-              {fieldErrors.price ? (
-                <span
-                  className="mt-1 text-xs font-medium text-rose-600"
-                  data-testid="error-price"
-                >
-                  {fieldErrors.price}
-                </span>
-              ) : null}
-            </label>
+            {requiresPrice ? (
+              <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+                Price
+                <input
+                  type="number"
+                  value={form.price}
+                  onChange={(event) => updateForm("price", event.target.value)}
+                  className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  step="0.01"
+                  placeholder="Price per share"
+                  aria-invalid={Boolean(fieldErrors.price)}
+                />
+                {fieldErrors.price ? (
+                  <span
+                    className="mt-1 text-xs font-medium text-rose-600"
+                    data-testid="error-price"
+                  >
+                    {fieldErrors.price}
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
             <div className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               Estimated Shares
               <div className="mt-1 rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-300">
