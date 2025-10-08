@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 
 import DashboardTab from "../components/DashboardTab.jsx";
+import { getBenchmarkStorageKey } from "../hooks/usePersistentBenchmarkSelection.js";
 
 const METRICS_FIXTURE = {
   totalValue: 1000,
@@ -71,19 +72,31 @@ describe("DashboardTab benchmark controls", () => {
       />,
     );
 
+    const storageKey = getBenchmarkStorageKey();
+
     const spyToggle = screen.getByRole("button", {
       name: /100% spy benchmark/i,
     });
     const blendedToggle = screen.getByRole("button", {
       name: /blended benchmark/i,
     });
+    const resetButton = screen.getByRole("button", { name: /reset/i });
 
     assert.equal(spyToggle.getAttribute("aria-pressed"), "true");
     assert.equal(blendedToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(resetButton.hasAttribute("disabled"), true);
 
     await user.click(spyToggle);
     assert.equal(spyToggle.getAttribute("aria-pressed"), "false");
     assert.equal(blendedToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(resetButton.hasAttribute("disabled"), false);
+    assert.deepEqual(JSON.parse(window.localStorage.getItem(storageKey)), ["blended"]);
+
+    await user.click(resetButton);
+    assert.equal(spyToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(blendedToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(resetButton.hasAttribute("disabled"), true);
+    assert.deepEqual(JSON.parse(window.localStorage.getItem(storageKey)), ["spy", "blended"]);
 
     cleanup();
 
@@ -100,5 +113,7 @@ describe("DashboardTab benchmark controls", () => {
       name: /100% spy benchmark/i,
     });
     assert.equal(spyTogglePersisted.getAttribute("aria-pressed"), "false");
+    const resetButtonPersisted = screen.getByRole("button", { name: /reset/i });
+    assert.equal(resetButtonPersisted.hasAttribute("disabled"), false);
   });
 });
