@@ -2,13 +2,14 @@
 
 # Security Hardening Scoreboard
 
-Last Updated: 2025-10-17 (Phase 4 complete; Phase 5 testing & CI hardening kick-off)
+Last Updated: 2025-10-20 (Phases 1–5 verified complete; scoreboard locked for maintenance)
 
-Verification 2025-10-17: Synced `AI_IMPLEMENTATION_PROMPT.md` and
-`AI_CODE_ASSISTANT_PROMPTS.md` with Phase 5 scope. Confirmed Phase 4 rows (P4-UI-1
-through P4-DOC-1) remain green with dashboard toggles/KPI refresh intact. Phase 1–3
-controls (API key policy, audit logging, request tracing) revalidated against
-`comprehensive_audit_v3.md` with no regressions detected.
+Verification 2025-10-20: Confirmed `AI_IMPLEMENTATION_PROMPT.md` and
+`AI_CODE_ASSISTANT_PROMPTS.md` now reflect the completed Phase 5 baseline. Re-ran the
+Phase 4 dashboard/KPI regression scripts to ensure toggles and blended metrics stay
+green. Spot-checked Phase 1–3 security controls (API key policy, brute-force
+mitigations, audit/request tracing) against `comprehensive_audit_v3.md` with no
+regressions detected.
 
 ## Phase 1 — Immediate Priorities
 
@@ -66,7 +67,7 @@ controls (API key policy, audit logging, request tracing) revalidated against
 
 > Historical scoreboard snapshots remain available in git history prior to this commit.
 
-## Phase 5 — Testing & CI Hardening (Upcoming)
+## Phase 5 — Testing & CI Hardening (Complete)
 
 | ID        | Title                                      | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |-----------|--------------------------------------------|----------------------------------------|--------|----|------------------------------|-------|
