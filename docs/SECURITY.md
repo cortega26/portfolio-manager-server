@@ -108,6 +108,12 @@ All events include `event_type: 'security'` and an ISO 8601 `timestamp`. When th
 provides an `X-Request-ID` header, it is copied into `request_id`; otherwise the middleware falls
 back to the Express request identifier.
 
+### Exporting audit trails
+
+From the Admin tab, select **Export security events CSV** to download the current audit buffer. The
+file contains one row per event with timestamp, event name, portfolio ID, IP, user agent, request ID,
+and a JSON-encoded metadata column mirroring the payload listed above.
+
 ## Security Configuration Reference
 
 | Name                                   | Type    | Default | Required | Description |
@@ -156,6 +162,8 @@ back to the Express request identifier.
   copy/paste trace IDs without digging through developer tools.
 - ✅ **Admin dashboard (OBS-2)** – React admin tab visualises `/api/monitoring`, `/api/security/stats`,
   and `/api/security/events` data so operators can triage issues without hitting the API manually.
+  Pricing freshness surfaces through the nightly `stale_price` flag and the security events panel can
+  be exported to CSV for investigations or compliance hand-offs.
 - ✅ **Codebase cleanup (CODE-1, CODE-2)** – Refactors merged on `main`; continue
   running complexity checks to guard against regressions.
 

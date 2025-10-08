@@ -138,7 +138,9 @@ describe("PortfolioControls API key guidance", () => {
 
       assert.equal(failingSave.mock.calls.length, 1);
       assert.ok(
-        screen.getByText("Access denied. Verify the portfolio key and try again."),
+        screen.getByText(
+          "Access denied for this portfolio. Verify the API key or rotate it.",
+        ),
       );
       assert.ok(
         screen.getByText(/Request ID: req-auth-403/),
@@ -187,9 +189,7 @@ describe("PortfolioControls API key guidance", () => {
 
       assert.equal(failingLoad.mock.calls.length, 1);
       assert.ok(
-        screen.getByText(
-          "Server error while processing the request. Try again shortly.",
-        ),
+        screen.getByText("Server error encountered. Try again shortly."),
       );
       assert.ok(screen.getByText(/Request ID: req-503/));
     } finally {

@@ -92,6 +92,8 @@ Record results in the release ticket. Flag any discrepancies for immediate triag
 - **Security Events Stream:** Validate new events appear in chronological order with request IDs. If lag exceeds 30s, inspect browser console for WebSocket/polling errors.
 - **Rate Limit Metrics:** If `remaining` drops below 25% for more than 5 minutes, coordinate with backend to adjust thresholds or throttle polling via `VITE_ADMIN_POLL_INTERVAL_MS`.
 - **Benchmark Health Widget:** Use this to spot mismatches between SPY and blended calculations post-deploy. Escalate discrepancies >50 bps to backend.
+- **Nightly Pricing Freshness:** The Admin tab surfaces the latest NAV snapshot and highlights when the nightly job sets `stale_price=true`. Investigate before market open if the banner reports stale data.
+- **Security Event Exports:** Download the CSV directly from the Admin tab when compliance requests audit trails. The export mirrors the columns documented in `docs/SECURITY.md`.
 
 ## Incident Response (UI Regressions)
 

@@ -39,7 +39,29 @@ function MetricCard({ label, value, description, title }) {
   );
 }
 
-function QuickActions({ onRefresh }) {
+function QuickActions({ onRefresh, roiSource }) {
+  const status = (() => {
+    if (roiSource === "fallback") {
+      return {
+        label: "Fallback ROI",
+        className:
+          "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-amber-200",
+      };
+    }
+    if (roiSource === "error") {
+      return {
+        label: "ROI unavailable",
+        className:
+          "border-rose-400 bg-rose-50 text-rose-700 dark:border-rose-500/60 dark:bg-rose-500/10 dark:text-rose-200",
+      };
+    }
+    return {
+      label: "Live ROI",
+      className:
+        "border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-500/60 dark:bg-emerald-500/10 dark:text-emerald-200",
+    };
+  })();
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
@@ -53,6 +75,13 @@ function QuickActions({ onRefresh }) {
         >
           Refresh ROI
         </button>
+        <span
+          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${status.className}`}
+          role="status"
+          aria-live="polite"
+        >
+          {status.label}
+        </span>
         <a
           className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-300"
           href="https://www.investopedia.com/terms/p/portfolio.asp"
@@ -221,6 +250,7 @@ export default function DashboardTab({
   transactions = [],
   loadingRoi,
   onRefreshRoi,
+  roiSource = "api",
 }) {
   const portfolioMetrics = usePortfolioMetrics({ metrics, transactions, roiData });
   const {
@@ -338,7 +368,7 @@ export default function DashboardTab({
           />
         ))}
       </div>
-      <QuickActions onRefresh={onRefreshRoi} />
+      <QuickActions onRefresh={onRefreshRoi} roiSource={roiSource} />
       <RoiChart
         data={roiData}
         loading={loadingRoi}

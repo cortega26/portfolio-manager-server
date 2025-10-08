@@ -361,7 +361,7 @@ export default function TransactionsTab({
     if (!date) {
       missingFields.date = "Date is required.";
     }
-    if (!normalizedTicker) {
+    if (!cashOnly && !normalizedTicker) {
       missingFields.ticker = "Ticker is required.";
     }
     if (!type) {
@@ -399,18 +399,19 @@ export default function TransactionsTab({
       }
     }
 
-    const shares = cashOnly
-      ? 0
-      : Math.abs(amountValue) / Math.abs(priceValue);
-
     const payload = {
       date,
-      ticker: normalizedTicker.toUpperCase(),
       type,
       amount: type === "BUY" ? -Math.abs(amountValue) : Math.abs(amountValue),
-      price: cashOnly ? 0 : Math.abs(priceValue),
-      shares: Number(shares.toFixed(8)),
     };
+
+    if (!cashOnly) {
+      const normalisedTickerValue = normalizedTicker.toUpperCase();
+      const shares = Math.abs(amountValue) / Math.abs(priceValue);
+      payload.ticker = normalisedTickerValue;
+      payload.price = Math.abs(priceValue);
+      payload.shares = Number(shares.toFixed(8));
+    }
 
     onAddTransaction(payload);
     dispatch({ type: "reset" });
@@ -459,10 +460,18 @@ export default function TransactionsTab({
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
+        <h2
+          id="add-transaction-heading"
+          className="text-lg font-semibold text-slate-700 dark:text-slate-200"
+        >
           Add Transaction
         </h2>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4" noValidate>
+        <form
+          aria-labelledby="add-transaction-heading"
+          onSubmit={handleSubmit}
+          className="mt-4 space-y-4"
+          noValidate
+        >
           <div className="grid gap-4 md:grid-cols-6">
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               Date
