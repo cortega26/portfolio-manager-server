@@ -33,6 +33,7 @@ import { buildRoiSeries, mergeReturnSeries } from "./utils/roi.js";
 import {
   createDefaultSettings,
   loadSettingsFromStorage,
+  normalizeSettings,
   persistSettingsToStorage,
   updateSetting,
 } from "./utils/settings.js";
@@ -70,18 +71,19 @@ export default function App() {
   const [ledger, dispatchLedger] = useReducer(ledgerReducer, undefined, createInitialLedgerState);
   const { transactions, holdings } = ledger;
   const [signals, setSignals] = useState({});
-  const [portfolioSettings, setPortfolioSettings] = useState({ autoClip: false });
   const [currentPrices, setCurrentPrices] = useState({});
   const [roiData, setRoiData] = useState([]);
   const [loadingRoi, setLoadingRoi] = useState(false);
   const [roiRefreshKey, setRoiRefreshKey] = useState(0);
   const [settings, setSettings] = useState(() => loadSettingsFromStorage());
+  const [priceAlert, setPriceAlert] = useState(null);
+  const [roiAlert, setRoiAlert] = useState(null);
+  const [roiSource, setRoiSource] = useState("api");
 
   useEffect(() => {
     if (!portfolioId) {
       setPortfolioKey("");
       setPortfolioKeyNew("");
-      setPortfolioSettings({ autoClip: false });
       return;
     }
     const stored = loadPortfolioKey(portfolioId);
@@ -122,26 +124,86 @@ export default function App() {
 
     async function loadPrices() {
       if (transactions.length === 0) {
-        setCurrentPrices({});
+        if (!cancelled) {
+          setCurrentPrices({});
+          setPriceAlert(null);
+        }
         return;
       }
 
-      const uniqueTickers = [...new Set(transactions.map((tx) => tx.ticker))];
+      const uniqueTickers = [
+        ...new Set(
+          transactions
+            .map((tx) => tx.ticker)
+            .filter((ticker) => typeof ticker === "string" && ticker.trim().length > 0),
+        ),
+      ];
+
+      if (uniqueTickers.length === 0) {
+        if (!cancelled) {
+          setCurrentPrices({});
+          setPriceAlert(null);
+        }
+        return;
+      }
+
       const priceEntries = await Promise.all(
         uniqueTickers.map(async (ticker) => {
           try {
-            const { data: priceSeries } = await fetchPrices(ticker);
+            const { data: priceSeries, requestId } = await fetchPrices(ticker);
             const latest = priceSeries.at(-1);
-            return [ticker, latest?.close ?? 0];
+            return {
+              ticker,
+              price: latest?.close ?? 0,
+              requestId: requestId ?? null,
+              error: null,
+            };
           } catch (error) {
             console.error(error);
-            return [ticker, 0];
+            return {
+              ticker,
+              price: null,
+              requestId: error?.requestId ?? null,
+              error,
+            };
           }
         }),
       );
 
-      if (!cancelled) {
-        setCurrentPrices(Object.fromEntries(priceEntries));
+      if (cancelled) {
+        return;
+      }
+
+      setCurrentPrices((previous) => {
+        const next = {};
+        for (const ticker of uniqueTickers) {
+          const result = priceEntries.find((entry) => entry.ticker === ticker);
+          if (result && Number.isFinite(result.price)) {
+            next[ticker] = result.price;
+          } else if (previous && Number.isFinite(previous[ticker])) {
+            next[ticker] = previous[ticker];
+          }
+        }
+        return next;
+      });
+
+      const failures = priceEntries.filter((entry) => entry.error);
+      if (failures.length > 0) {
+        const impacted = failures
+          .map((entry) => entry.ticker)
+          .filter((ticker) => typeof ticker === "string" && ticker.length > 0);
+        const requestIds = failures
+          .map((entry) => entry.requestId)
+          .filter((value) => typeof value === "string" && value.length > 0);
+        const impactedList = impacted.length > 0 ? impacted.join(", ") : "selected holdings";
+        setPriceAlert({
+          id: "price-fetch",
+          type: "error",
+          message: `Unable to refresh prices for ${impactedList}. Showing the last known values until the next successful refresh.`,
+          requestIds,
+        });
+      } else {
+        setPriceAlert(null);
       }
     }
 
@@ -172,7 +234,7 @@ export default function App() {
 
       setLoadingRoi(true);
       try {
-        const { data } = await fetchDailyReturns({
+        const { data, requestId } = await fetchDailyReturns({
           from: orderedDates[0],
           to: orderedDates[orderedDates.length - 1],
           views: ["port", "spy", "bench", "excash", "cash"],
@@ -180,6 +242,15 @@ export default function App() {
         const mergedSeries = mergeReturnSeries(data?.series);
         if (!cancelled) {
           setRoiData(mergedSeries);
+          setRoiSource("api");
+          setRoiAlert(null);
+          if (requestId) {
+            setRoiAlert((current) =>
+              current && current.id === "roi-fallback"
+                ? { ...current, resolvedRequestId: requestId }
+                : current,
+            );
+          }
         }
       } catch (error) {
         console.error(error);
@@ -187,11 +258,26 @@ export default function App() {
           const fallbackSeries = await buildRoiSeries(transactions, fetchPrices);
           if (!cancelled) {
             setRoiData(fallbackSeries);
+            setRoiSource("fallback");
+            const requestId = error?.requestId;
+            setRoiAlert({
+              id: "roi-fallback",
+              type: "warning",
+              message: "ROI service failed. Displaying locally computed fallback data.",
+              requestId: typeof requestId === "string" && requestId.length > 0 ? requestId : null,
+            });
           }
         } catch (fallbackError) {
           console.error(fallbackError);
           if (!cancelled) {
             setRoiData([]);
+            setRoiSource("error");
+            setRoiAlert({
+              id: "roi-fallback",
+              type: "error",
+              message: "ROI service and fallback computation failed. Try again after reloading the page.",
+              requestId: error?.requestId ?? null,
+            });
           }
         }
       } finally {
@@ -238,10 +324,11 @@ export default function App() {
     if (!currentKey) {
       throw new Error("API key required");
     }
+    const normalizedSettings = normalizeSettings(settings);
     const body = {
       transactions,
       signals,
-      settings: { autoClip: Boolean(portfolioSettings.autoClip) },
+      settings: normalizedSettings,
     };
     await persistPortfolio(portfolioId, body, {
       apiKey: currentKey,
@@ -257,7 +344,7 @@ export default function App() {
     portfolioKeyNew,
     transactions,
     signals,
-    portfolioSettings,
+    settings,
   ]);
 
   const handleLoadPortfolio = useCallback(async () => {
@@ -275,11 +362,9 @@ export default function App() {
       logSummary: true,
     });
     setSignals(data.signals ?? {});
-    if (data.settings) {
-      setPortfolioSettings({ autoClip: Boolean(data.settings.autoClip) });
-    } else {
-      setPortfolioSettings({ autoClip: false });
-    }
+    const normalizedSettings = normalizeSettings(data.settings);
+    setSettings(normalizedSettings);
+    persistSettingsToStorage(normalizedSettings);
     setPortfolioKey(currentKey);
     setPortfolioKeyNew("");
     savePortfolioKey(portfolioId, currentKey);
@@ -314,17 +399,32 @@ export default function App() {
     setSettings((prev) => updateSetting(prev, path, value));
   }, []);
 
-  const handlePortfolioSettingChange = useCallback((autoClipValue) => {
-    setPortfolioSettings((prev) => ({
-      ...prev,
-      autoClip: Boolean(autoClipValue),
-    }));
-  }, []);
-
   const handleResetSettings = useCallback(() => {
     setSettings(createDefaultSettings());
-    setPortfolioSettings({ autoClip: false });
   }, []);
+
+  const activeAlerts = useMemo(() => {
+    return [priceAlert, roiAlert]
+      .filter(Boolean)
+      .map((alert) => {
+        if (!alert) {
+          return alert;
+        }
+        const requestDetails = (() => {
+          if (Array.isArray(alert.requestIds) && alert.requestIds.length > 0) {
+            return `Request IDs: ${alert.requestIds.join(", ")}`;
+          }
+          if (alert.requestId) {
+            return `Request ID: ${alert.requestId}`;
+          }
+          if (alert.resolvedRequestId) {
+            return `Last success request ID: ${alert.resolvedRequestId}`;
+          }
+          return null;
+        })();
+        return { ...alert, requestDetails };
+      });
+  }, [priceAlert, roiAlert]);
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -353,6 +453,26 @@ export default function App() {
         <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
         <main className="pb-12">
+          {activeAlerts.length > 0 && (
+            <div className="mb-6 space-y-3" role="region" aria-label="System alerts">
+              {activeAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  role="alert"
+                  className={`rounded-lg border px-4 py-3 text-sm shadow ${
+                    alert.type === "error"
+                      ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+                      : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+                  }`}
+                >
+                  <p className="font-semibold">{alert.message}</p>
+                  {alert.requestDetails && (
+                    <span className="mt-1 block font-mono text-xs">{alert.requestDetails}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           <Suspense fallback={<LoadingFallback />}>
             {activeTab === "Dashboard" && (
               <section
@@ -366,6 +486,7 @@ export default function App() {
                   roiData={roiData}
                   transactions={transactions}
                   loadingRoi={loadingRoi}
+                  roiSource={roiSource}
                   onRefreshRoi={handleRefreshRoi}
                 />
               </section>
@@ -458,8 +579,6 @@ export default function App() {
                   settings={settings}
                   onSettingChange={handleSettingChange}
                   onReset={handleResetSettings}
-                  portfolioSettings={portfolioSettings}
-                  onPortfolioSettingChange={handlePortfolioSettingChange}
                 />
               </section>
             )}

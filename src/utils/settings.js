@@ -18,49 +18,82 @@ export function createDefaultSettings() {
       refreshInterval: 15,
       compactTables: false,
     },
+    autoClip: false,
   };
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function deepMerge(target, source) {
-  if (!source || typeof source !== "object") {
+  if (!isPlainObject(target)) {
     return target;
   }
 
-  return Object.keys(target).reduce((acc, key) => {
-    if (typeof target[key] === "object" && !Array.isArray(target[key])) {
-      acc[key] = deepMerge(target[key], source[key]);
-    } else if (Object.prototype.hasOwnProperty.call(source, key)) {
-      acc[key] = source[key];
+  const result = {};
+  const keys = new Set([
+    ...Object.keys(target ?? {}),
+    ...(isPlainObject(source) ? Object.keys(source) : []),
+  ]);
+
+  for (const key of keys) {
+    const targetValue = target?.[key];
+    const sourceValue = source?.[key];
+    if (isPlainObject(targetValue)) {
+      result[key] = deepMerge(targetValue, sourceValue);
+    } else if (sourceValue !== undefined) {
+      result[key] = sourceValue;
     } else {
-      acc[key] = target[key];
+      result[key] = targetValue;
     }
-    return acc;
-  }, {});
+  }
+
+  return result;
+}
+
+function coerceNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+export function normalizeSettings(rawSettings) {
+  const defaults = createDefaultSettings();
+  if (!isPlainObject(rawSettings)) {
+    return defaults;
+  }
+
+  const merged = deepMerge(defaults, rawSettings);
+  merged.alerts.drawdownThreshold = coerceNumber(
+    merged.alerts.drawdownThreshold,
+    defaults.alerts.drawdownThreshold,
+  );
+  merged.display.refreshInterval = coerceNumber(
+    merged.display.refreshInterval,
+    defaults.display.refreshInterval,
+  );
+  merged.autoClip = Boolean(merged.autoClip);
+  return merged;
 }
 
 export function loadSettingsFromStorage(storage = null) {
-  const defaults = createDefaultSettings();
   const localStorageRef =
     storage ?? (typeof window !== "undefined" ? window.localStorage : null);
   if (!localStorageRef) {
-    return defaults;
+    return createDefaultSettings();
   }
 
   try {
     const raw = localStorageRef.getItem(STORAGE_KEY);
     if (!raw) {
-      return defaults;
+      return createDefaultSettings();
     }
 
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") {
-      return defaults;
-    }
-
-    return deepMerge(defaults, parsed);
+    return normalizeSettings(parsed);
   } catch (error) {
     console.error("Failed to load user settings", error);
-    return defaults;
+    return createDefaultSettings();
   }
 }
 
@@ -72,7 +105,8 @@ export function persistSettingsToStorage(settings, storage = null) {
   }
 
   try {
-    localStorageRef.setItem(STORAGE_KEY, JSON.stringify(settings));
+    const normalized = normalizeSettings(settings);
+    localStorageRef.setItem(STORAGE_KEY, JSON.stringify(normalized));
     return true;
   } catch (error) {
     console.error("Failed to persist user settings", error);

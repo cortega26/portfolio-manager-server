@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   fetchMonitoringSnapshot,
+  fetchNavSnapshots,
   fetchSecurityEvents,
   fetchSecurityStats,
 } from "../utils/api.js";
+import { buildSecurityEventsCsv, triggerCsvDownload } from "../utils/reports.js";
 
 const DEFAULT_EVENT_LIMIT = 50;
+const DEFAULT_POLL_INTERVAL_MS = 15000;
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) {
@@ -316,6 +319,7 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
   const [monitoringSnapshot, setMonitoringSnapshot] = useState(null);
   const [securityStats, setSecurityStats] = useState(null);
   const [events, setEvents] = useState([]);
+  const [navSnapshot, setNavSnapshot] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -323,7 +327,16 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
     monitoring: null,
     security: null,
     events: null,
+    nav: null,
   });
+  const pollIntervalMs = useMemo(() => {
+    const raw = import.meta.env?.VITE_ADMIN_POLL_INTERVAL_MS;
+    const parsed = Number.parseInt(raw ?? "", 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+    return DEFAULT_POLL_INTERVAL_MS;
+  }, []);
 
   const systemMetrics = useMemo(
     () => buildSystemMetrics(monitoringSnapshot),
@@ -357,6 +370,25 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
     setRefreshKey((prev) => prev + 1);
   }, []);
 
+  const handleExportSecurityEvents = useCallback(() => {
+    const csv = buildSecurityEventsCsv(events);
+    if (csv) {
+      triggerCsvDownload("security-events.csv", csv);
+    }
+  }, [events]);
+
+  useEffect(() => {
+    if (!Number.isFinite(pollIntervalMs) || pollIntervalMs <= 0) {
+      return undefined;
+    }
+    const intervalId = window.setInterval(() => {
+      setRefreshKey((prev) => prev + 1);
+    }, pollIntervalMs);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [pollIntervalMs]);
+
   useEffect(() => {
     const controller = new AbortController();
     let isSubscribed = true;
@@ -365,10 +397,11 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
       setLoading(true);
       setError(null);
       try {
-        const [monitoring, security, audit] = await Promise.all([
+        const [monitoring, security, audit, nav] = await Promise.all([
           fetchMonitoringSnapshot({ signal: controller.signal }),
           fetchSecurityStats({ signal: controller.signal }),
           fetchSecurityEvents({ limit: eventLimit, signal: controller.signal }),
+          fetchNavSnapshots({ perPage: 1, page: 1, signal: controller.signal }),
         ]);
         if (!isSubscribed) {
           return;
@@ -376,19 +409,54 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
         const monitoringData = monitoring?.data ?? monitoring;
         const securityData = security?.data ?? security;
         const auditData = audit?.data ?? audit;
+        const navPayload = nav?.data ?? nav;
+        const navRows = Array.isArray(navPayload?.data)
+          ? navPayload.data
+          : Array.isArray(navPayload)
+            ? navPayload
+            : [];
+        let latestNav = navRows.at(-1) ?? null;
+        let navRequestId = nav?.requestId ?? null;
+        const navMeta = navPayload?.meta;
+        if (navMeta?.totalPages && navMeta.totalPages > 1) {
+          try {
+            const navLast = await fetchNavSnapshots({
+              perPage: 1,
+              page: navMeta.totalPages,
+              signal: controller.signal,
+            });
+            const navLastPayload = navLast?.data ?? navLast;
+            const navLastRows = Array.isArray(navLastPayload?.data)
+              ? navLastPayload.data
+              : Array.isArray(navLastPayload)
+                ? navLastPayload
+                : [];
+            if (navLastRows.length > 0) {
+              latestNav = navLastRows[0];
+              navRequestId = navLast.requestId ?? navRequestId;
+            }
+          } catch (navError) {
+            if (navError.name !== "AbortError" && isSubscribed) {
+              console.error("Failed to fetch latest NAV snapshot", navError);
+            }
+          }
+        }
         setMonitoringSnapshot(monitoringData);
         setSecurityStats(securityData);
         setEvents(Array.isArray(auditData?.events) ? auditData.events : []);
+        setNavSnapshot(latestNav ?? null);
         setRequestMetadata({
           monitoring: monitoring?.requestId ?? null,
           security: security?.requestId ?? null,
           events: audit?.requestId ?? null,
+          nav: navRequestId,
         });
       } catch (fetchError) {
         if (fetchError.name === "AbortError") {
           return;
         }
         if (isSubscribed) {
+          setNavSnapshot(null);
           setError(fetchError);
         }
       } finally {
@@ -422,6 +490,19 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
                 Last refreshed {lastUpdated}
               </p>
             )}
+            {navSnapshot && (
+              <div
+                className={`mt-3 rounded border px-3 py-2 text-xs font-semibold sm:text-sm ${
+                  navSnapshot.stale_price
+                    ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+                    : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200"
+                }`}
+              >
+                {navSnapshot.stale_price
+                  ? `Nightly pricing flagged stale on ${navSnapshot.date}. Investigate ingestion before market open.`
+                  : `Nightly pricing is current as of ${navSnapshot.date}.`}
+              </div>
+            )}
             {Object.values(requestMetadata).some((value) => typeof value === "string" && value.length > 0) && (
               <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
                 <p className="font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -439,6 +520,10 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
                   <div className="flex items-center gap-2">
                     <dt className="text-slate-500 dark:text-slate-400">events</dt>
                     <dd>{requestMetadata.events ?? "—"}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <dt className="text-slate-500 dark:text-slate-400">nav</dt>
+                    <dd>{requestMetadata.nav ?? "—"}</dd>
                   </div>
                 </dl>
               </div>
@@ -544,13 +629,23 @@ export default function AdminTab({ eventLimit = DEFAULT_EVENT_LIMIT }) {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
-        <header className="mb-4">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
-            Recent Security Events
-          </h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Structured audit log excerpts for authentication, rotation, and rate limit incidents.
-          </p>
+        <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+              Recent Security Events
+            </h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Structured audit log excerpts for authentication, rotation, and rate limit incidents.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportSecurityEvents}
+            disabled={!events || events.length === 0}
+            className="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:text-slate-200 dark:disabled:bg-slate-700"
+          >
+            Export security events CSV
+          </button>
         </header>
         <EventsTable events={events} />
       </section>

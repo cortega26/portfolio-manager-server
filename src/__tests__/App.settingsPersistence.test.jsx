@@ -111,10 +111,10 @@ describe("App portfolio settings persistence", () => {
 
     const payload = __getPersistCalls().at(-1);
     assert.equal(payload.settings.autoClip, true);
-    assert.equal(payload.settings.preferences.display.currency, "EUR");
-    assert.equal(payload.settings.preferences.display.compactTables, true);
-    assert.equal(payload.settings.preferences.privacy.hideBalances, true);
-    assert.equal(payload.settings.preferences.alerts.rebalance, false);
+    assert.equal(payload.settings.display.currency, "EUR");
+    assert.equal(payload.settings.display.compactTables, true);
+    assert.equal(payload.settings.privacy.hideBalances, true);
+    assert.equal(payload.settings.alerts.rebalance, false);
 
     __setRetrieveResponse({
       data: {
@@ -122,12 +122,10 @@ describe("App portfolio settings persistence", () => {
         signals: {},
         settings: {
           autoClip: false,
-          preferences: {
-            display: { currency: "GBP", compactTables: false, refreshInterval: 10 },
-            privacy: { hideBalances: false },
-            alerts: { rebalance: true, drawdownThreshold: 12 },
-            notifications: { email: true, push: false },
-          },
+          display: { currency: "GBP", compactTables: false, refreshInterval: 10 },
+          privacy: { hideBalances: false },
+          alerts: { rebalance: true, drawdownThreshold: 12 },
+          notifications: { email: true, push: false },
         },
       },
       requestId: "retrieve-portfolio",

@@ -20,6 +20,60 @@ const STATUS_META = {
   },
 };
 
+const ERROR_MESSAGES = {
+  INVALID_KEY: "Authentication failed. Double-check the API key and try again.",
+  NO_KEY: "Provide an API key in the field above to continue.",
+  PORTFOLIO_NOT_FOUND: "Portfolio not found. Save it first to provision storage.",
+  WEAK_KEY:
+    "The provided API key does not meet the strength requirements. Use at least 12 characters with mixed case, numbers, and symbols.",
+  E_OVERSELL:
+    "Sell order exceeds available shares. Enable auto-clip in Settings or adjust the share count.",
+};
+
+const STATUS_MESSAGES = {
+  400: "The request could not be processed. Review the form inputs and try again.",
+  401: "Authentication required. Provide a valid API key to continue.",
+  403: "Access denied for this portfolio. Verify the API key or rotate it.",
+  404: "Portfolio not found. Save it first to provision storage.",
+  429: "Too many attempts. Wait a few minutes before retrying.",
+  500: "Server error encountered. Try again shortly.",
+};
+
+function formatControlError(error) {
+  if (!error || typeof error !== "object") {
+    return {
+      message: "Unexpected error occurred while contacting the server. Try again.",
+      requestId: undefined,
+    };
+  }
+
+  const requestId =
+    typeof error.requestId === "string" && error.requestId.trim().length > 0
+      ? error.requestId
+      : undefined;
+
+  if (error.name === "ApiError") {
+    const code = error.body?.error;
+    if (code && ERROR_MESSAGES[code]) {
+      return { message: ERROR_MESSAGES[code], requestId };
+    }
+    const statusMessage = STATUS_MESSAGES[error.status];
+    if (statusMessage) {
+      return { message: statusMessage, requestId };
+    }
+    return {
+      message: "The server responded with an unexpected error. Try again or contact support if it persists.",
+      requestId,
+    };
+  }
+
+  const message =
+    typeof error.message === "string" && error.message.trim().length > 0
+      ? error.message
+      : "Unexpected error occurred while contacting the server. Try again.";
+  return { message, requestId };
+}
+
 function resolveStatus(checks, value) {
   const trimmed = typeof value === "string" ? value.trim() : "";
   if (!trimmed) {
@@ -88,11 +142,11 @@ export default function PortfolioControls({
 
   async function handle(action) {
     if (!portfolioId) {
-      setStatus({ type: "error", message: "Set a portfolio ID first." });
+      setStatus({ type: "error", message: "Set a portfolio ID first.", requestId: undefined });
       return;
     }
     if (!portfolioKey) {
-      setStatus({ type: "error", message: "Provide an API key to continue." });
+      setStatus({ type: "error", message: "Provide an API key to continue.", requestId: undefined });
       return;
     }
     if (
@@ -103,6 +157,7 @@ export default function PortfolioControls({
       setStatus({
         type: "error",
         message: "New API key does not meet strength requirements.",
+        requestId: undefined,
       });
       return;
     }
@@ -112,9 +167,11 @@ export default function PortfolioControls({
       setStatus({
         type: "success",
         message: "Operation completed successfully.",
+        requestId: undefined,
       });
     } catch (error) {
-      setStatus({ type: "error", message: error.message });
+      const { message, requestId } = formatControlError(error);
+      setStatus({ type: "error", message, requestId });
     }
   }
 
@@ -196,15 +253,21 @@ export default function PortfolioControls({
         </div>
       </div>
       {status && (
-        <p
+        <div
           className={`mt-3 text-sm ${
             status.type === "success"
               ? "text-emerald-600 dark:text-emerald-400"
               : "text-rose-600 dark:text-rose-400"
           }`}
+          role="status"
         >
-          {status.message}
-        </p>
+          <p>{status.message}</p>
+          {status.requestId && (
+            <span className="mt-1 block font-mono text-xs">
+              Request ID: {status.requestId}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

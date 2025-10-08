@@ -259,6 +259,38 @@ export async function fetchDailyReturns({
   });
 }
 
+export async function fetchNavSnapshots({
+  from,
+  to,
+  page,
+  perPage,
+  signal,
+  onRequestMetadata,
+} = {}) {
+  const params = new URLSearchParams();
+  const normalizedFrom = normalizeDateParam(from);
+  const normalizedTo = normalizeDateParam(to);
+  if (normalizedFrom) {
+    params.set("from", normalizedFrom);
+  }
+  if (normalizedTo) {
+    params.set("to", normalizedTo);
+  }
+  if (Number.isFinite(page)) {
+    const pageValue = Math.max(1, Math.floor(page));
+    params.set("page", String(pageValue));
+  }
+  if (Number.isFinite(perPage)) {
+    const capped = Math.min(500, Math.max(1, Math.floor(perPage)));
+    params.set("per_page", String(capped));
+  }
+  const query = params.toString();
+  return requestJson(`/nav/daily${query ? `?${query}` : ""}`, {
+    signal,
+    onRequestMetadata,
+  });
+}
+
 export async function persistPortfolio(portfolioId, body, options = {}) {
   const { signal, onRequestMetadata, ...headerOptions } = options;
   const normalizedId = normalizePortfolioId(portfolioId);
