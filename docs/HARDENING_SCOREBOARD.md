@@ -73,7 +73,7 @@ controls (API key policy, audit logging, request tracing) revalidated against
 | P5-TEST-1 | Frontend component coverage expansion      | DONE                                   | fix/p5-test-1-rescue | —  | `npm run lint`; `npm run test:coverage`; `npm run build` — Coverage (Statements 29.23%, Branches 54.54%, Functions 45.45%, Lines 29.23%) — 3 Vitest specs |
               | Address audit gap on limited React component tests (tab navigation, form validation, holdings table) before Phase 5 coding.【F:comprehensive_audit_v3.md†L66-L93】 |
 | P5-TEST-2 | Performance & load regression harness       | DONE                                   | feat/p5-test-2-perf-harness | —  | `npm run test:perf` (`9b1107†L1-L4`) | Structured JSON harness generates 12 288+ trades, verifies holdings build <1 000 ms (197 ms observed), logs heap deltas, and documents CI caveats in README/testing-strategy. |
-| P5-CI-1   | End-to-end & CI reliability automation     | TODO                                   | —      | —  | —                           | Introduce Playwright/Cypress smoke flows and document CI wiring to cover missing E2E coverage noted in the audit.【F:comprehensive_audit_v3.md†L100-L105】 |
+| P5-CI-1   | End-to-end & CI reliability automation     | DONE                                   | feat/phase5-e2e-ci | —  | `npm run lint` (`0e3a84†L1-L6`); `npm test -- --coverage` (`a089d8†L1-L33`); `npm run test:e2e` (`b1974c†L1-L9`); `npm run build` (`f873e8†L1-L15`) | Playwright smoke suite (`e2e/dashboard-smoke.spec.ts`) intercepts API calls to cover portfolio auth, benchmark toggles, and KPI renders; README documents headless workflow + artifact uploads for the planned CI stage. |
 
 ## Security Metrics Snapshot
 
