@@ -87,10 +87,16 @@ const securityEvents = {
   data: [],
 };
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+} as const;
+
 function jsonResponse(payload: Json) {
   return {
     status: 200,
-    headers: { "content-type": "application/json" },
+    headers: { ...corsHeaders, "content-type": "application/json" },
     body: JSON.stringify(payload),
   } as const;
 }
