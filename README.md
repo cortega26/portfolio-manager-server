@@ -329,6 +329,7 @@ For Phase 5 UI hardening we rely on a streamlined Vitest setup that targets the
 - `npm run test:fast` – Vitest in jsdom mode without coverage for quick iteration.
 - `npm run test:coverage` – Vitest + `@vitest/coverage-v8` (text-summary + lcov) with offline guards and console noise enforcement via `src/setupTests.ts`.
 - `npm run test:perf` – Synthetic 12k-transaction ledger processed through the holdings builder; fails if runtime exceeds **1 000 ms** or the NAV series is inconsistent. Structured JSON logs emit duration, heap delta, and NAV samples for CI dashboards.
+- `npm run test:e2e` – Playwright smoke flow exercising portfolio authentication, dashboard KPIs, and benchmark toggles in headless Chromium. Requires `npx playwright install --with-deps chromium` once per environment; artefacts land in `playwright-report/` (HTML + trace) and `test-results/e2e-junit.xml` (JUnit) for CI ingestion.
 
 Sample output (newline-delimited JSON for log aggregation):
 
@@ -338,6 +339,8 @@ Sample output (newline-delimited JSON for log aggregation):
 - `npm run build` – Production build through Vite.
 
 The shared test harness automatically opts into the React Router v7 transition behaviour, restores console spies between tests, and sets `process.env.NO_NETWORK_TESTS = '1'` to guarantee offline execution. Tests should stub API layers (`src/utils/api.js`) or other network clients explicitly.
+
+The Playwright configuration (`playwright.config.ts`) starts Vite on port **4173** with `NO_NETWORK_TESTS=1` and `VITE_API_BASE=http://127.0.0.1:9999`, then intercepts API calls inside the tests for deterministic fixtures. Traces, screenshots, and videos are captured on failures, and the HTML report is viewable via `npx playwright show-report`.
 
 | Name               | Type   | Default | Required | Description |
 | ------------------ | ------ | ------- | -------- | ----------- |
@@ -350,7 +353,28 @@ GitHub Actions enforces quality gates on every push and pull request targeting `
 | Workflow | Job | Purpose | Key commands | Artifacts |
 | -------- | --- | ------- | ------------ | --------- |
 | `CI` | `ci` | Installs dependencies, lints, runs the Node test runner twice (directly and through `nyc`) and enforces coverage/security/audit gates. | `npm ci`, `npm run lint`, `npm run test`, `npx nyc check-coverage --branches=85 --functions=85 --lines=85 --statements=85`, `npx gitleaks detect --no-banner`, `npm audit --audit-level=moderate` | `coverage/` uploaded as the `node-coverage` artifact |
+| `CI` (planned) | `e2e-smoke` | Launch Vite headlessly and execute Playwright smoke flows with mocked API responses. | `npm ci`, `npx playwright install --with-deps chromium`, `npm run test:e2e` | `playwright-report/`, `test-results/e2e-junit.xml` |
 | `Deploy Vite app to GitHub Pages` | `build-and-deploy` | Builds and publishes the static frontend once CI succeeds on `main`. | `npm install`, `npm run build` | `dist/` via `actions/upload-pages-artifact` |
+
+#### Proposed GitHub Actions steps
+
+```yaml
+    - name: Install Playwright browsers (Chromium only)
+      run: npx playwright install --with-deps chromium
+    - name: Run Playwright smoke tests
+      env:
+        NO_NETWORK_TESTS: "1"
+        VITE_API_BASE: http://127.0.0.1:9999
+      run: npm run test:e2e
+    - name: Upload Playwright report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-playwright-report
+        path: |
+          playwright-report
+          test-results/e2e-junit.xml
+```
 
 > The repository bundles a deterministic `gitleaks` wrapper under `tools/gitleaks/` so that secret scanning works without downloading third-party binaries. The scanner audits for high-signal patterns (AWS/GitHub/Slack/Google tokens and private-key blocks) and fails the build if any are discovered.
 
