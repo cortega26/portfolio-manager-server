@@ -9,7 +9,9 @@ This project provides a full‑stack portfolio manager that runs client‑side i
   dashboard—are live on `main` (see `OBS-1` through `OBS-3` plus CODE/PERF items in
   [docs/HARDENING_SCOREBOARD.md](docs/HARDENING_SCOREBOARD.md)).
 - Phase 4 focuses on frontend UX updates. Track backlog items `P4-UI-1`, `P4-UI-2`, and `P4-DOC-1`
-  in the scoreboard before beginning new UI work.
+  in the scoreboard before beginning new UI work. The accompanying
+  [Frontend Operations Playbook](docs/frontend-operations.md) documents how to operate the
+  refreshed Admin tab, benchmark toggles, and KPI workflows after each deploy.
 
 ## Getting Started
 
@@ -469,6 +471,16 @@ To deploy the static frontend to GitHub Pages and run the backend separately:
 2. Serve the files in `dist/` from your static host (GitHub Pages, Netlify, etc.). If using GitHub Pages, set the `base` path in `vite.config.js` or define `VITE_BASE=/your-repo/` at build time.
 
 3. Deploy the backend to your preferred host (Heroku, Railway, Cloudflare Workers with minimal adjustments). For Cloudflare Workers, you can port the express logic to `fetch` handlers and use KV for storage.
+
+## Frontend operations workflow
+
+Operate the Phase 4 dashboard enhancements using the dedicated
+[Frontend Operations Playbook](docs/frontend-operations.md). Key expectations:
+
+- **Admin tab monitoring:** Follow the playbook’s polling guidance for the security events stream, rate-limit gauges, and benchmark health widget. Correlate anomalies with `/api/monitoring` responses captured in the Admin tab.
+- **Benchmark toggles:** Run the smoke checklist to validate SPY, blended, ex-cash, and cash series after every deploy. Persisted selections should survive reloads; regressions trigger the incident response steps outlined in the playbook.
+- **KPI refresh verification:** Confirm cash allocation, drag, and benchmark deltas match backend summary data. Tooltips reference `docs/cash-benchmarks.md` terminology—report deviations in the release ticket.
+- **Incident response:** On-call engineers use the rollback plan and feature-flag overrides described in the playbook within 15 minutes of detecting a regression. Update `docs/HARDENING_SCOREBOARD.md` Phase 4 entries with the deploy evidence noted in the playbook.
 
 ### HTTPS & transport security
 
