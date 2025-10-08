@@ -89,7 +89,12 @@ const securityEvents = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": [
+    "Content-Type",
+    "Authorization",
+    "X-Portfolio-Key",
+    "X-Portfolio-Key-New",
+  ].join(", "),
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 } as const;
 
