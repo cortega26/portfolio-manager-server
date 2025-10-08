@@ -196,18 +196,39 @@ curl "http://localhost:3000/api/v1/returns/daily?from=2024-01-01&to=2024-12-31" 
   exercise virtual scroll, filter resets, and the scroll-to-row behaviour—tune
   the debounce window or row height in lockstep with those assertions.
 
-### Bulk CSV import
+### Bulk history ingestion
 
-1. Prepare a CSV containing historical activity:
-   ```csv
-   date,ticker,type,amount,price
-   2024-01-01,,DEPOSIT,10000,0
-   2024-01-05,AAPL,BUY,-3000,150
-   2024-01-05,MSFT,BUY,-3000,375
-   2024-02-15,AAPL,DIVIDEND,50,0
+The audit surfaced that the README promised a **Reports → Import** flow that does
+not exist in the product yet. Until the dedicated importer lands, use one of the
+supported options below to ingest historical activity:
+
+1. **Manual entry in Transactions → Add Transaction** — quickest for a handful of
+   trades. The form virtualises large ledgers, so pasting dozens of rows remains
+   responsive.
+2. **API upload** — send the normalised transaction array directly to the
+   portfolio endpoint. Convert CSV to JSON with your preferred tool (for example,
+   `npx csvtojson`) and then POST the payload:
+
+   ```bash
+   curl -X POST "http://localhost:3000/api/v1/portfolio/<portfolioId>" \
+     -H "Content-Type: application/json" \
+     -H "X-Portfolio-Key: <YourStrongKey>" \
+     -d '{
+       "transactions": [
+         { "date": "2024-01-01", "type": "DEPOSIT", "amount": 10000 },
+         { "date": "2024-01-05", "type": "BUY", "ticker": "AAPL", "amount": -3000, "price": 150, "shares": 20 },
+         { "date": "2024-02-15", "type": "DIVIDEND", "amount": 50 }
+       ],
+       "signals": {},
+       "settings": {}
+     }'
    ```
-2. Open **Reports → Import** in the UI and select the file.
-3. Review the preview, confirm, and save the portfolio so the backend persists the new transactions.
+
+   The endpoint merges transactions by UID, so repeated uploads can append or
+   amend rows safely. Confirm the new ledger in the UI or by calling
+   `/api/v1/portfolio/<portfolioId>`.
+
+Track importer delivery status in `docs/scoreboard.csv` (item **P003**).
 
 ## Troubleshooting
 
