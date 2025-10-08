@@ -62,7 +62,7 @@ template) with no regressions detected.
 |-----------|--------------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
 | P4-UI-1   | Benchmark view toggles & blended charting  | DONE                                   | feat/phase4-benchmark-toggles | —  | README.md §Benchmark toggles & ROI comparisons; Tests: `npm test -- --coverage` | Dashboard ROI chart exposes persisted benchmark toggles (SPY, blended, ex-cash, cash) powered by `/api/returns/daily`. |
 | P4-UI-2   | KPI panel refresh for cash & benchmarks     | DONE                                   | feat/phase4-kpi-refresh | —  | README.md §KPI panel for cash & benchmarks; Tests: `npm run test -- --coverage` | Dashboard KPIs include cash allocation, drag, and benchmark deltas aligned with docs/cash-benchmarks.md. |
-| P4-DOC-1  | Frontend operations playbook                | TODO                                   | —      | —  | —                           | Document Admin tab workflows and benchmark toggles across README + docs once UI changes land. |
+| P4-DOC-1  | Frontend operations playbook                | DONE                                   | feat/phase4-frontend-playbook | —  | docs/frontend-operations.md; README.md §Frontend operations workflow | Playbook covers Admin tab workflows, benchmark toggles, KPI validation, and incident response; README linked for ops handoffs. |
 
 > Historical scoreboard snapshots remain available in git history prior to this commit.
 
