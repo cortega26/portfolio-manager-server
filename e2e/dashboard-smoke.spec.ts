@@ -110,6 +110,17 @@ test.describe("dashboard smoke flows", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/portfolio/**", async (route) => {
       const method = route.request().method();
+      if (method === "OPTIONS") {
+        await route.fulfill({
+          status: 204,
+          headers: {
+            "access-control-allow-origin": "*",
+            "access-control-allow-methods": "GET,POST,OPTIONS",
+            "access-control-allow-headers": "*",
+          },
+        });
+        return;
+      }
       if (method === "GET") {
         await route.fulfill(jsonResponse(portfolioResponse));
         return;
