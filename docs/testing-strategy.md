@@ -59,6 +59,17 @@ Review `reports/mutation/mutation.html` for surviving mutants and update asserti
 
 `npm run test:stress` executes the full Vitest suite five consecutive times without coverage. This surfaces hidden order dependencies and race conditions. Ensure the command finishes cleanly before merging large refactors or flaky-test fixes.
 
+## Performance Regression Harness
+
+`npm run test:perf` drives the synthetic ledger generator under `tools/perf/` to create at least 12 288 trades (plus the seed deposit) and times `computeDailyStates` in the finance module. The harness:
+
+- warms the holdings builder once to stabilize the Node.js JIT,
+- enforces a **1 000 ms** maximum runtime for the holdings projection,
+- validates NAV integrity and state length, and
+- emits newline-delimited JSON metrics (`durationMs`, `heapDeltaMb`, `navSample`) suitable for CI log scraping.
+
+Regressions should be triaged by comparing the structured logs over time. When environment constraints prevent sub-second results (e.g., under heavy CI contention), note the delta in the PR and follow up with optimization tasks.
+
 ## Console Warning Policy
 
 Tests fail fast on console warnings/errors via `setupTests` hooks (`server/__tests__/setup/global.js` and `src/setupTests.ts`). When third-party packages emit unavoidable warnings, isolate them with targeted spies and document the rationale inline. Never mute project warnings globally.
@@ -71,6 +82,7 @@ Use the following commands during local development and CI:
 | --- | --- |
 | `npm test` | Runs the Vitest suite once with coverage enforcement, warning promotion, and deterministic shuffling. |
 | `npm run test:stress` | Executes the suite five times without coverage to detect flakiness. |
+| `npm run test:perf` | Generates a 12k+ transaction ledger and ensures holdings projection completes under 1 000 ms while logging metrics. |
 | `npm run test:mutation` | Invokes StrykerJS against targeted math modules and reports the mutation score. |
 
 For strict deprecation/warning checks, run:
