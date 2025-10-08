@@ -85,7 +85,7 @@ afterEach(() => {
 describe("App tab navigation", () => {
   it("renders dashboard by default and shows validation when saving without an ID", async () => {
     render(<App />);
-    assert.ok(await screen.findByText("Portfolio Value"));
+    assert.ok(await screen.findByText("Net Asset Value"));
 
     const saveButton = screen.getByRole("button", { name: /save portfolio/i });
     await userEvent.click(saveButton);

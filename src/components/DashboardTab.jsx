@@ -10,16 +10,20 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
-import { formatCurrency, formatPercent } from "../utils/format.js";
+import { formatCurrency, formatPercent, formatSignedPercent } from "../utils/format.js";
 import { BENCHMARK_SERIES_META } from "../utils/roi.js";
 import { usePersistentBenchmarkSelection } from "../hooks/usePersistentBenchmarkSelection.js";
+import { usePortfolioMetrics } from "../hooks/usePortfolioMetrics.js";
 
 const DEFAULT_BENCHMARK_SELECTION = ["spy", "blended"];
 const PORTFOLIO_COLOR = "#10b981";
 
-function MetricCard({ label, value, description }) {
+function MetricCard({ label, value, description, title }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div
+      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      title={title}
+    >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </p>
@@ -194,13 +198,30 @@ function RoiChart({
 export default function DashboardTab({
   metrics,
   roiData,
+  transactions = [],
   loadingRoi,
   onRefreshRoi,
 }) {
-  const returnPct =
-    metrics.totalCost === 0
-      ? 0
-      : (metrics.totalValue - metrics.totalCost) / metrics.totalCost;
+  const portfolioMetrics = usePortfolioMetrics({ metrics, transactions, roiData });
+  const {
+    totals: {
+      totalValue,
+      totalCost,
+      totalRealised,
+      totalUnrealised,
+      totalReturn,
+      totalNav,
+      cashBalance,
+      holdingsCount,
+    },
+    percentages: {
+      returnPct,
+      cashAllocationPct,
+      cashDragPct,
+      spyDeltaPct,
+      blendedDeltaPct,
+    },
+  } = portfolioMetrics;
 
   const benchmarkOptions = useMemo(() => {
     if (!Array.isArray(roiData) || roiData.length === 0) {
@@ -225,27 +246,56 @@ export default function DashboardTab({
     [setSelectedBenchmarks],
   );
 
+  const metricCards = [
+    {
+      label: "Net Asset Value",
+      value: formatCurrency(totalNav),
+      description: `Cash balance ${formatCurrency(cashBalance)}`,
+      title:
+        "NAV equals risk assets plus cash. Cash definitions follow docs/cash-benchmarks.md.",
+    },
+    {
+      label: "Total Return",
+      value: formatCurrency(totalReturn),
+      description: `Realised ${formatCurrency(totalRealised)} · Unrealised ${formatCurrency(totalUnrealised)} · ROI ${formatSignedPercent(returnPct, 1)}`,
+    },
+    {
+      label: "Invested Capital",
+      value: formatCurrency(totalCost),
+      description: `${holdingsCount} holdings tracked · Risk assets ${formatCurrency(totalValue)}`,
+    },
+    {
+      label: "Cash Allocation",
+      value: formatPercent(cashAllocationPct, 1),
+      description: "Share of NAV in cash per docs/cash-benchmarks.md",
+      title: "Start-of-day cash weight derived from current ledger balances.",
+    },
+    {
+      label: "Cash Drag",
+      value: formatSignedPercent(cashDragPct, 2),
+      description: "100% SPY minus blended benchmark",
+      title: "Positive values indicate performance surrendered to cash holdings.",
+    },
+    {
+      label: "Benchmark Delta",
+      value: `SPY ${formatSignedPercent(spyDeltaPct, 2)}`,
+      description: `Blended ${formatSignedPercent(blendedDeltaPct, 2)}`,
+      title: "Latest cumulative ROI gaps versus SPY and blended sleeves.",
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label="Portfolio Value"
-          value={formatCurrency(metrics.totalValue)}
-        />
-        <MetricCard
-          label="Invested Capital"
-          value={formatCurrency(metrics.totalCost)}
-        />
-        <MetricCard
-          label="Unrealised PnL"
-          value={formatCurrency(metrics.totalUnrealised)}
-          description={`Realised: ${formatCurrency(metrics.totalRealised)}`}
-        />
-        <MetricCard
-          label="Holdings"
-          value={metrics.holdingsCount}
-          description={`Return ${formatPercent(returnPct * 100, 1)}`}
-        />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {metricCards.map((card) => (
+          <MetricCard
+            key={card.label}
+            label={card.label}
+            value={card.value}
+            description={card.description}
+            title={card.title}
+          />
+        ))}
       </div>
       <QuickActions onRefresh={onRefreshRoi} />
       <RoiChart
