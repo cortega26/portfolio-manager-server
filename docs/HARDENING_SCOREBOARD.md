@@ -2,7 +2,7 @@
 
 # Security Hardening Scoreboard
 
-Last Updated: 2025-10-09 (Phase 3 observability deliverables verified; Phase 4 frontend backlog staged)
+Last Updated: 2025-10-10 (Phase 4 dashboard refinements verified; benchmark reset control shipped)
 
 Verification 2025-10-09: Re-reviewed `AI_IMPLEMENTATION_PROMPT.md` alongside the
 merged codebase to confirm Phase 3 items (CODE-1, PERF-4, PERF-5, API-1,
@@ -60,9 +60,9 @@ template) with no regressions detected.
 
 | ID        | Title                                      | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |-----------|--------------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
-| P4-UI-1   | Benchmark view toggles & blended charting  | DONE                                   | feat/phase4-benchmark-toggles | —  | README.md §Benchmark toggles & ROI comparisons; Tests: `npm test -- --coverage` | Dashboard ROI chart exposes persisted benchmark toggles (SPY, blended, ex-cash, cash) powered by `/api/returns/daily`. |
+| P4-UI-1   | Benchmark view toggles & blended charting  | DONE                                   | feat/phase4-benchmark-reset | —  | README.md §Benchmark toggles & ROI comparisons; Tests: `NO_NETWORK_TESTS=1 npm run test:fast` | ROI chart exposes persisted benchmark toggles (SPY, blended, ex-cash, cash) plus a reset control that reverts to the default blend with keyboard cues. |
 | P4-UI-2   | KPI panel refresh for cash & benchmarks     | DONE                                   | feat/phase4-kpi-refresh | —  | README.md §KPI panel for cash & benchmarks; Tests: `npm run test -- --coverage` | Dashboard KPIs include cash allocation, drag, and benchmark deltas aligned with docs/cash-benchmarks.md. |
-| P4-DOC-1  | Frontend operations playbook                | DONE                                   | feat/phase4-frontend-playbook | —  | docs/frontend-operations.md; README.md §Frontend operations workflow | Playbook covers Admin tab workflows, benchmark toggles, KPI validation, and incident response; README linked for ops handoffs. |
+| P4-DOC-1  | Frontend operations playbook                | DONE                                   | feat/phase4-frontend-playbook | —  | docs/frontend-operations.md; README.md §Frontend operations workflow | Playbook covers Admin tab workflows, benchmark toggles (including reset flow), KPI validation, and incident response; README linked for ops handoffs. |
 
 > Historical scoreboard snapshots remain available in git history prior to this commit.
 

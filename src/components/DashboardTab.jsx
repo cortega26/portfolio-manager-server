@@ -66,7 +66,7 @@ function QuickActions({ onRefresh }) {
   );
 }
 
-function BenchmarkControls({ options, selected, onToggle }) {
+function BenchmarkControls({ options, selected, onToggle, onReset, resetDisabled }) {
   if (options.length === 0) {
     return null;
   }
@@ -76,7 +76,7 @@ function BenchmarkControls({ options, selected, onToggle }) {
       <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
         Benchmarks
       </legend>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Toggle benchmark series">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Toggle benchmark series">
         {options.map((option) => {
           const active = selected.includes(option.id);
           return (
@@ -102,6 +102,22 @@ function BenchmarkControls({ options, selected, onToggle }) {
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={onReset}
+          className={clsx(
+            "rounded-md border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
+            resetDisabled
+              ? "cursor-not-allowed border-slate-200 text-slate-400 dark:border-slate-700 dark:text-slate-600"
+              : "border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-600 focus-visible:outline-indigo-500 dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-200",
+          )}
+          aria-disabled={resetDisabled}
+          disabled={resetDisabled}
+          aria-label="Reset benchmark visibility to defaults"
+          title="Restore the default benchmark combination"
+        >
+          Reset
+        </button>
       </div>
     </fieldset>
   );
@@ -113,6 +129,8 @@ function RoiChart({
   benchmarkOptions,
   selectedBenchmarks,
   onBenchmarkToggle,
+  onBenchmarkReset,
+  isDefaultSelection,
 }) {
   const legendPayload = useMemo(() => {
     const base = [
@@ -142,6 +160,8 @@ function RoiChart({
           options={benchmarkOptions}
           selected={selectedBenchmarks}
           onToggle={onBenchmarkToggle}
+          onReset={onBenchmarkReset}
+          resetDisabled={isDefaultSelection}
         />
       </div>
       <div className="mt-4 h-72 w-full">
@@ -237,6 +257,17 @@ export default function DashboardTab({
   );
   const [selectedBenchmarks, setSelectedBenchmarks] =
     usePersistentBenchmarkSelection(benchmarkOptionIds, DEFAULT_BENCHMARK_SELECTION);
+  const normalizedDefaultSelection = useMemo(() => {
+    if (benchmarkOptionIds.length === 0) {
+      return [];
+    }
+    const availableSet = new Set(benchmarkOptionIds);
+    const preferred = DEFAULT_BENCHMARK_SELECTION.filter((value) => availableSet.has(value));
+    if (preferred.length > 0) {
+      return preferred;
+    }
+    return [benchmarkOptionIds[0]];
+  }, [benchmarkOptionIds]);
   const handleBenchmarkToggle = useCallback(
     (id) => {
       setSelectedBenchmarks((prev) =>
@@ -245,6 +276,16 @@ export default function DashboardTab({
     },
     [setSelectedBenchmarks],
   );
+  const handleBenchmarkReset = useCallback(() => {
+    setSelectedBenchmarks(normalizedDefaultSelection);
+  }, [normalizedDefaultSelection, setSelectedBenchmarks]);
+  const isDefaultSelection = useMemo(() => {
+    if (normalizedDefaultSelection.length !== selectedBenchmarks.length) {
+      return false;
+    }
+    const selectedSet = new Set(selectedBenchmarks);
+    return normalizedDefaultSelection.every((value) => selectedSet.has(value));
+  }, [normalizedDefaultSelection, selectedBenchmarks]);
 
   const metricCards = [
     {
@@ -304,6 +345,8 @@ export default function DashboardTab({
         benchmarkOptions={benchmarkOptions}
         selectedBenchmarks={selectedBenchmarks}
         onBenchmarkToggle={handleBenchmarkToggle}
+        onBenchmarkReset={handleBenchmarkReset}
+        isDefaultSelection={isDefaultSelection}
       />
     </div>
   );
