@@ -294,7 +294,7 @@ the brute-force guard, cache TTLs, and logging controls.
 
 - **Server‑side persistence** – save and load your portfolio on any device via REST endpoints.
 - **Tabbed workspace** – switch between Dashboard, Holdings, Transactions, History, Metrics, Reports, and Settings views without losing context.
-- **Transaction entry** – enter date, ticker, transaction type, amount invested and price; the app calculates shares automatically.
+- **Transaction entry** – enter date, ticker, transaction type, and amount; price is only required for Buy/Sell orders and shares are calculated automatically.
 - **Holdings dashboard** – see average cost, current value, unrealised/realised PnL, ROI and position weights.
 - **Signals per ticker** – define a percentage band around the last price to trigger buy/trim/hold signals.
 - **ROI vs SPY** – chart your portfolio’s performance against SPY using daily price data from Stooq (no API key required).
@@ -474,7 +474,7 @@ Each card keeps the prior responsive layout (two columns on small screens, three
 
 4. **Usage:**
    - Navigate using the tab bar at the top of the workspace. The active tab is persisted while you save or load data.
-  - Add transactions via the **Transactions** tab. Enter **amount** and **price**; shares are computed automatically before submission.
+  - Add transactions via the **Transactions** tab. Enter **amount** (and **price** for Buy/Sell orders); the form hides the price field for cash-only events and computes shares automatically when needed.
   - Scroll-free pagination keeps transaction tables responsive — 50 rows per page by default with controls to change the page size or step through history.
    - Review metrics, ROI performance, cash allocation, and benchmark deltas from the **Dashboard** tab.
    - Configure signals and monitor allocation details from the **Holdings** tab. Percentage windows determine when the last price falls below or above your buy/trim zones.
