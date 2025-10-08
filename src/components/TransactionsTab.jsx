@@ -16,6 +16,7 @@ const defaultForm = {
 const initialState = {
   form: { ...defaultForm },
   error: null,
+  fieldErrors: {},
 };
 
 function createInitialForm() {
@@ -30,11 +31,28 @@ function reducer(state, action) {
         form: { ...state.form, [action.field]: action.value },
       };
     case "set-error":
-      return { ...state, error: action.error };
+      return {
+        ...state,
+        error: action.error,
+        fieldErrors: action.fieldErrors ?? state.fieldErrors,
+      };
     case "clear-error":
-      return { ...state, error: null };
+      return { ...state, error: null, fieldErrors: {} };
+    case "set-field-errors":
+      return {
+        ...state,
+        fieldErrors: { ...state.fieldErrors, ...action.fieldErrors },
+      };
+    case "clear-field-error": {
+      if (!state.fieldErrors[action.field]) {
+        return state;
+      }
+      const nextErrors = { ...state.fieldErrors };
+      delete nextErrors[action.field];
+      return { ...state, fieldErrors: nextErrors };
+    }
     case "reset":
-      return { form: createInitialForm(), error: null };
+      return { form: createInitialForm(), error: null, fieldErrors: {} };
     default:
       return state;
   }
@@ -244,7 +262,7 @@ export default function TransactionsTab({
   transactions = [],
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const { form, error } = state;
+  const { form, error, fieldErrors } = state;
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
@@ -311,18 +329,39 @@ export default function TransactionsTab({
     if (error) {
       dispatch({ type: "clear-error" });
     }
+    if (fieldErrors[field]) {
+      dispatch({ type: "clear-field-error", field });
+    }
   }
 
-  function recordError(message) {
-    dispatch({ type: "set-error", error: message });
+  function recordError(message, fields = {}) {
+    dispatch({ type: "set-error", error: message, fieldErrors: fields });
   }
 
   function handleSubmit(event) {
     event.preventDefault();
     const { date, ticker, type, amount, price } = form;
 
-    if (!date || !ticker || !type || !amount || !price) {
-      recordError("Please fill in all fields.");
+    const normalizedTicker = ticker.trim();
+    const missingFields = {};
+    if (!date) {
+      missingFields.date = "Date is required.";
+    }
+    if (!normalizedTicker) {
+      missingFields.ticker = "Ticker is required.";
+    }
+    if (!type) {
+      missingFields.type = "Type is required.";
+    }
+    if (!amount) {
+      missingFields.amount = "Amount is required.";
+    }
+    if (!price) {
+      missingFields.price = "Price is required.";
+    }
+
+    if (Object.keys(missingFields).length > 0) {
+      recordError("Please fill in all fields.", missingFields);
       return;
     }
 
@@ -330,12 +369,16 @@ export default function TransactionsTab({
     const priceValue = Number.parseFloat(price);
 
     if (!Number.isFinite(amountValue)) {
-      recordError("Amount must be a valid number.");
+      recordError("Amount must be a valid number.", {
+        amount: "Enter a valid number for amount.",
+      });
       return;
     }
 
     if (!Number.isFinite(priceValue) || priceValue <= 0) {
-      recordError("Price must be a positive number.");
+      recordError("Price must be a positive number.", {
+        price: "Price must be greater than zero.",
+      });
       return;
     }
 
@@ -343,7 +386,7 @@ export default function TransactionsTab({
 
     const payload = {
       date,
-      ticker: ticker.trim().toUpperCase(),
+      ticker: normalizedTicker.toUpperCase(),
       type,
       amount: type === "BUY" ? -Math.abs(amountValue) : Math.abs(amountValue),
       price: Math.abs(priceValue),
@@ -408,7 +451,16 @@ export default function TransactionsTab({
                 max={new Date().toISOString().split("T")[0]}
                 onChange={(event) => updateForm("date", event.target.value)}
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                aria-invalid={Boolean(fieldErrors.date)}
               />
+              {fieldErrors.date ? (
+                <span
+                  className="mt-1 text-xs font-medium text-rose-600"
+                  data-testid="error-date"
+                >
+                  {fieldErrors.date}
+                </span>
+              ) : null}
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               Ticker
@@ -418,7 +470,16 @@ export default function TransactionsTab({
                 onChange={(event) => updateForm("ticker", event.target.value)}
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 placeholder="Enter ticker symbol"
+                aria-invalid={Boolean(fieldErrors.ticker)}
               />
+              {fieldErrors.ticker ? (
+                <span
+                  className="mt-1 text-xs font-medium text-rose-600"
+                  data-testid="error-ticker"
+                >
+                  {fieldErrors.ticker}
+                </span>
+              ) : null}
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               Type
@@ -426,6 +487,7 @@ export default function TransactionsTab({
                 value={form.type}
                 onChange={(event) => updateForm("type", event.target.value)}
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                aria-invalid={Boolean(fieldErrors.type)}
               >
                 <option value="BUY">Buy</option>
                 <option value="SELL">Sell</option>
@@ -434,6 +496,14 @@ export default function TransactionsTab({
                 <option value="DIVIDEND">Dividend</option>
                 <option value="INTEREST">Interest</option>
               </select>
+              {fieldErrors.type ? (
+                <span
+                  className="mt-1 text-xs font-medium text-rose-600"
+                  data-testid="error-type"
+                >
+                  {fieldErrors.type}
+                </span>
+              ) : null}
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               Amount
@@ -444,7 +514,16 @@ export default function TransactionsTab({
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 step="0.01"
                 placeholder="Amount in USD"
+                aria-invalid={Boolean(fieldErrors.amount)}
               />
+              {fieldErrors.amount ? (
+                <span
+                  className="mt-1 text-xs font-medium text-rose-600"
+                  data-testid="error-amount"
+                >
+                  {fieldErrors.amount}
+                </span>
+              ) : null}
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               Price
@@ -455,7 +534,16 @@ export default function TransactionsTab({
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 step="0.01"
                 placeholder="Price per share"
+                aria-invalid={Boolean(fieldErrors.price)}
               />
+              {fieldErrors.price ? (
+                <span
+                  className="mt-1 text-xs font-medium text-rose-600"
+                  data-testid="error-price"
+                >
+                  {fieldErrors.price}
+                </span>
+              ) : null}
             </label>
             <div className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               Estimated Shares
@@ -466,7 +554,11 @@ export default function TransactionsTab({
           </div>
 
           {error ? (
-            <p className="text-sm font-medium text-rose-600" role="alert">
+            <p
+              className="text-sm font-medium text-rose-600"
+              role="alert"
+              data-testid="error-form"
+            >
               {error}
             </p>
           ) : null}

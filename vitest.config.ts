@@ -1,0 +1,26 @@
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.ts'],
+    css: true,
+    include: ['src/__tests__/**/*.test.tsx'],
+    exclude: ['src/__tests__/**/*.test.jsx', 'server/**'],
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    clearMocks: true,
+    restoreMocks: true,
+    unstubGlobals: true,
+    unstubEnvs: true,
+    coverage: {
+      enabled: true,
+      reporter: ['text-summary', 'lcov'],
+      include: [
+        // Only the components we touch in this task
+        'src/components/**/*.{js,jsx,ts,tsx}'
+      ],
+      exclude: ['src/main.*', 'src/vite-env.d.ts']
+    }
+  }
+});
