@@ -355,67 +355,125 @@ export default function App() {
         <main className="pb-12">
           <Suspense fallback={<LoadingFallback />}>
             {activeTab === "Dashboard" && (
-              <DashboardTab
-                metrics={metrics}
-                roiData={roiData}
-                transactions={transactions}
-                loadingRoi={loadingRoi}
-                onRefreshRoi={handleRefreshRoi}
-              />
+              <section
+                role="tabpanel"
+                id="panel-dashboard"
+                aria-labelledby="tab-dashboard"
+                data-testid="panel-dashboard"
+              >
+                <DashboardTab
+                  metrics={metrics}
+                  roiData={roiData}
+                  transactions={transactions}
+                  loadingRoi={loadingRoi}
+                  onRefreshRoi={handleRefreshRoi}
+                />
+              </section>
             )}
 
             {activeTab === "Holdings" && (
-              <HoldingsTab
-                holdings={holdings}
-                currentPrices={currentPrices}
-                signals={signals}
-                onSignalChange={handleSignalChange}
-              />
+              <section
+                role="tabpanel"
+                id="panel-holdings"
+                aria-labelledby="tab-holdings"
+                data-testid="panel-holdings"
+              >
+                <HoldingsTab
+                  holdings={holdings}
+                  currentPrices={currentPrices}
+                  signals={signals}
+                  onSignalChange={handleSignalChange}
+                />
+              </section>
             )}
 
             {activeTab === "Transactions" && (
-              <TransactionsTab
-                transactions={transactions}
-                onAddTransaction={handleAddTransaction}
-                onDeleteTransaction={handleDeleteTransaction}
-              />
+              <section
+                role="tabpanel"
+                id="panel-transactions"
+                aria-labelledby="tab-transactions"
+                data-testid="panel-transactions"
+              >
+                <TransactionsTab
+                  transactions={transactions}
+                  onAddTransaction={handleAddTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
+                />
+              </section>
             )}
 
             {activeTab === "History" && (
-              <HistoryTab
-                monthlyBreakdown={historyMonthlyBreakdown}
-                timeline={historyTimeline}
-              />
+              <section
+                role="tabpanel"
+                id="panel-history"
+                aria-labelledby="tab-history"
+                data-testid="panel-history"
+              >
+                <HistoryTab
+                  monthlyBreakdown={historyMonthlyBreakdown}
+                  timeline={historyTimeline}
+                />
+              </section>
             )}
 
             {activeTab === "Metrics" && (
-              <MetricsTab
-                metricCards={metricCards}
-                allocations={allocationBreakdown}
-                performance={performanceHighlights}
-              />
+              <section
+                role="tabpanel"
+                id="panel-metrics"
+                aria-labelledby="tab-metrics"
+                data-testid="panel-metrics"
+              >
+                <MetricsTab
+                  metricCards={metricCards}
+                  allocations={allocationBreakdown}
+                  performance={performanceHighlights}
+                />
+              </section>
             )}
 
             {activeTab === "Reports" && (
-              <ReportsTab
-                summaryCards={reportSummaryCards}
-                onExportTransactions={handleExportTransactions}
-                onExportHoldings={handleExportHoldings}
-                onExportPerformance={handleExportPerformance}
-              />
+              <section
+                role="tabpanel"
+                id="panel-reports"
+                aria-labelledby="tab-reports"
+                data-testid="panel-reports"
+              >
+                <ReportsTab
+                  summaryCards={reportSummaryCards}
+                  onExportTransactions={handleExportTransactions}
+                  onExportHoldings={handleExportHoldings}
+                  onExportPerformance={handleExportPerformance}
+                />
+              </section>
             )}
 
             {activeTab === "Settings" && (
-              <SettingsTab
-                settings={settings}
-                onSettingChange={handleSettingChange}
-                onReset={handleResetSettings}
-                portfolioSettings={portfolioSettings}
-                onPortfolioSettingChange={handlePortfolioSettingChange}
-              />
+              <section
+                role="tabpanel"
+                id="panel-settings"
+                aria-labelledby="tab-settings"
+                data-testid="panel-settings"
+              >
+                <SettingsTab
+                  settings={settings}
+                  onSettingChange={handleSettingChange}
+                  onReset={handleResetSettings}
+                  portfolioSettings={portfolioSettings}
+                  onPortfolioSettingChange={handlePortfolioSettingChange}
+                />
+              </section>
             )}
 
-            {activeTab === "Admin" && <AdminTab />}
+            {activeTab === "Admin" && (
+              <section
+                role="tabpanel"
+                id="panel-admin"
+                aria-labelledby="tab-admin"
+                data-testid="panel-admin"
+              >
+                <AdminTab />
+              </section>
+            )}
           </Suspense>
         </main>
       </div>
