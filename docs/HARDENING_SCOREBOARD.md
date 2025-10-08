@@ -2,13 +2,13 @@
 
 # Security Hardening Scoreboard
 
-Last Updated: 2025-10-10 (Phase 4 dashboard refinements verified; benchmark reset control shipped)
+Last Updated: 2025-10-17 (Phase 4 complete; Phase 5 testing & CI hardening kick-off)
 
-Verification 2025-10-09: Re-reviewed `AI_IMPLEMENTATION_PROMPT.md` alongside the
-merged codebase to confirm Phase 3 items (CODE-1, PERF-4, PERF-5, API-1,
-DOC-TEST-STRATEGY) remain green. P1-DOC-1 through P1-DX-1 are still satisfied
-(README onboarding, API key validation, audit logging middleware, `.env.example`
-template) with no regressions detected.
+Verification 2025-10-17: Synced `AI_IMPLEMENTATION_PROMPT.md` and
+`AI_CODE_ASSISTANT_PROMPTS.md` with Phase 5 scope. Confirmed Phase 4 rows (P4-UI-1
+through P4-DOC-1) remain green with dashboard toggles/KPI refresh intact. Phase 1–3
+controls (API key policy, audit logging, request tracing) revalidated against
+`comprehensive_audit_v3.md` with no regressions detected.
 
 ## Phase 1 — Immediate Priorities
 
@@ -56,7 +56,7 @@ template) with no regressions detected.
 | API-1     | API versioning & headers          | DONE                                | feat/api-version-routing | —  | server/app.js; server/__tests__/integration.test.js; server/__tests__/api_contract.test.js; docs/openapi.yaml | `/api/v1` prefix covered by contract tests; request-id headers exposed to clients and UI; OpenAPI duplicated for v1 with header schema. |
 | DOC-TEST-STRATEGY | Testing strategy guide   | DONE                                | feat/phase3-phase3-deliverables | —  | docs/testing-strategy.md; README.md (Testing & quality gates) | Dedicated guide published and cross-linked from README/AGENTS. |
 
-## Phase 4 — Frontend Experience (Upcoming)
+## Phase 4 — Frontend Experience (Complete)
 
 | ID        | Title                                      | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |-----------|--------------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
@@ -65,6 +65,14 @@ template) with no regressions detected.
 | P4-DOC-1  | Frontend operations playbook                | DONE                                   | feat/phase4-frontend-playbook | —  | docs/frontend-operations.md; README.md §Frontend operations workflow | Playbook covers Admin tab workflows, benchmark toggles (including reset flow), KPI validation, and incident response; README linked for ops handoffs. |
 
 > Historical scoreboard snapshots remain available in git history prior to this commit.
+
+## Phase 5 — Testing & CI Hardening (Upcoming)
+
+| ID        | Title                                      | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
+|-----------|--------------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
+| P5-TEST-1 | Frontend component coverage expansion      | TODO                                   | —      | —  | —                           | Address audit gap on limited React component tests (tab navigation, form validation, holdings table) before Phase 5 coding.【F:comprehensive_audit_v3.md†L66-L93】 |
+| P5-TEST-2 | Performance & load regression harness       | TODO                                   | —      | —  | —                           | Implement 10k-transaction stress suite with runtime thresholds per audit performance recommendations.【F:comprehensive_audit_v3.md†L88-L100】 |
+| P5-CI-1   | End-to-end & CI reliability automation     | TODO                                   | —      | —  | —                           | Introduce Playwright/Cypress smoke flows and document CI wiring to cover missing E2E coverage noted in the audit.【F:comprehensive_audit_v3.md†L100-L105】 |
 
 ## Security Metrics Snapshot
 

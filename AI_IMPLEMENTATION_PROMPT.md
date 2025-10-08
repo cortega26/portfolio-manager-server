@@ -1,87 +1,81 @@
 <!-- markdownlint-disable -->
-# Task: Kick Off Phase 4 Frontend Experience for Portfolio Manager
+# Task: Kick Off Phase 5 Testing & CI Hardening for Portfolio Manager
 
 ## Context Snapshot (October 2025)
 - **Project**: Node.js/React portfolio manager with Express backend (`server/`) and Vite frontend (`src/`).
-- **Baseline**: Phases 1–3 from `comprehensive_audit_v3.md` are merged on `main` (security hardening, documentation refresh, observability dashboards, virtualization, API versioning, testing strategy).
-- **Current Focus**: Phase 4 items highlighted in `docs/HARDENING_SCOREBOARD.md` under "Frontend Experience" — benchmark view toggles (P4-UI-1), KPI panel refresh (P4-UI-2), and frontend operations playbook (P4-DOC-1).
-- **Primary Sources**: `comprehensive_audit_v3.md` (UX + benchmark findings), `docs/HARDENING_SCOREBOARD.md`, `docs/cash-benchmarks.md`, existing dashboard implementation in `src/components/` and shared utilities in `shared/`.
+- **Baseline**: Phases 1–4 from `comprehensive_audit_v3.md` are merged on `main` (security hardening, documentation refresh, observability, virtualization, API versioning, dashboard benchmark toggles, KPI refresh, frontend operations playbook).
+- **Current Focus**: Phase 5 initiatives tracked in `docs/HARDENING_SCOREBOARD.md` under "Testing & CI Hardening" — frontend coverage expansion (P5-TEST-1), load/performance regression harness (P5-TEST-2), and end-to-end/CI reliability automation (P5-CI-1).
+- **Primary Sources**: `comprehensive_audit_v3.md` (§1 Test Coverage & Quality, minor gaps), `docs/HARDENING_SCOREBOARD.md`, Vitest suites in `src/__tests__/` and `server/__tests__/`, and CI workflow expectations in `AGENTS.md`/`README.md`.
 
-## Active Objectives (Phase 4)
+## Active Objectives (Phase 5)
 
-### 1. P4-UI-1 — Benchmark Toggle & Blended Charting (Priority: 🟡 Medium, Effort: 4h)
-**Goal**: Give users control over ROI comparisons between the default 100% SPY benchmark and blended benchmark views derived from actual cash vs equity weights (audit §4 UX notes, scoreboard P4-UI-1).
-
-**Scope**:
-- `src/components/DashboardTab.jsx` (chart + controls) and any shared control surfaces such as `src/components/PortfolioControls.jsx`.
-- Supporting hooks/utilities (`src/hooks/` directory) for persisted UI preferences or data shaping.
-- Related tests (`src/__tests__/DashboardTab.test.jsx`, property-based ROI checks if applicable).
-
-**Requirements**:
-1. Introduce accessible toggle controls (buttons, segmented control, or dropdown) that switch ROI chart lines between at least two benchmark modes: 100% SPY and blended benchmark from backend data. Include ability to compare multiple series concurrently when feasible.
-2. Adjust chart data preparation to consume benchmark series already exposed by backend endpoints (`/api/returns/daily`, `/api/benchmarks/summary`). Ensure legend labels, colors, and aria attributes remain descriptive.
-3. Persist user selection across sessions (use existing localStorage helpers if present; otherwise add a hook with tests) with sane defaults when data missing.
-4. Validate behavior with unit/integration tests that simulate toggle interaction, assert correct series visibility, and guard against regressions (e.g., fallback when benchmark data absent).
-5. Update README dashboard section and `docs/HARDENING_SCOREBOARD.md` row P4-UI-1 with implementation details, evidence (test command, screenshots/metrics), and any limitations.
-
-**Acceptance Criteria**:
-- ROI chart renders the selected benchmark mode without layout regressions (verified in Vitest DOM tests or Storybook snapshot if available).
-- Toggled state persists after reload (tested via jsdom localStorage mock).
-- Accessibility audit (axe or manual) shows controls are keyboard operable and labelled.
-- Scoreboard marks P4-UI-1 as DONE referencing commit/PR.
-
-### 2. P4-UI-2 — KPI Panel Refresh for Cash & Benchmarks (Priority: 🟡 Medium, Effort: 3h)
-**Goal**: Surface cash drag and benchmark-relative metrics inline with audit recommendations so users can quickly evaluate performance drivers.
+### 1. P5-TEST-1 — Frontend Component Coverage Expansion (Priority: 🔴 High, Effort: 4h)
+**Goal**: Close the audit gap on limited React component coverage by exercising dashboard navigation, transaction form validation, and holdings rendering flows.【F:comprehensive_audit_v3.md†L66-L101】
 
 **Scope**:
-- `src/components/DashboardTab.jsx` KPI cards and any helper components.
-- Metrics computation layers (`src/hooks/usePortfolioMetrics.js`, `shared/metrics/` if present) to expose cash drag %, blended benchmark delta, SPY delta, etc.
-- Tests covering new metrics (`src/__tests__/DashboardTab.metrics.test.jsx`, `src/__tests__/metrics/`).
+- `src/components/` dashboard, transactions, and holdings UI.
+- Existing Vitest suites under `src/__tests__/` and any new test helpers.
 
 **Requirements**:
-1. Extend metrics hook/utilities to compute: cash allocation %, cash drag impact (difference between blended benchmark and 100% SPY), and benchmark-relative ROI deltas.
-2. Refresh KPI card layout to display the new metrics without sacrificing responsiveness (sm, md, lg breakpoints) and ensure dark mode compatibility.
-3. Provide contextual descriptions/tooltips referencing `docs/cash-benchmarks.md` definitions so users understand calculations.
-4. Add tests verifying metric math and formatting (use deterministic fixtures). Ensure coverage ≥90% for changed modules.
-5. Update README (dashboard metrics subsection) and scoreboard row P4-UI-2 with evidence and coverage stats.
+1. Add Vitest + React Testing Library cases for tab navigation, transaction form validation errors, and holdings table rendering (per audit recommendations).
+2. Ensure tests fail on missing accessibility labels or console warnings (reuse existing `setupTests` guardrails).
+3. Achieve ≥90% statement/branch coverage for updated components and document coverage deltas in PR body.
+4. Update `README.md` testing section and scoreboard row P5-TEST-1 with status, coverage numbers, and command outputs.
 
 **Acceptance Criteria**:
-- KPI section renders new metrics alongside existing totals with no overflow on mobile widths.
-- Tests validate numerical accuracy for sample portfolios (cash-heavy vs equity-heavy) and guard against regressions.
-- Documentation explains each KPI and links to deeper references.
-- Scoreboard shows P4-UI-2 as DONE with proof.
+- Tests cover the three highlighted UI areas with deterministic fixtures.
+- Coverage reports confirm ≥90% on touched files and no regression in global thresholds.
+- Documentation reflects new coverage expectations and references supporting commands/logs.
 
-### 3. P4-DOC-1 — Frontend Operations Playbook (Priority: 🟡 Medium, Effort: 2h)
-**Goal**: Document how to operate, verify, and troubleshoot the refreshed frontend experience per scoreboard guidance.
+### 2. P5-TEST-2 — Performance & Load Regression Harness (Priority: 🟡 Medium, Effort: 5h)
+**Goal**: Introduce automated load/performance checks to address the audit's call for stress and performance testing.【F:comprehensive_audit_v3.md†L88-L105】
 
 **Scope**:
-- New doc `docs/frontend-operations.md` (or update existing if specified).
-- README cross-links (navigation + operations sections).
-- Any references in `AGENTS.md`, `AI_CODE_ASSISTANT_PROMPTS.md`, or onboarding docs that need alignment.
+- Utility scripts under `tools/` or `server/perf/` for synthetic transaction generation.
+- Vitest or Node-based performance tests executed under `npm run test:perf` (new script if required).
+- Metrics documentation (`docs/testing-strategy.md`, `README.md`).
 
 **Requirements**:
-1. Produce an actionable playbook covering: dashboard smoke test checklist, benchmark toggle verification, KPI validation steps, accessibility spot checks, and deployment roll-back plan.
-2. Include table of key configuration flags (`VITE_API_BASE`, feature toggles) with type/default/description per R4 docs policy.
-3. Reference monitoring hooks (Admin tab, `/api/monitoring`) and describe how frontend changes integrate with observability (tie back to Phase 3 work).
-4. Sync README (link to the new playbook + summary of operations workflow) and update scoreboard row P4-DOC-1 with status + evidence.
-5. Ensure no instructions contradict existing security guardrails (structured logging, API key policies).
+1. Implement repeatable performance test(s) that process ≥10,000 transactions and assert completion under documented thresholds (e.g., <1s for holdings build) using generated fixtures from the audit example.
+2. Capture runtime metrics (duration, memory) and emit structured logs suitable for CI consumption.
+3. Wire the suite into npm scripts (e.g., `npm run test:perf`) and describe execution guidance in README/testing strategy.
+4. Update scoreboard row P5-TEST-2 with evidence (command + output snippet) and note any environment caveats.
 
 **Acceptance Criteria**:
-- New documentation passes markdown lint (if configured) and contains no placeholders.
-- README + AGENTS (if touched) link to the playbook and summarize updates.
-- Scoreboard row P4-DOC-1 updated to DONE with references to tests/docs.
+- Performance harness runs locally with documented thresholds and structured output.
+- CI integration plan documented (even if execution deferred due to runtime limits).
+- Documentation highlights how to interpret results and respond to regressions.
 
-## Delivery Checklist (apply to every Phase 4 PR)
-1. **Branch**: `feat/phase4-<slug>`.
-2. **Code**: Implement only the scoped objective (P4-UI-1, P4-UI-2, or P4-DOC-1) unless pairing tasks in same PR is explicitly justified.
-3. **Tests**: Run `npm run lint`, `npm test -- --coverage`, `npm run build`. Capture performance or accessibility metrics if UI renders change.
-4. **Docs**: Update README, `docs/HARDENING_SCOREBOARD.md`, and any affected guides simultaneously.
-5. **Evidence**: Attach CI links, coverage deltas, UX/performance metrics, and screenshots (desktop + mobile) in PR description when UI changes occur.
-6. **Compliance**: Follow security guardrails (no `shell=true`, maintain structured logging, respect rate limiting and feature toggles).
+### 3. P5-CI-1 — End-to-End & CI Reliability Automation (Priority: 🔴 High, Effort: 6h)
+**Goal**: Add end-to-end coverage (Playwright/Cypress) and harden CI per audit guidance for UI regression detection.【F:comprehensive_audit_v3.md†L101-L105】
+
+**Scope**:
+- New E2E test directory (e.g., `e2e/`) with Playwright or Cypress configuration.
+- GitHub Actions workflow updates or documentation for running the suite (follow AGENTS.md guardrails).
+- README/scoreboard documentation of CI expectations.
+
+**Requirements**:
+1. Choose Playwright or Cypress (prefer Playwright) and scaffold smoke tests covering login/auth flows, dashboard benchmark toggles, and KPI presence.
+2. Integrate the suite with npm scripts (`npm run test:e2e`) and document headless execution plus artifact capture (screenshots/video) expectations.
+3. Propose CI pipeline updates (workflow YAML snippet or documented plan) ensuring sequencing with lint/unit/perf checks.
+4. Update scoreboard row P5-CI-1 with status, linking to scripts, tests, and any follow-up tasks.
+
+**Acceptance Criteria**:
+- E2E tests run locally in headless mode with deterministic fixtures/mocks (no external API hits).
+- Documentation clearly explains setup, execution, and CI integration steps.
+- Scoreboard reflects progress with references to scripts/tests and CI considerations.
+
+## Delivery Checklist (apply to every Phase 5 PR)
+1. **Branch**: `feat/phase5-<slug>`.
+2. **Code**: Limit scope to one Phase 5 objective per PR unless coupling is unavoidable.
+3. **Tests**: Run `npm run lint`, `npm test -- --coverage`, relevant performance/E2E scripts, and `npm run build`. Capture logs/metrics for PR evidence.
+4. **Docs**: Update `README.md`, `docs/HARDENING_SCOREBOARD.md`, and related guides (`docs/testing-strategy.md`, etc.) in the same PR.
+5. **Evidence**: Attach CI links, coverage/performance stats, and (for UI/E2E) screenshots or trace artifacts in PR description.
+6. **Compliance**: Uphold security guardrails (no `shell=true`, structured logging, validated inputs) and maintain coverage thresholds.
 
 ## Kickoff Questions (confirm before coding)
-- Which Phase 4 objective (P4-UI-1, P4-UI-2, or P4-DOC-1) are you addressing first?
-- Have you reviewed current dashboard components, hooks, and docs to avoid regressions?
-- What metrics or screenshots will you produce to demonstrate improved UX/performance?
+- Which Phase 5 objective (P5-TEST-1, P5-TEST-2, or P5-CI-1) are you addressing first?
+- How will you capture metrics/coverage evidence to close the audit gaps?
+- What fallbacks/mocks are required to keep performance/E2E suites deterministic (no live API calls)?
 
-Once confirmed, begin with P4-UI-1 unless an incident demands a different priority.
+Once confirmed, begin with P5-TEST-1 to shore up UI coverage before layering on performance and E2E automation.
