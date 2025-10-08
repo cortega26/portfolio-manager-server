@@ -42,6 +42,7 @@ This playbook standardizes how to operate, verify, and troubleshoot the Vite/Rea
    - Expect ROI chart to render with default benchmark (SPY) and toggles visible.
 2. Toggle to **Blended Benchmark** and **Ex-Cash** modes.
    - Confirm legend updates and series visibility changes without console errors (check browser devtools).
+   - Use the **Reset** button to restore SPY + Blended default and verify the control disables itself once the default blend is active.
    - Refresh the page to ensure the selection persists (localStorage backed preference).
 3. Validate KPI cards.
    - Ensure Cash Allocation %, Cash Drag Impact, SPY Delta, and Blended Benchmark Delta display values consistent with staging snapshots.
@@ -73,6 +74,7 @@ Record results in the release ticket. Flag any discrepancies for immediate triag
    - Observe chart updates (line color + legend entry).
    - Check Admin tab → Feature Flags section to verify `VITE_FEATURE_BENCHMARK_TOGGLES` is `true`.
 4. Use browser network tab to confirm `/api/returns/daily` responses contain benchmark arrays; if missing, escalate to backend on-call.
+5. Activate at least one non-default toggle, reload the page, then use **Reset** to confirm the default SPY + Blended pairing returns without a second reload.
 
 ## KPI Refresh Validation
 
