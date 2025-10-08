@@ -55,6 +55,33 @@ function HoldingsTable({ holdings, currentPrices }) {
 }
 
 function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
+  function resolvePctWindow(ticker) {
+    if (!signals || !ticker) {
+      return 3;
+    }
+
+    const normalizedTicker = ticker.toUpperCase();
+    const candidate =
+      signals[ticker] ??
+      signals[normalizedTicker] ??
+      signals[normalizedTicker.toLowerCase?.() ?? ""] ??
+      null;
+
+    const value =
+      candidate && typeof candidate === "object"
+        ? candidate.pct ?? candidate.percent ?? candidate.windowPct ?? candidate.window
+        : candidate;
+
+    const parsed =
+      typeof value === "number"
+        ? value
+        : typeof value === "string"
+          ? Number.parseFloat(value)
+          : Number.NaN;
+
+    return Number.isFinite(parsed) ? parsed : 3;
+  }
+
   if (holdings.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -65,7 +92,10 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+      <table
+        className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700"
+        aria-label="Signals"
+      >
         <thead className="bg-slate-50 dark:bg-slate-800/60">
           <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
             <th className="px-3 py-2">Ticker</th>
@@ -78,7 +108,7 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
           {holdings.map((holding) => {
-            const pctWindow = signals[holding.ticker]?.pct ?? 3;
+            const pctWindow = resolvePctWindow(holding.ticker);
             const row = deriveSignalRow(
               holding,
               currentPrices[holding.ticker],
@@ -97,6 +127,8 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
                     onChange={(event) =>
                       onSignalChange(holding.ticker, event.target.value)
                     }
+                    aria-label={`${holding.ticker} percent window`}
+                    title={`${holding.ticker} percent window`}
                   />
                 </td>
                 <td className="px-3 py-2">{row.price}</td>
