@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import React, { useState } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
 
 import PortfolioControls from "../components/PortfolioControls.jsx";
 
@@ -96,5 +97,103 @@ describe("PortfolioControls API key guidance", () => {
     assert.ok(
       screen.getByText("New API key does not meet strength requirements."),
     );
+  });
+
+  it("maps API errors to friendly copy and surfaces request IDs", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    try {
+      const failingSave = vi.fn().mockRejectedValue(
+        Object.assign(new Error("Forbidden"), {
+          name: "ApiError",
+          status: 403,
+          requestId: "req-auth-403",
+        }),
+      );
+
+      function ErrorWrapper() {
+        const [portfolioId, setPortfolioId] = useState("demo");
+        const [portfolioKey, setPortfolioKey] = useState("StrongKey2024!");
+
+        return (
+          <PortfolioControls
+            portfolioId={portfolioId}
+            portfolioKey={portfolioKey}
+            portfolioKeyNew=""
+            onPortfolioIdChange={setPortfolioId}
+            onPortfolioKeyChange={setPortfolioKey}
+            onPortfolioKeyNewChange={() => {}}
+            onSave={failingSave}
+            onLoad={async () => {}}
+          />
+        );
+      }
+
+      render(<ErrorWrapper />);
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Save Portfolio" }),
+      );
+
+      assert.equal(failingSave.mock.calls.length, 1);
+      assert.ok(
+        screen.getByText("Access denied. Verify the portfolio key and try again."),
+      );
+      assert.ok(
+        screen.getByText(/Request ID: req-auth-403/),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("falls back to generic messaging for unexpected failures", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    try {
+      const failingLoad = vi.fn().mockRejectedValue(
+        Object.assign(new Error("Teapot"), {
+          name: "ApiError",
+          status: 503,
+          requestId: "req-503",
+        }),
+      );
+
+      function LoadWrapper() {
+        const [portfolioId, setPortfolioId] = useState("demo");
+        const [portfolioKey, setPortfolioKey] = useState("StrongKey2024!");
+
+        return (
+          <PortfolioControls
+            portfolioId={portfolioId}
+            portfolioKey={portfolioKey}
+            portfolioKeyNew=""
+            onPortfolioIdChange={setPortfolioId}
+            onPortfolioKeyChange={setPortfolioKey}
+            onPortfolioKeyNewChange={() => {}}
+            onSave={async () => {}}
+            onLoad={failingLoad}
+          />
+        );
+      }
+
+      render(<LoadWrapper />);
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Load Portfolio" }),
+      );
+
+      assert.equal(failingLoad.mock.calls.length, 1);
+      assert.ok(
+        screen.getByText(
+          "Server error while processing the request. Try again shortly.",
+        ),
+      );
+      assert.ok(screen.getByText(/Request ID: req-503/));
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
