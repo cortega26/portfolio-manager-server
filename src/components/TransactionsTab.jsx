@@ -1,4 +1,12 @@
-import { forwardRef, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import clsx from "clsx";
 import { FixedSizeList } from "react-window";
 
@@ -11,6 +19,7 @@ const defaultForm = {
   type: "BUY",
   amount: "",
   price: "",
+  shares: "",
 };
 
 const CASH_ONLY_TYPES = new Set(["DEPOSIT", "WITHDRAWAL", "DIVIDEND", "INTEREST"]);
@@ -35,6 +44,11 @@ function reducer(state, action) {
       return {
         ...state,
         form: { ...state.form, [action.field]: action.value },
+      };
+    case "set-form":
+      return {
+        ...state,
+        form: { ...action.form },
       };
     case "set-error":
       return {
@@ -183,6 +197,127 @@ const VirtualizedInner = forwardRef(function VirtualizedInner(props, ref) {
   return <div {...props} ref={ref} role="presentation" />;
 });
 
+function DepositorModal({ open, onClose, onSubmit }) {
+  const [name, setName] = useState("");
+  const [reference, setReference] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setReference("");
+      setShowErrors(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setShowErrors(true);
+      return;
+    }
+    onSubmit({
+      name: trimmedName,
+      reference: reference.trim(),
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-depositor-title"
+      data-testid="depositor-modal"
+    >
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-3">
+          <h3
+            id="add-depositor-title"
+            className="text-lg font-semibold text-slate-700 dark:text-slate-100"
+          >
+            Add depositor
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+            aria-label="Close add depositor"
+          >
+            ×
+          </button>
+        </div>
+        <form className="mt-4 space-y-4" onSubmit={handleSubmit} noValidate>
+          <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+            Depositor name
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              placeholder="Name of the funding source"
+              aria-invalid={showErrors && !name.trim()}
+              autoFocus
+            />
+            {showErrors && !name.trim() ? (
+              <span className="mt-1 text-xs font-medium text-rose-600">
+                Name is required.
+              </span>
+            ) : null}
+          </label>
+          <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+            Reference (optional)
+            <input
+              type="text"
+              value={reference}
+              onChange={(event) => setReference(event.target.value)}
+              className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              placeholder="Account or memo"
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+              Save depositor
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function TransactionsTable({
   transactions,
   onDeleteTransaction,
@@ -272,6 +407,7 @@ export default function TransactionsTab({
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
+  const [isDepositorModalOpen, setDepositorModalOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const listRef = useRef(null);
 
@@ -330,20 +466,79 @@ export default function TransactionsTab({
     }
   }, [debouncedSearch, filteredCount, virtualized]);
 
+  const handleDepositorOpen = useCallback(() => {
+    setDepositorModalOpen(true);
+  }, []);
+
+  const handleDepositorClose = useCallback(() => {
+    setDepositorModalOpen(false);
+  }, []);
+
+  const handleDepositorSubmit = useCallback((_details) => {
+    void _details;
+    setDepositorModalOpen(false);
+  }, []);
+
   function updateForm(field, value) {
-    dispatch({ type: "update", field, value });
+    const nextForm = { ...form, [field]: value };
+    const wasCashOnly = isCashOnlyType(form.type);
+    const nextCashOnly = isCashOnlyType(nextForm.type);
+    const nextIsDeposit = nextForm.type === "DEPOSIT";
+
+    if (nextCashOnly) {
+      nextForm.price = "";
+      if (nextIsDeposit) {
+        nextForm.ticker = "";
+        nextForm.shares = "";
+      }
+    }
+
+    if (!nextCashOnly) {
+      const amountValue = Number.parseFloat(nextForm.amount);
+      const priceValue = Number.parseFloat(nextForm.price);
+      if (
+        Number.isFinite(amountValue) &&
+        Number.isFinite(priceValue) &&
+        priceValue !== 0
+      ) {
+        const computedShares = Math.abs(amountValue) / Math.abs(priceValue);
+        nextForm.shares = computedShares.toFixed(8);
+      } else {
+        nextForm.shares = "";
+      }
+    }
+
+    if (nextCashOnly) {
+      nextForm.shares = "";
+    }
+
+    dispatch({ type: "set-form", form: nextForm });
+
+    const clearFieldError = (fieldName) => {
+      if (fieldErrors[fieldName]) {
+        dispatch({ type: "clear-field-error", field: fieldName });
+      }
+    };
 
     if (error) {
       dispatch({ type: "clear-error" });
     }
-    if (fieldErrors[field]) {
-      dispatch({ type: "clear-field-error", field });
-    }
-    if (field === "type" && isCashOnlyType(value)) {
-      dispatch({ type: "update", field: "price", value: "" });
-      if (fieldErrors.price) {
-        dispatch({ type: "clear-field-error", field: "price" });
+    clearFieldError(field);
+
+    if (field === "type") {
+      if (nextCashOnly && !wasCashOnly) {
+        clearFieldError("price");
       }
+      if (nextIsDeposit) {
+        clearFieldError("ticker");
+        clearFieldError("shares");
+      }
+      if (!nextCashOnly && wasCashOnly && nextForm.shares) {
+        clearFieldError("shares");
+      }
+    }
+    if ((field === "amount" || field === "price") && nextForm.shares) {
+      clearFieldError("shares");
     }
   }
 
@@ -353,7 +548,7 @@ export default function TransactionsTab({
 
   function handleSubmit(event) {
     event.preventDefault();
-    const { date, ticker, type, amount, price } = form;
+    const { date, ticker, type, amount, price, shares } = form;
     const cashOnly = isCashOnlyType(type);
 
     const normalizedTicker = ticker.trim();
@@ -389,11 +584,19 @@ export default function TransactionsTab({
     }
 
     let priceValue = null;
+    let sharesValue = null;
     if (!cashOnly) {
       priceValue = Number.parseFloat(price);
       if (!Number.isFinite(priceValue) || priceValue <= 0) {
         recordError("Price must be a positive number.", {
           price: "Price must be greater than zero.",
+        });
+        return;
+      }
+      sharesValue = Number.parseFloat(shares);
+      if (!Number.isFinite(sharesValue) || sharesValue <= 0) {
+        recordError("Shares must be a positive number.", {
+          shares: "Shares must be greater than zero.",
         });
         return;
       }
@@ -407,10 +610,9 @@ export default function TransactionsTab({
 
     if (!cashOnly) {
       const normalisedTickerValue = normalizedTicker.toUpperCase();
-      const shares = Math.abs(amountValue) / Math.abs(priceValue);
       payload.ticker = normalisedTickerValue;
       payload.price = Math.abs(priceValue);
-      payload.shares = Number(shares.toFixed(8));
+      payload.shares = Number(sharesValue.toFixed(8));
     }
 
     onAddTransaction(payload);
@@ -418,15 +620,8 @@ export default function TransactionsTab({
   }
 
   const requiresPrice = !isCashOnlyType(form.type);
-  const computedShares =
-    requiresPrice &&
-    form.amount &&
-    form.price &&
-    Number.isFinite(Number.parseFloat(form.price)) &&
-    Number.parseFloat(form.price) > 0
-      ? Math.abs(Number.parseFloat(form.amount || 0)) /
-        Math.abs(Number.parseFloat(form.price || 1))
-      : null;
+  const tickerDisabled = form.type === "DEPOSIT";
+  const sharesDisabled = isCashOnlyType(form.type);
 
   const hasSearch = Boolean(debouncedSearch?.trim());
   const showingStart =
@@ -460,12 +655,21 @@ export default function TransactionsTab({
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
-        <h2
-          id="add-transaction-heading"
-          className="text-lg font-semibold text-slate-700 dark:text-slate-200"
-        >
-          Add Transaction
-        </h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2
+            id="add-transaction-heading"
+            className="text-lg font-semibold text-slate-700 dark:text-slate-200"
+          >
+            Add Transaction
+          </h2>
+          <button
+            type="button"
+            onClick={handleDepositorOpen}
+            className="inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Add depositor
+          </button>
+        </div>
         <form
           aria-labelledby="add-transaction-heading"
           onSubmit={handleSubmit}
@@ -501,8 +705,14 @@ export default function TransactionsTab({
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 placeholder="Enter ticker symbol"
                 aria-invalid={Boolean(fieldErrors.ticker)}
+                disabled={tickerDisabled}
+                aria-disabled={tickerDisabled ? "true" : undefined}
               />
-              {fieldErrors.ticker ? (
+              {tickerDisabled ? (
+                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Not required for deposits.
+                </span>
+              ) : fieldErrors.ticker ? (
                 <span
                   className="mt-1 text-xs font-medium text-rose-600"
                   data-testid="error-ticker"
@@ -577,12 +787,41 @@ export default function TransactionsTab({
                 ) : null}
               </label>
             ) : null}
-            <div className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Estimated Shares
-              <div className="mt-1 rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-300">
-                {computedShares ? computedShares.toFixed(4) : "—"}
-              </div>
-            </div>
+            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+              Shares
+              <input
+                type="number"
+                value={form.shares}
+                readOnly={!sharesDisabled}
+                disabled={sharesDisabled}
+                aria-disabled={sharesDisabled ? "true" : undefined}
+                aria-readonly={!sharesDisabled ? "true" : undefined}
+                className={clsx(
+                  "mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+                  sharesDisabled
+                    ? "border-dashed border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                    : "border-slate-300",
+                )}
+                placeholder={sharesDisabled ? "Not applicable" : "Calculated automatically"}
+                aria-invalid={Boolean(fieldErrors.shares)}
+              />
+              {sharesDisabled ? (
+                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Shares are disabled for cash transactions.
+                </span>
+              ) : fieldErrors.shares ? (
+                <span
+                  className="mt-1 text-xs font-medium text-rose-600"
+                  data-testid="error-shares"
+                >
+                  {fieldErrors.shares}
+                </span>
+              ) : (
+                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Calculated from amount and price.
+                </span>
+              )}
+            </label>
           </div>
 
           {error ? (
@@ -604,6 +843,11 @@ export default function TransactionsTab({
             </button>
           </div>
         </form>
+        <DepositorModal
+          open={isDepositorModalOpen}
+          onClose={handleDepositorClose}
+          onSubmit={handleDepositorSubmit}
+        />
       </div>
 
       <section aria-label="Recorded transactions" className="space-y-4">
