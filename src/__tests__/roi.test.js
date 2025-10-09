@@ -129,4 +129,32 @@ describe("ROI utilities", () => {
     assert.equal(series.length, 3);
     assert.equal(series[1].portfolio, 0);
   });
+
+  it("skips price fetches for transactions without tickers", async () => {
+    const calls = [];
+    const mixedTransactions = [
+      ...transactions,
+      { date: "2024-01-03", type: "DEPOSIT", amount: 500 },
+      { date: "2024-01-04", ticker: " ", type: "BUY", shares: 2, amount: -240 },
+    ];
+    const fetcher = async (symbol) => {
+      calls.push(symbol);
+      const upper = symbol?.toUpperCase();
+      if (upper === "AAPL") {
+        return priceMap.AAPL;
+      }
+      if (upper === "SPY") {
+        return priceMap.SPY;
+      }
+      return [];
+    };
+
+    await buildRoiSeries(mixedTransactions, fetcher);
+
+    assert.deepEqual(
+      calls.filter((symbol) => typeof symbol !== "string" || symbol.trim().length === 0),
+      [],
+    );
+    assert.deepEqual(new Set(calls.map((symbol) => symbol.toUpperCase())), new Set(["AAPL", "SPY"]));
+  });
 });
