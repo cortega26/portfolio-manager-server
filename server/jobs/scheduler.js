@@ -26,7 +26,7 @@ export function scheduleNightlyClose({ config, logger }) {
           target_date: target.toISOString().slice(0, 10),
         });
       } else {
-        await runDailyClose({ dataDir, logger, date: target });
+        await runDailyClose({ dataDir, logger, date: target, config });
       }
     } catch (error) {
       logger?.error?.('nightly_job_failed', { error: error.message });

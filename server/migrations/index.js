@@ -23,6 +23,13 @@ const MIGRATIONS = [
       await storage.ensureTable('portfolio_keys', []);
     },
   },
+  {
+    id: '003_cash_interest_accruals',
+    description: 'Track buffered monthly cash interest accruals',
+    async up(storage) {
+      await storage.ensureTable('cash_interest_accruals', []);
+    },
+  },
 ];
 
 async function readStateFile(filePath) {
