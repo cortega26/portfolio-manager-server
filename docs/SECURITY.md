@@ -149,6 +149,24 @@ and a JSON-encoded metadata column mirroring the payload listed above.
 > and stream the Pino logs to your centralized logging stack with retention appropriate for your
 > compliance program.
 
+## External Penetration Test Assessment (2025-02)
+
+An external consultant delivered an eight-item high priority report. The table below records whether
+each item reproduces against the current hardened build and the concrete remediation actions we will
+pursue. All confirmed items are tracked in the backlog with owners and due dates; “Not Reproduced”
+items gain regression tests or documentation updates to prevent future confusion.
+
+| Issue | Status | Findings | Action Plan |
+|-------|--------|----------|-------------|
+| No request signing / integrity verification | ❌ Confirmed gap | Authentication relies on a hashed `X-Portfolio-Key`, but replay protection and per-request integrity guarantees are not enforced. | Design a canonical request payload (method, path, timestamp, body hash) and require an `X-Portfolio-Signature` HMAC generated with the portfolio key. Add a ±5 minute timestamp tolerance, reject replays via nonce cache, update `shared/api.js` helpers, and cover success/error paths in API integration tests and Playwright smoke flows. Document rollout + rotation guidance in README/SECURITY. |
+| Missing critical security headers | ✅ Not reproduced | `server/app.js` boots Helmet with CSP, HSTS, frame-guard, referrer policy, and XSS protections already verified in regression suites. | Add an automated header snapshot test (Vitest + Supertest) to guard the Helmet configuration and document required headers for reverse proxies. |
+| Sensitive data in logs | ❌ Confirmed gap | `pino-http` currently serializes full request headers, exposing `X-Portfolio-Key`/`X-Portfolio-Key-New` in structured logs. | Enable `redact` for sensitive headers and any body fields holding credentials, expand the audit logger to strip key material before emitting events, and add unit tests asserting the redaction plus a log sanitization section in SECURITY.md. |
+| No HTTPS enforcement | ❌ Confirmed gap (by design) | Production guidance mandates TLS termination, but the Express app does not actively redirect HTTP or enforce HSTS when `NODE_ENV=production`. | Introduce an opt-in `ENFORCE_HTTPS=true` environment flag that rejects non-TLS requests when `trust proxy` is enabled, ensure Helmet’s HSTS is only skipped for local development, and document proxy configuration and staging rollout steps. |
+| Error messages leak implementation details | ✅ Not reproduced | The error handler maps server exceptions to `INTERNAL_ERROR` with generic messaging for 5xx responses and hides stack traces from clients. | Backfill contract tests asserting sanitized 4xx/5xx payloads and lint future middleware to set `error.expose` intentionally. |
+| No API versioning | ✅ Not reproduced | All REST routes mount beneath `/api/v1`, clients ship with explicit base URLs, and contract tests enforce the prefix. | Add a canary test to ensure no new routes register outside `/api/v1` and update the API gateway checklist to require version bumps for breaking changes. |
+| Poor session management | ✅ Not applicable | The API is stateless and uses per-portfolio API keys instead of cookie-based sessions; there is no server-side session layer to harden. | Clarify in README + Admin docs that API keys function as bearer credentials, emphasize rotation cadence, and expand brute-force monitoring dashboards. |
+| Audit logs only in memory | ❌ Confirmed gap | The security event buffer caps at `SECURITY_AUDIT_MAX_EVENTS` in memory; while events stream to Pino, they are not persisted durably by default. | Add a pluggable event sink that writes NDJSON to `DATA_DIR/security/` (with rotation + backpressure) and supports webhook/queue forwarders. Provide operational docs for shipping the log files to external SIEM storage and add tests covering persistence & rollover. |
+
 ## Monitoring & Open Items
 
 - ✅ **Rate limit monitoring (SEC-12)** – `/api/security/stats` exposes limiter hit totals, rolling windows,
