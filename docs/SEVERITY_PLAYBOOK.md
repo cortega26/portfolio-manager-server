@@ -31,6 +31,21 @@ This document consolidates a **Severity Matrix (Impact × Probability)** and an 
 ### Risk Score
 - `risk_score = impact * probability` (range 1–25)
 
+### Severity Buckets (Impact × Probability → Severity)
+Use the following grid to convert impact/probability scores into a
+categorical severity that drives the remediation playbook.
+
+| Impact ↓ / Probability → | **1** | **2** | **3** | **4** | **5** |
+| --- | --- | --- | --- | --- | --- |
+| **5** | High | High | Critical | Critical | Critical |
+| **4** | Medium | High | High | Critical | Critical |
+| **3** | Low | Medium | High | High | Critical |
+| **2** | Low | Low | Medium | Medium | High |
+| **1** | Negligible | Low | Low | Medium | Medium |
+
+Where needed, break ties by comparing the numeric `risk_score`
+(higher score → higher severity).
+
 ### Confidence (0.5–1.0)
 - **1.0** = Evidence strong (reproducible steps + code refs)
 - **0.75** = Good signal, minor gaps
@@ -42,6 +57,34 @@ This document consolidates a **Severity Matrix (Impact × Probability)** and an 
 ### Ties & Trade-offs
 - Use **ICE = (Impact * Confidence) / Effort** as a tie-breaker.
 - Prefer higher `risk_score`; then higher `ICE`.
+
+### Playbook Steps
+Link `playbook_step` entries in the severity matrix to these anchors.
+
+#### Critical — Mitigate Immediately {#critical-mitigate-immediately}
+- Hotfix or rollback ASAP.
+- Pair with on-call/incident process.
+- Add regression tests before closing.
+
+#### High — Prioritise in Current Sprint {#high-prioritise-current-sprint}
+- Schedule a fix within the current sprint.
+- Add monitoring/alerts if missing.
+- Ensure coverage protects the edge case.
+
+#### Medium — Plan & Monitor {#medium-plan-and-monitor}
+- Capture a task in the backlog with explicit acceptance criteria.
+- Add lightweight monitoring or logging to detect recurrences.
+- Revisit priority at the next planning cycle.
+
+#### Low — Tracked for Continuous Improvement {#low-continuous-improvement}
+- Keep in backlog as polish / UX debt.
+- Bundle with adjacent workstreams when possible.
+- Document mitigation/workaround if users are affected today.
+
+#### Negligible — Monitor Only {#negligible-monitor-only}
+- No immediate engineering work required.
+- Validate periodically that guardrails/tests remain in place.
+- Close out if confirmed resolved for multiple releases.
 
 ---
 
