@@ -1,8 +1,16 @@
 import { validateAndNormalizePortfolioPayload } from "./portfolioSchema.js";
 
-export const API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  "https://portfolio-api.carlosortega77.workers.dev";
+function resolveDefaultApiBase() {
+  if (import.meta.env?.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE;
+  }
+  if (typeof window !== "undefined" && window?.location?.origin) {
+    return window.location.origin.replace(/\/+$/u, "");
+  }
+  return "http://localhost:3000";
+}
+
+export const API_BASE = resolveDefaultApiBase();
 
 const PORTFOLIO_ID_REGEX = /^[A-Za-z0-9_-]{1,64}$/;
 const API_VERSION_ROUTES = [
