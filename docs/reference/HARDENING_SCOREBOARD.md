@@ -16,7 +16,7 @@ regressions detected.
 | ID        | Title                               | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |-----------|-------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
 | P1-DOC-1  | Enhanced user guide in README       | DONE                                   | main   | —  | README.md §Getting Started, API Key Setup, Troubleshooting | Step-by-step onboarding, troubleshooting, and usage examples adapted from audit Section 6. |
-| P1-DOC-2  | Security documentation (SECURITY.md) | DONE                                   | main   | —  | docs/SECURITY.md (API key policy, incident response) | Includes structured logging reference and configuration table. |
+| P1-DOC-2  | Security documentation (SECURITY.md) | DONE                                   | main   | —  | docs/reference/SECURITY.md (API key policy, incident response) | Includes structured logging reference and configuration table. |
 | P1-SEC-1  | API key strength enforcement         | DONE                                   | main   | —  | server/middleware/validation.js; shared/apiKey.js; server/__tests__/api_errors.test.js | Zod schema enforces min length + character classes, mirrored in shared evaluator and tests. |
 | P1-SEC-2  | Security audit logging middleware    | DONE                                   | main   | —  | server/middleware/auditLog.js; server/__tests__/audit_log.test.js | req.auditLog emits structured events (auth_success/failed, key_rotated, weak_key_rejected). |
 | P1-DX-1   | Environment template (.env.example)  | DONE                                   | main   | —  | .env.example; README.md environment configuration section | Template grouped by category with safe defaults and README guidance. |
@@ -29,8 +29,8 @@ regressions detected.
 | ID        | Title                                  | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |-----------|----------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
 | P2-DOC-1  | README deep-dive sections              | DONE                                   | main   | —  | README.md (§Usage Examples, §Monitoring) | Deep-dive walkthroughs and troubleshooting guidance in place. |
-| P2-DOC-2  | HARDENING_SCOREBOARD sync process      | DONE                                   | main   | —  | docs/HARDENING_SCOREBOARD.md | Board kept in lockstep with AI_IMPLEMENTATION_PROMPT.md requirements. |
-| P2-DOC-3  | OpenAPI error codes (WEAK_KEY, etc.)   | DONE                                   | main   | —  | docs/openapi.yaml (ErrorResponse schema) | Error payloads and WEAK_KEY response documented. |
+| P2-DOC-2  | HARDENING_SCOREBOARD sync process      | DONE                                   | main   | —  | docs/reference/HARDENING_SCOREBOARD.md | Board kept in lockstep with AI_IMPLEMENTATION_PROMPT.md requirements. |
+| P2-DOC-3  | OpenAPI error codes (WEAK_KEY, etc.)   | DONE                                   | main   | —  | docs/reference/openapi.yaml (ErrorResponse schema) | Error payloads and WEAK_KEY response documented. |
 | P2-DOC-4  | AGENTS.md roadmap refresh              | DONE                                   | main   | —  | AGENTS.md §§4-6 | Roadmap + workflows synchronized with scoreboard/README instructions. |
 
 ## Phase 2 — Platform Hardening (Short-term)
@@ -54,16 +54,16 @@ regressions detected.
 | CODE-2    | Magic numbers extraction        | DONE                                   | fix/code-2-magic-numbers | —  | shared/constants.js; server/app.js; server/config.js; server/middleware/validation.js; src/utils/portfolioSchema.js | Rate limit + transaction caps centralized in shared constants and consumed across backend/frontend. |
 | PERF-4    | Virtual scrolling for transactions | DONE                                | main   | —  | Tests: `npm test -- --runInBand` (`a6decd†L1-L35`); src/components/TransactionsTab.jsx | `react-window` list keeps table semantics, scroll-to-row verified, and virtualization toggles off for filtered subsets. |
 | PERF-5    | Debounced search & filters        | DONE                                | main   | —  | Tests: `npm test -- --runInBand` (`a6decd†L1-L35`); src/hooks/useDebouncedValue.js | 300 ms debounce shared between search + virtualization with hook unit tests covering invalid delay paths. |
-| API-1     | API versioning & headers          | DONE                                | feat/api-version-routing | —  | server/app.js; server/__tests__/integration.test.js; server/__tests__/api_contract.test.js; docs/openapi.yaml | `/api/v1` prefix covered by contract tests; request-id headers exposed to clients and UI; OpenAPI duplicated for v1 with header schema. |
-| DOC-TEST-STRATEGY | Testing strategy guide   | DONE                                | feat/phase3-phase3-deliverables | —  | docs/testing-strategy.md; README.md (Testing & quality gates) | Dedicated guide published and cross-linked from README/AGENTS. |
+| API-1     | API versioning & headers          | DONE                                | feat/api-version-routing | —  | server/app.js; server/__tests__/integration.test.js; server/__tests__/api_contract.test.js; docs/reference/openapi.yaml | `/api/v1` prefix covered by contract tests; request-id headers exposed to clients and UI; OpenAPI duplicated for v1 with header schema. |
+| DOC-TEST-STRATEGY | Testing strategy guide   | DONE                                | feat/phase3-phase3-deliverables | —  | docs/playbooks/testing-strategy.md; README.md (Testing & quality gates) | Dedicated guide published and cross-linked from README/AGENTS. |
 
 ## Phase 4 — Frontend Experience (Complete)
 
 | ID        | Title                                      | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |-----------|--------------------------------------------|----------------------------------------|--------|----|-----------------------------|-------|
 | P4-UI-1   | Benchmark view toggles & blended charting  | DONE                                   | feat/phase4-benchmark-reset | —  | README.md §Benchmark toggles & ROI comparisons; Tests: `NO_NETWORK_TESTS=1 npm run test:fast` | ROI chart exposes persisted benchmark toggles (SPY, blended, ex-cash, cash) plus a reset control that reverts to the default blend with keyboard cues. |
-| P4-UI-2   | KPI panel refresh for cash & benchmarks     | DONE                                   | feat/phase4-kpi-refresh | —  | README.md §KPI panel for cash & benchmarks; Tests: `npm run test -- --coverage` | Dashboard KPIs include cash allocation, drag, and benchmark deltas aligned with docs/cash-benchmarks.md. |
-| P4-DOC-1  | Frontend operations playbook                | DONE                                   | feat/phase4-frontend-playbook | —  | docs/frontend-operations.md; README.md §Frontend operations workflow | Playbook covers Admin tab workflows, benchmark toggles (including reset flow), KPI validation, and incident response; README linked for ops handoffs. |
+| P4-UI-2   | KPI panel refresh for cash & benchmarks     | DONE                                   | feat/phase4-kpi-refresh | —  | README.md §KPI panel for cash & benchmarks; Tests: `npm run test -- --coverage` | Dashboard KPIs include cash allocation, drag, and benchmark deltas aligned with docs/guides/cash-benchmarks.md. |
+| P4-DOC-1  | Frontend operations playbook                | DONE                                   | feat/phase4-frontend-playbook | —  | docs/playbooks/frontend-operations.md; README.md §Frontend operations workflow | Playbook covers Admin tab workflows, benchmark toggles (including reset flow), KPI validation, and incident response; README linked for ops handoffs. |
 
 > Historical scoreboard snapshots remain available in git history prior to this commit.
 

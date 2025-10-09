@@ -142,7 +142,7 @@ server/__tests__/
    ```
 
 3. **Document Test Strategy** (1 hour)
-   - Create `docs/testing-strategy.md`
+   - Create `docs/playbooks/testing-strategy.md`
    - Document test pyramid
    - Add examples for contributors
 
@@ -438,7 +438,7 @@ Response (JSON + ETag + Cache-Control)
 
 ### ✅ Strengths
 
-1. **OpenAPI Specification**: Complete API documentation in `docs/openapi.yaml`
+1. **OpenAPI Specification**: Complete API documentation in `docs/reference/openapi.yaml`
 2. **Contract Testing**: Automated validation against OpenAPI spec
 3. **Type Safety**: Zod schemas ensure data integrity
 4. **Error Handling**: Consistent error response format
@@ -1612,9 +1612,9 @@ date,ticker,type,amount,price
 **Documentation**:
 - `README.md` - Installation and setup
 - `AGENTS.md` - Implementation roadmap
-- `docs/openapi.yaml` - API specification
-- `docs/math-policy.md` - Calculation methodology
-- `docs/cash-benchmarks.md` - Benchmark system
+- `docs/reference/openapi.yaml` - API specification
+- `docs/guides/math-policy.md` - Calculation methodology
+- `docs/guides/cash-benchmarks.md` - Benchmark system
 
 **Support**:
 - GitHub Issues: Report bugs
@@ -1683,7 +1683,7 @@ date,ticker,type,amount,price
 **Impact**: Help contributors write better tests
 
 **Tasks**:
-1. Create `docs/testing-strategy.md`
+1. Create `docs/playbooks/testing-strategy.md`
 2. Document test pyramid
 3. Add examples for unit/integration tests
 4. Link from CONTRIBUTING.md
@@ -2029,11 +2029,21 @@ portfolio-manager-server/
 │   ├── cash_rates.json              # Cash rates
 │   └── portfolio-*.json             # User portfolios
 ├── docs/
-│   ├── openapi.yaml                 # API specification
-│   ├── math-policy.md               # Calculation docs
-│   ├── cash-benchmarks.md           # Benchmark system
-│   ├── portfolio_audit_report-2.md  # Audit v2
-│   └── portfolio_full_audit-3.md    # Audit v3
+│   ├── README.md                    # Documentation index
+│   ├── reference/
+│   │   ├── openapi.yaml             # API specification
+│   │   ├── HARDENING_SCOREBOARD.md  # Status evidence
+│   │   └── ...                      # Additional reference assets
+│   ├── playbooks/
+│   │   ├── testing-strategy.md      # Quality strategy
+│   │   └── ...                      # Operational playbooks
+│   ├── guides/
+│   │   ├── cash-benchmarks.md       # Benchmark system
+│   │   └── math-policy.md           # Calculation docs
+│   ├── audits/
+│   │   └── portfolio_full_audit-3.md    # Audit v3
+│   └── archive/
+│       └── portfolio_audit_report-2.md  # Audit v2 (historical)
 ├── server/
 │   ├── __tests__/                   # Backend tests
 │   ├── data/                        # Data access layer
@@ -2115,9 +2125,9 @@ portfolio-manager-server/
 
 **Documentation**:
 - [GitHub Repository](https://github.com/cortega26/portfolio-manager-server)
-- [API Documentation](docs/openapi.yaml)
-- [Math Policy](docs/math-policy.md)
-- [Cash & Benchmarks](docs/cash-benchmarks.md)
+- [API Documentation](docs/reference/openapi.yaml)
+- [Math Policy](docs/guides/math-policy.md)
+- [Cash & Benchmarks](docs/guides/cash-benchmarks.md)
 
 **Getting Help**:
 - **GitHub Issues**: Report bugs

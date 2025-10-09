@@ -323,7 +323,7 @@ export default function DashboardTab({
       value: formatCurrency(totalNav),
       description: `Cash balance ${formatCurrency(cashBalance)}`,
       title:
-        "NAV equals risk assets plus cash. Cash definitions follow docs/cash-benchmarks.md.",
+        "NAV equals risk assets plus cash. Cash definitions follow docs/guides/cash-benchmarks.md.",
     },
     {
       label: "Total Return",
@@ -338,7 +338,7 @@ export default function DashboardTab({
     {
       label: "Cash Allocation",
       value: formatPercent(cashAllocationPct, 1),
-      description: "Share of NAV in cash per docs/cash-benchmarks.md",
+      description: "Share of NAV in cash per docs/guides/cash-benchmarks.md",
       title: "Start-of-day cash weight derived from current ledger balances.",
     },
     {

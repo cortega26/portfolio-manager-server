@@ -38,7 +38,7 @@ This document breaks down the work required to let each portfolio specify whethe
   - Add server/unit tests covering policy CRUD, nightly job variations, CLI/backfill logic.
   - Update mutation/property testing suites as needed.
 - **Documentation**
-  - Refresh backend docs (`docs/cash-benchmarks.md`, README) to describe the new policy and migration path.
+  - Refresh backend docs (`docs/guides/cash-benchmarks.md`, README) to describe the new policy and migration path.
 
 ---
 

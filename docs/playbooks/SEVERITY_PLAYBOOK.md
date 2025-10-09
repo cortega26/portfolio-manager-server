@@ -1,14 +1,14 @@
 # Severity Matrix + Implementation Playbook
 _Generated: 2025-10-08T15:51:03_
 
-This document consolidates a **Severity Matrix (Impact × Probability)** and an **Execution Scoreboard** derived from the artifacts in `audit/personas/*`. It is designed to be **self-executing** for an AI code assistant: you can say _“Read `docs/SEVERITY_PLAYBOOK.md` and proceed with the implementation.”_
+This document consolidates a **Severity Matrix (Impact × Probability)** and an **Execution Scoreboard** derived from the artifacts in `audit/personas/*`. It is designed to be **self-executing** for an AI code assistant: you can say _“Read `docs/playbooks/SEVERITY_PLAYBOOK.md` and proceed with the implementation.”_
 
 ## Overview
 - **Inputs**: `audit/personas/personas.md`, `audit/personas/journeys.md`, `audit/personas/pains_to_requirements.csv`, `audit/personas/quick_wins.md`, plus any repo code/docs/tests referenced therein.
 - **Outputs** (created/maintained by this process):
-  - `docs/severity_matrix.csv` — normalized scoring table.
-  - `docs/scoreboard.csv` — prioritized backlog with implementation fields.
-  - `docs/SEVERITY_PLAYBOOK.md` — this playbook.
+  - `docs/reference/severity_matrix.csv` — normalized scoring table.
+  - `docs/reference/scoreboard.csv` — prioritized backlog with implementation fields.
+  - `docs/playbooks/SEVERITY_PLAYBOOK.md` — this playbook.
 
 ---
 
@@ -116,13 +116,13 @@ For each top item, propose implementation tasks including:
 
 ## Output Artifacts
 
-### 1) `docs/severity_matrix.csv`
+### 1) `docs/reference/severity_matrix.csv`
 Headers (exactly):
 ```
 pain_id,persona,flow_step,impact,probability,confidence,effort,risk_score,ICE,summary,why_it_hurts,evidence_refs
 ```
 
-### 2) `docs/scoreboard.csv`
+### 2) `docs/reference/scoreboard.csv`
 Headers (exactly):
 ```
 rank,pain_id,type(change|bugfix|doc|test),owner,branch,status(todo|in_progress|blocked|done),acceptance_criteria,tests(required),evidence_refs,planned_diff_hint,eta,pr_link
@@ -131,7 +131,7 @@ rank,pain_id,type(change|bugfix|doc|test),owner,branch,status(todo|in_progress|b
 ---
 
 ## Top-N Priorities (live view)
-> Populate from `docs/scoreboard.csv` (highest `risk_score`, then `ICE`).
+> Populate from `docs/reference/scoreboard.csv` (highest `risk_score`, then `ICE`).
 
 | rank | pain_id | summary | status | risk_score | ICE | effort | acceptance_criteria |
 |---:|---|---|---|---:|---:|---:|---|
@@ -170,7 +170,7 @@ rank,pain_id,type(change|bugfix|doc|test),owner,branch,status(todo|in_progress|b
 6. **PR & Evidence**
    - Open PR titled: `[FIX] <pain_id> <summary>`
    - Paste: commands run, coverage deltas, and evidence refs
-   - Update `docs/scoreboard.csv` (status, branch, PR link, notes)
+   - Update `docs/reference/scoreboard.csv` (status, branch, PR link, notes)
 
 ---
 
@@ -184,14 +184,14 @@ rank,pain_id,type(change|bugfix|doc|test),owner,branch,status(todo|in_progress|b
 ---
 
 ## Audit Trail
-- Keep `docs/scoreboard.csv` current (`status`, `owner`, `branch`, `pr_link`, blockers if any).
+- Keep `docs/reference/scoreboard.csv` current (`status`, `owner`, `branch`, `pr_link`, blockers if any).
 - If blocked, record reason + next action and downgrade **Confidence** to `0.5`.
 
 ---
 
 ## Invocation Snippet (for AI assistant)
 > **Run exactly:**  
-> “Read `docs/SEVERITY_PLAYBOOK.md`. Execute the ‘Implementation Checklist’ for the top 5 ranked items in `docs/scoreboard.csv`, one by one, opening a separate PR for each. Do not brainstorm features; only implement what’s specified. If evidence is missing for an item, downgrade Confidence to 0.5, mark **blocked**, and proceed to the next item.”
+> “Read `docs/playbooks/SEVERITY_PLAYBOOK.md`. Execute the ‘Implementation Checklist’ for the top 5 ranked items in `docs/reference/scoreboard.csv`, one by one, opening a separate PR for each. Do not brainstorm features; only implement what’s specified. If evidence is missing for an item, downgrade Confidence to 0.5, mark **blocked**, and proceed to the next item.”
 
 ---
 

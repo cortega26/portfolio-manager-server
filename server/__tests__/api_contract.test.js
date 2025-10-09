@@ -17,7 +17,7 @@ const noopLogger = { info() {}, warn() {}, error() {} };
 const API_PREFIXES = ['/api', '/api/v1'];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const specPath = path.resolve(__dirname, '../../docs/openapi.yaml');
+const specPath = path.resolve(__dirname, '../../docs/reference/openapi.yaml');
 
 let apiDocument;
 const ajv = new Ajv({ strict: false, allErrors: true, allowUnionTypes: true });

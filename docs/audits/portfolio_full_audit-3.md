@@ -515,7 +515,7 @@ describe('Portfolio Manager Integration', () => {
 
 ### ✅ **GOOD**: API Contract Validation
 
-**OpenAPI Specification**: `docs/openapi.yaml` ✅ Present
+**OpenAPI Specification**: `docs/reference/openapi.yaml` ✅ Present
 
 **Automated Testing**: `server/__tests__/api_contract.test.js` ✅ Implemented
 
@@ -526,7 +526,7 @@ test('GET /api/portfolio/:id matches schema', async () => {
     .get('/api/portfolio/test')
     .set('X-Portfolio-Key', 'key');
     
-  // Validates against docs/openapi.yaml
+  // Validates against docs/reference/openapi.yaml
   validateAgainstSchema(response.body, 'Portfolio');
 });
 ```
@@ -1617,10 +1617,10 @@ Track these KPIs:
 
 ### E. Support & Resources
 
-- **Documentation**: `docs/` folder
-- **API Spec**: `docs/openapi.yaml`
+- **Documentation**: `docs/README.md`
+- **API Spec**: `docs/reference/openapi.yaml`
 - **Architecture**: `docs/architecture.md`
-- **Math Policy**: `docs/math-policy.md`
+- **Math Policy**: `docs/guides/math-policy.md`
 - **Contributing**: `AGENTS.md`
 
 ---

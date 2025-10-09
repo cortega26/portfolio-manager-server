@@ -5,7 +5,7 @@
 **Audit Date**: October 5, 2025  
 **Repository**: cortega26/portfolio-manager-server  
 **Audit Type**: Full Hardening Verification  
-**Scoreboard Version**: Current (docs/HARDENING_SCOREBOARD.md)
+**Scoreboard Version**: Current (docs/reference/HARDENING_SCOREBOARD.md)
 
 ---
 
@@ -436,7 +436,7 @@ test('JsonTableStorage serializes Promise.all writes without corrupting', async 
 
 **Status**: ✅ **IMPLEMENTED** (README confirms in main)
 
-**Evidence**: `docs/math-policy.md` referenced in README
+**Evidence**: `docs/guides/math-policy.md` referenced in README
 
 **Assessment**: ✅ **EXCELLENT** - Deterministic math
 - Uses decimal.js
@@ -1168,7 +1168,7 @@ npm test
 npx nyc report --reporter=text-summary
 
 # 3. Review scoreboard
-cat docs/HARDENING_SCOREBOARD.md
+cat docs/reference/HARDENING_SCOREBOARD.md
 ```
 
 ### This Week

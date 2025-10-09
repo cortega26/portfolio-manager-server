@@ -7,10 +7,10 @@ This project provides a full‑stack portfolio manager that runs client‑side i
 
 - Phase 3 observability deliverables—request ID propagation, monitoring endpoints, and the Admin
   dashboard—are live on `main` (see `OBS-1` through `OBS-3` plus CODE/PERF items in
-  [docs/HARDENING_SCOREBOARD.md](docs/HARDENING_SCOREBOARD.md)).
+  [docs/reference/HARDENING_SCOREBOARD.md](docs/reference/HARDENING_SCOREBOARD.md)).
 - Phase 4 focuses on frontend UX updates. Track backlog items `P4-UI-1`, `P4-UI-2`, and `P4-DOC-1`
   in the scoreboard before beginning new UI work. The accompanying
-  [Frontend Operations Playbook](docs/frontend-operations.md) documents how to operate the
+  [Frontend Operations Playbook](docs/playbooks/frontend-operations.md) documents how to operate the
   refreshed Admin tab, benchmark toggles, and KPI workflows after each deploy.
 
 ## Getting Started
@@ -237,7 +237,7 @@ supported options below to ingest historical activity:
     amend rows safely. Confirm the new ledger in the UI or by calling
     `/api/v1/portfolio/<portfolioId>`.
 
-Track importer delivery status in `docs/scoreboard.csv` (item **P003**).
+Track importer delivery status in `docs/reference/scoreboard.csv` (item **P003**).
 
 ## Troubleshooting
 
@@ -316,7 +316,7 @@ For production deployments forward these logs to a central aggregator (Grafana L
 Datadog) using your log shipper of choice. Shipping on the `event_type=security` channel keeps audit
 trails searchable and enables alerting for repeated failures or rate-limit violations.
 
-📚 **Need the full runbook?** Read [docs/SECURITY.md](docs/SECURITY.md) for detailed incident
+📚 **Need the full runbook?** Read [docs/reference/SECURITY.md](docs/reference/SECURITY.md) for detailed incident
 response procedures, API key management guidance, and a complete configuration reference covering
 the brute-force guard, cache TTLs, and logging controls.
 
@@ -330,7 +330,7 @@ the brute-force guard, cache TTLs, and logging controls.
 - **ROI vs SPY** – chart your portfolio’s performance against SPY using daily price data from Stooq (no API key required).
 - **Client-side schema validation** – the React client runs zod checks before POSTing to the portfolio API so only well-formed payloads reach the server.
 - **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management. Enable `FEATURES_MONTHLY_CASH_POSTING` to collapse the daily accruals into a single monthly ledger entry on the configured posting day without altering the math.
-- **Deterministic math engine** – internal cash, holdings, and return calculations run in Decimal/cents space; see [docs/math-policy.md](docs/math-policy.md).
+- **Deterministic math engine** – internal cash, holdings, and return calculations run in Decimal/cents space; see [docs/guides/math-policy.md](docs/guides/math-policy.md).
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
 - **Virtualised transaction table** – filter and scroll through 10 000+ records with a debounced search and `react-window`.
 - **Admin dashboard** – surface runtime metrics, rate-limit offenders, and recent security audit events in one place.
@@ -479,7 +479,7 @@ The interface organises the experience across focused tabs:
 | `JOB_NIGHTLY_HOUR`       | number        | `4`      | No       | UTC hour to execute the nightly close pipeline.     |
 | `CORS_ALLOWED_ORIGINS`   | string (CSV)  | _(empty)_ | No      | Comma-separated origins allowed by the API CORS policy. |
 
-Price data for interactive queries is fetched from [Stooq](https://stooq.com/). Benchmark processing uses the Yahoo Finance adjusted-close feed via the provider interface documented in [`docs/cash-benchmarks.md`](docs/cash-benchmarks.md).
+Price data for interactive queries is fetched from [Stooq](https://stooq.com/). Benchmark processing uses the Yahoo Finance adjusted-close feed via the provider interface documented in [`docs/guides/cash-benchmarks.md`](docs/guides/cash-benchmarks.md).
 
 #### Benchmark toggles & ROI comparisons
 
@@ -487,7 +487,7 @@ The Dashboard ROI chart now consumes `/api/returns/daily` and `/api/benchmarks/s
 
 #### KPI panel for cash & benchmarks
 
-The dashboard KPI panel blends ledger balances with the benchmark snapshot documented in [`docs/cash-benchmarks.md`](docs/cash-benchmarks.md):
+The dashboard KPI panel blends ledger balances with the benchmark snapshot documented in [`docs/guides/cash-benchmarks.md`](docs/guides/cash-benchmarks.md):
 
 - **Net Asset Value** – total risk assets plus cash, with the description surfacing the current cash balance tracked by the ledger.
 - **Total Return** – realised + unrealised P&L alongside the cumulative ROI in percentage points.
@@ -535,12 +535,12 @@ To deploy the static frontend to GitHub Pages and run the backend separately:
 ## Frontend operations workflow
 
 Operate the Phase 4 dashboard enhancements using the dedicated
-[Frontend Operations Playbook](docs/frontend-operations.md). Key expectations:
+[Frontend Operations Playbook](docs/playbooks/frontend-operations.md). Key expectations:
 
 - **Admin tab monitoring:** Follow the playbook’s polling guidance for the security events stream, rate-limit gauges, and benchmark health widget. Correlate anomalies with `/api/monitoring` responses captured in the Admin tab.
 - **Benchmark toggles:** Run the smoke checklist to validate SPY, blended, ex-cash, and cash series after every deploy. Persisted selections should survive reloads; regressions trigger the incident response steps outlined in the playbook.
-- **KPI refresh verification:** Confirm cash allocation, drag, and benchmark deltas match backend summary data. Tooltips reference `docs/cash-benchmarks.md` terminology—report deviations in the release ticket.
-- **Incident response:** On-call engineers use the rollback plan and feature-flag overrides described in the playbook within 15 minutes of detecting a regression. Update `docs/HARDENING_SCOREBOARD.md` Phase 4 entries with the deploy evidence noted in the playbook.
+- **KPI refresh verification:** Confirm cash allocation, drag, and benchmark deltas match backend summary data. Tooltips reference `docs/guides/cash-benchmarks.md` terminology—report deviations in the release ticket.
+- **Incident response:** On-call engineers use the rollback plan and feature-flag overrides described in the playbook within 15 minutes of detecting a regression. Update `docs/reference/HARDENING_SCOREBOARD.md` Phase 4 entries with the deploy evidence noted in the playbook.
 
 ### HTTPS & transport security
 
@@ -639,7 +639,7 @@ When the `features.cash_benchmarks` flag is active the API also exposes:
 
 List endpoints support `page`/`per_page` pagination (defaults: page 1, `per_page` 100) and return an additional `meta` block plus `ETag` headers for conditional requests. They also emit `Cache-Control: private, max-age=<API_CACHE_TTL_SECONDS>` to align browser caches with the server’s in-process TTL.
 
-Refer to [`docs/openapi.yaml`](docs/openapi.yaml) for detailed schemas and sample responses.
+Refer to [`docs/reference/openapi.yaml`](docs/reference/openapi.yaml) for detailed schemas and sample responses.
 
 ### Nightly job & backfill CLI
 

@@ -82,7 +82,7 @@ Ranked with **ICE (Impact × Confidence ÷ Effort)**; all are high-impact, low-c
 +    }, [eventLimit, refreshKey]);
      ```
    - **Expected UX impact:** Ops sees live lockouts and rate limits without manual clicks, aligning with the operations playbook.
-   - **Tests/docs:** Add timer-mocked test ensuring polling occurs; mention auto-refresh in `docs/frontend-operations.md` if cadence changes.
+   - **Tests/docs:** Add timer-mocked test ensuring polling occurs; mention auto-refresh in `docs/playbooks/frontend-operations.md` if cadence changes.
 
 5. **Include all benchmark series in performance CSV** — ICE ≈ 5×0.85÷1 = **4.25**
    - **Location:** `src/utils/reports.js`

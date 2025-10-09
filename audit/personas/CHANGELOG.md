@@ -37,4 +37,4 @@
 | P010 | Sofia Ramirez | stale_price flag never reaches UI | High | Low | #low-continuous-improvement |
 | P011 | Jamal Lee | Performance CSV omits benchmark columns | High | Negligible | #negligible-monitor-only |
 
-All tracked pains remain mitigated; severity is downgraded accordingly and referenced in `docs/severity_matrix.csv` and `docs/scoreboard.csv`.
+All tracked pains remain mitigated; severity is downgraded accordingly and referenced in `docs/reference/severity_matrix.csv` and `docs/reference/scoreboard.csv`.
