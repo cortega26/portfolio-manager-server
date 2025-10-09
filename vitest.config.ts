@@ -16,10 +16,7 @@ export default defineConfig({
     coverage: {
       enabled: true,
       reporter: ['text-summary', 'lcov'],
-      include: [
-        // Only the components we touch in this task
-        'src/components/**/*.{js,jsx,ts,tsx}'
-      ],
+      include: ['src/**/*.{js,jsx,ts,tsx}'],
       exclude: ['src/main.*', 'src/vite-env.d.ts']
     }
   }

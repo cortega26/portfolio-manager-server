@@ -702,15 +702,24 @@ export default function TransactionsTab({
                 type="text"
                 value={form.ticker}
                 onChange={(event) => updateForm("ticker", event.target.value)}
-                className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                placeholder="Enter ticker symbol"
+                className={clsx(
+                  "mt-1 rounded-md border px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+                  tickerDisabled
+                    ? "cursor-not-allowed border-dashed border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                    : "border-slate-300",
+                )}
+                placeholder={
+                  tickerDisabled
+                    ? "Disabled for DEPOSIT transactions"
+                    : "Enter ticker symbol"
+                }
                 aria-invalid={Boolean(fieldErrors.ticker)}
                 disabled={tickerDisabled}
                 aria-disabled={tickerDisabled ? "true" : undefined}
               />
               {tickerDisabled ? (
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Not required for deposits.
+                  Ticker is disabled for DEPOSIT transactions.
                 </span>
               ) : fieldErrors.ticker ? (
                 <span
@@ -802,12 +811,20 @@ export default function TransactionsTab({
                     ? "border-dashed border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
                     : "border-slate-300",
                 )}
-                placeholder={sharesDisabled ? "Not applicable" : "Calculated automatically"}
+                placeholder={
+                  sharesDisabled
+                    ? form.type === "DEPOSIT"
+                      ? "Disabled for DEPOSIT transactions"
+                      : "Disabled for cash transactions"
+                    : "Calculated automatically"
+                }
                 aria-invalid={Boolean(fieldErrors.shares)}
               />
               {sharesDisabled ? (
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Shares are disabled for cash transactions.
+                  {form.type === "DEPOSIT"
+                    ? "Shares are disabled for DEPOSIT transactions."
+                    : "Shares are disabled for cash transactions."}
                 </span>
               ) : fieldErrors.shares ? (
                 <span
