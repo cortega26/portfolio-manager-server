@@ -353,9 +353,11 @@ This codebase has been updated with critical fixes from a comprehensive audit:
 
 ### Testing & quality gates
 
-For Phase 5 UI hardening we rely on a streamlined Vitest setup that targets the React components exercised in `src/__tests__/**/*.test.tsx`.
+For Phase 5 UI hardening we rely on two complementary harnesses: the Node test runner (covering `server/__tests__` and `shared/__tests__`) and Vitest for React components (`src/__tests__/**/*.test.tsx` and friends).
 
 - `npm run lint` – ESLint with `--max-warnings=0` across the repo.
+- `npm run test` – Executes the Node test runner via `tools/run-tests.mjs` and then Vitest to ensure both back-end and front-end suites stay in sync.
+- `npm run test:node` – Runs only the Node test suites (useful when iterating on backend logic or API contracts).
 - `npm run test:fast` – Vitest in jsdom mode without coverage for quick iteration.
 - `npm run test:coverage` – Vitest + `@vitest/coverage-v8` (text-summary + lcov) with offline guards and console noise enforcement via `src/setupTests.ts`. Latest run drives `src/components/HoldingsTab.jsx` to **166/168** lines (**98.8 %**) and **28/33** branches (**84.8 %**), covering the new signal configuration cases end-to-end.
 - `npm run test:perf` – Synthetic 12k-transaction ledger processed through the holdings builder; fails if runtime exceeds **1 000 ms** or the NAV series is inconsistent. Structured JSON logs emit duration, heap delta, and NAV samples for CI dashboards.
