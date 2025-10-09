@@ -199,7 +199,8 @@ export default function App() {
         setPriceAlert({
           id: "price-fetch",
           type: "error",
-          message: `Unable to refresh prices for ${impactedList}. Showing the last known values until the next successful refresh.`,
+          message: "Price refresh failed",
+          detail: `Unable to update prices for ${impactedList}. Showing last known values until the next successful refresh.`,
           requestIds,
         });
       } else {
@@ -466,6 +467,9 @@ export default function App() {
                   }`}
                 >
                   <p className="font-semibold">{alert.message}</p>
+                  {alert.detail ? (
+                    <p className="mt-1 text-sm">{alert.detail}</p>
+                  ) : null}
                   {alert.requestDetails && (
                     <span className="mt-1 block font-mono text-xs">{alert.requestDetails}</span>
                   )}
