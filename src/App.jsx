@@ -292,6 +292,16 @@ export default function App() {
         return;
       }
 
+      const hasSecurityTransactions = transactions.some(
+        (tx) => typeof tx?.ticker === "string" && tx.ticker.trim().length > 0,
+      );
+      if (!hasSecurityTransactions) {
+        setRoiData([]);
+        setRoiAlert(null);
+        setRoiSource("cash-only");
+        return;
+      }
+
       setLoadingRoi(true);
       try {
         if (roiServiceDisabled) {

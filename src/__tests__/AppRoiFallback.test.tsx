@@ -81,6 +81,13 @@ describe('ROI fallback alerts', () => {
     createInitialLedgerStateMock.mockReturnValue({
       transactions: [
         { date: '2024-01-02', type: 'DEPOSIT', amount: 1000 },
+        {
+          date: '2024-01-03',
+          type: 'BUY',
+          ticker: 'AAPL',
+          amount: -950,
+          shares: 5,
+        },
       ],
       holdingsMap: new Map(),
       holdings: [],
