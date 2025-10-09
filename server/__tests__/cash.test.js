@@ -86,6 +86,40 @@ test('accrueInterest is idempotent across reruns', async () => {
   assert.equal(interestRecords[0].amount, fromCents(toCents(delta)).toNumber());
 });
 
+test('monthly interest accrual is idempotent per date', async () => {
+  await storage.upsertRow(
+    'transactions',
+    { id: 't1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
+    ['id'],
+  );
+  const rates = [{ effective_date: '2023-12-01', apy: 0.0365 }];
+  const first = await accrueInterest({
+    storage,
+    date: '2024-01-02',
+    rates,
+    logger: noopLogger,
+    featureFlags: { monthlyCashPosting: true },
+  });
+  const second = await accrueInterest({
+    storage,
+    date: '2024-01-02',
+    rates,
+    logger: noopLogger,
+    featureFlags: { monthlyCashPosting: true },
+  });
+  assert.ok(first);
+  assert.ok(second);
+  assert.equal(second.accrued_cents, first.accrued_cents);
+  assert.equal(second.accrued_amount, first.accrued_amount);
+
+  const accruals = await storage.readTable('cash_interest_accruals');
+  const january = accruals.find((row) => row.month === '2024-01');
+  const expectedDaily = roundDecimal(dailyRateFromApy(0.0365).times(1000), 6);
+  const expectedCents = toCents(expectedDaily);
+  assert.equal(january.accrued_cents, expectedCents);
+  assert.deepEqual(january.daily_accruals, { '2024-01-02': expectedCents });
+});
+
 test('monthly interest accrual buffers and posts once per month', async () => {
   await storage.upsertRow(
     'transactions',
@@ -136,4 +170,60 @@ test('monthly interest accrual buffers and posts once per month', async () => {
     logger: noopLogger,
   });
   assert.equal(second, null);
+});
+
+test('postMonthlyInterest preserves prior daily postings when switching mid-month', async () => {
+  await storage.upsertRow(
+    'transactions',
+    { id: 't1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
+    ['id'],
+  );
+  const rates = [{ effective_date: '2023-12-01', apy: 0.0365 }];
+
+  const dailyDates = ['2024-01-02', '2024-01-03'];
+  for (const date of dailyDates) {
+    await accrueInterest({ storage, date, rates, logger: noopLogger });
+  }
+
+  const monthlyDates = ['2024-01-04', '2024-01-05'];
+  for (const date of monthlyDates) {
+    await accrueInterest({
+      storage,
+      date,
+      rates,
+      logger: noopLogger,
+      featureFlags: { monthlyCashPosting: true },
+    });
+  }
+
+  const transactionsBefore = await storage.readTable('transactions');
+  const priorDaily = transactionsBefore.filter(
+    (tx) => tx.type === 'INTEREST' && tx.note === 'Automated daily cash interest accrual',
+  );
+  assert.equal(priorDaily.length, dailyDates.length);
+
+  const accrualsBefore = await storage.readTable('cash_interest_accruals');
+  const january = accrualsBefore.find((row) => row.month === '2024-01');
+  assert.ok(january);
+  const bufferedAmount = fromCents(january.accrued_cents).toNumber();
+
+  const posting = await postMonthlyInterest({
+    storage,
+    date: '2024-01-31',
+    postingDay: 'last',
+    logger: noopLogger,
+  });
+  assert.ok(posting);
+  assert.equal(posting.amount, bufferedAmount);
+
+  const transactionsAfter = await storage.readTable('transactions');
+  const remainingDaily = transactionsAfter.filter(
+    (tx) => tx.type === 'INTEREST' && tx.note === 'Automated daily cash interest accrual',
+  );
+  assert.equal(remainingDaily.length, dailyDates.length);
+  const monthlyEntries = transactionsAfter.filter(
+    (tx) => tx.type === 'INTEREST' && tx.note === 'Automated monthly cash interest posting',
+  );
+  assert.equal(monthlyEntries.length, 1);
+  assert.equal(monthlyEntries[0].amount, bufferedAmount);
 });

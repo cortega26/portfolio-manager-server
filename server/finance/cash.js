@@ -122,12 +122,25 @@ async function recordMonthlyAccrual({
   await storage.ensureTable('cash_interest_accruals', []);
   const rows = await storage.readTable('cash_interest_accruals');
   const existing = rows.find((row) => row.month === monthKey);
-  const accruedCents = (existing?.accrued_cents ?? 0) + interestCents;
+  const existingDaily =
+    existing && typeof existing.daily_accruals === 'object' && existing.daily_accruals
+      ? existing.daily_accruals
+      : {};
+  const dailyAccruals = { ...existingDaily, [dateKey]: interestCents };
+  const accruedCents = Object.values(dailyAccruals).reduce(
+    (sum, cents) => sum + (Number.isFinite(cents) ? cents : 0),
+    0,
+  );
+  const lastAccrualDate = existing?.last_accrual_date
+    && existing.last_accrual_date > dateKey
+    ? existing.last_accrual_date
+    : dateKey;
   const updated = {
     month: monthKey,
     accrued_cents: accruedCents,
-    last_accrual_date: dateKey,
+    last_accrual_date: lastAccrualDate,
     posted_at: existing?.posted_at ?? null,
+    daily_accruals: dailyAccruals,
   };
   await storage.upsertRow('cash_interest_accruals', updated, ['month']);
   logger?.info?.('interest_accrual_buffered', {
@@ -229,6 +242,10 @@ export async function postMonthlyInterest({
     return null;
   }
 
+  const dailyAccrualDates = new Set(
+    Object.keys(target?.daily_accruals ?? {}).filter((key) => typeof key === 'string'),
+  );
+
   const amount = fromCents(accruedCents).toNumber();
   const record = {
     id: `interest-${postingDate}`,
@@ -250,6 +267,7 @@ export async function postMonthlyInterest({
       last_accrual_date: target?.last_accrual_date ?? postingDate,
       posted_at: postingDate,
       posted_amount_cents: accruedCents,
+      daily_accruals: {},
     },
     ['month'],
   );
@@ -258,7 +276,8 @@ export async function postMonthlyInterest({
     (tx) =>
       tx.type === 'INTEREST'
       && tx.date.slice(0, 7) === monthKey
-      && tx.note === 'Automated daily cash interest accrual',
+      && tx.note === 'Automated daily cash interest accrual'
+      && dailyAccrualDates.has(tx.date),
   );
 
   logger?.info?.('interest_posted_monthly', {
