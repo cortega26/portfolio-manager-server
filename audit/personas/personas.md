@@ -29,7 +29,7 @@
 - **JTBD:** “When reviewing access policies, I need to verify API key strength, confirm rotations, and capture security events so regulators see a compliant history.”
 - **Personal success metrics:** All portfolios use strong keys, lockouts are documented, and audit exports reference request IDs.
 - **Evidence pointers:**
-  - README and security guide specify key strength, rotation, and audit expectations she must enforce.【F:README.md†L91-L146】【F:docs/SECURITY.md†L11-L77】
+  - README and security guide specify key strength, rotation, and audit expectations she must enforce.【F:README.md†L91-L146】【F:docs/reference/SECURITY.md†L11-L77】
   - Admin tab surfaces lockouts, rate limit scopes, and request IDs that Priya monitors daily.【F:src/components/AdminTab.jsx†L410-L558】
   - Integration tests prove key rotation and brute-force handling she relies on for compliance sign-off.【F:server/__tests__/integration.test.js†L61-L190】
 
@@ -40,17 +40,17 @@
 - **JTBD:** “When I’m on-call, I need immediate visibility into daily close results and cache freshness so I can respond before traders notice discrepancies.”
 - **Personal success metrics:** Nightly close runs without manual retries, Admin tab highlights stale prices, and no surprise 503 responses from freshness guards.
 - **Evidence pointers:**
-  - Cash & benchmark doc explains nightly accrual pipeline and freshness guard Sofia must keep running.【F:docs/cash-benchmarks.md†L1-L120】
+  - Cash & benchmark doc explains nightly accrual pipeline and freshness guard Sofia must keep running.【F:docs/guides/cash-benchmarks.md†L1-L120】
   - Daily close job composes interest accrual, price fetches, and return rows she monitors for failures.【F:server/jobs/daily_close.js†L103-L200】
-  - Frontend operations playbook mandates Admin tab polling and KPI verification during her shift.【F:docs/frontend-operations.md†L30-L95】
+  - Frontend operations playbook mandates Admin tab polling and KPI verification during her shift.【F:docs/playbooks/frontend-operations.md†L30-L95】
 
 ## 5. Jamal “Quant” Lee — Automation & Data Engineering Lead
 - **Goals & constraints:** Integrate REST endpoints with internal analytics, maintain data fidelity, and script imports/exports for research notebooks. Operates under time pressure during market hours.
-- **Device & context:** Linux workstation; orchestrates scripts hitting `/api/v1/*` and consumes CSV outputs for modelling.【F:docs/openapi.yaml†L620-L686】【F:src/utils/api.js†L3-L288】
+- **Device & context:** Linux workstation; orchestrates scripts hitting `/api/v1/*` and consumes CSV outputs for modelling.【F:docs/reference/openapi.yaml†L620-L686】【F:src/utils/api.js†L3-L288】
 - **Financial literacy:** Expert; comfortable with TWR, ex-cash sleeves, and SPY benchmarks.
 - **JTBD:** “When I sync the portfolio API with our analytics pipeline, I need consistent schema, strong error metadata, and exports that include all benchmark series.”
 - **Personal success metrics:** Stable OpenAPI contract, descriptive API errors with request IDs, and CSV exports that feed quant models without manual cleanup.
 - **Evidence pointers:**
-  - OpenAPI spec documents the portfolio, returns, and benchmark endpoints Jamal integrates with.【F:docs/openapi.yaml†L620-L686】
+  - OpenAPI spec documents the portfolio, returns, and benchmark endpoints Jamal integrates with.【F:docs/reference/openapi.yaml†L620-L686】
   - Client API helpers expose versioned routing, error metadata, and header handling his scripts reuse.【F:src/utils/api.js†L3-L288】
   - README’s automation section shows curl workflows he extends into production jobs.【F:README.md†L161-L183】

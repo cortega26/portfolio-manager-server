@@ -28,7 +28,7 @@ Integration suites exercise complete workflows:
 
 - `server/__tests__/integration.test.js` drives REST endpoints end-to-end against the Express app with in-memory persistence.
 - Frontend integration tests under `src/__tests__` mount components with React Testing Library to validate user flows.
-- Contract tests ensure OpenAPI parity by loading [`docs/openapi.yaml`](openapi.yaml) directly.
+- Contract tests ensure OpenAPI parity by loading [`docs/reference/openapi.yaml`](../reference/openapi.yaml) directly.
 
 ### Property-Based Tests
 

@@ -29,7 +29,7 @@ This playbook standardizes how to operate, verify, and troubleshoot the Vite/Rea
 
 1. **Pre-Deploy Checklist**
    - Review merged PRs affecting `src/components/DashboardTab.jsx`, `src/components/AdminTab.jsx`, or shared hooks.
-   - Confirm README and `docs/HARDENING_SCOREBOARD.md` are already updated (Phase 4 lock-step requirement).
+   - Confirm README and `docs/reference/HARDENING_SCOREBOARD.md` are already updated (Phase 4 lock-step requirement).
    - Verify feature flag values in the target environment configuration.
 2. **Deploy** via the standard CI/CD pipeline (see README §Deployment). Ensure release artifacts include hashed filenames and environment variables are set before `npm run build`.
 3. **Post-Deploy Verification Window (first 30 minutes)**
@@ -46,7 +46,7 @@ This playbook standardizes how to operate, verify, and troubleshoot the Vite/Rea
    - Refresh the page to ensure the selection persists (localStorage backed preference).
 3. Validate KPI cards.
    - Ensure Cash Allocation %, Cash Drag Impact, SPY Delta, and Blended Benchmark Delta display values consistent with staging snapshots.
-   - Hover tooltips should reference `docs/cash-benchmarks.md` terminology.
+   - Hover tooltips should reference `docs/guides/cash-benchmarks.md` terminology.
 4. Confirm Admin tab renders monitoring data.
    - Security Events table updates on 15s interval without 429 responses.
    - Rate limit and cache gauges should match `/api/monitoring` JSON response (spot-check via curl or browser network tab).
@@ -93,7 +93,7 @@ Record results in the release ticket. Flag any discrepancies for immediate triag
 - **Rate Limit Metrics:** If `remaining` drops below 25% for more than 5 minutes, coordinate with backend to adjust thresholds or throttle polling via `VITE_ADMIN_POLL_INTERVAL_MS`.
 - **Benchmark Health Widget:** Use this to spot mismatches between SPY and blended calculations post-deploy. Escalate discrepancies >50 bps to backend.
 - **Nightly Pricing Freshness:** The Admin tab surfaces the latest NAV snapshot and highlights when the nightly job sets `stale_price=true`. Investigate before market open if the banner reports stale data.
-- **Security Event Exports:** Download the CSV directly from the Admin tab when compliance requests audit trails. The export mirrors the columns documented in `docs/SECURITY.md`.
+- **Security Event Exports:** Download the CSV directly from the Admin tab when compliance requests audit trails. The export mirrors the columns documented in `docs/reference/SECURITY.md`.
 
 ## Incident Response (UI Regressions)
 
@@ -113,7 +113,7 @@ Record results in the release ticket. Flag any discrepancies for immediate triag
 
 - **Smoke Tests:** Document execution time, environment, and pass/fail status in the release ticket. Link to screenshots and console logs when deviations occur.
 - **Accessibility Checks:** Attach Lighthouse reports demonstrating ≥90 Accessibility score to the ticket.
-- **Scoreboard Sync:** After each deployment affecting the frontend, update `docs/HARDENING_SCOREBOARD.md` Phase 4 section with status (DONE/IN PROGRESS) and link to the release PR.
+- **Scoreboard Sync:** After each deployment affecting the frontend, update `docs/reference/HARDENING_SCOREBOARD.md` Phase 4 section with status (DONE/IN PROGRESS) and link to the release PR.
 - **README Reference:** Ensure README §Operations references this playbook and includes the latest configuration table excerpt.
 
 ## Revision History

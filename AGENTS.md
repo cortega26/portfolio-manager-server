@@ -25,7 +25,7 @@
 
 > **Repository:** `cortega26/portfolio-manager-server`  
 > **Stack:** React + Vite (frontend), Express (backend), TailwindCSS, Node.js (npm)  
-> **Related docs:** `AI_IMPLEMENTATION_PROMPT.md`, `PHASE2_IMPLEMENTATION_PROMPT.md`, `docs/` (scoreboards & guides)
+> **Related docs:** `AI_IMPLEMENTATION_PROMPT.md`, `docs/archive/PHASE2_IMPLEMENTATION_PROMPT.md` (historical context), `docs/README.md`
 
 This playbook standardizes how an agent (e.g., Codex/Copilot/LLM) should **propose and apply safe changes** in this repo.
 
@@ -62,7 +62,7 @@ Persistence sanity‑check: after adding a portfolio you should observe files li
 ---
 
 ## 2) Quality Policy (tests, coverage, strictness)
-- **Reference:** Follow the detailed [testing strategy guide](docs/testing-strategy.md) for expectations across unit, integration, property, and mutation layers.
+- **Reference:** Follow the detailed [testing strategy guide](docs/playbooks/testing-strategy.md) for expectations across unit, integration, property, and mutation layers.
 - **Test runner:** Vitest (preferred). If Jest is present, keep parity; do not introduce heavy toolchains.
 - **Coverage:** enable `--coverage` and enforce thresholds (global ≥ **80%**, **changed files ≥ 90%**). Never lower thresholds.
 - **Order randomization:** run with shuffle to reveal order dependencies.
@@ -107,8 +107,8 @@ Make sure this file is referenced in `vitest.config.ts` under `test.setupFiles`.
 ## 4) Agent Workflow (PEV: Plan → Execute → Verify)
 
 ### 4.1 Discover & Normalize
-- Read `AI_IMPLEMENTATION_PROMPT.md` and `PHASE2_IMPLEMENTATION_PROMPT.md`.
-- If `docs/HARDENING_SCOREBOARD.md` exists, **sync statuses** (create it otherwise).
+- Read `AI_IMPLEMENTATION_PROMPT.md` and `docs/archive/PHASE2_IMPLEMENTATION_PROMPT.md`.
+- If `docs/reference/HARDENING_SCOREBOARD.md` exists, **sync statuses** (create it otherwise).
 - Build a task list with **ID, title, status, acceptance criteria**.
 
 ### 4.2 Execute
@@ -126,8 +126,8 @@ Make sure this file is referenced in `vitest.config.ts` under `test.setupFiles`.
 ### 4.4 Roadmap snapshot (refreshed 2025-10-09)
 - **Phase 1 — Immediate**: Completed. README, API key enforcement, security audit logging, and `.env.example` all landed on
   `main`; treat these as baselines when reviewing regressions.
-- **Phase 2 — Documentation**: `docs/openapi.yaml` now documents machine-readable errors (including `WEAK_KEY`), and this
-  `AGENTS.md` plus `docs/HARDENING_SCOREBOARD.md` were refreshed together. When instructions evolve, update all three (OpenAPI,
+- **Phase 2 — Documentation**: `docs/reference/openapi.yaml` now documents machine-readable errors (including `WEAK_KEY`), and this
+  `AGENTS.md` plus `docs/reference/HARDENING_SCOREBOARD.md` were refreshed together. When instructions evolve, update all three (OpenAPI,
   README, scoreboard) in the same PR to avoid drift.
 - **Phase 3 — Observability**: Completed. Request-ID propagation, `/api/v1/monitoring`, virtualization, and the Admin dashboard
   are live on `main`; confirm scoreboard rows `OBS-1` through `OBS-3`, `CODE-1`, `PERF-4`, and `PERF-5` stay green when touching
@@ -141,7 +141,7 @@ Make sure this file is referenced in `vitest.config.ts` under `test.setupFiles`.
 - ✅ **CI green** (tests, build, lint and/or typecheck if configured).
 - ✅ **Coverage not reduced**; global ≥ 80%, changed files ≥ 90%.
 - ✅ **Zero project‑originated deprecations** during tests/build.
-- ✅ **Documentation updated**: README, `docs/HARDENING_SCOREBOARD.md`, and a clear PR changelog.
+- ✅ **Documentation updated**: README, `docs/reference/HARDENING_SCOREBOARD.md`, and a clear PR changelog.
 - ✅ **Scoped change**; breaking changes or large refactors go in separate PRs.
 
 ---
@@ -159,7 +159,7 @@ Make sure this file is referenced in `vitest.config.ts` under `test.setupFiles`.
 - Strengthen assertions; cover invariants.
 
 ### C. Sync scoreboard & implement the first pending item
-- Parse `AI_IMPLEMENTATION_PROMPT.md`, update `docs/HARDENING_SCOREBOARD.md`.
+- Parse `AI_IMPLEMENTATION_PROMPT.md`, update `docs/reference/HARDENING_SCOREBOARD.md`.
 - If everything is up to date, implement the **first unresolved** item (or the earliest Quick Win ≤ 2h).
 
 ### D. Backend endpoints/services (Express)
@@ -178,7 +178,7 @@ Make sure this file is referenced in `vitest.config.ts` under `test.setupFiles`.
 - `server/` → backend (Express routes/controllers)
 - `shared/` → shared utilities (types & helpers)
 - `data/` → on‑disk persistence (**do not commit**)
-- `docs/` → guides & scoreboards
+- `docs/` → see `docs/README.md` for categorized guides, playbooks, and references
 - `.github/workflows/` → CI (tests, build, security)
 - `*.config.*` → ESLint, Tailwind, PostCSS, Vite, etc.
 

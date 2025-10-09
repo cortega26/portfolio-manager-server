@@ -229,7 +229,7 @@ npm run build
 ```
 
 Copy the **text-summary** coverage from the terminal into:
-- `docs/HARDENING_SCOREBOARD.md` row **P5-TEST-1** (commands + coverage + passed tests count)
+- `docs/reference/HARDENING_SCOREBOARD.md` row **P5-TEST-1** (commands + coverage + passed tests count)
 - `README.md` (Testing section): add how to run tests and coverage
 
 Commit:

@@ -4,7 +4,7 @@
 ## Context Snapshot (October 2025)
 - **Project**: Node.js/React portfolio manager with Express backend (`server/`) and Vite frontend (`src/`).
 - **Baseline**: Phases 1–5 from `comprehensive_audit_v3.md` are merged on `main` — the codebase now ships with security hardening, documentation refresh, observability, virtualization, API versioning, benchmark toggles, KPI refresh, frontend operations playbook, and fully delivered testing/CI hardening objectives.
-- **Scoreboard Status**: `docs/HARDENING_SCOREBOARD.md` is locked for maintenance; every Phase 5 row lists the commands, evidence, and README references backing the completed work.
+- **Scoreboard Status**: `docs/reference/HARDENING_SCOREBOARD.md` is locked for maintenance; every Phase 5 row lists the commands, evidence, and README references backing the completed work.
 - **Primary References**: `comprehensive_audit_v3.md` (§1 Test Coverage & Quality), README.md (§§Testing & quality gates, Continuous Integration), Vitest suites in `src/__tests__/` and `server/__tests__/`, performance harness utilities in `tools/`, and Playwright automation in `e2e/`.
 
 ## Maintenance Objectives (Phase 5)
@@ -52,7 +52,7 @@
 1. **Branch**: `feat/phase5-<slug>` or equivalent conventional branch naming.
 2. **Scope**: Limit changes to one regression area unless a cross-cutting fix is unavoidable; note any coupling in the PR description.
 3. **Tests**: Run `npm run lint`, `npm test -- --coverage`, `npm run test:perf`, `npm run test:e2e` (or justify deferral), and `npm run build`. Capture command outputs for evidence.
-4. **Docs**: Update README.md, `docs/HARDENING_SCOREBOARD.md`, and related guides (`docs/testing-strategy.md`, etc.) whenever expectations change; otherwise confirm existing documentation remains accurate.
+4. **Docs**: Update README.md, `docs/reference/HARDENING_SCOREBOARD.md`, and related guides (`docs/playbooks/testing-strategy.md`, etc.) whenever expectations change; otherwise confirm existing documentation remains accurate.
 5. **Evidence**: Provide logs for coverage, performance metrics, and E2E runs (including artefact paths or uploaded reports) in the PR body.
 6. **Compliance**: Uphold security guardrails (no `shell=true`, structured logging, validated inputs) and maintain coverage/performance thresholds noted above.
 

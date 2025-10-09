@@ -188,5 +188,5 @@ items gain regression tests or documentation updates to prevent future confusion
 ## Further Reading
 
 - [README.md](../README.md) – User guide and quick start instructions
-- [docs/cash-benchmarks.md](./cash-benchmarks.md) – Financial modeling policies
-- [docs/HARDENING_SCOREBOARD.md](./HARDENING_SCOREBOARD.md) – Up-to-date implementation status
+- [docs/guides/cash-benchmarks.md](../guides/cash-benchmarks.md) – Financial modeling policies
+- [docs/reference/HARDENING_SCOREBOARD.md](./HARDENING_SCOREBOARD.md) – Up-to-date implementation status
