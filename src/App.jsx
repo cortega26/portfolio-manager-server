@@ -80,6 +80,7 @@ export default function App() {
   const [priceAlert, setPriceAlert] = useState(null);
   const [roiAlert, setRoiAlert] = useState(null);
   const [roiSource, setRoiSource] = useState("api");
+  const [roiServiceDisabled, setRoiServiceDisabled] = useState(false);
 
   useEffect(() => {
     if (!portfolioId) {
@@ -219,9 +220,64 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
+    const fallbackMessages = {
+      disabled: {
+        type: "info",
+        message: "Cash benchmark service is disabled. Displaying locally computed ROI.",
+      },
+      failure: {
+        type: "warning",
+        message: "ROI service failed. Displaying locally computed fallback data.",
+      },
+    };
+
+    const resolveRequestId = (error) => {
+      if (typeof error?.requestId === "string" && error.requestId.trim().length > 0) {
+        return error.requestId;
+      }
+      return null;
+    };
+
+    async function useFallback(reason, error) {
+      try {
+        const fallbackSeries = await buildRoiSeries(transactions, fetchPrices);
+        if (cancelled) {
+          return;
+        }
+        setRoiData(fallbackSeries);
+        setRoiSource("fallback");
+        const meta = fallbackMessages[reason];
+        if (meta) {
+          setRoiAlert({
+            id: "roi-fallback",
+            type: meta.type,
+            message: meta.message,
+            requestId: resolveRequestId(error),
+          });
+        } else {
+          setRoiAlert(null);
+        }
+      } catch (fallbackError) {
+        console.error(fallbackError);
+        if (cancelled) {
+          return;
+        }
+        setRoiData([]);
+        setRoiSource("error");
+        setRoiAlert({
+          id: "roi-fallback",
+          type: "error",
+          message: "ROI service and fallback computation failed. Try again after reloading the page.",
+          requestId: resolveRequestId(error),
+        });
+      }
+    }
+
     async function loadRoi() {
       if (transactions.length === 0) {
         setRoiData([]);
+        setRoiAlert(null);
+        setRoiSource("api");
         return;
       }
 
@@ -231,11 +287,18 @@ export default function App() {
         .sort((a, b) => a.localeCompare(b));
       if (orderedDates.length === 0) {
         setRoiData([]);
+        setRoiAlert(null);
+        setRoiSource("api");
         return;
       }
 
       setLoadingRoi(true);
       try {
+        if (roiServiceDisabled) {
+          await useFallback("disabled");
+          return;
+        }
+
         const { data, requestId } = await fetchDailyReturns({
           from: orderedDates[0],
           to: orderedDates[orderedDates.length - 1],
@@ -255,33 +318,17 @@ export default function App() {
           }
         }
       } catch (error) {
-        console.error(error);
-        try {
-          const fallbackSeries = await buildRoiSeries(transactions, fetchPrices);
+        if (error?.body?.error === "CASH_BENCHMARKS_DISABLED") {
+          console.warn(error);
           if (!cancelled) {
-            setRoiData(fallbackSeries);
-            setRoiSource("fallback");
-            const requestId = error?.requestId;
-            setRoiAlert({
-              id: "roi-fallback",
-              type: "warning",
-              message: "ROI service failed. Displaying locally computed fallback data.",
-              requestId: typeof requestId === "string" && requestId.length > 0 ? requestId : null,
-            });
+            setRoiServiceDisabled(true);
           }
-        } catch (fallbackError) {
-          console.error(fallbackError);
-          if (!cancelled) {
-            setRoiData([]);
-            setRoiSource("error");
-            setRoiAlert({
-              id: "roi-fallback",
-              type: "error",
-              message: "ROI service and fallback computation failed. Try again after reloading the page.",
-              requestId: error?.requestId ?? null,
-            });
-          }
+          await useFallback("disabled", error);
+          return;
         }
+
+        console.error(error);
+        await useFallback("failure", error);
       } finally {
         if (!cancelled) {
           setLoadingRoi(false);
@@ -294,7 +341,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [transactions, roiRefreshKey]);
+  }, [transactions, roiRefreshKey, roiServiceDisabled]);
 
   useEffect(() => {
     persistSettingsToStorage(settings);
