@@ -77,6 +77,28 @@ test('oversell prevention rejects sales beyond available shares', async () => {
   });
 });
 
+test('rejects withdrawals that exceed available cash', async () => {
+  await withTempApp(async ({ app }) => {
+    const portfolioId = 'edge-cash-' + randomUUID();
+    const apiKey = 'ValidKeyEdge3!';
+    const response = await request(app)
+      .post('/api/portfolio/' + portfolioId)
+      .set('X-Portfolio-Key', apiKey)
+      .send({
+        transactions: [
+          { date: '2025-10-09', type: 'DEPOSIT', amount: 500 },
+          { date: '2025-10-09', type: 'WITHDRAWAL', amount: 501 },
+        ],
+        settings: { autoClip: false },
+      });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'E_CASH_OVERDRAW');
+    assert.equal(response.body.details?.date, '2025-10-09');
+    assert.equal(response.body.details?.type, 'WITHDRAWAL');
+  });
+});
+
 test('projectStateUntil preserves fractional precision', () => {
   const transactions = [
     { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },

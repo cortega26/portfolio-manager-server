@@ -28,6 +28,8 @@ const ERROR_MESSAGES = {
     "The provided API key does not meet the strength requirements. Use at least 12 characters with mixed case, numbers, and symbols.",
   E_OVERSELL:
     "Sell order exceeds available shares. Enable auto-clip in Settings or adjust the share count.",
+  E_CASH_OVERDRAW:
+    "This withdrawal exceeds the available cash balance. Reduce the amount or add funds before retrying.",
 };
 
 const STATUS_MESSAGES = {
