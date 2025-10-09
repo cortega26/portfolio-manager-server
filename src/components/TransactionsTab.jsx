@@ -12,6 +12,7 @@ import { FixedSizeList } from "react-window";
 
 import useDebouncedValue from "../hooks/useDebouncedValue.js";
 import { formatCurrency } from "../utils/format.js";
+import { validateNonNegativeCash } from "../utils/cashGuards.js";
 
 const defaultForm = {
   date: "",
@@ -613,6 +614,14 @@ export default function TransactionsTab({
       payload.ticker = normalisedTickerValue;
       payload.price = Math.abs(priceValue);
       payload.shares = Number(sharesValue.toFixed(8));
+    }
+
+    const validation = validateNonNegativeCash([...transactions, payload]);
+    if (!validation.ok) {
+      recordError("Withdrawal exceeds available cash. Adjust the amount or add funds before trying again.", {
+        amount: "Withdrawal exceeds available cash.",
+      });
+      return;
     }
 
     onAddTransaction(payload);
