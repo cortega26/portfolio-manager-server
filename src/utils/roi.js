@@ -106,7 +106,13 @@ export async function buildRoiSeries(transactions, priceFetcher) {
     return [];
   }
 
-  const tickers = [...new Set(transactions.map((tx) => tx.ticker))];
+  const tickers = [
+    ...new Set(
+      transactions
+        .map((tx) => (typeof tx?.ticker === "string" ? tx.ticker.trim() : ""))
+        .filter((ticker) => ticker.length > 0),
+    ),
+  ];
   const symbols = [...tickers, "spy"];
   const priceMapEntries = await Promise.all(
     symbols.map(async (symbol) => {
@@ -137,10 +143,19 @@ export async function buildRoiSeries(transactions, priceFetcher) {
     transactions
       .filter((tx) => tx.date === date)
       .forEach((tx) => {
+        const ticker = typeof tx?.ticker === "string" ? tx.ticker.trim() : "";
+        if (!ticker) {
+          return;
+        }
+
+        if (!(ticker in cumulativeShares)) {
+          cumulativeShares[ticker] = 0;
+        }
+
         if (tx.type === "BUY") {
-          cumulativeShares[tx.ticker] += tx.shares;
+          cumulativeShares[ticker] += tx.shares;
         } else if (tx.type === "SELL") {
-          cumulativeShares[tx.ticker] -= tx.shares;
+          cumulativeShares[ticker] -= tx.shares;
         }
       });
 
