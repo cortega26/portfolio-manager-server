@@ -76,6 +76,12 @@ export function normalizeSettings(rawSettings) {
   return merged;
 }
 
+export function mergeSettings(current, incoming) {
+  const normalizedCurrent = normalizeSettings(current);
+  const normalizedIncoming = normalizeSettings(incoming);
+  return deepMerge(normalizedCurrent, normalizedIncoming);
+}
+
 export function loadSettingsFromStorage(storage = null) {
   const localStorageRef =
     storage ?? (typeof window !== "undefined" ? window.localStorage : null);
