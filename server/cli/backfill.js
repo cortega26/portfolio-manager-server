@@ -47,6 +47,7 @@ async function main() {
       dataDir: config.dataDir,
       logger: console,
       date: new Date(`${date}T00:00:00Z`),
+      config,
     });
   }
   console.log(

@@ -56,6 +56,22 @@ export function loadConfig(env = process.env) {
     env.FEATURES_CASH_BENCHMARKS,
     true,
   );
+  const featureFlagMonthlyCashPosting = parseBoolean(
+    env.FEATURES_MONTHLY_CASH_POSTING,
+    false,
+  );
+  const cashPostingDay = (() => {
+    const raw = env.CASH_POSTING_DAY;
+    if (!raw) {
+      return 'last';
+    }
+    const normalized = String(raw).trim().toLowerCase();
+    if (['last', 'eom', 'end'].includes(normalized)) {
+      return 'last';
+    }
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isFinite(parsed) ? parsed : 'last';
+  })();
   const allowedOrigins = parseList(env.CORS_ALLOWED_ORIGINS, []);
   const nightlyHour = parseNumber(env.JOB_NIGHTLY_HOUR, 4);
   const maxStaleTradingDays = parseNumber(
@@ -120,6 +136,10 @@ export function loadConfig(env = process.env) {
     fetchTimeoutMs,
     featureFlags: {
       cashBenchmarks: featureFlagCashBenchmarks,
+      monthlyCashPosting: featureFlagMonthlyCashPosting,
+    },
+    cash: {
+      postingDay: cashPostingDay,
     },
     jobs: {
       nightlyHour,

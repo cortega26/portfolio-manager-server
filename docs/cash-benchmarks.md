@@ -3,6 +3,8 @@
 
 This document specifies the daily cash accrual, NAV, return, and benchmark infrastructure introduced by the **cash & benchmarks** feature flag (env: `FEATURES_CASH_BENCHMARKS`). All functionality is persisted in JSON-backed tables under the configured `DATA_DIR`.
 
+When `FEATURES_MONTHLY_CASH_POSTING` is enabled the server still computes the cash yield on a daily basis but buffers those accruals in `cash_interest_accruals.json`, posting a single public `INTEREST` transaction on the configured `CASH_POSTING_DAY`. This keeps the ledger concise without changing balances or downstream analytics.
+
 ## Data Model
 
 | Table | Purpose |
@@ -133,6 +135,8 @@ Guard applies to: `/api/prices/:symbol`, `/api/returns/daily`, `/api/nav/daily`,
 | `DATA_DIR` | string | `./data` | No | Root directory for JSON tables. |
 | `PRICE_FETCH_TIMEOUT_MS` | number | `5000` | No | Timeout for legacy price fetches. |
 | `FEATURES_CASH_BENCHMARKS` | boolean | `true` | No | Enables cash & benchmark endpoints/jobs. |
+| `FEATURES_MONTHLY_CASH_POSTING` | boolean | `false` | No | Aggregates daily cash interest accruals into a single monthly ledger posting. |
+| `CASH_POSTING_DAY` | number/string | `last` | No | Day of month (`1`-`31`) or `last` for end-of-month cash interest posting. |
 | `JOB_NIGHTLY_HOUR` | number | `4` | No | UTC hour for the nightly accrual job. |
 | `CORS_ALLOWED_ORIGINS` | string (CSV) | _(empty)_ | No | Whitelist of origins allowed by the API CORS policy. |
 | `FRESHNESS_MAX_STALE_TRADING_DAYS` | number | `3` | No | Max allowable trading‑day age before guarded endpoints emit `503 STALE_DATA`. |

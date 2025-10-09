@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import fc from 'fast-check';
 
 import JsonTableStorage from '../data/storage.js';
-import { accrueInterest, dailyRateFromApy } from '../finance/cash.js';
+import { accrueInterest, dailyRateFromApy, postMonthlyInterest } from '../finance/cash.js';
 import { fromCents, toCents } from '../finance/decimal.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
@@ -20,6 +20,7 @@ async function withStorage(run) {
   const dir = mkdtempSync(path.join(tmpdir(), 'cash-prop-'));
   const storage = new JsonTableStorage({ dataDir: dir, logger: noopLogger });
   await storage.ensureTable('transactions', []);
+  await storage.ensureTable('cash_interest_accruals', []);
   try {
     await run(storage);
   } finally {
@@ -104,6 +105,109 @@ test('accrueInterest remains idempotent under repeated execution', async () => {
             assert.equal(interestRows.length, 0);
           }
         });
+      },
+    ),
+  );
+});
+
+test('monthly posting matches cumulative daily interest within one cent', async () => {
+  await fc.assert(
+    fc.asyncProperty(
+      fc.record({
+        deposit: fc.double({ min: 500, max: 50000, noNaN: true }),
+        apy: fc.double({ min: 0.0005, max: 0.12, noNaN: true }),
+        months: fc.integer({ min: 1, max: 3 }),
+      }),
+      async ({ deposit, apy, months }) => {
+        const amount = roundCents(deposit);
+        const monthCount = Math.max(1, months);
+        const rates = [{ effective_date: '2023-12-01', apy }];
+
+        let dailyInterest = 0;
+        let monthlyInterest = 0;
+
+        await withStorage(async (dailyStorage) => {
+          await dailyStorage.upsertRow(
+            'transactions',
+            {
+              id: 'seed-daily',
+              type: 'DEPOSIT',
+              ticker: 'CASH',
+              date: '2024-01-01',
+              amount,
+            },
+            ['id'],
+          );
+          await withStorage(async (monthlyStorage) => {
+            await monthlyStorage.upsertRow(
+              'transactions',
+              {
+                id: 'seed-monthly',
+                type: 'DEPOSIT',
+                ticker: 'CASH',
+                date: '2024-01-01',
+                amount,
+              },
+              ['id'],
+            );
+
+            for (let monthIndex = 0; monthIndex < monthCount; monthIndex += 1) {
+              const monthEnd = new Date(Date.UTC(2024, monthIndex + 1, 0));
+              for (
+                let day = 0;
+                day < monthEnd.getUTCDate();
+                day += 1
+              ) {
+                const current = new Date(
+                  Date.UTC(2024, monthIndex, day + 1),
+                );
+                const dateKey = current.toISOString().slice(0, 10);
+                await accrueInterest({
+                  storage: dailyStorage,
+                  date: dateKey,
+                  rates,
+                  logger: noopLogger,
+                });
+                await accrueInterest({
+                  storage: monthlyStorage,
+                  date: dateKey,
+                  rates,
+                  logger: noopLogger,
+                  featureFlags: { monthlyCashPosting: true },
+                  postingDay: 'last',
+                });
+                await postMonthlyInterest({
+                  storage: monthlyStorage,
+                  date: dateKey,
+                  postingDay: 'last',
+                  logger: noopLogger,
+                });
+              }
+              const monthEndKey = monthEnd.toISOString().slice(0, 10);
+              await postMonthlyInterest({
+                storage: monthlyStorage,
+                date: monthEndKey,
+                postingDay: 'last',
+                logger: noopLogger,
+              });
+            }
+
+            const dailyTransactions = await dailyStorage.readTable('transactions');
+            const monthlyTransactions = await monthlyStorage.readTable('transactions');
+
+            dailyInterest = dailyTransactions
+              .filter((tx) => tx.type === 'INTEREST')
+              .reduce((sum, tx) => sum + Number(tx.amount ?? 0), 0);
+            monthlyInterest = monthlyTransactions
+              .filter((tx) => tx.type === 'INTEREST')
+              .reduce((sum, tx) => sum + Number(tx.amount ?? 0), 0);
+          });
+        });
+
+        assert.ok(
+          Math.abs(roundCents(dailyInterest) - roundCents(monthlyInterest))
+            <= 0.01,
+        );
       },
     ),
   );
