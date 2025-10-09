@@ -7,10 +7,15 @@ vi.mock("../utils/api.js", () => ({
   fetchMonitoringSnapshot: vi.fn(),
   fetchSecurityStats: vi.fn(),
   fetchSecurityEvents: vi.fn(),
+  fetchNavSnapshots: vi.fn(),
 }));
 
-const { fetchMonitoringSnapshot, fetchSecurityStats, fetchSecurityEvents } =
-  await import("../utils/api.js");
+const {
+  fetchMonitoringSnapshot,
+  fetchSecurityStats,
+  fetchSecurityEvents,
+  fetchNavSnapshots,
+} = await import("../utils/api.js");
 
 beforeEach(() => {
   fetchMonitoringSnapshot.mockResolvedValue({
@@ -85,10 +90,25 @@ beforeEach(() => {
       ],
     },
   });
+
+  fetchNavSnapshots.mockResolvedValue({
+    requestId: "req-nav-1",
+    data: {
+      data: [
+        {
+          date: "2025-10-07",
+          stale_price: false,
+        },
+      ],
+      meta: { totalPages: 1 },
+    },
+  });
 });
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 test("renders system metrics, security highlights, and audit events", async () => {
@@ -126,4 +146,76 @@ test("refresh button triggers another fetch cycle", async () => {
   screen.getByRole("button", { name: /refresh/i }).click();
 
   await waitFor(() => expect(fetchSecurityEvents).toHaveBeenCalledTimes(2));
+});
+
+test("auto refresh honours the configured poll interval", async () => {
+  vi.useFakeTimers();
+  vi.stubEnv("VITE_ADMIN_POLL_INTERVAL_MS", "2000");
+
+  render(<AdminTab eventLimit={25} />);
+
+  await waitFor(() => {
+    expect(fetchMonitoringSnapshot).toHaveBeenCalledTimes(1);
+    expect(fetchSecurityStats).toHaveBeenCalledTimes(1);
+    expect(fetchSecurityEvents).toHaveBeenCalledTimes(1);
+    expect(fetchNavSnapshots).toHaveBeenCalledTimes(1);
+  });
+
+  fetchMonitoringSnapshot.mockResolvedValueOnce({
+    requestId: "req-monitoring-2",
+    data: {
+      timestamp: "2025-10-07T12:01:00.000Z",
+      process: {
+        uptimeSeconds: 7200,
+        memory: { rss: 180 * 1024 * 1024, heapUsed: 80 * 1024 * 1024 },
+        loadAverage: [0.6, 0.5, 0.4],
+      },
+      cache: { hits: 140, misses: 40, hitRate: 77, keys: 16 },
+      locks: { totalActive: 3, keys: 2, maxDepth: 4 },
+    },
+  });
+  fetchSecurityStats.mockResolvedValueOnce({
+    requestId: "req-security-2",
+    data: { bruteForce: { activeLockouts: 2, lockouts: [] }, rateLimit: { totalHits: 15, scopes: {} } },
+  });
+  fetchSecurityEvents.mockResolvedValueOnce({
+    requestId: "req-events-2",
+    data: { events: [] },
+  });
+  fetchNavSnapshots.mockResolvedValueOnce({
+    requestId: "req-nav-2",
+    data: { data: [{ date: "2025-10-07", stale_price: false }], meta: { totalPages: 1 } },
+  });
+
+  vi.advanceTimersByTime(2000);
+
+  await waitFor(() => {
+    expect(fetchMonitoringSnapshot).toHaveBeenCalledTimes(2);
+    expect(fetchSecurityStats).toHaveBeenCalledTimes(2);
+    expect(fetchSecurityEvents).toHaveBeenCalledTimes(2);
+    expect(fetchNavSnapshots).toHaveBeenCalledTimes(2);
+  });
+});
+
+test("surfaces stale pricing warnings from NAV snapshot", async () => {
+  fetchNavSnapshots.mockResolvedValueOnce({
+    requestId: "req-nav-stale",
+    data: {
+      data: [
+        {
+          date: "2025-10-06",
+          stale_price: true,
+        },
+      ],
+      meta: { totalPages: 1 },
+    },
+  });
+
+  render(<AdminTab eventLimit={25} />);
+
+  expect(
+    await screen.findByText(
+      /Nightly pricing flagged stale on 2025-10-06/i,
+    ),
+  ).toBeInTheDocument();
 });
