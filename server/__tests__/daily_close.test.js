@@ -34,6 +34,7 @@ beforeEach(async () => {
   await storage.ensureTable('returns_daily', []);
   await storage.ensureTable('nav_snapshots', []);
   await storage.ensureTable('jobs_state', []);
+  await storage.ensureTable('cash_interest_accruals', []);
 });
 
 afterEach(() => {
@@ -91,6 +92,52 @@ test('runDailyClose accrues interest and is idempotent', async () => {
   const returns = await storage.readTable('returns_daily');
   assert.ok(returns.find((row) => row.date === '2024-01-02'));
   assert.ok(returns.find((row) => row.date === '2024-01-03'));
+});
+
+test('runDailyClose posts a single monthly interest entry when enabled', async () => {
+  await storage.upsertRow(
+    'cash_rates',
+    { effective_date: '2023-12-01', apy: 0.0365 },
+    ['effective_date'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 10000 },
+    ['id'],
+  );
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-01', adjClose: 100 },
+      { date: '2024-01-31', adjClose: 101 },
+    ],
+  });
+
+  const config = {
+    featureFlags: { cashBenchmarks: true, monthlyCashPosting: true },
+    cash: { postingDay: 'last' },
+  };
+
+  await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-02T00:00:00Z'),
+    priceProvider: provider,
+    config,
+  });
+  await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-31T00:00:00Z'),
+    priceProvider: provider,
+    config,
+  });
+
+  const transactions = await storage.readTable('transactions');
+  const interest = transactions.filter((tx) => tx.type === 'INTEREST');
+  assert.equal(interest.length, 1);
+  assert.equal(interest[0].note, 'Automated monthly cash interest posting');
+  assert.ok(interest[0].amount > 0);
 });
 
 test('API endpoints expose computed series', async () => {

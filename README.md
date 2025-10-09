@@ -329,7 +329,7 @@ the brute-force guard, cache TTLs, and logging controls.
 - **Signals per ticker** – define a percentage band around the last price to trigger buy/trim/hold signals.
 - **ROI vs SPY** – chart your portfolio’s performance against SPY using daily price data from Stooq (no API key required).
 - **Client-side schema validation** – the React client runs zod checks before POSTing to the portfolio API so only well-formed payloads reach the server.
-- **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management.
+- **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management. Enable `FEATURES_MONTHLY_CASH_POSTING` to collapse the daily accruals into a single monthly ledger entry on the configured posting day without altering the math.
 - **Deterministic math engine** – internal cash, holdings, and return calculations run in Decimal/cents space; see [docs/math-policy.md](docs/math-policy.md).
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
 - **Virtualised transaction table** – filter and scroll through 10 000+ records with a debounced search and `react-window`.
@@ -472,6 +472,8 @@ The interface organises the experience across focused tabs:
 | `PRICE_FETCH_TIMEOUT_MS` | number        | `5000`   | No       | Timeout in milliseconds for legacy upstream price fetches. |
 | `API_CACHE_TTL_SECONDS`  | number        | `600`    | No       | In-process cache TTL (seconds) for price and analytics endpoints; defaults within the 300–900 s range. |
 | `FEATURES_CASH_BENCHMARKS` | boolean     | `true`   | No       | Enables cash accrual, NAV/return endpoints, and nightly job. |
+| `FEATURES_MONTHLY_CASH_POSTING` | boolean | `false`  | No       | Aggregates daily cash interest accruals and posts a single monthly `INTEREST` transaction. |
+| `CASH_POSTING_DAY`         | number/string | `last` | No       | Posting day for monthly interest (`1`-`31` or `last` for end-of-month). |
 | `JOB_NIGHTLY_HOUR`       | number        | `4`      | No       | UTC hour to execute the nightly close pipeline.     |
 | `CORS_ALLOWED_ORIGINS`   | string (CSV)  | _(empty)_ | No      | Comma-separated origins allowed by the API CORS policy. |
 

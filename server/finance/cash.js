@@ -8,7 +8,44 @@ import {
   toCents,
 } from './decimal.js';
 
+const MONTHLY_POSTING_NOTE = 'Automated monthly cash interest posting';
+
 const MS_PER_DAY = 86_400_000;
+
+function clampPostingDay({ year, monthIndex, postingDay }) {
+  if (postingDay === 'last') {
+    return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  }
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  const normalized = Number.isFinite(postingDay)
+    ? Math.max(1, Math.round(postingDay))
+    : lastDay;
+  return Math.min(normalized, lastDay);
+}
+
+function resolveAccrualMonthKey(dateKey, postingDay) {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  const postingDayNumber = clampPostingDay({
+    year: date.getUTCFullYear(),
+    monthIndex: date.getUTCMonth(),
+    postingDay,
+  });
+  if (date.getUTCDate() <= postingDayNumber) {
+    return dateKey.slice(0, 7);
+  }
+  const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+  return next.toISOString().slice(0, 7);
+}
+
+function resolvePostingDateForMonth(monthKey, postingDay) {
+  const [year, month] = monthKey.split('-').map((part) => Number.parseInt(part, 10));
+  const postingDayNumber = clampPostingDay({
+    year,
+    monthIndex: month - 1,
+    postingDay,
+  });
+  return `${monthKey}-${String(postingDayNumber).padStart(2, '0')}`;
+}
 
 export function toDateKey(date) {
   if (date instanceof Date) {
@@ -75,7 +112,43 @@ function computeCashBalanceUntil(transactions, date) {
   return fromCents(cashCents);
 }
 
-export async function accrueInterest({ storage, date, rates, logger }) {
+async function recordMonthlyAccrual({
+  storage,
+  monthKey,
+  dateKey,
+  interestCents,
+  logger,
+}) {
+  await storage.ensureTable('cash_interest_accruals', []);
+  const rows = await storage.readTable('cash_interest_accruals');
+  const existing = rows.find((row) => row.month === monthKey);
+  const accruedCents = (existing?.accrued_cents ?? 0) + interestCents;
+  const updated = {
+    month: monthKey,
+    accrued_cents: accruedCents,
+    last_accrual_date: dateKey,
+    posted_at: existing?.posted_at ?? null,
+  };
+  await storage.upsertRow('cash_interest_accruals', updated, ['month']);
+  logger?.info?.('interest_accrual_buffered', {
+    month: monthKey,
+    date: dateKey,
+    accrued_cents: accruedCents,
+  });
+  return {
+    ...updated,
+    accrued_amount: fromCents(accruedCents).toNumber(),
+  };
+}
+
+export async function accrueInterest({
+  storage,
+  date,
+  rates,
+  logger,
+  featureFlags = {},
+  postingDay = 'last',
+}) {
   const dateKey = toDateKey(date);
   const previousDay = new Date(new Date(`${dateKey}T00:00:00Z`).getTime() - MS_PER_DAY);
   const prevKey = toDateKey(previousDay);
@@ -87,6 +160,17 @@ export async function accrueInterest({ storage, date, rates, logger }) {
   const interestCents = toCents(interestAmount);
   if (interestCents === 0) {
     return null;
+  }
+
+  if (featureFlags.monthlyCashPosting) {
+    const monthKey = resolveAccrualMonthKey(dateKey, postingDay);
+    return recordMonthlyAccrual({
+      storage,
+      monthKey,
+      dateKey,
+      interestCents,
+      logger,
+    });
   }
 
   const interestId = `interest-${dateKey}`;
@@ -121,6 +205,67 @@ export async function accrueInterest({ storage, date, rates, logger }) {
       apy,
     });
   }
+  return record;
+}
+
+export async function postMonthlyInterest({
+  storage,
+  date,
+  postingDay = 'last',
+  logger,
+}) {
+  const dateKey = toDateKey(date);
+  const monthKey = dateKey.slice(0, 7);
+  const postingDate = resolvePostingDateForMonth(monthKey, postingDay);
+  if (postingDate !== dateKey) {
+    return null;
+  }
+
+  await storage.ensureTable('cash_interest_accruals', []);
+  const accruals = await storage.readTable('cash_interest_accruals');
+  const target = accruals.find((row) => row.month === monthKey);
+  const accruedCents = target?.accrued_cents ?? 0;
+  if (accruedCents === 0) {
+    return null;
+  }
+
+  const amount = fromCents(accruedCents).toNumber();
+  const record = {
+    id: `interest-${postingDate}`,
+    type: 'INTEREST',
+    ticker: 'CASH',
+    date: postingDate,
+    quantity: 0,
+    amount,
+    note: MONTHLY_POSTING_NOTE,
+    internal: false,
+  };
+
+  await storage.upsertRow('transactions', record, ['id']);
+  await storage.upsertRow(
+    'cash_interest_accruals',
+    {
+      month: monthKey,
+      accrued_cents: 0,
+      last_accrual_date: target?.last_accrual_date ?? postingDate,
+      posted_at: postingDate,
+      posted_amount_cents: accruedCents,
+    },
+    ['month'],
+  );
+  await storage.deleteWhere(
+    'transactions',
+    (tx) =>
+      tx.type === 'INTEREST'
+      && tx.date.slice(0, 7) === monthKey
+      && tx.note === 'Automated daily cash interest accrual',
+  );
+
+  logger?.info?.('interest_posted_monthly', {
+    date: postingDate,
+    month: monthKey,
+    amount,
+  });
   return record;
 }
 
