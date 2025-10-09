@@ -34,6 +34,7 @@ import {
   createDefaultSettings,
   loadSettingsFromStorage,
   normalizeSettings,
+  mergeSettings,
   persistSettingsToStorage,
   updateSetting,
 } from "./utils/settings.js";
@@ -363,9 +364,11 @@ export default function App() {
       logSummary: true,
     });
     setSignals(data.signals ?? {});
-    const normalizedSettings = normalizeSettings(data.settings);
-    setSettings(normalizedSettings);
-    persistSettingsToStorage(normalizedSettings);
+    setSettings((previous) => {
+      const mergedSettings = mergeSettings(previous, data.settings);
+      persistSettingsToStorage(mergedSettings);
+      return mergedSettings;
+    });
     setPortfolioKey(currentKey);
     setPortfolioKeyNew("");
     savePortfolioKey(portfolioId, currentKey);
