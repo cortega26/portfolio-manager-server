@@ -3,7 +3,7 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["node_modules/**", "dist/**", "tools/gitleaks/**"],
+    ignores: ["node_modules/**", "dist/**", "tools/gitleaks/**", "coverage/**"],
   },
   js.configs.recommended,
   {
