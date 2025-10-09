@@ -94,9 +94,9 @@ rank,pain_id,type(change|bugfix|doc|test),owner,branch,status(todo|in_progress|b
 |---:|---|---|---|---:|---:|---:|---|
 | 1 | P004 | Cash-only transactions require a price input | ✅ Done | 20 | 2.50 | 2 | Cash transactions submit without price and hide the field. |
 | 2 | P003 | README promised an Import flow that is still pending | ✅ Done | 20 | 1.25 | 4 | Docs flag importer as upcoming and document the API upload workaround. |
-| 3 | P001 | Portfolio Controls surfaces raw HTTP errors | ⏳ Todo | 16 | 2.00 | 2 | Error copy mapped to friendly messages with request IDs. |
-| 4 | P002 | Price fetch failures zero out holdings | ⏳ Todo | 16 | 1.33 | 3 | Holdings retain last values and banner appears on failure. |
-| 5 | P007 | Display settings persist only locally | ⏳ Todo | 16 | 1.00 | 3 | Settings persist with portfolio payload across devices. |
+| 3 | P001 | Portfolio Controls surfaces raw HTTP errors | ✅ Done | 16 | 2.00 | 2 | Error copy mapped to friendly messages with request IDs. |
+| 4 | P002 | Price fetch failures zero out holdings | ✅ Done | 16 | 1.33 | 3 | Holdings retain last values and banner appears on failure. |
+| 5 | P009 | Admin dashboard lacks expected auto-refresh cadence | ✅ Done | 16 | 1.33 | 3 | Monitoring, security, events, and NAV poll automatically using the configured interval. |
 
 ---
 
