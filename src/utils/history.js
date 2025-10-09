@@ -1,12 +1,33 @@
 import { formatCurrency } from "./format.js";
 
-function parseMonthKey(dateString) {
-  if (!dateString) {
+const CASH_IN_TYPES = new Set(["DEPOSIT", "DIVIDEND", "INTEREST", "SELL"]);
+const CASH_OUT_TYPES = new Set(["WITHDRAWAL", "BUY", "FEE"]);
+
+function toLocalDate(dateString) {
+  if (typeof dateString !== "string" || dateString.trim() === "") {
     return null;
   }
+  const parts = dateString.split("-");
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [yearPart, monthPart, dayPart] = parts;
+  const year = Number.parseInt(yearPart, 10);
+  const month = Number.parseInt(monthPart, 10);
+  const day = Number.parseInt(dayPart, 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date;
+}
 
-  const parsed = new Date(dateString);
-  if (Number.isNaN(parsed.getTime())) {
+function parseMonthKey(dateString) {
+  const parsed = toLocalDate(dateString);
+  if (!parsed) {
     return null;
   }
 
@@ -34,6 +55,7 @@ function describeTransaction(transaction) {
       return `Recorded dividend from ${transaction.ticker} worth ${amountLabel}.`;
     case "DEPOSIT":
       return `Deposited ${amountLabel} into the account.`;
+    case "WITHDRAWAL":
     case "WITHDRAW":
       return `Withdrew ${amountLabel} from the account.`;
     default:
@@ -66,12 +88,24 @@ export function groupTransactionsByMonth(transactions) {
 
     const row = map.get(parsed.key);
     const amount = Number(transaction.amount) || 0;
-    if (amount >= 0) {
-      row.inflows += amount;
+    const absoluteAmount = Math.abs(amount);
+    const type = String(transaction.type ?? "").toUpperCase();
+
+    let direction = 0;
+    if (CASH_IN_TYPES.has(type)) {
+      direction = 1;
+    } else if (CASH_OUT_TYPES.has(type)) {
+      direction = -1;
     } else {
-      row.outflows += Math.abs(amount);
+      direction = amount >= 0 ? 1 : -1;
     }
-    row.net += amount;
+
+    if (direction >= 0) {
+      row.inflows += absoluteAmount;
+    } else {
+      row.outflows += absoluteAmount;
+    }
+    row.net += direction * absoluteAmount;
     row.count += 1;
   });
 
@@ -88,7 +122,10 @@ export function buildTransactionTimeline(transactions) {
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 20)
     .map((transaction) => {
-      const parsed = new Date(transaction.date);
+      const parsed = toLocalDate(transaction.date);
+      if (!parsed) {
+        return null;
+      }
       const dateLabel = parsed.toLocaleDateString(undefined, {
         month: "short",
         day: "numeric",
@@ -102,5 +139,6 @@ export function buildTransactionTimeline(transactions) {
         title: `${transaction.ticker ?? "Portfolio"} ${typeLabel}`,
         description: describeTransaction(transaction),
       };
-    });
+    })
+    .filter(Boolean);
 }
