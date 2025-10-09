@@ -100,6 +100,36 @@ test("hides the price input for cash-only types and accepts submissions without 
   });
 });
 
+test("prevents withdrawals that would overdraw cash before persisting", () => {
+  const addTransaction = mock.fn();
+
+  render(
+    <TransactionsTab
+      transactions={[{ date: "2025-10-09", type: "DEPOSIT", amount: 500 }]}
+      onAddTransaction={addTransaction}
+      onDeleteTransaction={() => {}}
+    />,
+  );
+
+  const typeSelect = screen.getByLabelText(/Type/i);
+  fireEvent.change(typeSelect, { target: { value: "WITHDRAWAL" } });
+
+  fireEvent.change(screen.getByLabelText(/date/i), {
+    target: { value: "2025-10-09" },
+  });
+  fireEvent.change(screen.getByLabelText(/amount/i), {
+    target: { value: "501" },
+  });
+
+  fireEvent.submit(screen.getByRole("form"));
+
+  assert.equal(addTransaction.mock.calls.length, 0);
+  assert.ok(
+    screen.getByText(/Withdrawal exceeds available cash/i),
+    "user sees validation error",
+  );
+});
+
 test("paginates transactions and preserves original indices", () => {
   const transactions = Array.from({ length: 120 }, (_, index) => ({
     date: `2024-01-${String((index % 28) + 1).padStart(2, "0")}`,
