@@ -204,7 +204,7 @@
 
 **VERIFY**
 - `node --test --experimental-test-coverage` produces coverage report ≥85%.
-- `npx nyc check-coverage` passes.
+- `NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage` passes.
 - All tests green in CI.
 
 **DELIVERABLES**

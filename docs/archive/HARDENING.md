@@ -64,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with: { name: coverage, path: coverage }
       - name: Enforce coverage
-        run: npx nyc check-coverage --branches=85 --functions=85 --lines=85 --statements=85 || exit 1
+        run: NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage
       - name: Audit
         run: npm audit --audit-level=moderate
 ```
@@ -393,7 +393,7 @@ npm run lint
 node --test --experimental-test-coverage
 
 # Check coverage threshold (nyc)
-npx nyc check-coverage --branches=85 --functions=85 --lines=85 --statements=85
+NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage
 
 # Security audit
 npm audit --audit-level=moderate
