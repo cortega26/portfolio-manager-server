@@ -11,7 +11,7 @@ import clsx from "clsx";
 import { FixedSizeList } from "react-window";
 
 import useDebouncedValue from "../hooks/useDebouncedValue.js";
-import { formatCurrency } from "../utils/format.js";
+import { useI18n } from "../i18n/I18nProvider.jsx";
 import { validateNonNegativeCash } from "../utils/cashGuards.js";
 
 const defaultForm = {
@@ -123,11 +123,18 @@ function TransactionRow({
   style,
   rowIndexOffset = 0,
 }) {
+  const { t, formatCurrency } = useI18n();
   const { transaction, originalIndex } = item;
   const sharesDisplay =
     typeof transaction.shares === "number"
       ? transaction.shares.toFixed(4)
       : "—";
+  const typeKey =
+    typeof transaction.type === "string" ? transaction.type.toLowerCase() : "";
+  const typeLabel =
+    typeKey !== ""
+      ? t(`transactions.type.${typeKey}`)
+      : String(transaction.type ?? "—");
 
   return (
     <div
@@ -152,7 +159,7 @@ function TransactionRow({
       <span className="font-semibold" role="cell">
         {transaction.ticker}
       </span>
-      <span role="cell">{transaction.type}</span>
+      <span role="cell">{typeLabel}</span>
       <span role="cell">{formatCurrency(transaction.amount)}</span>
       <span role="cell">{formatCurrency(transaction.price)}</span>
       <span role="cell">{sharesDisplay}</span>
@@ -161,9 +168,12 @@ function TransactionRow({
           type="button"
           onClick={() => onDeleteTransaction?.(originalIndex)}
           className="rounded-md border border-transparent px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10"
-          aria-label={`Undo transaction for ${transaction.ticker} on ${transaction.date}`}
+          aria-label={t("transactions.table.undoAria", {
+            ticker: transaction.ticker,
+            date: transaction.date,
+          })}
         >
-          Undo
+          {t("transactions.table.undo")}
         </button>
       </span>
     </div>
@@ -199,6 +209,7 @@ const VirtualizedInner = forwardRef(function VirtualizedInner(props, ref) {
 });
 
 function DepositorModal({ open, onClose, onSubmit }) {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [reference, setReference] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -259,43 +270,43 @@ function DepositorModal({ open, onClose, onSubmit }) {
             id="add-depositor-title"
             className="text-lg font-semibold text-slate-700 dark:text-slate-100"
           >
-            Add depositor
+            {t("transactions.depositor.title")}
           </h3>
           <button
             type="button"
             onClick={onClose}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-            aria-label="Close add depositor"
+            aria-label={t("transactions.depositor.close")}
           >
             ×
           </button>
         </div>
         <form className="mt-4 space-y-4" onSubmit={handleSubmit} noValidate>
           <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-            Depositor name
+            {t("transactions.depositor.name")}
             <input
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              placeholder="Name of the funding source"
+              placeholder={t("transactions.depositor.name.placeholder")}
               aria-invalid={showErrors && !name.trim()}
               autoFocus
             />
             {showErrors && !name.trim() ? (
               <span className="mt-1 text-xs font-medium text-rose-600">
-                Name is required.
+                {t("transactions.depositor.nameError")}
               </span>
             ) : null}
           </label>
           <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-            Reference (optional)
+            {t("transactions.depositor.reference")}
             <input
               type="text"
               value={reference}
               onChange={(event) => setReference(event.target.value)}
               className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              placeholder="Account or memo"
+              placeholder={t("transactions.depositor.reference.placeholder")}
             />
           </label>
           <div className="flex justify-end gap-2">
@@ -304,13 +315,13 @@ function DepositorModal({ open, onClose, onSubmit }) {
               onClick={onClose}
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
             >
-              Save depositor
+              {t("transactions.depositor.save")}
             </button>
           </div>
         </form>
@@ -328,14 +339,15 @@ function TransactionsTable({
   hasSearch = false,
   totalTransactions = 0,
 }) {
+  const { t } = useI18n();
   if (transactions.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400" role="status">
         {totalTransactions === 0
-          ? "No transactions recorded yet."
+          ? t("transactions.table.empty")
           : hasSearch
-            ? "No transactions match your filters yet."
-            : "No transactions available."}
+            ? t("transactions.table.noMatch")
+            : t("transactions.table.noneAvailable")}
       </p>
     );
   }
@@ -347,7 +359,7 @@ function TransactionsTable({
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
-      <div role="table" aria-label="Transactions" className="w-full">
+      <div role="table" aria-label={t("transactions.table.aria")} className="w-full">
         <div
           role="rowgroup"
           className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-300"
@@ -356,14 +368,14 @@ function TransactionsTable({
             role="row"
             className="grid grid-cols-[140px_minmax(100px,1fr)_120px_140px_140px_120px_minmax(120px,1fr)] items-center px-3 py-2"
           >
-            <span role="columnheader">Date</span>
-            <span role="columnheader">Ticker</span>
-            <span role="columnheader">Type</span>
-            <span role="columnheader">Amount</span>
-            <span role="columnheader">Price</span>
-            <span role="columnheader">Shares</span>
+            <span role="columnheader">{t("transactions.table.date")}</span>
+            <span role="columnheader">{t("transactions.table.ticker")}</span>
+            <span role="columnheader">{t("transactions.table.type")}</span>
+            <span role="columnheader">{t("transactions.table.amount")}</span>
+            <span role="columnheader">{t("transactions.table.price")}</span>
+            <span role="columnheader">{t("transactions.table.shares")}</span>
             <span className="text-right" role="columnheader">
-              Actions
+              {t("transactions.table.actions")}
             </span>
           </div>
         </div>
@@ -403,6 +415,7 @@ export default function TransactionsTab({
   onDeleteTransaction,
   transactions = [],
 }) {
+  const { t } = useI18n();
   const [state, dispatch] = useReducer(reducer, initialState);
   const { form, error, fieldErrors } = state;
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -555,31 +568,31 @@ export default function TransactionsTab({
     const normalizedTicker = ticker.trim();
     const missingFields = {};
     if (!date) {
-      missingFields.date = "Date is required.";
+      missingFields.date = t("transactions.form.validation.date");
     }
     if (!cashOnly && !normalizedTicker) {
-      missingFields.ticker = "Ticker is required.";
+      missingFields.ticker = t("transactions.form.validation.ticker");
     }
     if (!type) {
-      missingFields.type = "Type is required.";
+      missingFields.type = t("transactions.form.validation.type");
     }
     if (!amount) {
-      missingFields.amount = "Amount is required.";
+      missingFields.amount = t("transactions.form.validation.amountField");
     }
     if (!price && !cashOnly) {
-      missingFields.price = "Price is required.";
+      missingFields.price = t("transactions.form.validation.price");
     }
 
     if (Object.keys(missingFields).length > 0) {
-      recordError("Please fill in all fields.", missingFields);
+      recordError(t("transactions.form.validation.missing"), missingFields);
       return;
     }
 
     const amountValue = Number.parseFloat(amount);
 
     if (!Number.isFinite(amountValue)) {
-      recordError("Amount must be a valid number.", {
-        amount: "Enter a valid number for amount.",
+      recordError(t("transactions.form.validation.amount"), {
+        amount: t("transactions.form.validation.amountField"),
       });
       return;
     }
@@ -589,15 +602,15 @@ export default function TransactionsTab({
     if (!cashOnly) {
       priceValue = Number.parseFloat(price);
       if (!Number.isFinite(priceValue) || priceValue <= 0) {
-        recordError("Price must be a positive number.", {
-          price: "Price must be greater than zero.",
+        recordError(t("transactions.form.validation.price"), {
+          price: t("transactions.form.validation.price"),
         });
         return;
       }
       sharesValue = Number.parseFloat(shares);
       if (!Number.isFinite(sharesValue) || sharesValue <= 0) {
-        recordError("Shares must be a positive number.", {
-          shares: "Shares must be greater than zero.",
+        recordError(t("transactions.form.validation.shares"), {
+          shares: t("transactions.form.validation.shares"),
         });
         return;
       }
@@ -618,8 +631,8 @@ export default function TransactionsTab({
 
     const validation = validateNonNegativeCash([...transactions, payload]);
     if (!validation.ok) {
-      recordError("Withdrawal exceeds available cash. Adjust the amount or add funds before trying again.", {
-        amount: "Withdrawal exceeds available cash.",
+      recordError(t("transactions.form.validation.cashOverdraw"), {
+        amount: t("transactions.form.validation.cashField"),
       });
       return;
     }
@@ -644,21 +657,36 @@ export default function TransactionsTab({
   const totalLabel = totalTransactions.toLocaleString();
   const summaryText = (() => {
     if (totalTransactions === 0) {
-      return "No transactions recorded yet.";
+      return t("transactions.table.empty");
     }
     if (filteredCount === 0) {
       return hasSearch
-        ? "No transactions match your filters."
-        : "No transactions recorded yet.";
+        ? t("transactions.table.noMatch")
+        : t("transactions.table.empty");
     }
     if (virtualized) {
-      const base = `Showing ${filteredLabel} of ${totalLabel} transactions`;
-      return hasSearch ? `${base} (filtered)` : base;
+      return hasSearch
+        ? t("transactions.summary.virtualFiltered", {
+            count: filteredLabel,
+            total: totalLabel,
+          })
+        : t("transactions.summary.virtual", {
+            count: filteredLabel,
+            total: totalLabel,
+          });
     }
-    const base = `Showing ${startLabel}-${endLabel} of ${filteredLabel} transactions`;
     return hasSearch
-      ? `${base} (filtered from ${totalLabel})`
-      : base;
+      ? t("transactions.summary.filtered", {
+          start: startLabel,
+          end: endLabel,
+          length: filteredLabel,
+          total: totalLabel,
+        })
+      : t("transactions.summary.range", {
+          start: startLabel,
+          end: endLabel,
+          total: filteredLabel,
+        });
   })();
 
   return (
@@ -668,16 +696,12 @@ export default function TransactionsTab({
           <h2
             id="add-transaction-heading"
             className="text-lg font-semibold text-slate-700 dark:text-slate-200"
-          >
-            Add Transaction
-          </h2>
+          >{t("transactions.form.title")}</h2>
           <button
             type="button"
             onClick={handleDepositorOpen}
             className="inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            Add depositor
-          </button>
+          >{t("transactions.form.addDepositor")}</button>
         </div>
         <form
           aria-labelledby="add-transaction-heading"
@@ -687,7 +711,7 @@ export default function TransactionsTab({
         >
           <div className="grid gap-4 md:grid-cols-6">
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Date
+              {t("transactions.form.date")}
               <input
                 type="date"
                 value={form.date}
@@ -706,7 +730,7 @@ export default function TransactionsTab({
               ) : null}
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Ticker
+              {t("transactions.form.ticker")}
               <input
                 type="text"
                 value={form.ticker}
@@ -719,8 +743,8 @@ export default function TransactionsTab({
                 )}
                 placeholder={
                   tickerDisabled
-                    ? "Disabled for DEPOSIT transactions"
-                    : "Enter ticker symbol"
+                    ? t("transactions.form.ticker.disabledPlaceholder")
+                    : t("transactions.form.ticker.placeholder")
                 }
                 aria-invalid={Boolean(fieldErrors.ticker)}
                 disabled={tickerDisabled}
@@ -728,7 +752,7 @@ export default function TransactionsTab({
               />
               {tickerDisabled ? (
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Ticker is disabled for DEPOSIT transactions.
+                  {t("transactions.form.ticker.disabledHelper")}
                 </span>
               ) : fieldErrors.ticker ? (
                 <span
@@ -740,19 +764,19 @@ export default function TransactionsTab({
               ) : null}
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Type
+              {t("transactions.form.type")}
               <select
                 value={form.type}
                 onChange={(event) => updateForm("type", event.target.value)}
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 aria-invalid={Boolean(fieldErrors.type)}
               >
-                <option value="BUY">Buy</option>
-                <option value="SELL">Sell</option>
-                <option value="DEPOSIT">Deposit</option>
-                <option value="WITHDRAWAL">Withdrawal</option>
-                <option value="DIVIDEND">Dividend</option>
-                <option value="INTEREST">Interest</option>
+                <option value="BUY">{t("transactions.type.buy")}</option>
+                <option value="SELL">{t("transactions.type.sell")}</option>
+                <option value="DEPOSIT">{t("transactions.type.deposit")}</option>
+                <option value="WITHDRAWAL">{t("transactions.type.withdrawal")}</option>
+                <option value="DIVIDEND">{t("transactions.type.dividend")}</option>
+                <option value="INTEREST">{t("transactions.type.interest")}</option>
               </select>
               {fieldErrors.type ? (
                 <span
@@ -764,14 +788,14 @@ export default function TransactionsTab({
               ) : null}
             </label>
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Amount
+              {t("transactions.form.amount")}
               <input
                 type="number"
                 value={form.amount}
                 onChange={(event) => updateForm("amount", event.target.value)}
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 step="0.01"
-                placeholder="Amount in USD"
+                placeholder={t("transactions.form.amount.placeholder")}
                 aria-invalid={Boolean(fieldErrors.amount)}
               />
               {fieldErrors.amount ? (
@@ -785,14 +809,14 @@ export default function TransactionsTab({
             </label>
             {requiresPrice ? (
               <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-                Price
+                {t("transactions.form.price")}
                 <input
                   type="number"
                   value={form.price}
                   onChange={(event) => updateForm("price", event.target.value)}
                   className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   step="0.01"
-                  placeholder="Price per share"
+                  placeholder={t("transactions.form.price.placeholder")}
                   aria-invalid={Boolean(fieldErrors.price)}
                 />
                 {fieldErrors.price ? (
@@ -806,7 +830,7 @@ export default function TransactionsTab({
               </label>
             ) : null}
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-              Shares
+              {t("transactions.form.shares")}
               <input
                 type="number"
                 value={form.shares}
@@ -823,17 +847,17 @@ export default function TransactionsTab({
                 placeholder={
                   sharesDisabled
                     ? form.type === "DEPOSIT"
-                      ? "Disabled for DEPOSIT transactions"
-                      : "Disabled for cash transactions"
-                    : "Calculated automatically"
+                      ? t("transactions.form.shares.disabledDeposit")
+                      : t("transactions.form.shares.disabledCash")
+                    : t("transactions.form.shares.placeholder")
                 }
                 aria-invalid={Boolean(fieldErrors.shares)}
               />
               {sharesDisabled ? (
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   {form.type === "DEPOSIT"
-                    ? "Shares are disabled for DEPOSIT transactions."
-                    : "Shares are disabled for cash transactions."}
+                    ? t("transactions.form.shares.disabledDepositHelper")
+                    : t("transactions.form.shares.disabledCashHelper")}
                 </span>
               ) : fieldErrors.shares ? (
                 <span
@@ -844,7 +868,7 @@ export default function TransactionsTab({
                 </span>
               ) : (
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Calculated from amount and price.
+                  {t("transactions.form.shares.helper")}
                 </span>
               )}
             </label>
@@ -864,9 +888,7 @@ export default function TransactionsTab({
             <button
               type="submit"
               className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-            >
-              Add Transaction
-            </button>
+            >{t("transactions.form.title")}</button>
           </div>
         </form>
         <DepositorModal
@@ -876,18 +898,18 @@ export default function TransactionsTab({
         />
       </div>
 
-      <section aria-label="Recorded transactions" className="space-y-4">
+      <section aria-label={t("transactions.section.aria")} className="space-y-4">
         <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
-          Recent Activity
+          {t("transactions.section.recent")}
         </h2>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-600 dark:text-slate-300">{summaryText}</p>
           {totalTransactions > 0 ? (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                <span className="whitespace-nowrap">Rows per page</span>
+                <span className="whitespace-nowrap">{t("transactions.pagination.rows")}</span>
                 <select
-                  aria-label="Rows per page"
+                  aria-label={t("transactions.pagination.rows")}
                   className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   onChange={(event) => {
                     const nextValue = Number.parseInt(event.target.value, 10);
@@ -907,14 +929,14 @@ export default function TransactionsTab({
                 </select>
               </label>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                <span className="whitespace-nowrap">Search</span>
+                <span className="whitespace-nowrap">{t("transactions.search.label")}</span>
                 <input
                   type="search"
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="Ticker, type, date…"
+                  placeholder={t("transactions.search.placeholder")}
                   className="w-full min-w-[200px] rounded-md border border-slate-300 px-3 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  aria-label="Search transactions"
+                  aria-label={t("transactions.search.label")}
                 />
               </label>
             </div>
@@ -937,22 +959,25 @@ export default function TransactionsTab({
               type="button"
               className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               onClick={() => setPage((current) => Math.max(1, current - 1))}
-              aria-label="Previous page"
+              aria-label={t("transactions.pagination.previous")}
               disabled={currentPage <= 1}
             >
-              Previous
+              {t("transactions.pagination.previous")}
             </button>
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              Page {currentPage} of {totalPages}
+              {t("transactions.pagination.page", {
+                current: currentPage,
+                total: totalPages,
+              })}
             </p>
             <button
               type="button"
               className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              aria-label="Next page"
+              aria-label={t("transactions.pagination.next")}
               disabled={currentPage >= totalPages}
             >
-              Next
+              {t("transactions.pagination.next")}
             </button>
           </div>
         ) : null}

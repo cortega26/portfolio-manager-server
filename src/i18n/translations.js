@@ -64,15 +64,29 @@ export const translations = {
     "transactions.form.date": "Date",
     "transactions.form.ticker": "Ticker",
     "transactions.form.ticker.placeholder": "e.g. AAPL",
+    "transactions.form.ticker.disabledPlaceholder": "Ticker disabled for DEPOSIT",
+    "transactions.form.ticker.disabledHelper": "Ticker is disabled for DEPOSIT transactions.",
     "transactions.form.type": "Type",
     "transactions.form.amount": "Amount",
+    "transactions.form.amount.placeholder": "Amount in USD",
     "transactions.form.price": "Price",
     "transactions.form.price.placeholder": "Price per share",
     "transactions.form.shares": "Shares",
     "transactions.form.shares.placeholder": "Calculated automatically",
+    "transactions.form.shares.disabledDeposit": "Shares disabled for DEPOSIT",
+    "transactions.form.shares.disabledCash": "Shares disabled for cash transactions",
+    "transactions.form.shares.disabledDepositHelper":
+      "Shares are disabled for DEPOSIT transactions.",
+    "transactions.form.shares.disabledCashHelper":
+      "Shares are disabled for cash transactions.",
+    "transactions.form.shares.helper": "Calculated from amount and price.",
     "transactions.form.submit": "Add Transaction",
     "transactions.form.validation.missing":
       "Please fill in all fields.",
+    "transactions.form.validation.date": "Date is required.",
+    "transactions.form.validation.ticker": "Ticker is required.",
+    "transactions.form.validation.type": "Type is required.",
+    "transactions.form.validation.amountField": "Amount is required.",
     "transactions.form.validation.amount":
       "Enter a valid number for amount.",
     "transactions.form.validation.price":
@@ -81,6 +95,7 @@ export const translations = {
       "Shares must be greater than zero.",
     "transactions.form.validation.cashOverdraw":
       "Withdrawal exceeds available cash. Adjust the amount or add funds before trying again.",
+    "transactions.form.validation.cashField": "Withdrawal exceeds available cash.",
     "transactions.type.buy": "Buy",
     "transactions.type.sell": "Sell",
     "transactions.type.deposit": "Deposit",
@@ -96,14 +111,24 @@ export const translations = {
     "transactions.table.actions": "Actions",
     "transactions.table.undo": "Undo",
     "transactions.table.undoAria": "Undo transaction for {ticker} on {date}",
+    "transactions.table.aria": "Transactions",
+    "transactions.table.noMatch": "No transactions match your filters.",
+    "transactions.table.noneAvailable": "No transactions available.",
     "transactions.search.label": "Search transactions",
+    "transactions.search.placeholder": "Ticker, type, date…",
     "transactions.table.empty": "No transactions recorded yet.",
     "transactions.pagination.rows": "Rows per page",
     "transactions.pagination.previous": "Previous page",
     "transactions.pagination.next": "Next page",
+    "transactions.pagination.page": "Page {current} of {total}",
     "transactions.summary.range": "Showing {start}-{end} of {total} transactions",
     "transactions.summary.filtered":
       "Showing {start}-{end} of {length} transactions (filtered from {total})",
+    "transactions.summary.virtual": "Showing {count} of {total} transactions",
+    "transactions.summary.virtualFiltered":
+      "Showing {count} of {total} transactions (filtered)",
+    "transactions.section.aria": "Recorded transactions",
+    "transactions.section.recent": "Recent Activity",
     "metrics.empty.cards":
       "Metrics become available after you add holdings and refresh ROI data.",
     "metrics.empty.allocations":
@@ -161,6 +186,15 @@ export const translations = {
       "Too many attempts. Wait a few minutes before retrying.",
     "portfolioControls.error.status.500":
       "Server error encountered. Try again shortly.",
+    "transactions.depositor.title": "Add depositor",
+    "transactions.depositor.close": "Close add depositor",
+    "transactions.depositor.name": "Depositor name",
+    "transactions.depositor.name.placeholder": "Name of the funding source",
+    "transactions.depositor.nameError": "Name is required.",
+    "transactions.depositor.reference": "Reference (optional)",
+    "transactions.depositor.reference.placeholder": "Account or memo",
+    "transactions.depositor.save": "Save depositor",
+    "common.cancel": "Cancel",
   },
   es: {
     "app.title": "Gestor de Portafolios",
@@ -227,15 +261,29 @@ export const translations = {
     "transactions.form.date": "Fecha",
     "transactions.form.ticker": "Ticker",
     "transactions.form.ticker.placeholder": "p. ej. AAPL",
+    "transactions.form.ticker.disabledPlaceholder": "Ticker inhabilitado para DEPÓSITO",
+    "transactions.form.ticker.disabledHelper": "El ticker está deshabilitado para transacciones DEPOSIT.",
     "transactions.form.type": "Tipo",
     "transactions.form.amount": "Monto",
+    "transactions.form.amount.placeholder": "Monto en USD",
     "transactions.form.price": "Precio",
     "transactions.form.price.placeholder": "Precio por acción",
     "transactions.form.shares": "Acciones",
     "transactions.form.shares.placeholder": "Calculado automáticamente",
+    "transactions.form.shares.disabledDeposit": "Acciones inhabilitadas para DEPÓSITO",
+    "transactions.form.shares.disabledCash": "Acciones inhabilitadas para transacciones en efectivo",
+    "transactions.form.shares.disabledDepositHelper":
+      "Las acciones están deshabilitadas para transacciones DEPOSIT.",
+    "transactions.form.shares.disabledCashHelper":
+      "Las acciones están deshabilitadas para transacciones en efectivo.",
+    "transactions.form.shares.helper": "Calculado a partir del monto y el precio.",
     "transactions.form.submit": "Agregar transacción",
     "transactions.form.validation.missing":
       "Completa todos los campos.",
+    "transactions.form.validation.date": "La fecha es obligatoria.",
+    "transactions.form.validation.ticker": "El ticker es obligatorio.",
+    "transactions.form.validation.type": "El tipo es obligatorio.",
+    "transactions.form.validation.amountField": "El monto es obligatorio.",
     "transactions.form.validation.amount":
       "Ingresa un número válido para el monto.",
     "transactions.form.validation.price":
@@ -244,6 +292,7 @@ export const translations = {
       "Las acciones deben ser mayores a cero.",
     "transactions.form.validation.cashOverdraw":
       "El retiro excede el efectivo disponible. Ajusta el monto o agrega fondos antes de continuar.",
+    "transactions.form.validation.cashField": "El retiro excede el efectivo disponible.",
     "transactions.type.buy": "Compra",
     "transactions.type.sell": "Venta",
     "transactions.type.deposit": "Depósito",
@@ -259,14 +308,24 @@ export const translations = {
     "transactions.table.actions": "Acciones",
     "transactions.table.undo": "Deshacer",
     "transactions.table.undoAria": "Deshacer la transacción de {ticker} del {date}",
+    "transactions.table.aria": "Transacciones",
+    "transactions.table.noMatch": "No hay transacciones que coincidan con tus filtros.",
+    "transactions.table.noneAvailable": "No hay transacciones disponibles.",
     "transactions.search.label": "Buscar transacciones",
+    "transactions.search.placeholder": "Ticker, tipo, fecha…",
     "transactions.table.empty": "Aún no hay transacciones registradas.",
     "transactions.pagination.rows": "Filas por página",
     "transactions.pagination.previous": "Página anterior",
     "transactions.pagination.next": "Página siguiente",
+    "transactions.pagination.page": "Página {current} de {total}",
     "transactions.summary.range": "Mostrando {start}-{end} de {total} transacciones",
     "transactions.summary.filtered":
       "Mostrando {start}-{end} de {length} transacciones (filtradas de {total})",
+    "transactions.summary.virtual": "Mostrando {count} de {total} transacciones",
+    "transactions.summary.virtualFiltered":
+      "Mostrando {count} de {total} transacciones (filtradas)",
+    "transactions.section.aria": "Transacciones registradas",
+    "transactions.section.recent": "Actividad reciente",
     "metrics.empty.cards":
       "Las métricas estarán disponibles cuando agregues posiciones y actualices el ROI.",
     "metrics.empty.allocations":
@@ -325,5 +384,14 @@ export const translations = {
       "Demasiados intentos. Espera unos minutos antes de reintentar.",
     "portfolioControls.error.status.500":
       "Ocurrió un error en el servidor. Intenta nuevamente más tarde.",
+    "transactions.depositor.title": "Agregar depositante",
+    "transactions.depositor.close": "Cerrar agregar depositante",
+    "transactions.depositor.name": "Nombre del depositante",
+    "transactions.depositor.name.placeholder": "Nombre de la fuente de fondos",
+    "transactions.depositor.nameError": "El nombre es obligatorio.",
+    "transactions.depositor.reference": "Referencia (opcional)",
+    "transactions.depositor.reference.placeholder": "Cuenta o nota",
+    "transactions.depositor.save": "Guardar depositante",
+    "common.cancel": "Cancelar",
   },
 };
