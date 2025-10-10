@@ -11,6 +11,19 @@ import {
 const MONTHLY_POSTING_NOTE = 'Automated monthly cash interest posting';
 
 const MS_PER_DAY = 86_400_000;
+const DEFAULT_CURRENCY = 'USD';
+const ISO_CURRENCY_PATTERN = /^[A-Z]{3}$/u;
+
+function normalizeCurrency(value) {
+  if (typeof value !== 'string') {
+    return DEFAULT_CURRENCY;
+  }
+  const normalized = value.trim().toUpperCase();
+  if (!ISO_CURRENCY_PATTERN.test(normalized)) {
+    return DEFAULT_CURRENCY;
+  }
+  return normalized;
+}
 
 function clampPostingDay({ year, monthIndex, postingDay }) {
   if (postingDay === 'last') {
@@ -62,19 +75,26 @@ export function dailyRateFromApy(apy) {
   return factor.pow(d(1).div(365)).minus(1);
 }
 
-export function resolveApyForDate(rates, date) {
+export function resolveApyForDate(timeline, date) {
   const dateKey = toDateKey(date);
-  const sorted = [...rates].sort((a, b) => a.effective_date.localeCompare(b.effective_date));
+  if (!Array.isArray(timeline) || timeline.length === 0) {
+    return 0;
+  }
   let result = 0;
-  for (const entry of sorted) {
-    if (entry.effective_date <= dateKey && Number.isFinite(entry.apy)) {
-      result = entry.apy;
+  for (const entry of timeline) {
+    if (!Number.isFinite(entry?.apy)) {
+      continue;
+    }
+    const fromKey = toDateKey(entry.from ?? entry.effective_date ?? entry.date);
+    const toKey = entry.to ? toDateKey(entry.to) : null;
+    if (fromKey <= dateKey && (!toKey || dateKey <= toKey)) {
+      result = Number(entry.apy);
     }
   }
   return result;
 }
 
-function computeCashBalanceUntil(transactions, date) {
+function computeCashBalanceUntil(transactions, date, currency = DEFAULT_CURRENCY) {
   const dateKey = toDateKey(date);
   let cashCents = 0;
   const sorted = [...transactions].sort((a, b) => {
@@ -90,6 +110,9 @@ function computeCashBalanceUntil(transactions, date) {
     }
     const amount = Number.parseFloat(tx.amount ?? 0);
     if (!Number.isFinite(amount)) {
+      continue;
+    }
+    if (normalizeCurrency(tx.currency) !== currency) {
       continue;
     }
     const amountCents = toCents(amount);
@@ -117,6 +140,7 @@ async function recordMonthlyAccrual({
   monthKey,
   dateKey,
   interestCents,
+  currency,
   logger,
 }) {
   await storage.ensureTable('cash_interest_accruals', []);
@@ -128,12 +152,14 @@ async function recordMonthlyAccrual({
     accrued_cents: accruedCents,
     last_accrual_date: dateKey,
     posted_at: existing?.posted_at ?? null,
+    currency,
   };
   await storage.upsertRow('cash_interest_accruals', updated, ['month']);
   logger?.info?.('interest_accrual_buffered', {
     month: monthKey,
     date: dateKey,
     accrued_cents: accruedCents,
+    currency,
   });
   return {
     ...updated,
@@ -144,7 +170,7 @@ async function recordMonthlyAccrual({
 export async function accrueInterest({
   storage,
   date,
-  rates,
+  policy,
   logger,
   featureFlags = {},
   postingDay = 'last',
@@ -153,8 +179,10 @@ export async function accrueInterest({
   const previousDay = new Date(new Date(`${dateKey}T00:00:00Z`).getTime() - MS_PER_DAY);
   const prevKey = toDateKey(previousDay);
   const transactions = await storage.readTable('transactions');
-  const cashBalance = computeCashBalanceUntil(transactions, prevKey);
-  const apy = resolveApyForDate(rates, prevKey);
+  const currency = normalizeCurrency(policy?.currency);
+  const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
+  const cashBalance = computeCashBalanceUntil(transactions, prevKey, currency);
+  const apy = resolveApyForDate(timeline, prevKey);
   const dailyRate = dailyRateFromApy(apy);
   const interestAmount = cashBalance.times(dailyRate);
   const interestCents = toCents(interestAmount);
@@ -169,6 +197,7 @@ export async function accrueInterest({
       monthKey,
       dateKey,
       interestCents,
+      currency,
       logger,
     });
   }
@@ -187,6 +216,7 @@ export async function accrueInterest({
     amount: fromCents(interestCents).toNumber(),
     note: 'Automated daily cash interest accrual',
     internal: true,
+    currency,
   };
 
   if (existing) {
@@ -203,6 +233,7 @@ export async function accrueInterest({
       amount: record.amount,
       cash_balance: roundDecimal(cashBalance, 6).toNumber(),
       apy,
+      currency,
     });
   }
   return record;
@@ -213,6 +244,7 @@ export async function postMonthlyInterest({
   date,
   postingDay = 'last',
   logger,
+  currency = DEFAULT_CURRENCY,
 }) {
   const dateKey = toDateKey(date);
   const monthKey = dateKey.slice(0, 7);
@@ -224,6 +256,10 @@ export async function postMonthlyInterest({
   await storage.ensureTable('cash_interest_accruals', []);
   const accruals = await storage.readTable('cash_interest_accruals');
   const target = accruals.find((row) => row.month === monthKey);
+  const targetCurrency = normalizeCurrency(target?.currency);
+  if (target && targetCurrency !== currency) {
+    return null;
+  }
   const accruedCents = target?.accrued_cents ?? 0;
   if (accruedCents === 0) {
     return null;
@@ -239,6 +275,7 @@ export async function postMonthlyInterest({
     amount,
     note: MONTHLY_POSTING_NOTE,
     internal: false,
+    currency,
   };
 
   await storage.upsertRow('transactions', record, ['id']);
@@ -250,6 +287,7 @@ export async function postMonthlyInterest({
       last_accrual_date: target?.last_accrual_date ?? postingDate,
       posted_at: postingDate,
       posted_amount_cents: accruedCents,
+      currency,
     },
     ['month'],
   );
@@ -258,25 +296,28 @@ export async function postMonthlyInterest({
     (tx) =>
       tx.type === 'INTEREST'
       && tx.date.slice(0, 7) === monthKey
-      && tx.note === 'Automated daily cash interest accrual',
+      && tx.note === 'Automated daily cash interest accrual'
+      && normalizeCurrency(tx.currency) === currency,
   );
 
   logger?.info?.('interest_posted_monthly', {
     date: postingDate,
     month: monthKey,
     amount,
+    currency,
   });
   return record;
 }
 
-export function buildCashSeries({ rates, from, to }) {
+export function buildCashSeries({ policy, from, to }) {
   const start = new Date(`${toDateKey(from)}T00:00:00Z`);
   const end = new Date(`${toDateKey(to)}T00:00:00Z`);
   const result = [];
+  const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
   for (let ts = start.getTime(); ts <= end.getTime(); ts += MS_PER_DAY) {
     const date = new Date(ts);
     const dateKey = toDateKey(date);
-    const apy = resolveApyForDate(rates, dateKey);
+    const apy = resolveApyForDate(timeline, dateKey);
     result.push({
       date: dateKey,
       rate: dailyRateFromApy(apy),

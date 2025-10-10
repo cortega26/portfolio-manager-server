@@ -47,6 +47,15 @@ const tickerSchema = sanitizeString(
     .transform((value) => value.toUpperCase()),
 );
 
+const currencyCodeSchema = sanitizeString(
+  z
+    .string({ invalid_type_error: 'Currency must be a string' })
+    .min(3, 'Currency must be a 3-letter ISO code')
+    .max(3, 'Currency must be a 3-letter ISO code')
+    .regex(/^[A-Za-z]{3}$/u, 'Currency must be a 3-letter ISO code')
+    .transform((value) => value.toUpperCase()),
+);
+
 const numeric = (message) =>
   z
     .number({ invalid_type_error: message })
@@ -103,6 +112,7 @@ const transactionSchema = z
     quantity: numeric('Quantity must be a finite number').optional(),
     shares: numeric('Shares must be a finite number').optional(),
     note: sanitizeString(z.string().max(1024)).optional(),
+    currency: currencyCodeSchema.optional(),
     metadata: z.record(z.unknown()).optional(),
     internal: z.boolean().optional(),
   })
@@ -180,6 +190,44 @@ const signalsSchema = z
     return result;
   });
 
+const cashTimelineEntrySchema = z
+  .object({
+    from: isoDateSchema,
+    to: isoDateSchema.optional().nullable(),
+    apy: numeric('APY must be a finite number'),
+  })
+  .superRefine((value, ctx) => {
+    if (value.to && value.to < value.from) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '`to` date must be on or after `from` date',
+        path: ['to'],
+      });
+    }
+  })
+  .transform((value) => ({
+    from: value.from,
+    to: value.to ?? null,
+    apy: Number(value.apy),
+  }));
+
+const cashPolicySchema = z
+  .object({
+    currency: currencyCodeSchema.optional(),
+    apyTimeline: z.array(cashTimelineEntrySchema).default([]),
+  })
+  .transform((value) => {
+    const currency = value.currency ?? 'USD';
+    const sortedTimeline = [...value.apyTimeline].sort((a, b) =>
+      a.from.localeCompare(b.from),
+    );
+    return {
+      currency,
+      apyTimeline: sortedTimeline,
+    };
+  })
+  .default({ currency: 'USD', apyTimeline: [] });
+
 const portfolioBodySchema = z
   .object({
     transactions: z
@@ -194,11 +242,13 @@ const portfolioBodySchema = z
       .partial()
       .optional()
       .default({}),
+    cash: cashPolicySchema.optional().default({ currency: 'USD', apyTimeline: [] }),
   })
   .transform((value) => ({
     transactions: value.transactions,
     signals: value.signals,
     settings: { autoClip: Boolean(value.settings?.autoClip) },
+    cash: value.cash,
   }));
 
 const paginationSchema = z.object({
