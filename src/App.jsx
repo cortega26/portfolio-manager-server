@@ -126,8 +126,12 @@ export default function App() {
     [roiData],
   );
   const reportSummaryCards = useMemo(
-    () => buildReportSummary(transactions, holdings, metrics),
-    [transactions, holdings, metrics],
+    () =>
+      buildReportSummary(transactions, holdings, metrics, {
+        translate: t,
+        formatDate,
+      }),
+    [transactions, holdings, metrics, t, formatDate],
   );
 
   const handleLanguageChange = useCallback(

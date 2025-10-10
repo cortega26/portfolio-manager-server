@@ -2,6 +2,38 @@ import { formatCurrency, formatPercent } from "./format.js";
 import { deriveHoldingStats } from "./holdings.js";
 import { sanitizeCsvCell } from "./csv.js";
 
+const REPORT_SUMMARY_FALLBACKS = Object.freeze({
+  "reports.summary.cards.transactions.label": "Transactions",
+  "reports.summary.cards.transactions.detail": "Last activity {lastActivity}",
+  "reports.summary.cards.tickers.label": "Active tickers",
+  "reports.summary.cards.tickers.detail": "{count} holdings entries",
+  "reports.summary.cards.portfolioValue.label": "Portfolio value",
+  "reports.summary.cards.portfolioValue.detail": "{unrealised}",
+  "reports.summary.cards.roiCoverage.label": "ROI coverage",
+  "reports.summary.cards.roiCoverage.value.ready": "Ready",
+  "reports.summary.cards.roiCoverage.value.pending": "Pending",
+  "reports.summary.cards.roiCoverage.detail": "Requires pricing for CSV exports",
+});
+
+function interpolate(template, values = {}) {
+  return template.replace(/\{(\w+)\}/g, (_, token) =>
+    Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : `{${token}}`,
+  );
+}
+
+function createReportTranslator(translate) {
+  if (typeof translate === "function") {
+    return (key, values) => {
+      const result = translate(key, values);
+      if (result === key && REPORT_SUMMARY_FALLBACKS[key]) {
+        return interpolate(REPORT_SUMMARY_FALLBACKS[key], values);
+      }
+      return result;
+    };
+  }
+  return (key, values) => interpolate(REPORT_SUMMARY_FALLBACKS[key] ?? key, values);
+}
+
 function toCsvValue(value) {
   const sanitized = sanitizeCsvCell(value);
   if (sanitized === "") {
@@ -17,39 +49,59 @@ function toCsv(rows) {
   return rows.map((row) => row.map(toCsvValue).join(",")).join("\n");
 }
 
-export function buildReportSummary(transactions, holdings, metrics) {
+export function buildReportSummary(
+  transactions,
+  holdings,
+  metrics,
+  { translate, formatDate } = {},
+) {
+  const t = createReportTranslator(translate);
+  const formatDateValue =
+    typeof formatDate === "function"
+      ? (value) => formatDate(value, { dateStyle: "medium" })
+      : (value) => value;
+
   const totalValue = metrics ? formatCurrency(metrics.totalValue ?? 0) : "$0.00";
   const unrealised = metrics ? formatCurrency(metrics.totalUnrealised ?? 0) : "$0.00";
   const transactionCount = Array.isArray(transactions) ? transactions.length : 0;
+  const holdingsCount = Array.isArray(holdings) ? holdings.length : 0;
   const tickers = Array.isArray(holdings)
     ? new Set(holdings.map((holding) => holding.ticker)).size
     : 0;
-  const lastActivity = Array.isArray(transactions) && transactions.length > 0
+  const lastActivityRaw = Array.isArray(transactions) && transactions.length > 0
     ? [...transactions]
         .filter((tx) => Boolean(tx.date))
         .sort((a, b) => (a.date < b.date ? 1 : -1))[0]?.date ?? "—"
     : "—";
+  const lastActivity =
+    lastActivityRaw === "—"
+      ? "—"
+      : formatDateValue(lastActivityRaw) ?? "—";
+  const roiStatusKey =
+    transactionCount > 0
+      ? "reports.summary.cards.roiCoverage.value.ready"
+      : "reports.summary.cards.roiCoverage.value.pending";
 
   return [
     {
-      label: "Transactions",
+      label: t("reports.summary.cards.transactions.label"),
       value: transactionCount.toString(),
-      detail: `Last activity ${lastActivity}`,
+      detail: t("reports.summary.cards.transactions.detail", { lastActivity }),
     },
     {
-      label: "Active tickers",
+      label: t("reports.summary.cards.tickers.label"),
       value: tickers.toString(),
-      detail: `${Array.isArray(holdings) ? holdings.length : 0} holdings entries`,
+      detail: t("reports.summary.cards.tickers.detail", { count: holdingsCount }),
     },
     {
-      label: "Portfolio value",
+      label: t("reports.summary.cards.portfolioValue.label"),
       value: totalValue,
-      detail: unrealised,
+      detail: t("reports.summary.cards.portfolioValue.detail", { unrealised }),
     },
     {
-      label: "ROI coverage",
-      value: Array.isArray(transactions) && transactions.length > 0 ? "Ready" : "Pending",
-      detail: "Requires pricing for CSV exports",
+      label: t("reports.summary.cards.roiCoverage.label"),
+      value: t(roiStatusKey),
+      detail: t("reports.summary.cards.roiCoverage.detail"),
     },
   ];
 }
