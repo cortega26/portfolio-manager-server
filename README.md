@@ -434,6 +434,7 @@ These changes improve data integrity and mathematical correctness.
 | ------------------------- | --------------------------- | -------------------------------------------------- | -------- | ----------- |
 | `VITE_API_BASE`           | string (URL)                | `https://portfolio-api.carlosortega77.workers.dev` | No       | Overrides the API host used by the Dashboard, Holdings and Transactions tabs. |
 | `VITE_ADMIN_ACCESS_TOKENS` | string[] (comma-separated) | `friend-one,friend-two,friend-three`               | No       | Invite tokens required for the private admin portal (`/admin/<token>`). Share unique values with trusted testers. |
+| `VITE_APP_CSP`            | string (CSP directives)     | `default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; …` | No       | Injected meta Content-Security-Policy. Keep `'unsafe-eval'` for local dev (Vite HMR) and remove it for production. |
 
 ### Tabbed navigation
 
