@@ -35,11 +35,11 @@ test('dailyRateFromApy matches expected precision', () => {
 });
 
 test('resolveApyForDate returns latest effective rate', () => {
-  const rates = [
-    { effective_date: '2024-01-01', apy: 0.02 },
-    { effective_date: '2024-06-01', apy: 0.04 },
+  const timeline = [
+    { from: '2024-01-01', to: null, apy: 0.02 },
+    { from: '2024-06-01', to: null, apy: 0.04 },
   ];
-  const result = resolveApyForDate(rates, '2024-06-15');
+  const result = resolveApyForDate(timeline, '2024-06-15');
   assert.equal(result, 0.04);
 });
 
@@ -49,10 +49,14 @@ test('accrueInterest inserts transaction when balance positive', async () => {
     { id: 't1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
     ['id'],
   );
+  const policy = {
+    currency: 'USD',
+    apyTimeline: [{ from: '2023-12-01', to: null, apy: 0.0365 }],
+  };
   const record = await accrueInterest({
     storage,
     date: '2024-01-02',
-    rates: [{ effective_date: '2023-12-01', apy: 0.0365 }],
+    policy,
     logger: noopLogger,
   });
   assert.ok(record);
@@ -60,6 +64,7 @@ test('accrueInterest inserts transaction when balance positive', async () => {
   const interest = transactions.find((tx) => tx.type === 'INTEREST');
   assert.ok(interest);
   assert.equal(interest.date, '2024-01-02');
+  assert.equal(interest.currency, 'USD');
   const expected = dailyRateFromApy(0.0365).times(1000);
   assert.equal(
     interest.amount,
@@ -73,9 +78,12 @@ test('accrueInterest is idempotent across reruns', async () => {
     { id: 't1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
     ['id'],
   );
-  const rates = [{ effective_date: '2023-12-01', apy: 0.0365 }];
-  await accrueInterest({ storage, date: '2024-01-02', rates, logger: noopLogger });
-  await accrueInterest({ storage, date: '2024-01-02', rates, logger: noopLogger });
+  const policy = {
+    currency: 'USD',
+    apyTimeline: [{ from: '2023-12-01', to: null, apy: 0.0365 }],
+  };
+  await accrueInterest({ storage, date: '2024-01-02', policy, logger: noopLogger });
+  await accrueInterest({ storage, date: '2024-01-02', policy, logger: noopLogger });
   const transactions = await storage.readTable('transactions');
   const interestRecords = transactions.filter((tx) => tx.type === 'INTEREST');
   assert.equal(interestRecords.length, 1);
@@ -84,6 +92,7 @@ test('accrueInterest is idempotent across reruns', async () => {
     6,
   );
   assert.equal(interestRecords[0].amount, fromCents(toCents(delta)).toNumber());
+  assert.equal(interestRecords[0].currency, 'USD');
 });
 
 test('monthly interest accrual buffers and posts once per month', async () => {
@@ -92,18 +101,21 @@ test('monthly interest accrual buffers and posts once per month', async () => {
     { id: 't1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
     ['id'],
   );
-  const rates = [{ effective_date: '2023-12-01', apy: 0.0365 }];
+  const policy = {
+    currency: 'USD',
+    apyTimeline: [{ from: '2023-12-01', to: null, apy: 0.0365 }],
+  };
   await accrueInterest({
     storage,
     date: '2024-01-02',
-    rates,
+    policy,
     logger: noopLogger,
     featureFlags: { monthlyCashPosting: true },
   });
   await accrueInterest({
     storage,
     date: '2024-01-31',
-    rates,
+    policy,
     logger: noopLogger,
     featureFlags: { monthlyCashPosting: true },
   });
@@ -118,9 +130,11 @@ test('monthly interest accrual buffers and posts once per month', async () => {
     date: '2024-01-31',
     postingDay: 'last',
     logger: noopLogger,
+    currency: 'USD',
   });
   assert.ok(posting);
   assert.equal(posting.note, 'Automated monthly cash interest posting');
+  assert.equal(posting.currency, 'USD');
 
   transactions = await storage.readTable('transactions');
   const interest = transactions.filter((tx) => tx.type === 'INTEREST');
@@ -128,12 +142,14 @@ test('monthly interest accrual buffers and posts once per month', async () => {
   assert.equal(interest[0].internal, false);
   assert.equal(interest[0].date, '2024-01-31');
   assert.ok(interest[0].amount > 0);
+  assert.equal(interest[0].currency, 'USD');
 
   const second = await postMonthlyInterest({
     storage,
     date: '2024-01-31',
     postingDay: 'last',
     logger: noopLogger,
+    currency: 'USD',
   });
   assert.equal(second, null);
 });
