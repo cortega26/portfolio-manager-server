@@ -4,6 +4,33 @@ import { d, fromCents, roundDecimal, toCents, ZERO } from './decimal.js';
 const MS_PER_DAY = 86_400_000;
 
 
+function normalizeCashPolicy(input) {
+  if (input && typeof input === 'object' && Array.isArray(input.apyTimeline)) {
+    const currency = typeof input.currency === 'string'
+      ? input.currency.trim().toUpperCase()
+      : 'USD';
+    return {
+      currency: /^[A-Z]{3}$/u.test(currency) ? currency : 'USD',
+      apyTimeline: input.apyTimeline,
+    };
+  }
+  if (Array.isArray(input)) {
+    return {
+      currency: 'USD',
+      apyTimeline: [...input]
+        .filter((row) => typeof row?.effective_date === 'string')
+        .sort((a, b) => a.effective_date.localeCompare(b.effective_date))
+        .map((row) => ({
+          from: row.effective_date,
+          to: null,
+          apy: Number.isFinite(row.apy) ? Number(row.apy) : 0,
+        })),
+    };
+  }
+  return { currency: 'USD', apyTimeline: [] };
+}
+
+
 export function computeReturnStep(prevNav, nav, flow) {
   const prev = d(prevNav);
   if (prev.lte(0)) {
@@ -34,8 +61,8 @@ export function buildSpyReturnSeries({ spyPrices }) {
   return result;
 }
 
-export function buildCashReturnSeries({ rates, from, to }) {
-  const series = buildCashSeries({ rates, from, to });
+export function buildCashReturnSeries({ policy, from, to }) {
+  const series = buildCashSeries({ policy, from, to });
   const map = new Map();
   for (const entry of series) {
     map.set(entry.date, roundDecimal(entry.rate, 12));
@@ -43,11 +70,11 @@ export function buildCashReturnSeries({ rates, from, to }) {
   return map;
 }
 
-function prepareReturnSeries({ states, rates, spyPrices, transactions }) {
+function prepareReturnSeries({ states, policy, spyPrices, transactions }) {
   const dates = states.map((state) => state.date);
   const flowsByDate = externalFlowsByDate(transactions);
   const cashReturns = buildCashReturnSeries({
-    rates,
+    policy,
     from: dates[0],
     to: dates[dates.length - 1],
   });
@@ -187,14 +214,16 @@ export function computeDailyReturnRows({
   rates,
   spyPrices,
   transactions,
+  cashPolicy,
 }) {
   if (states.length === 0) {
     return [];
   }
 
+  const policy = normalizeCashPolicy(cashPolicy ?? rates);
   const context = prepareReturnSeries({
     states,
-    rates,
+    policy,
     spyPrices,
     transactions,
   });
