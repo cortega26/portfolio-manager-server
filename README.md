@@ -416,7 +416,7 @@ GitHub Actions enforces quality gates on every push and pull request targeting `
 
 - **Lot Tracking (Phase 2):** Current implementation uses average cost basis. For accurate tax reporting, lot-level tracking (FIFO/LIFO) will be implemented in Phase 2.
 - **Trading Day Calendar (Phase 3):** Price staleness detection uses calendar days. Trading day awareness will be added in Phase 3.
-- **Daily Compound Interest:** Cash interest is calculated using daily compound. Documentation has been updated to reflect this (not "simple monthly" as previously stated).
+- **Daily Interest Convention:** Cash interest accrues using an ACT/365 (Fixed) simple daily rate applied to the posting date’s end-of-day balance (same-day flows included). Negative balances accrue negative interest and existing `INTEREST` rows prevent double-posting.
 
 ### Migration Notes
 

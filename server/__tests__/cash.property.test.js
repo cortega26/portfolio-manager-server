@@ -102,7 +102,12 @@ test('accrueInterest remains idempotent under repeated execution', async () => {
           const interestRows = table.filter((tx) => tx.type === 'INTEREST');
           if (first) {
             assert.equal(interestRows.length, 1);
-            assert.deepEqual(second, first);
+            assert.equal(second, null);
+            const stored = interestRows[0];
+            assert.equal(stored.amount, first.amount);
+            assert.equal(stored.currency, first.currency);
+            assert.equal(stored.date, first.date);
+            assert.equal(stored.type, 'INTEREST');
           } else {
             assert.equal(interestRows.length, 0);
           }
