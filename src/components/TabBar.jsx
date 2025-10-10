@@ -1,7 +1,7 @@
 import TabButton from "./TabButton.jsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 
-const tabs = [
+const defaultTabs = [
   { id: "Dashboard", labelKey: "nav.dashboard" },
   { id: "Holdings", labelKey: "nav.holdings" },
   { id: "Transactions", labelKey: "nav.transactions" },
@@ -9,10 +9,9 @@ const tabs = [
   { id: "Metrics", labelKey: "nav.metrics" },
   { id: "Reports", labelKey: "nav.reports" },
   { id: "Settings", labelKey: "nav.settings" },
-  { id: "Admin", labelKey: "nav.admin" },
 ];
 
-export default function TabBar({ activeTab, onTabChange }) {
+export default function TabBar({ activeTab, onTabChange, tabs = defaultTabs }) {
   const { t } = useI18n();
   return (
     <div className="mb-6 rounded-xl bg-white/80 p-1 shadow dark:bg-slate-900/80">
@@ -37,4 +36,5 @@ export default function TabBar({ activeTab, onTabChange }) {
   );
 }
 
-export const TAB_OPTIONS = tabs.map((tab) => tab.id);
+export const TAB_OPTIONS = defaultTabs.map((tab) => tab.id);
+export const DEFAULT_TABS = defaultTabs;

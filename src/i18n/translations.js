@@ -17,6 +17,13 @@ export const translations = {
     "nav.reports": "Reports",
     "nav.settings": "Settings",
     "nav.admin": "Admin",
+    "admin.private.unauthorized": "Private admin access",
+    "admin.private.unauthorizedDescription":
+      "This admin dashboard link is invalid or has expired. Request a fresh invite from the owner.",
+    "admin.private.missingConfig": "Admin access not configured",
+    "admin.private.missingConfigDescription":
+      "No admin invite tokens are currently configured. Ask the owner to set VITE_ADMIN_ACCESS_TOKENS before sharing access.",
+    "admin.private.return": "Return to portfolio",
     "dashboard.quickActions.title": "Quick Actions",
     "dashboard.quickActions.refresh": "Refresh ROI",
     "dashboard.quickActions.tips": "Portfolio Tips",
@@ -407,6 +414,13 @@ export const translations = {
     "nav.reports": "Reportes",
     "nav.settings": "Configuración",
     "nav.admin": "Administración",
+    "admin.private.unauthorized": "Acceso privado al panel",
+    "admin.private.unauthorizedDescription":
+      "Este enlace del panel de administración no es válido o ha expirado. Solicita una invitación nueva al propietario.",
+    "admin.private.missingConfig": "Acceso de administración no configurado",
+    "admin.private.missingConfigDescription":
+      "No hay tokens de invitación configurados. Pide al propietario que defina VITE_ADMIN_ACCESS_TOKENS antes de compartir acceso.",
+    "admin.private.return": "Volver al portafolio",
     "dashboard.quickActions.title": "Acciones rápidas",
     "dashboard.quickActions.refresh": "Actualizar ROI",
     "dashboard.quickActions.tips": "Consejos de portafolio",
