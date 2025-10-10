@@ -54,7 +54,7 @@ LOW: 1/4 done (25%)
 
 | ID | Item | Severity | Status | Verification |
 |----|------|----------|--------|--------------|
-| G1 | Coverage gate | HIGH | ✅ **DONE** | **VERIFIED**: Found in `.github/workflows/ci.yml` - `nyc check-coverage --branches=85` |
+| G1 | Coverage gate | HIGH | ✅ **DONE** | **VERIFIED**: Found in `.github/workflows/ci.yml` - `NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage` |
 | G2 | Lint gate | MEDIUM | ✅ **DONE** | **VERIFIED**: `npm run lint` in CI workflow |
 | G3 | Security audit gate | MEDIUM | ✅ **DONE** | **VERIFIED**: `gitleaks detect` + `npm audit --audit-level=moderate` |
 | G4 | Test artifacts | LOW | ✅ **DONE** | **VERIFIED**: Coverage uploaded as `node-coverage` artifact |
@@ -70,8 +70,8 @@ cat .github/workflows/ci.yml
 # Run locally
 npm ci
 npm run lint
-npm run test
-npx nyc check-coverage --branches=85 --functions=85 --lines=85 --statements=85
+NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage
+npm run build
 ```
 
 **✅ STATUS**: **PRODUCTION READY** - All gates enforced on every PR
@@ -933,15 +933,8 @@ touch docs/calculation-methodology.md
 
 ### Run Full Test Suite
 ```bash
-# All tests with coverage
-npm test
-
-# Coverage report
-npx nyc report --reporter=text-summary
-
-# Coverage details
-npx nyc report --reporter=html
-open coverage/index.html
+# All tests with coverage and strict warnings
+NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage
 ```
 
 ### Test Individual Components
@@ -953,10 +946,10 @@ node --test server/__tests__/holdings.test.js
 node --test server/__tests__/storage_concurrency.test.js
 
 # CI simulation (full gate check)
-npm ci
+npm ci --no-fund --no-audit
 npm run lint
-npm run test
-npx nyc check-coverage --branches=85 --functions=85 --lines=85 --statements=85
+NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage
+npm run build
 npx gitleaks detect --no-banner
 npm audit --audit-level=moderate
 ```
