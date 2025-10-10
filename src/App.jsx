@@ -67,7 +67,7 @@ function LoadingFallback() {
 const DEFAULT_TAB = "Dashboard";
 
 export default function App() {
-  const { t, language, setLanguage, locale, formatCurrency, formatDate } = useI18n();
+  const { t, language, setLanguage, locale, formatCurrency, formatDate, formatPercent } = useI18n();
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
   const [portfolioId, setPortfolioId] = useState("");
   const [portfolioKey, setPortfolioKey] = useState("");
@@ -116,14 +116,17 @@ export default function App() {
     [transactions, locale, formatCurrency, t, formatDate],
   );
 
-  const metricCards = useMemo(() => buildMetricCards(metrics), [metrics]);
+  const metricCards = useMemo(
+    () => buildMetricCards(metrics, { translate: t, formatCurrency, formatPercent }),
+    [metrics, t, formatCurrency, formatPercent],
+  );
   const allocationBreakdown = useMemo(
     () => calculateAllocationBreakdown(holdings, currentPrices),
     [holdings, currentPrices],
   );
   const performanceHighlights = useMemo(
-    () => derivePerformanceHighlights(roiData),
-    [roiData],
+    () => derivePerformanceHighlights(roiData, { translate: t, formatPercent, formatDate }),
+    [roiData, t, formatPercent, formatDate],
   );
   const reportSummaryCards = useMemo(
     () =>
