@@ -8,35 +8,6 @@ const DAILY_INTEREST_NOTE = 'Automated daily cash interest accrual';
 const MS_PER_DAY = 86_400_000;
 const DEFAULT_CURRENCY = 'USD';
 const ISO_CURRENCY_PATTERN = /^[A-Z]{3}$/u;
-const DEFAULT_DAY_COUNT = 365;
-const DEFAULT_PRECISION = 2;
-const CURRENCY_PRECISION = new Map([
-  ['CLP', 0],
-  ['JPY', 0],
-]);
-
-function getCurrencyPrecision(currency) {
-  const normalized = normalizeCurrency(currency);
-  return CURRENCY_PRECISION.get(normalized) ?? DEFAULT_PRECISION;
-}
-
-function currencyScale(currency) {
-  const precision = getCurrencyPrecision(currency);
-  return 10 ** precision;
-}
-
-function toMinorUnits(value, currency) {
-  return roundDecimal(d(value).times(currencyScale(currency)), 0).toNumber();
-}
-
-function fromMinorUnits(value, currency) {
-  return d(value).div(currencyScale(currency));
-}
-
-function roundToCurrency(value, currency) {
-  const precision = getCurrencyPrecision(currency);
-  return roundDecimal(value, precision);
-}
 
 function normalizeCurrency(value) {
   if (typeof value !== 'string') {
@@ -120,22 +91,7 @@ export function resolveApyForDate(timeline, date) {
   return result;
 }
 
-function matchesPortfolio(transaction, portfolioId) {
-  if (!portfolioId) {
-    return true;
-  }
-  if (!transaction?.portfolio_id) {
-    return true;
-  }
-  return transaction.portfolio_id === portfolioId;
-}
-
-function computeCashBalanceUntil(
-  transactions,
-  date,
-  currency = DEFAULT_CURRENCY,
-  { portfolioId, includeInterestOnDate = true } = {},
-) {
+function computeCashBalanceUntil(transactions, date, currency = DEFAULT_CURRENCY) {
   const dateKey = toDateKey(date);
   let balanceMinorUnits = 0;
   const sorted = [...transactions].sort((a, b) => {
@@ -159,14 +115,7 @@ function computeCashBalanceUntil(
     if (normalizeCurrency(tx.currency) !== currency) {
       continue;
     }
-    if (
-      tx.type === 'INTEREST'
-      && tx.date === dateKey
-      && includeInterestOnDate === false
-    ) {
-      continue;
-    }
-    const amountMinorUnits = toMinorUnits(amount, currency);
+    const amountCents = toCents(amount);
     switch (tx.type) {
       case 'DEPOSIT':
       case 'DIVIDEND':
@@ -247,7 +196,7 @@ async function recordMonthlyAccrual({
   storage,
   monthKey,
   dateKey,
-  interestMinorUnits,
+  interestCents,
   currency,
   logger,
 }) {
@@ -266,7 +215,7 @@ async function recordMonthlyAccrual({
   logger?.info?.('interest_accrual_buffered', {
     month: monthKey,
     date: dateKey,
-    accrued_cents: accruedMinorUnits,
+    accrued_cents: accruedCents,
     currency,
   });
   return {
@@ -285,12 +234,14 @@ export async function accrueInterest({
 }) {
   const dateKey = toDateKey(date);
   const transactions = await storage.readTable('transactions');
-  const interestRecord = postInterestForDate(policy?.portfolioId ?? null, dateKey, {
-    transactions,
-    policy,
-  });
-
-  if (!interestRecord) {
+  const currency = normalizeCurrency(policy?.currency);
+  const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
+  const cashBalance = computeCashBalanceUntil(transactions, prevKey, currency);
+  const apy = resolveApyForDate(timeline, prevKey);
+  const dailyRate = dailyRateFromApy(apy);
+  const interestAmount = cashBalance.times(dailyRate);
+  const interestCents = toCents(interestAmount);
+  if (interestCents === 0) {
     return null;
   }
 
@@ -300,8 +251,8 @@ export async function accrueInterest({
       storage,
       monthKey,
       dateKey,
-      interestMinorUnits: toMinorUnits(interestRecord.amount, interestRecord.currency),
-      currency: interestRecord.currency,
+      interestCents,
+      currency,
       logger,
     });
   }
@@ -314,16 +265,26 @@ export async function accrueInterest({
       && normalizeCurrency(tx.currency) === interestRecord.currency,
   );
 
-  const record = existing
-    ? { ...existing, ...interestRecord, id: existing.id }
-    : interestRecord;
+  const record = {
+    id: interestId,
+    type: 'INTEREST',
+    ticker: 'CASH',
+    date: dateKey,
+    quantity: 0,
+    amount: fromCents(interestCents).toNumber(),
+    note: 'Automated daily cash interest accrual',
+    internal: true,
+    currency,
+  };
 
   await storage.upsertRow('transactions', record, ['id']);
   if (logger?.info) {
     logger.info('interest_posted', {
       date: dateKey,
       amount: record.amount,
-      currency: record.currency,
+      cash_balance: roundDecimal(cashBalance, 6).toNumber(),
+      apy,
+      currency,
     });
   }
   return record;
@@ -350,8 +311,8 @@ export async function postMonthlyInterest({
   if (target && targetCurrency !== currency) {
     return null;
   }
-  const accruedMinorUnits = target?.accrued_cents ?? 0;
-  if (accruedMinorUnits === 0) {
+  const accruedCents = target?.accrued_cents ?? 0;
+  if (accruedCents === 0) {
     return null;
   }
 
@@ -376,7 +337,7 @@ export async function postMonthlyInterest({
       accrued_cents: 0,
       last_accrual_date: target?.last_accrual_date ?? postingDate,
       posted_at: postingDate,
-      posted_amount_cents: accruedMinorUnits,
+      posted_amount_cents: accruedCents,
       currency,
     },
     ['month'],
@@ -386,7 +347,7 @@ export async function postMonthlyInterest({
     (tx) =>
       tx.type === 'INTEREST'
       && tx.date.slice(0, 7) === monthKey
-      && tx.note === DAILY_INTEREST_NOTE
+      && tx.note === 'Automated daily cash interest accrual'
       && normalizeCurrency(tx.currency) === currency,
   );
 
