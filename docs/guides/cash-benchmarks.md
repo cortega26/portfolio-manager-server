@@ -23,12 +23,12 @@ Daily interest is posted as an `INTEREST` transaction using:
 
 $$
 \begin{aligned}
-r_{\text{daily}} &= (1+\text{APY})^{1/365} - 1,\\
-\text{Interest}_t &= \text{Cash}_{t-1}\cdot r_{\text{daily}}
+r_{\text{daily}} &= \frac{\text{APY}}{365},\\
+\text{Interest}_t &= \text{Cash}^{\text{EOD}}_{t}\cdot r_{\text{daily}}
 \end{aligned}
 $$
 
-The accrual job writes deterministic identifiers (`interest-YYYY-MM-DD`) so re-running the job simply updates the same record.
+where \(\text{Cash}^{\text{EOD}}_{t}\) is the cash balance after all non-interest transactions dated on \(t\) have been applied (but before the automated posting for \(t\)). The accrual job writes deterministic identifiers (`interest-YYYY-MM-DD`) so re-running the job simply updates the same record.
 
 ### Day-count convention
 
@@ -92,7 +92,7 @@ When NAV snapshots are missing for the requested range, the XIRR falls back to `
 
 `server/jobs/daily_close.js` executes the following steps for the target day (defaults to the last completed **UTC** day):
 
-1. Resolve effective APY for the prior day and accrue cash interest.
+1. Resolve the APY effective for the posting date and accrue cash interest against the end-of-day balance.
 2. Fetch adjusted‑close prices for SPY and held tickers via the provider interface (default: Yahoo Finance) and persist them, logging provider latency.
 3. Rebuild NAV snapshots with carry‑forward pricing.
 4. Compute and store daily return rows.

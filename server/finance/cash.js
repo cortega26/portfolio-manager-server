@@ -1,14 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 
-import {
-  ZERO,
-  d,
-  fromCents,
-  roundDecimal,
-  toCents,
-} from './decimal.js';
+import { ZERO, d, roundDecimal } from './decimal.js';
 
 const MONTHLY_POSTING_NOTE = 'Automated monthly cash interest posting';
+const DAILY_INTEREST_NOTE = 'Automated daily cash interest accrual';
 
 const MS_PER_DAY = 86_400_000;
 const DEFAULT_CURRENCY = 'USD';
@@ -67,12 +62,14 @@ export function toDateKey(date) {
   return String(date);
 }
 
-export function dailyRateFromApy(apy) {
+export function dailyRateFromApy(apy, { dayCount = DEFAULT_DAY_COUNT } = {}) {
   if (!Number.isFinite(apy)) {
     return ZERO;
   }
-  const factor = d(1).plus(apy);
-  return factor.pow(d(1).div(365)).minus(1);
+  if (!Number.isFinite(dayCount) || dayCount <= 0) {
+    throw new Error('dayCount must be a positive finite number');
+  }
+  return d(apy).div(dayCount);
 }
 
 export function resolveApyForDate(timeline, date) {
@@ -96,7 +93,7 @@ export function resolveApyForDate(timeline, date) {
 
 function computeCashBalanceUntil(transactions, date, currency = DEFAULT_CURRENCY) {
   const dateKey = toDateKey(date);
-  let cashCents = 0;
+  let balanceMinorUnits = 0;
   const sorted = [...transactions].sort((a, b) => {
     const dateDiff = a.date.localeCompare(b.date);
     if (dateDiff !== 0) {
@@ -107,6 +104,9 @@ function computeCashBalanceUntil(transactions, date, currency = DEFAULT_CURRENCY
   for (const tx of sorted) {
     if (tx.date > dateKey) {
       break;
+    }
+    if (!matchesPortfolio(tx, portfolioId)) {
+      continue;
     }
     const amount = Number.parseFloat(tx.amount ?? 0);
     if (!Number.isFinite(amount)) {
@@ -121,18 +121,75 @@ function computeCashBalanceUntil(transactions, date, currency = DEFAULT_CURRENCY
       case 'DIVIDEND':
       case 'INTEREST':
       case 'SELL':
-        cashCents += amountCents;
+        balanceMinorUnits += amountMinorUnits;
         break;
       case 'WITHDRAWAL':
       case 'BUY':
       case 'FEE':
-        cashCents -= amountCents;
+        balanceMinorUnits -= amountMinorUnits;
         break;
       default:
         break;
     }
   }
-  return fromCents(cashCents);
+  return fromMinorUnits(balanceMinorUnits, currency);
+}
+
+export function postInterestForDate(
+  portfolioId,
+  date,
+  {
+    transactions = [],
+    policy = {},
+    dayCount = DEFAULT_DAY_COUNT,
+  } = {},
+) {
+  const dateKey = toDateKey(date);
+  const currency = normalizeCurrency(policy?.currency);
+  const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
+
+  const alreadyPosted = transactions.some(
+    (tx) =>
+      matchesPortfolio(tx, portfolioId)
+      && tx.type === 'INTEREST'
+      && tx.date === dateKey
+      && normalizeCurrency(tx.currency) === currency,
+  );
+  if (alreadyPosted) {
+    return null;
+  }
+
+  const balance = computeCashBalanceUntil(transactions, dateKey, currency, {
+    portfolioId,
+    includeInterestOnDate: false,
+  });
+  const apy = resolveApyForDate(timeline, dateKey);
+  const dailyRate = dailyRateFromApy(apy, { dayCount });
+  if (dailyRate.isZero()) {
+    return null;
+  }
+
+  const interestAmount = roundToCurrency(balance.times(dailyRate), currency);
+  if (interestAmount.isZero()) {
+    return null;
+  }
+
+  const transactionId = portfolioId
+    ? `interest-${portfolioId}-${dateKey}`
+    : `interest-${dateKey}`;
+
+  return {
+    id: transactionId,
+    portfolio_id: portfolioId ?? undefined,
+    type: 'INTEREST',
+    ticker: 'CASH',
+    date: dateKey,
+    quantity: 0,
+    amount: interestAmount.toNumber(),
+    note: DAILY_INTEREST_NOTE,
+    internal: true,
+    currency,
+  };
 }
 
 async function recordMonthlyAccrual({
@@ -146,10 +203,10 @@ async function recordMonthlyAccrual({
   await storage.ensureTable('cash_interest_accruals', []);
   const rows = await storage.readTable('cash_interest_accruals');
   const existing = rows.find((row) => row.month === monthKey);
-  const accruedCents = (existing?.accrued_cents ?? 0) + interestCents;
+  const accruedMinorUnits = (existing?.accrued_cents ?? 0) + interestMinorUnits;
   const updated = {
     month: monthKey,
-    accrued_cents: accruedCents,
+    accrued_cents: accruedMinorUnits,
     last_accrual_date: dateKey,
     posted_at: existing?.posted_at ?? null,
     currency,
@@ -163,7 +220,7 @@ async function recordMonthlyAccrual({
   });
   return {
     ...updated,
-    accrued_amount: fromCents(accruedCents).toNumber(),
+    accrued_amount: fromMinorUnits(accruedMinorUnits, currency).toNumber(),
   };
 }
 
@@ -176,8 +233,6 @@ export async function accrueInterest({
   postingDay = 'last',
 }) {
   const dateKey = toDateKey(date);
-  const previousDay = new Date(new Date(`${dateKey}T00:00:00Z`).getTime() - MS_PER_DAY);
-  const prevKey = toDateKey(previousDay);
   const transactions = await storage.readTable('transactions');
   const currency = normalizeCurrency(policy?.currency);
   const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
@@ -202,9 +257,12 @@ export async function accrueInterest({
     });
   }
 
-  const interestId = `interest-${dateKey}`;
   const existing = transactions.find(
-    (tx) => tx.type === 'INTEREST' && tx.date === dateKey,
+    (tx) =>
+      matchesPortfolio(tx, interestRecord.portfolio_id ?? null)
+      && tx.type === 'INTEREST'
+      && tx.date === dateKey
+      && normalizeCurrency(tx.currency) === interestRecord.currency,
   );
 
   const record = {
@@ -219,13 +277,6 @@ export async function accrueInterest({
     currency,
   };
 
-  if (existing) {
-    await storage.upsertRow('transactions', { ...existing, ...record }, ['id']);
-    if (logger?.info) {
-      logger.info('interest_exists', { date: dateKey, amount: record.amount });
-    }
-    return record;
-  }
   await storage.upsertRow('transactions', record, ['id']);
   if (logger?.info) {
     logger.info('interest_posted', {
@@ -265,7 +316,7 @@ export async function postMonthlyInterest({
     return null;
   }
 
-  const amount = fromCents(accruedCents).toNumber();
+  const amount = fromMinorUnits(accruedMinorUnits, currency).toNumber();
   const record = {
     id: `interest-${postingDate}`,
     type: 'INTEREST',
