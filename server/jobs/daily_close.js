@@ -21,6 +21,28 @@ function listDates(from, to) {
   return result;
 }
 
+function normalizeCurrencyCode(value) {
+  if (typeof value !== 'string') {
+    return 'USD';
+  }
+  const normalized = value.trim().toUpperCase();
+  if (!/^[A-Z]{3}$/u.test(normalized)) {
+    return 'USD';
+  }
+  return normalized;
+}
+
+function timelineFromRates(rates) {
+  return [...rates]
+    .filter((row) => typeof row?.effective_date === 'string')
+    .sort((a, b) => a.effective_date.localeCompare(b.effective_date))
+    .map((row) => ({
+      from: row.effective_date,
+      to: null,
+      apy: Number.isFinite(row.apy) ? Number(row.apy) : 0,
+    }));
+}
+
 function buildPriceMaps(records, tickers, dates) {
   const byDate = new Map();
   const lastPrices = new Map();
@@ -121,10 +143,14 @@ export async function runDailyClose({
   );
 
   const rates = await storage.readTable('cash_rates');
+  const policy = {
+    currency: normalizeCurrencyCode(config?.cash?.currency ?? 'USD'),
+    apyTimeline: timelineFromRates(rates),
+  };
   await accrueInterest({
     storage,
     date: targetDateKey,
-    rates,
+    policy,
     logger,
     featureFlags: config?.featureFlags ?? {},
     postingDay: config?.cash?.postingDay ?? 'last',
@@ -135,6 +161,7 @@ export async function runDailyClose({
       date: targetDateKey,
       postingDay: config?.cash?.postingDay ?? 'last',
       logger,
+      currency: policy.currency,
     });
   }
 
