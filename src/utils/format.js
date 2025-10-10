@@ -72,3 +72,20 @@ export function formatSignedPercent(value, fractionDigits = 2, { locale } = {}) 
   const sign = rounded > 0 ? "+" : "-";
   return `${sign}${absolute}%`;
 }
+
+export function formatNumber(value, { locale, minimumFractionDigits = 0, maximumFractionDigits = 2 } = {}) {
+  if (isNilOrNaN(value)) {
+    return "—";
+  }
+
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized)) {
+    return "—";
+  }
+
+  const formatter = new Intl.NumberFormat(locale ?? activeLocale, {
+    minimumFractionDigits,
+    maximumFractionDigits,
+  });
+  return formatter.format(normalized);
+}
