@@ -188,8 +188,17 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
   }
 });
 
-test('postInterestForDate skips dates where interest already exists', () => {
+test('postInterestForDate recomputes when interest already exists', () => {
   const transactions = [
+    {
+      id: 'deposit',
+      portfolio_id: 'pf-dupe',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-05-31',
+      amount: 1000,
+      currency: 'USD',
+    },
     {
       id: 'existing',
       portfolio_id: 'pf-dupe',
@@ -198,11 +207,16 @@ test('postInterestForDate skips dates where interest already exists', () => {
       date: '2024-06-01',
       amount: 1.23,
       currency: 'USD',
+      note: 'Automated daily cash interest accrual',
+      internal: true,
     },
   ];
   const policy = { currency: 'USD', apyTimeline: [{ from: '2024-01-01', apy: 0.05 }] };
   const result = postInterestForDate('pf-dupe', '2024-06-01', { transactions, policy });
-  assert.equal(result, null);
+  assert.ok(result);
+  assert.equal(result.id, 'existing');
+  const expectedAmount = roundDecimal(d(1000).times(0.05).div(365), 2).toNumber();
+  assert.equal(result.amount, expectedAmount);
 });
 
 test('resolveApyForDate returns latest effective rate', () => {

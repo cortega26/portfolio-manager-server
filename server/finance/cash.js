@@ -148,16 +148,14 @@ export function postInterestForDate(
   const currency = normalizeCurrency(policy?.currency);
   const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
 
-  const alreadyPosted = transactions.some(
+  const existingInterest = transactions.find(
     (tx) =>
       matchesPortfolio(tx, portfolioId)
       && tx.type === 'INTEREST'
       && tx.date === dateKey
+      && tx.note !== MONTHLY_POSTING_NOTE
       && normalizeCurrency(tx.currency) === currency,
   );
-  if (alreadyPosted) {
-    return null;
-  }
 
   const balance = computeCashBalanceUntil(transactions, dateKey, currency, {
     portfolioId,
@@ -174,13 +172,13 @@ export function postInterestForDate(
     return null;
   }
 
-  const transactionId = portfolioId
-    ? `interest-${portfolioId}-${dateKey}`
-    : `interest-${dateKey}`;
+  const transactionId = existingInterest?.id
+    ?? (portfolioId ? `interest-${portfolioId}-${dateKey}` : `interest-${dateKey}`);
 
   return {
+    ...(existingInterest ?? {}),
     id: transactionId,
-    portfolio_id: portfolioId ?? undefined,
+    portfolio_id: portfolioId ?? existingInterest?.portfolio_id ?? undefined,
     type: 'INTEREST',
     ticker: 'CASH',
     date: dateKey,
