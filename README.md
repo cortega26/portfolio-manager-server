@@ -430,9 +430,10 @@ These changes improve data integrity and mathematical correctness.
 
 ### Frontend configuration
 
-| Name            | Type         | Default                                            | Required | Description                                                                   |
-| --------------- | ------------ | -------------------------------------------------- | -------- | ----------------------------------------------------------------------------- |
-| `VITE_API_BASE` | string (URL) | `https://portfolio-api.carlosortega77.workers.dev` | No       | Overrides the API host used by the Dashboard, Holdings and Transactions tabs. |
+| Name                      | Type                        | Default                                            | Required | Description |
+| ------------------------- | --------------------------- | -------------------------------------------------- | -------- | ----------- |
+| `VITE_API_BASE`           | string (URL)                | `https://portfolio-api.carlosortega77.workers.dev` | No       | Overrides the API host used by the Dashboard, Holdings and Transactions tabs. |
+| `VITE_ADMIN_ACCESS_TOKENS` | string[] (comma-separated) | `friend-one,friend-two,friend-three`               | No       | Invite tokens required for the private admin portal (`/admin/<token>`). Share unique values with trusted testers. |
 
 ### Tabbed navigation
 
@@ -445,7 +446,15 @@ The interface organises the experience across focused tabs:
 - **Metrics** – allocation concentration, return ratios, and performance highlights derived from the ROI series.
 - **Reports** – CSV export hub covering transactions, holdings, and ROI comparisons for downstream analysis.
 - **Settings** – privacy, notification, and display preferences saved with each portfolio and synced across devices (with a local cache for instant reloads).
-- **Admin** – inspect runtime metrics, lockout activity, and security audit trails without leaving the app.
+- **Admin** (private link) – inspect runtime metrics, lockout activity, and security audit trails through `/admin/<token>` invite links.
+
+### Private admin portal access
+
+The admin dashboard is intentionally hidden from the main navigation. To invite trusted testers:
+
+1. Define `VITE_ADMIN_ACCESS_TOKENS` in `.env` with comma-separated, unique strings (one per tester).
+2. Share direct links following `/admin/<token>` (for example, `https://example.com/admin/friend-one`).
+3. Rotate or remove tokens to revoke access; attempts with missing or unknown tokens display a friendly error.
 
 ## Getting Started
 
