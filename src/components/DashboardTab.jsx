@@ -10,10 +10,11 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
-import { formatCurrency, formatPercent, formatSignedPercent } from "../utils/format.js";
-import { BENCHMARK_SERIES_META } from "../utils/roi.js";
+
+import { useI18n } from "../i18n/I18nProvider.jsx";
 import { usePersistentBenchmarkSelection } from "../hooks/usePersistentBenchmarkSelection.js";
 import { usePortfolioMetrics } from "../hooks/usePortfolioMetrics.js";
+import { BENCHMARK_SERIES_META } from "../utils/roi.js";
 
 const DEFAULT_BENCHMARK_SELECTION = ["spy", "blended"];
 const PORTFOLIO_COLOR = "#10b981";
@@ -39,24 +40,24 @@ function MetricCard({ label, value, description, title }) {
   );
 }
 
-function QuickActions({ onRefresh, roiSource }) {
+function QuickActions({ onRefresh, roiSource, t }) {
   const status = (() => {
     if (roiSource === "fallback") {
       return {
-        label: "Fallback ROI",
+        label: t("dashboard.quickActions.status.fallback"),
         className:
           "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-amber-200",
       };
     }
     if (roiSource === "error") {
       return {
-        label: "ROI unavailable",
+        label: t("dashboard.quickActions.status.unavailable"),
         className:
           "border-rose-400 bg-rose-50 text-rose-700 dark:border-rose-500/60 dark:bg-rose-500/10 dark:text-rose-200",
       };
     }
     return {
-      label: "Live ROI",
+      label: t("dashboard.quickActions.status.live"),
       className:
         "border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-500/60 dark:bg-emerald-500/10 dark:text-emerald-200",
     };
@@ -65,7 +66,7 @@ function QuickActions({ onRefresh, roiSource }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-        Quick Actions
+        {t("dashboard.quickActions.title")}
       </h3>
       <div className="mt-3 flex flex-wrap gap-3">
         <button
@@ -73,7 +74,7 @@ function QuickActions({ onRefresh, roiSource }) {
           onClick={onRefresh}
           className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
         >
-          Refresh ROI
+          {t("dashboard.quickActions.refresh")}
         </button>
         <span
           className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${status.className}`}
@@ -88,24 +89,28 @@ function QuickActions({ onRefresh, roiSource }) {
           target="_blank"
           rel="noreferrer"
         >
-          Portfolio Tips
+          {t("dashboard.quickActions.tips")}
         </a>
       </div>
     </div>
   );
 }
 
-function BenchmarkControls({ options, selected, onToggle, onReset, resetDisabled }) {
+function BenchmarkControls({ options, selected, onToggle, onReset, resetDisabled, t }) {
   if (options.length === 0) {
     return null;
   }
 
   return (
-    <fieldset className="flex flex-col gap-2" aria-label="Benchmark comparison controls">
+    <fieldset className="flex flex-col gap-2" aria-label={t("dashboard.benchmarks.controls")}>
       <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Benchmarks
+        {t("dashboard.benchmarks.legend")}
       </legend>
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Toggle benchmark series">
+      <div
+        className="flex flex-wrap items-center gap-2"
+        role="group"
+        aria-label={t("dashboard.benchmarks.toggle")}
+      >
         {options.map((option) => {
           const active = selected.includes(option.id);
           return (
@@ -142,10 +147,10 @@ function BenchmarkControls({ options, selected, onToggle, onReset, resetDisabled
           )}
           aria-disabled={resetDisabled}
           disabled={resetDisabled}
-          aria-label="Reset benchmark visibility to defaults"
-          title="Restore the default benchmark combination"
+          aria-label={t("dashboard.benchmarks.reset.aria")}
+          title={t("dashboard.benchmarks.reset.title")}
         >
-          Reset
+          {t("dashboard.benchmarks.reset")}
         </button>
       </div>
     </fieldset>
@@ -160,10 +165,12 @@ function RoiChart({
   onBenchmarkToggle,
   onBenchmarkReset,
   isDefaultSelection,
+  t,
+  formatPercent,
 }) {
   const legendPayload = useMemo(() => {
     const base = [
-      { value: "Portfolio ROI", type: "line", color: PORTFOLIO_COLOR, id: "portfolio" },
+      { value: t("dashboard.series.portfolio"), type: "line", color: PORTFOLIO_COLOR, id: "portfolio" },
     ];
     selectedBenchmarks.forEach((id) => {
       const meta = benchmarkOptions.find((option) => option.id === id);
@@ -172,17 +179,17 @@ function RoiChart({
       }
     });
     return base;
-  }, [benchmarkOptions, selectedBenchmarks]);
+  }, [benchmarkOptions, selectedBenchmarks, t]);
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-            ROI vs Benchmarks
+            {t("dashboard.roi.title")}
           </h3>
           {loading && (
-            <span className="text-xs font-medium text-indigo-500">Loading…</span>
+            <span className="text-xs font-medium text-indigo-500">{t("common.loading")}</span>
           )}
         </div>
         <BenchmarkControls
@@ -191,15 +198,21 @@ function RoiChart({
           onToggle={onBenchmarkToggle}
           onReset={onBenchmarkReset}
           resetDisabled={isDefaultSelection}
+          t={t}
         />
       </div>
       <div className="mt-4 h-72 w-full">
         {data.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Add transactions to see comparative performance.
+            {t("dashboard.roi.chartEmpty")}
           </p>
         ) : (
-          <ResponsiveContainer width="100%" height="100%" role="img" aria-label="Portfolio performance chart">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            role="img"
+            aria-label={t("dashboard.roi.chartAria")}
+          >
             <LineChart
               data={data}
               margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
@@ -219,7 +232,7 @@ function RoiChart({
               <Line
                 type="monotone"
                 dataKey="portfolio"
-                name="Portfolio ROI"
+                name={t("dashboard.series.portfolio")}
                 stroke={PORTFOLIO_COLOR}
                 dot={false}
                 strokeWidth={2}
@@ -252,6 +265,7 @@ export default function DashboardTab({
   onRefreshRoi,
   roiSource = "api",
 }) {
+  const { t, formatCurrency, formatPercent, formatSignedPercent } = useI18n();
   const portfolioMetrics = usePortfolioMetrics({ metrics, transactions, roiData });
   const {
     totals: {
@@ -279,8 +293,12 @@ export default function DashboardTab({
     }
     return BENCHMARK_SERIES_META.filter((option) =>
       roiData.some((point) => Number.isFinite(Number(point?.[option.dataKey]))),
-    );
-  }, [roiData]);
+    ).map((option) => ({
+      ...option,
+      label: t(`dashboard.benchmarks.series.${option.id}.label`),
+      description: t(`dashboard.benchmarks.series.${option.id}.description`),
+    }));
+  }, [roiData, t]);
   const benchmarkOptionIds = useMemo(
     () => benchmarkOptions.map((option) => option.id),
     [benchmarkOptions],
@@ -319,39 +337,51 @@ export default function DashboardTab({
 
   const metricCards = [
     {
-      label: "Net Asset Value",
+      label: t("dashboard.metrics.nav"),
       value: formatCurrency(totalNav),
-      description: `Cash balance ${formatCurrency(cashBalance)}`,
-      title:
-        "NAV equals risk assets plus cash. Cash definitions follow docs/guides/cash-benchmarks.md.",
+      description: t("dashboard.metrics.nav.description", {
+        value: formatCurrency(cashBalance),
+      }),
+      title: t("dashboard.metrics.nav.title"),
     },
     {
-      label: "Total Return",
+      label: t("dashboard.metrics.return"),
       value: formatCurrency(totalReturn),
-      description: `Realised ${formatCurrency(totalRealised)} · Unrealised ${formatCurrency(totalUnrealised)} · ROI ${formatSignedPercent(returnPct, 1)}`,
+      description: t("dashboard.metrics.return.description", {
+        realised: formatCurrency(totalRealised),
+        unrealised: formatCurrency(totalUnrealised),
+        roi: formatSignedPercent(returnPct, 1),
+      }),
     },
     {
-      label: "Invested Capital",
+      label: t("dashboard.metrics.cost"),
       value: formatCurrency(totalCost),
-      description: `${holdingsCount} holdings tracked · Risk assets ${formatCurrency(totalValue)}`,
+      description: t("dashboard.metrics.cost.description", {
+        count: holdingsCount,
+        value: formatCurrency(totalValue),
+      }),
     },
     {
-      label: "Cash Allocation",
+      label: t("dashboard.metrics.cashAllocation"),
       value: formatPercent(cashAllocationPct, 1),
-      description: "Share of NAV in cash per docs/guides/cash-benchmarks.md",
-      title: "Start-of-day cash weight derived from current ledger balances.",
+      description: t("dashboard.metrics.cashAllocation.description"),
+      title: t("dashboard.metrics.cashAllocation.title"),
     },
     {
-      label: "Cash Drag",
+      label: t("dashboard.metrics.cashDrag"),
       value: formatSignedPercent(cashDragPct, 2),
-      description: "100% SPY minus blended benchmark",
-      title: "Positive values indicate performance surrendered to cash holdings.",
+      description: t("dashboard.metrics.cashDrag.description"),
+      title: t("dashboard.metrics.cashDrag.title"),
     },
     {
-      label: "Benchmark Delta",
-      value: `SPY ${formatSignedPercent(spyDeltaPct, 2)}`,
-      description: `Blended ${formatSignedPercent(blendedDeltaPct, 2)}`,
-      title: "Latest cumulative ROI gaps versus SPY and blended sleeves.",
+      label: t("dashboard.metrics.delta"),
+      value: t("dashboard.metrics.delta.value", {
+        value: formatSignedPercent(spyDeltaPct, 2),
+      }),
+      description: t("dashboard.metrics.delta.description", {
+        value: formatSignedPercent(blendedDeltaPct, 2),
+      }),
+      title: t("dashboard.metrics.delta.title"),
     },
   ];
 
@@ -368,7 +398,7 @@ export default function DashboardTab({
           />
         ))}
       </div>
-      <QuickActions onRefresh={onRefreshRoi} roiSource={roiSource} />
+      <QuickActions onRefresh={onRefreshRoi} roiSource={roiSource} t={t} />
       <RoiChart
         data={roiData}
         loading={loadingRoi}
@@ -377,6 +407,8 @@ export default function DashboardTab({
         onBenchmarkToggle={handleBenchmarkToggle}
         onBenchmarkReset={handleBenchmarkReset}
         isDefaultSelection={isDefaultSelection}
+        t={t}
+        formatPercent={formatPercent}
       />
     </div>
   );
