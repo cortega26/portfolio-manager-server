@@ -52,15 +52,14 @@ test('accrueInterest posts deterministic interest for random balances', async ()
             },
             ['id'],
           );
+          const policy = {
+            currency: 'USD',
+            apyTimeline: [{ from: '2023-12-01', to: null, apy }],
+          };
           const record = await accrueInterest({
             storage,
             date: '2024-01-02',
-            rates: [
-              {
-                effective_date: '2023-12-01',
-                apy,
-              },
-            ],
+            policy,
             logger: noopLogger,
           });
           assert.ok(record, 'expected interest record to be created');
@@ -93,14 +92,22 @@ test('accrueInterest remains idempotent under repeated execution', async () => {
             },
             ['id'],
           );
-          const rates = [{ effective_date: '2023-12-01', apy }];
-          const first = await accrueInterest({ storage, date: '2024-01-02', rates, logger: noopLogger });
-          const second = await accrueInterest({ storage, date: '2024-01-02', rates, logger: noopLogger });
+          const policy = {
+            currency: 'USD',
+            apyTimeline: [{ from: '2023-12-01', to: null, apy }],
+          };
+          const first = await accrueInterest({ storage, date: '2024-01-02', policy, logger: noopLogger });
+          const second = await accrueInterest({ storage, date: '2024-01-02', policy, logger: noopLogger });
           const table = await storage.readTable('transactions');
           const interestRows = table.filter((tx) => tx.type === 'INTEREST');
           if (first) {
             assert.equal(interestRows.length, 1);
-            assert.deepEqual(second, first);
+            assert.equal(second, null);
+            const stored = interestRows[0];
+            assert.equal(stored.amount, first.amount);
+            assert.equal(stored.currency, first.currency);
+            assert.equal(stored.date, first.date);
+            assert.equal(stored.type, 'INTEREST');
           } else {
             assert.equal(interestRows.length, 0);
           }
@@ -122,7 +129,10 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
       async ({ deposit, apy, months }) => {
         const amount = roundCents(deposit);
         const monthCount = Math.max(1, months);
-        const rates = [{ effective_date: '2023-12-01', apy }];
+        const policy = {
+          currency: 'USD',
+          apyTimeline: [{ from: '2023-12-01', to: null, apy }],
+        };
 
         let dailyInterest = 0;
         let monthlyInterest = 0;
@@ -166,13 +176,13 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                 await accrueInterest({
                   storage: dailyStorage,
                   date: dateKey,
-                  rates,
+                  policy,
                   logger: noopLogger,
                 });
                 await accrueInterest({
                   storage: monthlyStorage,
                   date: dateKey,
-                  rates,
+                  policy,
                   logger: noopLogger,
                   featureFlags: { monthlyCashPosting: true },
                   postingDay: 'last',
@@ -182,6 +192,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                   date: dateKey,
                   postingDay: 'last',
                   logger: noopLogger,
+                  currency: 'USD',
                 });
               }
               const monthEndKey = monthEnd.toISOString().slice(0, 10);
@@ -190,6 +201,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                 date: monthEndKey,
                 postingDay: 'last',
                 logger: noopLogger,
+                currency: 'USD',
               });
             }
 

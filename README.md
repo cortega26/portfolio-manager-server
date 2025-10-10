@@ -329,7 +329,7 @@ the brute-force guard, cache TTLs, and logging controls.
 - **Signals per ticker** – define a percentage band around the last price to trigger buy/trim/hold signals.
 - **ROI vs SPY** – chart your portfolio’s performance against SPY using daily price data from Stooq (no API key required).
 - **Client-side schema validation** – the React client runs zod checks before POSTing to the portfolio API so only well-formed payloads reach the server.
-- **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management. Enable `FEATURES_MONTHLY_CASH_POSTING` to collapse the daily accruals into a single monthly ledger entry on the configured posting day without altering the math.
+- **Cash & benchmark analytics** – when `FEATURES_CASH_BENCHMARKS` is enabled the server accrues daily cash interest, snapshots NAV, and exposes blended benchmark series plus admin cash-rate management. Enable `FEATURES_MONTHLY_CASH_POSTING` to collapse the daily accruals into a single monthly ledger entry on the configured posting day without altering the math. Each `portfolio_<id>.json` now persists a `cash` policy with `{ currency, apyTimeline, version }`, so individual portfolios can override the global schedule seeded from `cash_rates.json`.
 - **Deterministic math engine** – internal cash, holdings, and return calculations run in Decimal/cents space; see [docs/guides/math-policy.md](docs/guides/math-policy.md).
 - **Responsive, dark mode UI** built with React, Tailwind CSS and Recharts.
 - **Virtualised transaction table** – filter and scroll through 10 000+ records with a debounced search and `react-window`.
@@ -416,7 +416,7 @@ GitHub Actions enforces quality gates on every push and pull request targeting `
 
 - **Lot Tracking (Phase 2):** Current implementation uses average cost basis. For accurate tax reporting, lot-level tracking (FIFO/LIFO) will be implemented in Phase 2.
 - **Trading Day Calendar (Phase 3):** Price staleness detection uses calendar days. Trading day awareness will be added in Phase 3.
-- **Daily Compound Interest:** Cash interest is calculated using daily compound. Documentation has been updated to reflect this (not "simple monthly" as previously stated).
+- **Daily Interest Convention:** Cash interest accrues using an ACT/365 (Fixed) simple daily rate applied to the posting date’s end-of-day balance (same-day flows included). Negative balances accrue negative interest and existing `INTEREST` rows prevent double-posting.
 
 ### Migration Notes
 
@@ -646,6 +646,8 @@ When the `features.cash_benchmarks` flag is active the API also exposes:
 - `GET /api/benchmarks/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
   - Response includes `money_weighted.portfolio` (annualised XIRR) with `start_date`, `end_date`, and `method` fields describing the solved window.
 - `POST /api/admin/cash-rate` accepting `{ "effective_date": "YYYY-MM-DD", "apy": 0.04 }`
+- `POST /api/admin/interest/run?date=YYYY-MM-DD` to post interest for the specified trading day (defaults to the previous trading day when omitted)
+- `POST /api/admin/interest/backfill?from=YYYY-MM-DD&to=YYYY-MM-DD` to re-run the interest accrual for a trading-day range, skipping non-trading days automatically
 
 List endpoints support `page`/`per_page` pagination (defaults: page 1, `per_page` 100) and return an additional `meta` block plus `ETag` headers for conditional requests. They also emit `Cache-Control: private, max-age=<API_CACHE_TTL_SECONDS>` to align browser caches with the server’s in-process TTL.
 
@@ -653,7 +655,7 @@ Refer to [`docs/reference/openapi.yaml`](docs/reference/openapi.yaml) for detail
 
 ### Nightly job & backfill CLI
 
-- The Express entry point schedules `runDailyClose` once per UTC day according to `JOB_NIGHTLY_HOUR`. The job accrues cash interest, refreshes adjusted-close prices (SPY + held tickers), rebuilds NAV snapshots, and stores daily return rows.
+- The Express entry point schedules the nightly pipeline at `JOB_NIGHTLY_HOUR`. It first runs the per-portfolio interest accrual job (writing to `jobs_state` and preventing duplicates via per-portfolio locks) before executing `runDailyClose` to refresh prices, rebuild NAV snapshots, and store daily return rows.
 - Historical recomputations can be triggered manually:
 
   ```bash

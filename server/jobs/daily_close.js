@@ -1,4 +1,4 @@
-import { toDateKey, accrueInterest, postMonthlyInterest } from '../finance/cash.js';
+import { toDateKey } from '../finance/cash.js';
 import { isTradingDay } from '../utils/calendar.js';
 import { computeDailyStates } from '../finance/portfolio.js';
 import { computeDailyReturnRows } from '../finance/returns.js';
@@ -8,6 +8,7 @@ import {
   YahooPriceProvider,
   StooqPriceProvider,
 } from '../data/prices.js';
+import { runInterestAccrual } from './interest.js';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -106,6 +107,7 @@ export async function runDailyClose({
   date = new Date(Date.now() - MS_PER_DAY),
   priceProvider,
   config,
+  skipInterest = false,
 } = {}) {
   const targetDate = new Date(`${toDateKey(date)}T00:00:00Z`);
   if (!isTradingDay(targetDate)) {
@@ -120,24 +122,17 @@ export async function runDailyClose({
     new Date(new Date(`${targetDateKey}T00:00:00Z`).getTime() - MS_PER_DAY),
   );
 
-  const rates = await storage.readTable('cash_rates');
-  await accrueInterest({
-    storage,
-    date: targetDateKey,
-    rates,
-    logger,
-    featureFlags: config?.featureFlags ?? {},
-    postingDay: config?.cash?.postingDay ?? 'last',
-  });
-  if (config?.featureFlags?.monthlyCashPosting) {
-    await postMonthlyInterest({
+  if (!skipInterest) {
+    await runInterestAccrual({
+      dataDir,
       storage,
-      date: targetDateKey,
-      postingDay: config?.cash?.postingDay ?? 'last',
       logger,
+      date: targetDateKey,
+      config,
     });
   }
 
+  const rates = await storage.readTable('cash_rates');
   const transactions = await storage.readTable('transactions');
   const tickers = new Set(['SPY', 'CASH']);
   for (const tx of transactions) {

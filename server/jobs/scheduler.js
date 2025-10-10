@@ -1,7 +1,5 @@
 import { runDailyClose } from './daily_close.js';
-import { isTradingDay } from '../utils/calendar.js';
-
-const MS_PER_DAY = 86_400_000;
+import { runInterestAccrual, previousTradingDay } from './interest.js';
 
 export function scheduleNightlyClose({ config, logger }) {
   const hour = config?.jobs?.nightlyHour ?? 1;
@@ -20,14 +18,15 @@ export function scheduleNightlyClose({ config, logger }) {
   async function runAndSchedule() {
     try {
       const now = new Date();
-      const target = new Date(now.getTime() - MS_PER_DAY);
-      if (!isTradingDay(target)) {
-        logger?.info?.('nightly_job_skipped_non_trading_day', {
-          target_date: target.toISOString().slice(0, 10),
-        });
-      } else {
-        await runDailyClose({ dataDir, logger, date: target, config });
-      }
+      const target = previousTradingDay(now);
+      await runInterestAccrual({ dataDir, logger, date: target, config });
+      await runDailyClose({
+        dataDir,
+        logger,
+        date: target,
+        config,
+        skipInterest: true,
+      });
     } catch (error) {
       logger?.error?.('nightly_job_failed', { error: error.message });
     } finally {
