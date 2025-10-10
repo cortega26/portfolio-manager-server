@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   API_KEY_REQUIREMENTS,
+  API_KEY_SPECIAL_CHARACTERS,
   evaluateApiKeyRequirements,
   isApiKeyStrong,
 } from '../apiKey.js';
@@ -13,6 +14,7 @@ test('strong keys satisfy every requirement', () => {
   assert.equal(checks.length, API_KEY_REQUIREMENTS.length);
   for (const check of checks) {
     assert.equal(check.met, true, `${check.requirement} should be met`);
+    assert.equal(typeof check.translationKey, 'string');
   }
   assert.equal(isApiKeyStrong(key), true);
 });
@@ -30,8 +32,12 @@ test('rotation keys must include allowed special characters', () => {
   const key = 'RotatingKey22$';
   const checks = evaluateApiKeyRequirements(key);
   const specialsCheck = checks.find(
-    (check) => check.requirement === API_KEY_REQUIREMENTS[4],
+    (check) => check.translationKey === 'portfolioControls.requirements.special',
   );
   assert.equal(specialsCheck?.met, true);
+  assert.equal(
+    specialsCheck?.translationValues?.characters,
+    API_KEY_SPECIAL_CHARACTERS,
+  );
   assert.equal(isApiKeyStrong(key), true);
 });
