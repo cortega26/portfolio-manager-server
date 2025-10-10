@@ -1,17 +1,16 @@
-import { formatCurrency } from "../utils/format.js";
+import { useI18n } from "../i18n/I18nProvider.jsx";
 
-function EmptyState() {
+function EmptyState({ message }) {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400">
-      Record transactions to see contribution trends and a chronological activity
-      timeline.
+      {message}
     </div>
   );
 }
 
-function MonthlyBreakdownTable({ breakdown }) {
+function MonthlyBreakdownTable({ breakdown, formatCurrency, t }) {
   if (breakdown.length === 0) {
-    return <EmptyState />;
+    return <EmptyState message={t("transactions.table.empty")} />;
   }
 
   return (
@@ -19,11 +18,11 @@ function MonthlyBreakdownTable({ breakdown }) {
       <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
         <thead className="bg-slate-50/80 dark:bg-slate-800/60">
           <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-            <th className="px-3 py-2">Month</th>
-            <th className="px-3 py-2">Inflows</th>
-            <th className="px-3 py-2">Outflows</th>
-            <th className="px-3 py-2">Net</th>
-            <th className="px-3 py-2">Activity</th>
+            <th className="px-3 py-2">{t("history.table.month")}</th>
+            <th className="px-3 py-2">{t("history.table.inflows")}</th>
+            <th className="px-3 py-2">{t("history.table.outflows")}</th>
+            <th className="px-3 py-2">{t("history.table.net")}</th>
+            <th className="px-3 py-2">{t("history.table.activity")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-900">
@@ -38,12 +37,14 @@ function MonthlyBreakdownTable({ breakdown }) {
                 className={
                   row.net >= 0
                     ? "px-3 py-2 text-emerald-600 dark:text-emerald-300"
-                    : "px-3 py-2 text-rose-600 dark:text-rose-300"
+                  : "px-3 py-2 text-rose-600 dark:text-rose-300"
                 }
               >
                 {formatCurrency(row.net)}
               </td>
-              <td className="px-3 py-2">{row.count} events</td>
+              <td className="px-3 py-2">
+                {t("history.table.events", { count: row.count })}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -52,9 +53,9 @@ function MonthlyBreakdownTable({ breakdown }) {
   );
 }
 
-function ActivityTimeline({ timeline }) {
+function ActivityTimeline({ timeline, t }) {
   if (timeline.length === 0) {
-    return <EmptyState />;
+    return <EmptyState message={t("transactions.table.empty")} />;
   }
 
   return (
@@ -78,7 +79,7 @@ function ActivityTimeline({ timeline }) {
             </span>
           </div>
           <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
-            {item.description}
+            {item.description ?? ""}
           </p>
         </li>
       ))}
@@ -87,21 +88,27 @@ function ActivityTimeline({ timeline }) {
 }
 
 export default function HistoryTab({ monthlyBreakdown, timeline }) {
+  const { t, formatCurrency } = useI18n();
+
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
         <header className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              Contribution Trends
+              {t("history.contribution.title")}
             </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Track deposits, withdrawals, and realised cash flow by calendar month.
+              {t("history.contribution.subtitle")}
             </p>
           </div>
         </header>
         <div className="mt-4">
-          <MonthlyBreakdownTable breakdown={monthlyBreakdown} />
+          <MonthlyBreakdownTable
+            breakdown={monthlyBreakdown}
+            formatCurrency={formatCurrency}
+            t={t}
+          />
         </div>
       </section>
 
@@ -109,15 +116,15 @@ export default function HistoryTab({ monthlyBreakdown, timeline }) {
         <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              Activity Timeline
+              {t("history.timeline.title")}
             </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Review the most recent transactions and portfolio updates at a glance.
+              {t("history.timeline.subtitle")}
             </p>
           </div>
         </header>
         <div className="mt-4">
-          <ActivityTimeline timeline={timeline} />
+          <ActivityTimeline timeline={timeline} t={t} />
         </div>
       </section>
     </div>

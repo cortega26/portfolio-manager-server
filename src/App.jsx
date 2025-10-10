@@ -43,6 +43,7 @@ import {
   createInitialLedgerState,
   ledgerReducer,
 } from "./utils/holdingsLedger.js";
+import { useI18n } from "./i18n/I18nProvider.jsx";
 
 const DashboardTab = lazy(() => import("./components/DashboardTab.jsx"));
 const HoldingsTab = lazy(() => import("./components/HoldingsTab.jsx"));
@@ -54,10 +55,11 @@ const TransactionsTab = lazy(() => import("./components/TransactionsTab.jsx"));
 const AdminTab = lazy(() => import("./components/AdminTab.jsx"));
 
 function LoadingFallback() {
+  const { t } = useI18n();
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-      <span className="text-sm text-slate-600 dark:text-slate-300">Loading view…</span>
+      <span className="text-sm text-slate-600 dark:text-slate-300">{t("loading.view")}</span>
     </div>
   );
 }
@@ -65,6 +67,7 @@ function LoadingFallback() {
 const DEFAULT_TAB = "Dashboard";
 
 export default function App() {
+  const { t, language, setLanguage, locale, formatCurrency, formatDate } = useI18n();
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
   const [portfolioId, setPortfolioId] = useState("");
   const [portfolioKey, setPortfolioKey] = useState("");
@@ -99,12 +102,18 @@ export default function App() {
   );
 
   const historyMonthlyBreakdown = useMemo(
-    () => groupTransactionsByMonth(transactions),
-    [transactions],
+    () => groupTransactionsByMonth(transactions, { locale }),
+    [transactions, locale],
   );
   const historyTimeline = useMemo(
-    () => buildTransactionTimeline(transactions),
-    [transactions],
+    () =>
+      buildTransactionTimeline(transactions, {
+        locale,
+        formatCurrency,
+        translate: t,
+        formatDate,
+      }),
+    [transactions, locale, formatCurrency, t, formatDate],
   );
 
   const metricCards = useMemo(() => buildMetricCards(metrics), [metrics]);
@@ -119,6 +128,16 @@ export default function App() {
   const reportSummaryCards = useMemo(
     () => buildReportSummary(transactions, holdings, metrics),
     [transactions, holdings, metrics],
+  );
+
+  const handleLanguageChange = useCallback(
+    (event) => {
+      const next = event.target.value;
+      if (next && next !== language) {
+        setLanguage(next);
+      }
+    },
+    [language, setLanguage],
   );
 
   useEffect(() => {
@@ -490,14 +509,26 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Portfolio Manager
-          </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Monitor your assets, manage trades, and benchmark performance across
-            dedicated views.
-          </p>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+              {t("app.title")}
+            </h1>
+            <p className="max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+              {t("app.subtitle")}
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+            <span>{t("app.language")}</span>
+            <select
+              value={language}
+              onChange={handleLanguageChange}
+              className="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              <option value="en">{t("app.language.english")}</option>
+              <option value="es">{t("app.language.spanish")}</option>
+            </select>
+          </label>
         </header>
 
         <PortfolioControls
