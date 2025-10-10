@@ -89,13 +89,18 @@ function RequirementChecklist({ checks, status, t }) {
     <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300">
       <p className={`font-medium ${meta.className}`}>{t(meta.labelKey)}</p>
       <ul className="mt-1 space-y-1">
-        {checks.map((item) => (
-          <li key={item.requirement} className="flex items-center gap-2">
-            <span
-              className={`inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase ${
-                item.met
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                  : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+        {checks.map((item) => {
+          const requirementKey = item.translationKey ?? item.requirement;
+          const requirementLabel = item.translationKey
+            ? t(item.translationKey, item.translationValues)
+            : item.requirement;
+          return (
+            <li key={requirementKey} className="flex items-center gap-2">
+              <span
+                className={`inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase ${
+                  item.met
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                    : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
               }`}
               aria-hidden="true"
             >
@@ -108,10 +113,11 @@ function RequirementChecklist({ checks, status, t }) {
                   : "text-slate-600 dark:text-slate-300"
               }
             >
-              {item.requirement}
+              {requirementLabel}
             </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
