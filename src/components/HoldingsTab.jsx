@@ -1,11 +1,13 @@
 import clsx from "clsx";
+
+import { useI18n } from "../i18n/I18nProvider.jsx";
 import { deriveHoldingStats, deriveSignalRow } from "../utils/holdings.js";
 
-function HoldingsTable({ holdings, currentPrices }) {
+function HoldingsTable({ holdings, currentPrices, t }) {
   if (holdings.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        No holdings yet.
+        {t("holdings.table.empty")}
       </p>
     );
   }
@@ -14,17 +16,17 @@ function HoldingsTable({ holdings, currentPrices }) {
     <div className="overflow-x-auto">
       <table
         className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700"
-        aria-label="Holdings"
+        aria-label={t("holdings.table.aria")}
       >
         <thead className="bg-slate-50 dark:bg-slate-800/60">
           <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-            <th className="px-3 py-2">Ticker</th>
-            <th className="px-3 py-2">Shares</th>
-            <th className="px-3 py-2">Avg Cost</th>
-            <th className="px-3 py-2">Current Price</th>
-            <th className="px-3 py-2">Value</th>
-            <th className="px-3 py-2">Unrealised PnL</th>
-            <th className="px-3 py-2">Realised PnL</th>
+            <th className="px-3 py-2">{t("holdings.table.header.ticker")}</th>
+            <th className="px-3 py-2">{t("holdings.table.header.shares")}</th>
+            <th className="px-3 py-2">{t("holdings.table.header.avgCost")}</th>
+            <th className="px-3 py-2">{t("holdings.table.header.currentPrice")}</th>
+            <th className="px-3 py-2">{t("holdings.table.header.value")}</th>
+            <th className="px-3 py-2">{t("holdings.table.header.unrealised")}</th>
+            <th className="px-3 py-2">{t("holdings.table.header.realised")}</th>
           </tr>
         </thead>
         <tbody
@@ -54,7 +56,14 @@ function HoldingsTable({ holdings, currentPrices }) {
   );
 }
 
-function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
+const SIGNAL_LABEL_KEYS = {
+  "BUY zone": "holdings.signals.status.buyZone",
+  "TRIM zone": "holdings.signals.status.trimZone",
+  HOLD: "holdings.signals.status.hold",
+  "NO DATA": "holdings.signals.status.noData",
+};
+
+function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t }) {
   function resolvePctWindow(ticker) {
     if (!signals || !ticker) {
       return 3;
@@ -85,7 +94,7 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
   if (holdings.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Add transactions to configure signals.
+        {t("holdings.signals.empty")}
       </p>
     );
   }
@@ -94,16 +103,16 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
     <div className="overflow-x-auto">
       <table
         className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700"
-        aria-label="Signals"
+        aria-label={t("holdings.signals.aria")}
       >
         <thead className="bg-slate-50 dark:bg-slate-800/60">
           <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-            <th className="px-3 py-2">Ticker</th>
-            <th className="px-3 py-2">Pct Window (%)</th>
-            <th className="px-3 py-2">Last Price</th>
-            <th className="px-3 py-2">Lower Bound</th>
-            <th className="px-3 py-2">Upper Bound</th>
-            <th className="px-3 py-2">Signal</th>
+            <th className="px-3 py-2">{t("holdings.signals.header.ticker")}</th>
+            <th className="px-3 py-2">{t("holdings.signals.header.window")}</th>
+            <th className="px-3 py-2">{t("holdings.signals.header.lastPrice")}</th>
+            <th className="px-3 py-2">{t("holdings.signals.header.lower")}</th>
+            <th className="px-3 py-2">{t("holdings.signals.header.upper")}</th>
+            <th className="px-3 py-2">{t("holdings.signals.header.signal")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -127,14 +136,18 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
                     onChange={(event) =>
                       onSignalChange(holding.ticker, event.target.value)
                     }
-                    aria-label={`${holding.ticker} percent window`}
-                    title={`${holding.ticker} percent window`}
+                    aria-label={t("holdings.signals.windowAria", { ticker: holding.ticker })}
+                    title={t("holdings.signals.windowAria", { ticker: holding.ticker })}
                   />
                 </td>
                 <td className="px-3 py-2">{row.price}</td>
                 <td className="px-3 py-2">{row.lower}</td>
                 <td className="px-3 py-2">{row.upper}</td>
                 <td className="px-3 py-2">
+                  {(() => {
+                    const translationKey = SIGNAL_LABEL_KEYS[row.signal];
+                    const signalLabel = translationKey ? t(translationKey) : row.signal;
+                    return (
                   <span
                     className={clsx(
                       "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide",
@@ -148,8 +161,10 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange }) {
                         "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
                     )}
                   >
-                    {row.signal}
+                      {signalLabel}
                   </span>
+                    );
+                  })()}
                 </td>
               </tr>
             );
@@ -166,19 +181,20 @@ export default function HoldingsTab({
   signals,
   onSignalChange,
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
-          Holdings
+          {t("holdings.section.title")}
         </h2>
         <div className="mt-4">
-          <HoldingsTable holdings={holdings} currentPrices={currentPrices} />
+          <HoldingsTable holdings={holdings} currentPrices={currentPrices} t={t} />
         </div>
       </div>
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
-          Signals
+          {t("holdings.signals.title")}
         </h2>
         <div className="mt-4">
           <SignalsTable
@@ -186,6 +202,7 @@ export default function HoldingsTab({
             currentPrices={currentPrices}
             signals={signals}
             onSignalChange={onSignalChange}
+            t={t}
           />
         </div>
       </div>
