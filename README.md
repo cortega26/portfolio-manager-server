@@ -664,3 +664,59 @@ Refer to [`docs/reference/openapi.yaml`](docs/reference/openapi.yaml) for detail
 ## Contributing
 
 Feel free to fork this repository and customise it to your needs. Pull requests are welcome!
+
+## Deployment
+
+### Production hosting overview
+- **Host:** GitHub Pages (Fastly CDN edge). DNS `www.tooltician.com` is a CNAME to GitHub's Pages edge (`185.199.108.153` – `185.199.111.153`).
+- **Canonical URL:** `https://www.tooltician.com/` with HSTS enabled.
+- **Source branch:** `main` → GitHub Pages workflow (`Deploy Vite app to GitHub Pages`).
+- **SPA fallback:** `404.html` mirrors `index.html` and stores the original path so React Router can hydrate deep links.
+
+### DNS and TLS configuration
+| Name | Type | Value | Required | Description |
+| ---- | ---- | ----- | -------- | ----------- |
+| `www` | CNAME | `<username>.github.io` (Pages apex) | Yes | Primary host for the site; keep proxied via Cloudflare if you need edge rules. |
+| `tooltician.com` | Redirect rule | `https://www.tooltician.com/$1` | Yes | Apex redirect preserving paths/query; implement via registrar or Cloudflare Page Rule. |
+| `Apex fallback` | ALIAS/ANAME (optional) | `www.tooltician.com` | Optional | Use only if your DNS provider supports flattening instead of redirects. |
+
+TLS mode should be **Full (strict)** when proxied through Cloudflare. Re-issue the certificate in Pages after changing the custom domain to ensure Let’s Encrypt covers `www.tooltician.com`.
+
+### Build & asset settings
+- Vite `base` is `/`, so all assets resolve from the domain root.
+- Static assets in `public/` (`favicon.svg`, `tooltician-social-card.svg`, SEO manifests) are fingerprint-free but long-lived; browsers revalidate because the filenames are immutable.
+- Production builds produce hashed JS/CSS. Configure CDN caching with `cache-control: public, max-age=31536000, immutable` for `/assets/*.js|css` and `max-age=600, must-revalidate` for HTML.
+- Brotli and gzip are automatically enabled by GitHub Pages/Fastly; confirm via `curl -H 'Accept-Encoding: br' -I https://www.tooltician.com/`.
+
+### Security headers
+GitHub Pages cannot emit custom headers, so add a Cloudflare Transform Rule (or equivalent CDN feature) that sets:
+```
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://www.tooltician.com https://api.tooltician.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+Referrer-Policy: strict-origin-when-cross-origin
+X-Content-Type-Options: nosniff
+Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+```
+If you cannot control the CDN, mirror these defaults via a lightweight service worker that injects `setDefaultHeaders` before serving cached responses.
+
+### Deployment workflow
+1. Push to `main` – GitHub Actions runs lint/tests/build and publishes `dist/` to Pages.
+2. Verify the workflow named **“Deploy Vite app to GitHub Pages”** completes successfully.
+3. In the repository settings, ensure **Pages → Custom domain** is `www.tooltician.com` and **Enforce HTTPS** is checked.
+4. Confirm the `CNAME` file at the repo root still contains `www.tooltician.com` (single line).
+
+### Troubleshooting the custom domain
+- **DNS still resolving to old IPs:** `dig www.tooltician.com +trace` to confirm delegation. GitHub’s IPs (`185.199.108–111.153`) must appear at the end of the chain.
+- **Certificate pending:** disable and re-enable “Enforce HTTPS” in Pages; Let’s Encrypt may need a few minutes after DNS changes propagate.
+- **Redirect loop:** flush Cloudflare Page Rules. The apex redirect must be a single 301 to `https://www.tooltician.com/$1`.
+- **Stale content:** purge the CDN cache or bump the `cache-control` TTL; hashed assets remove the need for manual busting.
+
+### Post-deploy verification
+Run the commands listed in [`docs/POST_DEPLOY_CHECKLIST.md`](docs/POST_DEPLOY_CHECKLIST.md) after every production deploy. Capture and attach the Lighthouse JSON summary plus link-check output in your release notes.
+
+### Troubleshooting build failures
+- `vite.config.js` honours `VITE_BASE`; confirm environment overrides are unset for production builds.
+- Regenerate the social preview asset by executing `python scripts/create_social_card.py` (writes the deterministic SVG stored in `public/tooltician-social-card.svg`).
+- Ensure `npm run build` finishes without warnings; ESLint or Vitest failures will fail the GitHub Pages deploy action upstream.
+
+## Post-deploy checklist
+The automated checklist now lives in [`docs/POST_DEPLOY_CHECKLIST.md`](docs/POST_DEPLOY_CHECKLIST.md). Keep that document in sync whenever you adjust deployment or verification procedures.
