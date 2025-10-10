@@ -153,3 +153,103 @@ test('monthly interest accrual buffers and posts once per month', async () => {
   });
   assert.equal(second, null);
 });
+
+test('monthly accruals are isolated per currency', async () => {
+  await storage.upsertRow(
+    'transactions',
+    {
+      id: 'usd-deposit',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-01-01',
+      amount: 1000,
+      currency: 'USD',
+    },
+    ['id'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    {
+      id: 'eur-deposit',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-01-01',
+      amount: 2000,
+      currency: 'EUR',
+    },
+    ['id'],
+  );
+
+  const usdPolicy = {
+    currency: 'USD',
+    apyTimeline: [{ from: '2023-12-01', to: null, apy: 0.0365 }],
+  };
+  const eurPolicy = {
+    currency: 'EUR',
+    apyTimeline: [{ from: '2023-12-01', to: null, apy: 0.05 }],
+  };
+
+  await accrueInterest({
+    storage,
+    date: '2024-01-10',
+    policy: usdPolicy,
+    logger: noopLogger,
+    featureFlags: { monthlyCashPosting: true },
+  });
+  await accrueInterest({
+    storage,
+    date: '2024-01-15',
+    policy: eurPolicy,
+    logger: noopLogger,
+    featureFlags: { monthlyCashPosting: true },
+  });
+  await accrueInterest({
+    storage,
+    date: '2024-01-20',
+    policy: usdPolicy,
+    logger: noopLogger,
+    featureFlags: { monthlyCashPosting: true },
+  });
+
+  let accruals = await storage.readTable('cash_interest_accruals');
+  const usdAccrual = accruals.find((row) => row.currency === 'USD');
+  const eurAccrual = accruals.find((row) => row.currency === 'EUR');
+  assert.ok(usdAccrual);
+  assert.ok(eurAccrual);
+  assert.ok(usdAccrual.accrued_cents > 0);
+  assert.ok(eurAccrual.accrued_cents > 0);
+  assert.notEqual(usdAccrual.accrued_cents, eurAccrual.accrued_cents);
+
+  const usdPosting = await postMonthlyInterest({
+    storage,
+    date: '2024-01-31',
+    postingDay: 'last',
+    logger: noopLogger,
+    currency: 'USD',
+  });
+  assert.ok(usdPosting);
+  assert.equal(usdPosting.currency, 'USD');
+
+  accruals = await storage.readTable('cash_interest_accruals');
+  const usdCleared = accruals.find((row) => row.currency === 'USD');
+  const eurRemaining = accruals.find((row) => row.currency === 'EUR');
+  assert.ok(usdCleared);
+  assert.equal(usdCleared.accrued_cents, 0);
+  assert.ok(eurRemaining);
+  assert.ok(eurRemaining.accrued_cents > 0);
+
+  const eurPosting = await postMonthlyInterest({
+    storage,
+    date: '2024-01-31',
+    postingDay: 'last',
+    logger: noopLogger,
+    currency: 'EUR',
+  });
+  assert.ok(eurPosting);
+  assert.equal(eurPosting.currency, 'EUR');
+
+  accruals = await storage.readTable('cash_interest_accruals');
+  const eurCleared = accruals.find((row) => row.currency === 'EUR');
+  assert.ok(eurCleared);
+  assert.equal(eurCleared.accrued_cents, 0);
+});

@@ -145,7 +145,9 @@ async function recordMonthlyAccrual({
 }) {
   await storage.ensureTable('cash_interest_accruals', []);
   const rows = await storage.readTable('cash_interest_accruals');
-  const existing = rows.find((row) => row.month === monthKey);
+  const existing = rows.find(
+    (row) => row.month === monthKey && normalizeCurrency(row.currency) === currency,
+  );
   const accruedCents = (existing?.accrued_cents ?? 0) + interestCents;
   const updated = {
     month: monthKey,
@@ -154,7 +156,11 @@ async function recordMonthlyAccrual({
     posted_at: existing?.posted_at ?? null,
     currency,
   };
-  await storage.upsertRow('cash_interest_accruals', updated, ['month']);
+  await storage.deleteWhere(
+    'cash_interest_accruals',
+    (row) => row.month === monthKey && normalizeCurrency(row.currency) === currency,
+  );
+  await storage.upsertRow('cash_interest_accruals', updated, ['month', 'currency']);
   logger?.info?.('interest_accrual_buffered', {
     month: monthKey,
     date: dateKey,
@@ -255,11 +261,9 @@ export async function postMonthlyInterest({
 
   await storage.ensureTable('cash_interest_accruals', []);
   const accruals = await storage.readTable('cash_interest_accruals');
-  const target = accruals.find((row) => row.month === monthKey);
-  const targetCurrency = normalizeCurrency(target?.currency);
-  if (target && targetCurrency !== currency) {
-    return null;
-  }
+  const target = accruals.find(
+    (row) => row.month === monthKey && normalizeCurrency(row.currency) === currency,
+  );
   const accruedCents = target?.accrued_cents ?? 0;
   if (accruedCents === 0) {
     return null;
@@ -279,6 +283,10 @@ export async function postMonthlyInterest({
   };
 
   await storage.upsertRow('transactions', record, ['id']);
+  await storage.deleteWhere(
+    'cash_interest_accruals',
+    (row) => row.month === monthKey && normalizeCurrency(row.currency) === currency,
+  );
   await storage.upsertRow(
     'cash_interest_accruals',
     {
@@ -289,7 +297,7 @@ export async function postMonthlyInterest({
       posted_amount_cents: accruedCents,
       currency,
     },
-    ['month'],
+    ['month', 'currency'],
   );
   await storage.deleteWhere(
     'transactions',
