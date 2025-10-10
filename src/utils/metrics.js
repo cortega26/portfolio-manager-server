@@ -1,13 +1,36 @@
-import { formatCurrency, formatPercent } from "./format.js";
+import { formatCurrency, formatNumber, formatPercent } from "./format.js";
 
 function safeNumber(value) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
 }
 
-export function buildMetricCards(metrics) {
+const identityTranslate = (key) => key;
+
+function resolveFormatter(provided, fallback) {
+  if (typeof provided === "function") {
+    return provided;
+  }
+  return fallback;
+}
+
+export function buildMetricCards(
+  metrics,
+  { translate, formatCurrency: formatCurrencyOption, formatPercent: formatPercentOption, formatNumber: formatNumberOption } = {},
+) {
   if (!metrics) {
     return [];
   }
+
+  const t = typeof translate === "function" ? translate : identityTranslate;
+  const formatCurrencyFn = resolveFormatter(formatCurrencyOption, (value, options) => formatCurrency(value, options));
+  const formatPercentFn = resolveFormatter(
+    formatPercentOption,
+    (value, fractionDigits = 2, options) => formatPercent(value, fractionDigits, options),
+  );
+  const formatNumberFn = resolveFormatter(
+    formatNumberOption,
+    (value, options) => formatNumber(value, options),
+  );
 
   const totalValue = safeNumber(metrics.totalValue);
   const totalCost = safeNumber(metrics.totalCost);
@@ -16,27 +39,28 @@ export function buildMetricCards(metrics) {
   const totalReturn = totalRealised + totalUnrealised;
   const returnPct = totalCost === 0 ? 0 : (totalReturn / totalCost) * 100;
   const costCoverage = totalCost === 0 ? 0 : totalValue / totalCost;
+  const coverageDisplay = formatNumberFn(costCoverage, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return [
     {
-      label: "Net Asset Value",
-      value: formatCurrency(totalValue),
-      detail: `Across ${metrics.holdingsCount ?? 0} positions`,
+      label: t("metrics.cards.nav.label"),
+      value: formatCurrencyFn(totalValue),
+      detail: t("metrics.cards.nav.detail", { count: metrics.holdingsCount ?? 0 }),
     },
     {
-      label: "Invested Capital",
-      value: formatCurrency(totalCost),
-      detail: `${formatCurrency(totalRealised)} realised gains`,
+      label: t("metrics.cards.cost.label"),
+      value: formatCurrencyFn(totalCost),
+      detail: t("metrics.cards.cost.detail", { realised: formatCurrencyFn(totalRealised) }),
     },
     {
-      label: "Total Return",
-      value: formatCurrency(totalReturn),
-      detail: formatPercent(returnPct, 1),
+      label: t("metrics.cards.return.label"),
+      value: formatCurrencyFn(totalReturn),
+      detail: t("metrics.cards.return.detail", { percent: formatPercentFn(returnPct, 1) }),
     },
     {
-      label: "Coverage Ratio",
-      value: costCoverage.toFixed(2),
-      detail: "Value / Cost",
+      label: t("metrics.cards.coverage.label"),
+      value: coverageDisplay,
+      detail: t("metrics.cards.coverage.detail"),
     },
   ];
 }
@@ -62,10 +86,20 @@ export function calculateAllocationBreakdown(holdings, currentPrices) {
     .slice(0, 10);
 }
 
-export function derivePerformanceHighlights(roiSeries) {
+export function derivePerformanceHighlights(
+  roiSeries,
+  { translate, formatPercent: formatPercentOption, formatDate } = {},
+) {
   if (!Array.isArray(roiSeries) || roiSeries.length === 0) {
     return [];
   }
+
+  const t = typeof translate === "function" ? translate : identityTranslate;
+  const formatPercentFn = resolveFormatter(
+    formatPercentOption,
+    (value, fractionDigits = 2, options) => formatPercent(value, fractionDigits, options),
+  );
+  const formatDateFn = typeof formatDate === "function" ? formatDate : (value) => value;
 
   let best = roiSeries[0];
   let worst = roiSeries[0];
@@ -86,26 +120,34 @@ export function derivePerformanceHighlights(roiSeries) {
   const avg = sum / roiSeries.length;
   const trackingError = trackingSum / roiSeries.length;
 
+  const formatDateValue = (value) => {
+    const formatted = formatDateFn(value);
+    if (formatted === undefined || formatted === null) {
+      return "—";
+    }
+    return String(formatted);
+  };
+
   return [
     {
-      label: "Best session",
-      value: formatPercent(best.portfolio, 2),
-      description: `Recorded on ${best.date}`,
+      label: t("metrics.performance.best.label"),
+      value: formatPercentFn(best.portfolio, 2),
+      description: t("metrics.performance.best.description", { date: formatDateValue(best.date) }),
     },
     {
-      label: "Worst session",
-      value: formatPercent(worst.portfolio, 2),
-      description: `Recorded on ${worst.date}`,
+      label: t("metrics.performance.worst.label"),
+      value: formatPercentFn(worst.portfolio, 2),
+      description: t("metrics.performance.worst.description", { date: formatDateValue(worst.date) }),
     },
     {
-      label: "Average daily return",
-      value: formatPercent(avg, 2),
-      description: `${roiSeries.length} total observations`,
+      label: t("metrics.performance.average.label"),
+      value: formatPercentFn(avg, 2),
+      description: t("metrics.performance.average.description", { count: roiSeries.length }),
     },
     {
-      label: "Tracking gap",
-      value: formatPercent(trackingError, 2),
-      description: "Avg |Portfolio ROI − SPY|",
+      label: t("metrics.performance.trackingGap.label"),
+      value: formatPercentFn(trackingError, 2),
+      description: t("metrics.performance.trackingGap.description"),
     },
   ];
 }
