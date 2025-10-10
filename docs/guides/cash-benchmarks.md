@@ -29,14 +29,12 @@ r_{\text{daily}} &= \frac{\text{APY}}{365},\\
 \end{aligned}
 $$
 
-where \(\text{Cash}^{\text{EOD}}_{t}\) is the cash balance after all non-interest transactions dated on \(t\) have been applied (but before the automated posting for \(t\)). The nightly `runInterestAccrual` job enumerates each `portfolio_<id>.json`, resolves its `cash.apyTimeline`, and persists per-portfolio transactions using deterministic identifiers (`interest-<portfolioId>-YYYY-MM-DD`). Re-running the job simply updates the same record without duplication.
+where \(\text{Cash}^{\text{EOD}}_{t}\) is the cash balance after all non-interest transactions dated on \(t\) have been applied (but before the automated posting for \(t\)). The accrual job writes deterministic identifiers (`interest-YYYY-MM-DD`) so re-running the job simply updates the same record.
 
 ### Day-count convention
 
-- Cash interest uses **ACT/365 (Fixed)**. The helper `dailyRateFromApy` converts the stored APY into a daily factor with `apy / dayCount`, defaulting `dayCount` to `365` for every calendar day. If ACT/ACT is ever desired, the divisor would need to switch to the actual day count in the posting year.
-- The end-of-day cash balance **on the posting date** (after all buys, sells, deposits, withdrawals, dividends, and fees dated that day, but before posting interest) is the base for interest. Negative balances yield negative interest; zero balances skip the insert entirely.
-- Booked interest amounts round to the portfolio’s currency precision (e.g. USD → 2 decimals, CLP → 0) before persistence and before any monthly aggregation.
-- `cash_interest_accruals.accrued_cents` and `posted_amount_cents` now store currency-specific minor units (cents for USD/EUR, pesos for CLP, etc.) to keep the buffers integer-safe regardless of precision.
+- Cash interest uses **ACT/365 (Fixed)**. The helper `dailyRateFromApy` converts the stored APY into a daily factor with `(1 + apy)^(1/365) - 1` and rounds booked entries to the nearest cent (`toCents`/`fromCents`). **Note:** under ACT/365(Fixed) we continue to use `365` even in leap years. If ACT/ACT is ever desired, the exponent would need to switch to `1/DaysInYear(t)`.
+- The prior day’s closing cash balance (after all trades, deposits, withdrawals, dividends, and previous interest) is the base for interest. A zero or negative cash balance short-circuits the insert so the ledger never accrues spurious income.
 - **Input expectation:** Each portfolio persists `cash.apyTimeline` entries as `{ from, to, apy }` segments. The admin `POST /api/admin/cash-rate` endpoint still upserts the global schedule in `cash_rates.json`; migrations and new portfolio bootstraps copy that schedule into the per-portfolio timeline. Store **APY (effective annual yield)** to keep the daily conversion accurate. If you only have **APR (nominal)**, convert externally or add a helper (`aprToApy`).
 
 ### Rate change proration
@@ -47,8 +45,8 @@ where \(\text{Cash}^{\text{EOD}}_{t}\) is the cash balance after all non-interes
 
 ### Effective-date semantics
 
-- When running the nightly accrual for day `D`, the engine uses the APY whose `from`/`to` window covers `D` and multiplies it by the end-of-day balance for that same date. This keeps same-day deposits/withdrawals in scope while preventing double-posts (existing `INTEREST` rows for `D` short-circuit the insert).
-- A newly inserted APY with `effective_date = 2024-02-01` therefore takes effect on the **close of 2024-02-01** and the interest entry dated `2024-02-01` is the first to reflect it. Historical entries remain unchanged unless a backfill is rerun.
+- When running the nightly accrual for day `D`, the engine first looks at the previous calendar day `D-1`. The APY effective on `D-1` (resolved from `cash.apyTimeline`) powers the interest posted on `D`, mirroring how banks pay interest for the balance that existed over the prior day.
+- A newly inserted APY with `effective_date = 2024-02-01` therefore takes effect on the **close of 2024-02-01** and the interest entry dated `2024-02-02` is the first to reflect it. Historical entries remain unchanged unless a backfill is rerun.
 - Re-running either the nightly job or a backfill is idempotent because the transaction ID includes the posting date; repeats simply overwrite the existing `INTEREST` row instead of duplicating it.
 
 ## Time-Weighted Returns & Benchmarks
@@ -95,7 +93,7 @@ When NAV snapshots are missing for the requested range, the XIRR falls back to `
 
 `server/jobs/daily_close.js` executes the following steps for the target day (defaults to the last completed **UTC** day):
 
-1. If the caller has not already executed `runInterestAccrual`, invoke it to post per-portfolio interest using the configured policies and feature flags.
+1. Resolve the APY effective for the posting date and accrue cash interest against the end-of-day balance.
 2. Fetch adjusted‑close prices for SPY and held tickers via the provider interface (default: Yahoo Finance) and persist them, logging provider latency.
 3. Rebuild NAV snapshots with carry‑forward pricing.
 4. Compute and store daily return rows.
