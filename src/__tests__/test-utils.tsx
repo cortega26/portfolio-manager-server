@@ -9,15 +9,20 @@ export function renderWithProviders(
   { route = '/', ...options }: { route?: string } & RenderOptions = {}
 ) {
   window.history.pushState({}, '', route);
-  return render(
+  const wrapper = (child: ReactNode) => (
     <I18nProvider>
       <MemoryRouter
         initialEntries={[route]}
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
-        {ui}
+        {child}
       </MemoryRouter>
-    </I18nProvider>,
-    options,
+    </I18nProvider>
   );
+
+  const result = render(wrapper(ui), options);
+  return {
+    ...result,
+    rerender: (nextUi: ReactNode) => result.rerender(wrapper(nextUi)),
+  };
 }
