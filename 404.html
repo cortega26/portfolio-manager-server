@@ -1,18 +1,48 @@
-<!doctype html>
-<html>
-
-<head>
-    <meta charset="utf-8">
-    <script>
-        (function () {
-            var l = window.location;
-            var p = l.pathname.replace(/^\//, '');
-            // Preserva query/hash y deja a tu router hacerse cargo
-            l.replace('/index.html?redirect=/' + encodeURIComponent(p) + l.search + l.hash);
-        })();
-    </script>
-</head>
-
-<body></body>
-
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tooltician Portfolio Manager</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      name="description"
+      content="Tooltician keeps you on track with portfolio insights even when a link changes."
+    />
+    <link rel="canonical" href="https://www.tooltician.com/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#1f2937" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Tooltician" />
+    <meta property="og:title" content="Tooltician Portfolio Manager" />
+    <meta
+      property="og:description"
+      content="Stay ahead of the market with Tooltician—intelligent insights, allocation controls, and risk monitoring for modern investors."
+    />
+    <meta property="og:url" content="https://www.tooltician.com/" />
+    <meta property="og:image" content="https://www.tooltician.com/tooltician-social-card.svg" />
+    <meta property="og:image:type" content="image/svg+xml" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Tooltician Portfolio Manager" />
+    <meta
+      name="twitter:description"
+      content="Stay ahead of the market with Tooltician—intelligent insights, allocation controls, and risk monitoring for modern investors."
+    />
+    <meta name="twitter:image" content="https://www.tooltician.com/tooltician-social-card.svg" />
+    <meta name="twitter:image:type" content="image/svg+xml" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://www.tooltician.com https://api.tooltician.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=(), payment=()" />
+  </head>
+  <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div id="root"></div>
+    <script type="module" src="/spa-404.js"></script>
+    <script type="module" src="/redirect-spa.js"></script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
