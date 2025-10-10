@@ -1,34 +1,28 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { configureFormat, formatCurrency, formatPercent, formatSignedPercent } from "../utils/format.js";
+import {
+  configureFormat,
+  formatCurrency as baseFormatCurrency,
+  formatPercent as baseFormatPercent,
+  formatSignedPercent as baseFormatSignedPercent,
+} from "../utils/format.js";
 import { translations } from "./translations.js";
 
 const FALLBACK_LANGUAGE = "en";
 const STORAGE_KEY = "portfolio-manager-language";
 
 const LANGUAGE_CONFIG = {
-  en: {
-    locale: "en-US",
-    currency: "USD",
-    measurementSystem: "imperial",
-    dateOptions: { dateStyle: "medium" },
-  },
-  es: {
-    locale: "es-ES",
-    currency: "USD",
-    measurementSystem: "metric",
-    dateOptions: { dateStyle: "long" },
-  },
+  en: { locale: "en-US", currency: "USD", measurementSystem: "imperial" },
+  es: { locale: "es-ES", currency: "USD", measurementSystem: "metric" },
 };
 
 const I18nContext = createContext(null);
+
+function interpolate(template, values = {}) {
+  return template.replace(/\{(\w+)\}/g, (_, token) =>
+    Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : `{${token}}`,
+  );
+}
 
 function getInitialLanguage() {
   if (typeof window !== "undefined") {
@@ -47,96 +41,93 @@ function getInitialLanguage() {
   return FALLBACK_LANGUAGE;
 }
 
-function interpolate(template, values = {}) {
-  return template.replace(/\{(\w+)\}/g, (_, token) => {
-    if (Object.prototype.hasOwnProperty.call(values, token)) {
-      return String(values[token]);
-    }
-    return `{${token}}`;
-  });
-}
-
-function resolveTranslation(language, key) {
-  const langTable = translations[language] ?? translations[FALLBACK_LANGUAGE];
-  return langTable[key] ?? translations[FALLBACK_LANGUAGE][key] ?? key;
-}
-
 export function I18nProvider({ children }) {
   const [language, setLanguage] = useState(getInitialLanguage);
 
   const config = LANGUAGE_CONFIG[language] ?? LANGUAGE_CONFIG[FALLBACK_LANGUAGE];
+  const locale = config.locale;
+  const currency = config.currency;
 
   useEffect(() => {
-    configureFormat({ locale: config.locale, currency: config.currency });
+    configureFormat({ locale, currency });
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, language);
     }
-  }, [config.currency, config.locale, language]);
+  }, [currency, language, locale]);
 
   const translate = useCallback(
-    (key, values) => interpolate(resolveTranslation(language, key), values),
+    (key, vars) => {
+      const table = translations[language] ?? translations[FALLBACK_LANGUAGE];
+      const fallbackTable = translations[FALLBACK_LANGUAGE] ?? {};
+      const template = table[key] ?? fallbackTable[key] ?? key;
+      return interpolate(template, vars);
+    },
     [language],
   );
 
+  const formatCurrency = useCallback(
+    (value, options) => baseFormatCurrency(value, { locale, currency, ...options }),
+    [currency, locale],
+  );
+
+  const formatPercent = useCallback(
+    (value, fractionDigits = 2, options) =>
+      baseFormatPercent(value, fractionDigits, { locale, ...options }),
+    [locale],
+  );
+
+  const formatSignedPercent = useCallback(
+    (value, fractionDigits = 2, options) =>
+      baseFormatSignedPercent(value, fractionDigits, { locale, ...options }),
+    [locale],
+  );
+
   const formatDate = useCallback(
-    (value, options) => {
+    (value, options = {}) => {
       if (!value) {
         return "—";
       }
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return "—";
+      }
       try {
-        const date = value instanceof Date ? value : new Date(value);
-        if (Number.isNaN(date.getTime())) {
-          return "—";
-        }
-        const formatter = new Intl.DateTimeFormat(config.locale, options ?? config.dateOptions);
+        const formatter = new Intl.DateTimeFormat(locale, options);
         return formatter.format(date);
       } catch (error) {
         return "—";
       }
     },
-    [config.dateOptions, config.locale],
+    [locale],
   );
 
-  const formatNumber = useCallback(
-    (value, options) => {
-      if (value === undefined || value === null || Number.isNaN(value)) {
-        return "—";
-      }
-      const formatter = new Intl.NumberFormat(config.locale, options);
-      return formatter.format(Number(value));
-    },
-    [config.locale],
-  );
-
-  const contextValue = useMemo(
+  const value = useMemo(
     () => ({
       language,
-      locale: config.locale,
-      currency: config.currency,
+      locale,
+      currency,
       measurementSystem: config.measurementSystem,
       setLanguage,
       t: translate,
+      formatCurrency,
+      formatPercent,
+      formatSignedPercent,
       formatDate,
-      formatNumber,
-      formatCurrency: (value, options) =>
-        formatCurrency(value, { locale: config.locale, currency: config.currency, ...options }),
-      formatPercent: (value, digits, options) =>
-        formatPercent(value, digits, { locale: config.locale, ...options }),
-      formatSignedPercent: (value, digits, options) =>
-        formatSignedPercent(value, digits, { locale: config.locale, ...options }),
     }),
     [
-      config.currency,
-      config.locale,
       config.measurementSystem,
+      currency,
+      formatCurrency,
       formatDate,
-      formatNumber,
+      formatPercent,
+      formatSignedPercent,
       language,
+      locale,
       translate,
     ],
   );
 
-  return <I18nContext.Provider value={contextValue}>{children}</I18nContext.Provider>;
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
 export function useI18n() {
@@ -146,4 +137,3 @@ export function useI18n() {
   }
   return context;
 }
-

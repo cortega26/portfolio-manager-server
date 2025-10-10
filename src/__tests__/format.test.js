@@ -1,8 +1,15 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { formatCurrency, formatPercent, formatSignedPercent } from "../utils/format.js";
+import {
+  configureFormat,
+  formatCurrency,
+  formatPercent,
+  formatSignedPercent,
+} from "../utils/format.js";
 
 describe("format utilities", () => {
+  configureFormat({ locale: "en-US", currency: "USD" });
+
   it("formats currency with fallback for invalid inputs", () => {
     assert.equal(formatCurrency(1234.567), "$1,234.57");
     assert.equal(formatCurrency(null), "—");

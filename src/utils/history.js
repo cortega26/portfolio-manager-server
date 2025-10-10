@@ -1,5 +1,3 @@
-import { formatCurrency } from "./format.js";
-
 const CASH_IN_TYPES = new Set(["DEPOSIT", "DIVIDEND", "INTEREST", "SELL"]);
 const CASH_OUT_TYPES = new Set(["WITHDRAWAL", "BUY", "FEE"]);
 
@@ -25,7 +23,7 @@ function toLocalDate(dateString) {
   return date;
 }
 
-function parseMonthKey(dateString) {
+function parseMonthKey(dateString, locale) {
   const parsed = toLocalDate(dateString);
   if (!parsed) {
     return null;
@@ -33,44 +31,21 @@ function parseMonthKey(dateString) {
 
   const month = String(parsed.getMonth() + 1).padStart(2, "0");
   const year = parsed.getFullYear();
-  const label = parsed.toLocaleString(undefined, {
+  const label = parsed.toLocaleString(locale, {
     month: "long",
     year: "numeric",
   });
   return { key: `${year}-${month}`, label };
 }
 
-function describeTransaction(transaction) {
-  const amountLabel = formatCurrency(transaction.amount);
-  const shareLabel = transaction.shares
-    ? `${transaction.shares.toFixed(4)} shares`
-    : "cash movement";
-
-  switch (transaction.type) {
-    case "BUY":
-      return `Bought ${shareLabel} of ${transaction.ticker} at ${formatCurrency(transaction.price)} (${amountLabel}).`;
-    case "SELL":
-      return `Sold ${shareLabel} of ${transaction.ticker} for ${amountLabel}.`;
-    case "DIVIDEND":
-      return `Recorded dividend from ${transaction.ticker} worth ${amountLabel}.`;
-    case "DEPOSIT":
-      return `Deposited ${amountLabel} into the account.`;
-    case "WITHDRAWAL":
-    case "WITHDRAW":
-      return `Withdrew ${amountLabel} from the account.`;
-    default:
-      return `Logged ${amountLabel} for ${transaction.ticker ?? "portfolio"}.`;
-  }
-}
-
-export function groupTransactionsByMonth(transactions) {
+export function groupTransactionsByMonth(transactions, { locale } = {}) {
   if (!Array.isArray(transactions)) {
     return [];
   }
 
   const map = new Map();
   transactions.forEach((transaction) => {
-    const parsed = parseMonthKey(transaction.date);
+    const parsed = parseMonthKey(transaction.date, locale);
     if (!parsed) {
       return;
     }
@@ -112,25 +87,51 @@ export function groupTransactionsByMonth(transactions) {
   return Array.from(map.values()).sort((a, b) => (a.month < b.month ? 1 : -1));
 }
 
-export function buildTransactionTimeline(transactions) {
+export function buildTransactionTimeline(
+  transactions,
+  { locale, formatCurrency, translate, formatDate },
+) {
   if (!Array.isArray(transactions)) {
     return [];
   }
 
+  const formatDateLabel =
+    typeof formatDate === "function"
+      ? (value) => formatDate(value, { month: "short", day: "numeric", year: "numeric" })
+      : (value) => {
+          const parsed = toLocalDate(value);
+          if (!parsed) {
+            return value;
+          }
+          return parsed.toLocaleDateString(locale, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+        };
+
+  const describeTransaction = (transaction) => {
+    if (typeof formatCurrency !== "function" || typeof translate !== "function") {
+      return null;
+    }
+    const amountLabel = formatCurrency(transaction.amount);
+    switch (transaction.type) {
+      case "DEPOSIT":
+        return translate("history.timeline.deposit", { amount: amountLabel });
+      case "WITHDRAWAL":
+      case "WITHDRAW":
+        return translate("history.timeline.withdraw", { amount: amountLabel });
+      default:
+        return null;
+    }
+  };
+
   return [...transactions]
-    .filter((transaction) => Boolean(parseMonthKey(transaction.date)))
+    .filter((transaction) => Boolean(parseMonthKey(transaction.date, locale)))
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 20)
     .map((transaction) => {
-      const parsed = toLocalDate(transaction.date);
-      if (!parsed) {
-        return null;
-      }
-      const dateLabel = parsed.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
+      const dateLabel = formatDateLabel(transaction.date);
       const typeLabel = transaction.type ?? "Activity";
       return {
         date: transaction.date,
@@ -138,6 +139,7 @@ export function buildTransactionTimeline(transactions) {
         typeLabel,
         title: `${transaction.ticker ?? "Portfolio"} ${typeLabel}`,
         description: describeTransaction(transaction),
+        transaction,
       };
     })
     .filter(Boolean);
