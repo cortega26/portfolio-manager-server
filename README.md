@@ -380,13 +380,13 @@ The Playwright configuration (`playwright.config.ts`) starts Vite on port **4173
 
 ## Continuous Integration
 
-GitHub Actions enforces quality gates on every push and pull request targeting `main`. The reusable CI workflow runs before any Pages deployment and must succeed before the release workflow can proceed.
+GitHub Actions enforces quality gates on every push and pull request targeting `main`. The reusable CI workflow cancels superseded runs on the same ref, runs before any Pages deployment, and must succeed before the release workflow can proceed.
 
 | Workflow | Job | Purpose | Key commands | Artifacts |
 | -------- | --- | ------- | ------------ | --------- |
-| `CI` | `ci` | Installs dependencies, lints, runs the Node test runner twice (directly and through `nyc`) and enforces coverage/security/audit gates. | `npm ci`, `npm run lint`, `npm run test`, `npx nyc check-coverage --branches=85 --functions=85 --lines=85 --statements=85`, `npx gitleaks detect --no-banner`, `npm audit --audit-level=moderate` | `coverage/` uploaded as the `node-coverage` artifact |
+| `CI` | `ci` | Installs dependencies, lints, runs the Vitest coverage suite with strict Node warnings enabled, builds the production bundle, and enforces coverage/security/audit gates. | `npm ci --no-fund --no-audit`, `npm run lint`, `NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage`, `npm run build`, `npx gitleaks detect --no-banner`, `npm audit --audit-level=moderate` | `coverage/` uploaded as the `node-coverage` artifact |
 | `CI` (planned) | `e2e-smoke` | Launch Vite headlessly and execute Playwright smoke flows with mocked API responses. | `npm ci`, `npx playwright install --with-deps chromium`, `npm run test:e2e` | `playwright-report/`, `test-results/e2e-junit.xml` |
-| `Deploy Vite app to GitHub Pages` | `build-and-deploy` | Builds and publishes the static frontend once CI succeeds on `main`. | `npm install`, `npm run build` | `dist/` via `actions/upload-pages-artifact` |
+| `Deploy Vite app to GitHub Pages` | `build-and-deploy` | Builds and publishes the static frontend once CI succeeds on `main`. | `npm ci --no-fund --no-audit`, `npm run build` | `dist/` via `actions/upload-pages-artifact` |
 
 #### Proposed GitHub Actions steps
 
