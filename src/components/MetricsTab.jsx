@@ -1,10 +1,10 @@
-import { formatCurrency, formatPercent } from "../utils/format.js";
+import { useI18n } from "../i18n/I18nProvider.jsx";
 
-function MetricsGrid({ cards }) {
+function MetricsGrid({ cards, t }) {
   if (cards.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Metrics become available after you add holdings and refresh ROI data.
+        {t("metrics.empty.cards")}
       </p>
     );
   }
@@ -31,11 +31,11 @@ function MetricsGrid({ cards }) {
   );
 }
 
-function AllocationList({ allocations }) {
+function AllocationList({ allocations, t, formatCurrency, formatPercent }) {
   if (allocations.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Allocation insights appear once positions include market pricing.
+        {t("metrics.empty.allocations")}
       </p>
     );
   }
@@ -53,7 +53,7 @@ function AllocationList({ allocations }) {
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {formatCurrency(row.value)} current value
+            {t("metrics.allocations.currentValue", { value: formatCurrency(row.value) })}
           </p>
           <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
             <div
@@ -67,11 +67,11 @@ function AllocationList({ allocations }) {
   );
 }
 
-function PerformanceHighlights({ performance }) {
+function PerformanceHighlights({ performance, t }) {
   if (performance.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Add transactions to compute daily performance highlights.
+        {t("metrics.empty.performance")}
       </p>
     );
   }
@@ -101,47 +101,53 @@ function PerformanceHighlights({ performance }) {
 }
 
 export default function MetricsTab({ metricCards, allocations, performance }) {
+  const { t, formatCurrency, formatPercent } = useI18n();
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
         <header>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            Key Ratios
+            {t("metrics.section.keyRatios")}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Compare portfolio returns against capital invested and realised gains.
+            {t("metrics.section.keyRatios.subtitle")}
           </p>
         </header>
         <div className="mt-4">
-          <MetricsGrid cards={metricCards} />
+          <MetricsGrid cards={metricCards} t={t} />
         </div>
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
         <header>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            Allocation Concentration
+            {t("metrics.section.allocations")}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Understand where capital is concentrated to inform diversification efforts.
+            {t("metrics.section.allocations.subtitle")}
           </p>
         </header>
         <div className="mt-4">
-          <AllocationList allocations={allocations} />
+          <AllocationList
+            allocations={allocations}
+            t={t}
+            formatCurrency={formatCurrency}
+            formatPercent={formatPercent}
+          />
         </div>
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
         <header>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            Performance Highlights
+            {t("metrics.section.performance")}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Daily ROI series is summarised into best, worst, and average sessions.
+            {t("metrics.section.performance.subtitle")}
           </p>
         </header>
         <div className="mt-4">
-          <PerformanceHighlights performance={performance} />
+          <PerformanceHighlights performance={performance} t={t} />
         </div>
       </section>
     </div>
