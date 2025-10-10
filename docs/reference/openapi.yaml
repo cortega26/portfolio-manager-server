@@ -878,6 +878,9 @@ components:
         metadata:
           type: object
           additionalProperties: true
+        currency:
+          type: string
+          description: ISO 4217 currency code for cash movements.
     PortfolioPayload:
       type: object
       properties:
@@ -897,6 +900,34 @@ components:
           properties:
             autoClip:
               type: boolean
+        schemaVersion:
+          type: integer
+          minimum: 1
+        cash:
+          type: object
+          properties:
+            currency:
+              type: string
+              description: ISO 4217 currency code for the portfolio cash policy.
+            apyTimeline:
+              type: array
+              items:
+                type: object
+                required:
+                - from
+                - apy
+                properties:
+                  from:
+                    type: string
+                    format: date
+                  to:
+                    type: string
+                    format: date
+                    nullable: true
+                  apy:
+                    type: number
+            version:
+              type: integer
     ErrorResponse:
       type: object
       required:

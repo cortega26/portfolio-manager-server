@@ -10,7 +10,8 @@ When `FEATURES_MONTHLY_CASH_POSTING` is enabled the server still computes the ca
 | Table | Purpose |
 | --- | --- |
 | `transactions.json` | Portfolio ledger including automated `INTEREST` entries. |
-| `cash_rates.json` | Piecewise-constant APY timeline used for daily interest. |
+| `portfolio_<id>.json` | Per-portfolio payload including transactions, signals, settings, and `cash.apyTimeline`. |
+| `cash_rates.json` | Legacy global APY schedule. Acts as the default seed for `cash.apyTimeline` when migrating or provisioning portfolios. |
 | `prices.json` | Daily adjusted close prices for held tickers, SPY, and cash (fixed 1.0). |
 | `nav_snapshots.json` | End-of-day NAV, ex-cash NAV, sleeve balances, and `stale_price` flag. |
 | `returns_daily.json` | Time-weighted daily returns for portfolio, ex-cash sleeve, blended benchmark, SPY, and cash. |
@@ -33,17 +34,17 @@ The accrual job writes deterministic identifiers (`interest-YYYY-MM-DD`) so re-r
 
 - Cash interest uses **ACT/365 (Fixed)**. The helper `dailyRateFromApy` converts the stored APY into a daily factor with `(1 + apy)^(1/365) - 1` and rounds booked entries to the nearest cent (`toCents`/`fromCents`). **Note:** under ACT/365(Fixed) we continue to use `365` even in leap years. If ACT/ACT is ever desired, the exponent would need to switch to `1/DaysInYear(t)`.
 - The prior day’s closing cash balance (after all trades, deposits, withdrawals, dividends, and previous interest) is the base for interest. A zero or negative cash balance short-circuits the insert so the ledger never accrues spurious income.
-- **Input expectation:** `cash_rates.json` stores **APY (effective annual yield)**. If you only have **APR (nominal)**, convert externally or implement a helper (`aprToApy`) instead of storing APR here.
+- **Input expectation:** Each portfolio persists `cash.apyTimeline` entries as `{ from, to, apy }` segments. The admin `POST /api/admin/cash-rate` endpoint still upserts the global schedule in `cash_rates.json`; migrations and new portfolio bootstraps copy that schedule into the per-portfolio timeline. Store **APY (effective annual yield)** to keep the daily conversion accurate. If you only have **APR (nominal)**, convert externally or add a helper (`aprToApy`).
 
 ### Rate change proration
 
-- Rates live in `cash_rates.json` as `{ effective_date, apy }` tuples. The resolver sorts entries lexicographically and picks the **latest effective date ≤ target day**. Each calendar day therefore receives the APY that was in force for that day’s close.
+- Rates live in each portfolio’s `cash.apyTimeline`. The resolver sorts segments lexicographically and picks the **latest segment whose `from` date is ≤ target day**. Each calendar day therefore receives the APY that was in force for that day’s close. `to` may be `null` to denote an open-ended segment; any supplied `to` date is treated as inclusive.
 - Because the nightly job accrues one day at a time, any APY change mid-month is naturally prorated: days before the change reuse the old APY, and days after the change use the new APY with no interpolation gaps.
 - Future-dated entries remain inert until their `effective_date` passes, so uploading a schedule does not back-date interest.
 
 ### Effective-date semantics
 
-- When running the nightly accrual for day `D`, the engine first looks at the previous calendar day `D-1`. The APY effective on `D-1` powers the interest posted on `D`, mirroring how banks pay interest for the balance that existed over the prior day.
+- When running the nightly accrual for day `D`, the engine first looks at the previous calendar day `D-1`. The APY effective on `D-1` (resolved from `cash.apyTimeline`) powers the interest posted on `D`, mirroring how banks pay interest for the balance that existed over the prior day.
 - A newly inserted APY with `effective_date = 2024-02-01` therefore takes effect on the **close of 2024-02-01** and the interest entry dated `2024-02-02` is the first to reflect it. Historical entries remain unchanged unless a backfill is rerun.
 - Re-running either the nightly job or a backfill is idempotent because the transaction ID includes the posting date; repeats simply overwrite the existing `INTEREST` row instead of duplicating it.
 
