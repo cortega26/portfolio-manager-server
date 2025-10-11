@@ -25,6 +25,9 @@ This project provides a full‑stack portfolio manager that runs client‑side i
 | Full fast tests  | `NO_NETWORK_TESTS=1 npm run test:fast`        | Optional quick regression sweep (non-blocking while stabilizing). |
 | Coverage (opt-in)| `npm run test:coverage`                       | Use after smoke is green to validate broader suites. |
 
+> **CI gate:** The default GitHub Actions workflow executes `npm run verify:smoke` on every push and
+> pull request, so local changes should pass the same chained checks before opening a PR.
+
 ## Getting Started
 
 Content adapted from Section 6 ("Complete User Guide") of `comprehensive_audit_v3.md` so new contributors can follow a single source of truth.

@@ -17,6 +17,7 @@ regressions detected.
 |--------------|------------------------------------|--------|-------------------------|----|----------|-------|
 | STAB-2025-01 | Build + smoke verification scripts | DONE   | fix/stabilize-20251011  | —  | `package.json` scripts; `tsconfig.json`; `.husky/*`; `scripts/bisect-*.sh`; `src/__smoke__/app.boot.test.tsx` | Establishes deterministic gates after October 2025 merge fallout. |
 | STAB-2025-02 | Stabilization playbook             | DONE   | fix/stabilize-20251011  | —  | `STABILIZATION_PLAYBOOK.md`; README §Health checks | Documents guardrails, bisect workflow, and follow-up actions. |
+| STAB-2025-03 | CI smoke gate enforcement          | DONE   | fix/ci-promote-smoke    | —  | `.github/workflows/ci.yml` (`npm run verify:smoke`) | Default GitHub Actions workflow now chains deps/lint/typecheck/build/smoke before running extra checks. |
 
 ## Phase 1 — Immediate Priorities
 

@@ -29,19 +29,13 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci --no-fund --no-audit
-
-      - name: Run ESLint
-        run: npm run lint
+      - name: Run stabilization smoke gate
+        run: npm run verify:smoke
 
       - name: Run tests with coverage (single pass)
         env:
           NODE_OPTIONS: --trace-warnings --trace-deprecation --throw-deprecation
         run: npm run test:coverage
-
-      - name: Build application bundle
-        run: npm run build
 
       - name: Scan for secrets with gitleaks
         run: npx --yes gitleaks detect --no-banner
