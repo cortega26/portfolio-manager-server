@@ -51,11 +51,14 @@ vi.mock('../utils/roi.js', async (original) => {
 test('switches tabs and shows expected panels', async () => {
   renderWithProviders(<App />);
 
-  await screen.findByTestId('panel-dashboard');
+  const dashboardPanel = await screen.findByTestId('panel-dashboard');
+  expect(dashboardPanel).toBeVisible();
 
   await userEvent.click(screen.getByRole('tab', { name: /holdings/i }));
-  await screen.findByTestId('panel-holdings');
+  const holdingsPanel = await screen.findByTestId('panel-holdings');
+  expect(holdingsPanel).toBeVisible();
 
   await userEvent.click(screen.getByRole('tab', { name: /transactions/i }));
-  await screen.findByTestId('panel-transactions');
+  const transactionsPanel = await screen.findByTestId('panel-transactions');
+  expect(transactionsPanel).toBeVisible();
 });

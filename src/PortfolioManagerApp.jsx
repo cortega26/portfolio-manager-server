@@ -263,7 +263,7 @@ export default function PortfolioManagerApp() {
       return null;
     };
 
-    async function useFallback(reason, error) {
+    async function applyRoiFallback(reason, error) {
       try {
         const fallbackSeries = await buildRoiSeries(transactions, fetchPrices);
         if (cancelled) {
@@ -330,7 +330,7 @@ export default function PortfolioManagerApp() {
       setLoadingRoi(true);
       try {
         if (roiServiceDisabled) {
-          await useFallback("disabled");
+          await applyRoiFallback("disabled");
           return;
         }
 
@@ -358,12 +358,12 @@ export default function PortfolioManagerApp() {
           if (!cancelled) {
             setRoiServiceDisabled(true);
           }
-          await useFallback("disabled", error);
+          await applyRoiFallback("disabled", error);
           return;
         }
 
         console.error(error);
-        await useFallback("failure", error);
+        await applyRoiFallback("failure", error);
       } finally {
         if (!cancelled) {
           setLoadingRoi(false);
