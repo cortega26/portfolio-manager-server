@@ -132,6 +132,7 @@ export default function PortfolioControls({
   onPortfolioKeyNewChange,
   onSave,
   onLoad,
+  onNotify,
 }) {
   const { t } = useI18n();
   const [status, setStatus] = useState(null);
@@ -179,15 +180,69 @@ export default function PortfolioControls({
     }
 
     try {
-      await action();
+      const result = await action();
       setStatus({
         type: "success",
         message: t("portfolioControls.status.success"),
         requestId: undefined,
       });
+      if (typeof onNotify === "function") {
+        const detail =
+          result?.requestId && typeof result.requestId === "string"
+            ? t("portfolioControls.toast.requestId", { requestId: result.requestId })
+            : undefined;
+        const normalizedId = portfolioId.trim();
+        if (action === onSave) {
+          onNotify({
+            type: "success",
+            title: t("portfolioControls.toast.saveSuccess.title", { id: normalizedId }),
+            message: t("portfolioControls.toast.saveSuccess.body", { id: normalizedId }),
+            detail,
+          });
+          if (result?.snapshotPersisted === false) {
+            onNotify({
+              type: "warning",
+              title: t("portfolioControls.toast.saveWarning.title", { id: normalizedId }),
+              message: t("portfolioControls.toast.saveWarning.body"),
+              detail,
+            });
+          }
+        } else if (action === onLoad) {
+          onNotify({
+            type: "success",
+            title: t("portfolioControls.toast.loadSuccess.title", { id: normalizedId }),
+            message: t("portfolioControls.toast.loadSuccess.body"),
+            detail,
+          });
+          if (result?.snapshotPersisted === false) {
+            onNotify({
+              type: "warning",
+              title: t("portfolioControls.toast.saveWarning.title", { id: normalizedId }),
+              message: t("portfolioControls.toast.saveWarning.body"),
+              detail,
+            });
+          }
+        }
+      }
     } catch (error) {
       const { message, requestId } = formatControlError(error, t);
       setStatus({ type: "error", message, requestId });
+      if (typeof onNotify === "function") {
+        const detail =
+          requestId && typeof requestId === "string"
+            ? t("portfolioControls.toast.requestId", { requestId })
+            : undefined;
+        const normalizedId = portfolioId.trim();
+        onNotify({
+          type: "error",
+          title:
+            action === onSave
+              ? t("portfolioControls.toast.saveError.title", { id: normalizedId })
+              : t("portfolioControls.toast.loadError.title", { id: normalizedId }),
+          message,
+          detail,
+        });
+      }
     }
   }
 
