@@ -49,8 +49,9 @@ git bisect reset
 - None. The existing Vitest suites remain enabled.
 
 ## Next Steps
-- Promote `npm run verify:smoke` to the default PR gate in CI (builds, lint, typecheck, smoke).
+- ✅ `npm run verify:smoke` now runs as part of the default CI workflow, enforcing the stabilization
+  gate on every push/PR.
 - Resolve the pre-existing ESLint failures in `server/finance/cash.js` and legacy `.tsx` test
-  harnesses so `npm run verify:lint` can complete successfully.
+  harnesses so `npm run verify:lint` can complete successfully without waivers.
 - Once the suite remains green for 2 consecutive weeks, evaluate re-enabling the full coverage run
   as a blocking check.
