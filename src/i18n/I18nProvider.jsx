@@ -94,7 +94,7 @@ export function I18nProvider({ children }) {
       try {
         const formatter = new Intl.DateTimeFormat(locale, options);
         return formatter.format(date);
-      } catch (error) {
+      } catch {
         return "—";
       }
     },

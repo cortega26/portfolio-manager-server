@@ -12,7 +12,6 @@ afterEach(() => {
 test('useDebouncedValue delays updates until the timeout elapses', async (t) => {
   t.mock.timers.enable({ advance: false });
 
-  // eslint-disable-next-line no-unused-vars
   const Harness = ({ delay, onReady }) => {
     const [value, setValue] = useState("initial");
     const debounced = useDebouncedValue(value, delay);
