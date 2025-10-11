@@ -68,7 +68,7 @@ jobs:
           target="${PAGE_URL%/}/admin"
           echo "Polling ${target} for SPA redirect marker"
           for attempt in $(seq 1 10); do
-            if curl --fail --silent --show-error "${target}" | grep -q "tooltician:spa:redirect"; then
+            if curl --silent --show-error "${target}" | grep -q "tooltician:spa:redirect"; then
               echo "Admin fallback available after ${attempt} attempt(s)."
               exit 0
             fi
@@ -76,5 +76,5 @@ jobs:
             sleep 10
           done
           echo "Admin fallback did not become available at ${target} within the timeout." >&2
-          curl --fail --silent --show-error "${target}" || true
+          curl --silent --show-error "${target}" || true
           exit 1
