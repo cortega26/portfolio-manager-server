@@ -11,6 +11,13 @@ green. Spot-checked Phase 1–3 security controls (API key policy, brute-force
 mitigations, audit/request tracing) against `comprehensive_audit_v3.md` with no
 regressions detected.
 
+## Stabilization Guardrails (Active)
+
+| ID           | Title                              | Status | Branch                  | PR | Evidence | Notes |
+|--------------|------------------------------------|--------|-------------------------|----|----------|-------|
+| STAB-2025-01 | Build + smoke verification scripts | DONE   | fix/stabilize-20251011  | —  | `package.json` scripts; `tsconfig.json`; `.husky/*`; `scripts/bisect-*.sh`; `src/__smoke__/app.boot.test.tsx` | Establishes deterministic gates after October 2025 merge fallout. |
+| STAB-2025-02 | Stabilization playbook             | DONE   | fix/stabilize-20251011  | —  | `STABILIZATION_PLAYBOOK.md`; README §Health checks | Documents guardrails, bisect workflow, and follow-up actions. |
+
 ## Phase 1 — Immediate Priorities
 
 | ID        | Title                               | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
