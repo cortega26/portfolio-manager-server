@@ -139,4 +139,41 @@ describe("App price refresh degradations", () => {
 
     assert.ok(await screen.findByText("$125.00"));
   });
+
+  it("shows market-closed guidance instead of an error on weekend failures", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-02-03T15:00:00Z"));
+
+    try {
+      render(<App />);
+
+      await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
+
+      await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
+      await userEvent.type(screen.getByLabelText(/ticker/i), "msft");
+      await userEvent.type(screen.getByLabelText(/amount/i), "2500");
+      await userEvent.type(screen.getByLabelText(/price/i), "250");
+      await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+
+      await waitFor(() => {
+        assert.deepEqual(api.__getPriceCalls(), ["MSFT"]);
+      });
+
+      api.__setNextPriceFailure(true);
+
+      await userEvent.type(screen.getByLabelText(/date/i), "2024-02-02");
+      await userEvent.clear(screen.getByLabelText(/ticker/i));
+      await userEvent.type(screen.getByLabelText(/ticker/i), "msft");
+      await userEvent.type(screen.getByLabelText(/amount/i), "250");
+      await userEvent.type(screen.getByLabelText(/price/i), "250");
+      await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+
+      await userEvent.click(screen.getByRole("button", { name: /dashboard/i }));
+
+      assert.ok(await screen.findByText(/Market is closed/i));
+      assert.equal(screen.queryByText(/Price refresh failed/i), null);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

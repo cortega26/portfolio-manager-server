@@ -9,6 +9,7 @@ Last Updated: 2025-10-20 (Phases 1–5 verified complete; scoreboard locked for 
 | ID | Title | Status (TODO/IN PROGRESS/DONE/BLOCKED) | Branch | PR | Evidence (CI/logs/coverage) | Notes |
 |----|-------|-----------------------------------------|--------|----|-----------------------------|-------|
 | MAINT-2025-02-API-CONFIG | Runtime config & API client centralisation | IN PROGRESS | feat/contract-audit | — | `docs/FE_BE_CONTRACT_AUDIT.md`; `src/lib/apiClient.js` | Runtime config + API client landed; Vitest/MSW/Playwright follow-ups scheduled. |
+| MAINT-2025-02-PORTFOLIO-SAVE | Save flow & weekend market handling hardening | DONE | fix/save-and-weekend | — | `docs/save_and_weekend_fix.md`; `NO_NETWORK_TESTS=1 npm run test:fast` (`8ad1a2†L1-L7`) | Local snapshots, toast feedback, and market-aware pricing alerts shipped with regression tests. |
 
 Verification 2025-10-20: Confirmed `AI_IMPLEMENTATION_PROMPT.md` and
 `AI_CODE_ASSISTANT_PROMPTS.md` now reflect the completed Phase 5 baseline. Re-ran the
