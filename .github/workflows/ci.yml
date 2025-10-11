@@ -40,7 +40,8 @@ jobs:
       - name: Verify production routing
         run: |
           curl --retry 3 --fail --silent --show-error https://www.tooltician.com/ > /dev/null
-          curl --retry 3 --fail --silent --show-error https://www.tooltician.com/admin > /dev/null
+          curl --retry 3 --silent --show-error https://www.tooltician.com/admin \
+            | grep -q "tooltician:spa:redirect"
 
       - name: Scan for secrets with gitleaks
         run: npx --yes gitleaks detect --no-banner
