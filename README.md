@@ -75,6 +75,22 @@ The template groups settings by concern; adjust at minimum:
 
 Refer back to Appendix B of the audit for the full catalog of supported variables.
 
+### Frontend runtime configuration
+
+The Vite bundle now reads a runtime configuration document so a single build can target multiple backends without rebuilding. Resolution precedence:
+
+1. `window.__APP_CONFIG__` injected ahead of the bundle (for platforms that can template HTML).
+2. `public/config.json` served alongside the static assets (respects `base` path).
+3. `import.meta.env.VITE_API_URL` / `import.meta.env.VITE_API_BASE` compiled at build time.
+4. Dev fallback to the current origin (leveraging Vite's `/api` proxy) and finally `http://localhost:3000`.
+
+| Name | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+| `API_BASE_URL` | string (URL or origin) | `""` (same-origin proxy) | No | Overrides the API origin used by the SPA at runtime. |
+| `REQUEST_TIMEOUT_MS` | number | `15000` | No | Client-side timeout in milliseconds applied to every API call. |
+
+> Update `public/config.json` (checked into source with safe defaults) or serve an inline `window.__APP_CONFIG__` script tag in production to point the SPA at staging/production APIs.
+
 ### Start the application
 
 Open two terminals from the project root:
