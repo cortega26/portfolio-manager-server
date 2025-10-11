@@ -37,6 +37,11 @@ jobs:
           NODE_OPTIONS: --trace-warnings --trace-deprecation --throw-deprecation
         run: npm run test:coverage
 
+      - name: Verify production routing
+        run: |
+          curl --retry 3 --fail --silent --show-error https://www.tooltician.com/ > /dev/null
+          curl --retry 3 --fail --silent --show-error https://www.tooltician.com/admin > /dev/null
+
       - name: Scan for secrets with gitleaks
         run: npx --yes gitleaks detect --no-banner
 
