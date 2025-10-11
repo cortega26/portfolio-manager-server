@@ -159,6 +159,10 @@ If validation fails, the API responds with `400 WEAK_KEY` alongside the exact re
 4. The backend hashes and stores the key while creating `data/portfolio_<id>.json`.
 5. Reload the dashboard or press **Load** to confirm the portfolio opens with the same credentials.
 
+After a successful save the UI raises a confirmation toast and caches the active snapshot in
+`localStorage` (`portfolio-manager-active-portfolio`). The stored snapshot allows the dashboard to
+rehydrate automatically on the next visit without re-entering transactions.
+
 ### Rotate API keys safely
 
 1. Load the portfolio with the current key.
@@ -277,8 +281,8 @@ Common issues and quick fixes (see Section 6 of the audit for the full decision
 - **Cannot connect to backend** – Ensure `npm run server` is running, port 3000 is free, and `VITE_API_BASE` matches the API origin.
 - **Portfolio not found** – Verify the ID spelling and confirm the `data/` directory contains `portfolio_<id>.json`.
 - **Invalid API key / too many attempts** – Keys are case-sensitive; remove trailing spaces and wait 15 minutes if rate limited.
-- **Prices not loading** – Check your network connection, confirm the ticker is a supported US symbol, and verify stooq.com is reachable.
-- **Transactions not saving** – Inspect server logs for validation errors and confirm the process can write to `DATA_DIR`.
+- **Prices not loading** – If the banner reads “Market is closed — using last close …” the app is waiting for the next NYSE session. Otherwise check your network connection, confirm the ticker is a supported US symbol, and verify stooq.com is reachable.
+- **Transactions not saving** – Inspect server logs for validation errors, confirm the process can write to `DATA_DIR`, and ensure the browser allows `localStorage` so the UI can persist the active snapshot.
 - **Unexpected calculations** – Re-check transaction dates, price signs, and run `npm test` to ensure formulas are intact.
 
 If problems persist, gather relevant log lines (the server uses Pino for structured output) before opening an issue.
