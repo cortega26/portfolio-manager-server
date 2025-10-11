@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const BASE_URL = 'https://www.tooltician.com';
+const BASE_URL = process.env.E2E_BASE_URL ?? 'https://www.tooltician.com';
 
 const routes = ['/admin', '/admin/users/seed-check'];
 
