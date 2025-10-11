@@ -55,3 +55,26 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Smoke check deployed admin fallback
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PAGE_URL:-}" ]; then
+            echo "actions/deploy-pages did not return a page URL" >&2
+            exit 1
+          fi
+          target="${PAGE_URL%/}/admin"
+          echo "Polling ${target} for SPA redirect marker"
+          for attempt in $(seq 1 10); do
+            if curl --fail --silent --show-error "${target}" | grep -q "tooltician:spa:redirect"; then
+              echo "Admin fallback available after ${attempt} attempt(s)."
+              exit 0
+            fi
+            echo "Attempt ${attempt} did not detect the marker; retrying in 10s" >&2
+            sleep 10
+          done
+          echo "Admin fallback did not become available at ${target} within the timeout." >&2
+          curl --fail --silent --show-error "${target}" || true
+          exit 1

@@ -37,11 +37,14 @@ jobs:
           NODE_OPTIONS: --trace-warnings --trace-deprecation --throw-deprecation
         run: npm run test:coverage
 
-      - name: Verify production routing
-        run: |
-          curl --retry 3 --fail --silent --show-error https://www.tooltician.com/ > /dev/null
-          curl --retry 3 --silent --show-error https://www.tooltician.com/admin \
-            | grep -q "tooltician:spa:redirect"
+      - name: Build static assets for routing checks
+        run: npm run build
+
+      - name: Install Playwright dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify admin SPA fallback locally
+        run: npx playwright test e2e/admin-routing.spec.ts --config=playwright.static.config.ts --project=chromium --reporter=line
 
       - name: Scan for secrets with gitleaks
         run: npx --yes gitleaks detect --no-banner
