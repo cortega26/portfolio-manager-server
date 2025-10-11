@@ -75,6 +75,7 @@ export default function App() {
       <Route path="/" element={<PortfolioManagerApp />} />
       <Route path="/admin" element={<AdminAccessGuard />} />
       <Route path="/admin/:token" element={<AdminAccessGuard />} />
+      <Route path="/admin/:token/*" element={<AdminAccessGuard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
