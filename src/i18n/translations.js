@@ -236,6 +236,33 @@ export const translations = {
       "Too many attempts. Wait a few minutes before retrying.",
     "portfolioControls.error.status.500":
       "Server error encountered. Try again shortly.",
+    "portfolioControls.toast.saveSuccess.title": "Portfolio {id} saved",
+    "portfolioControls.toast.saveSuccess.body":
+      "We'll reload it automatically next time you visit.",
+    "portfolioControls.toast.saveWarning.title": "Saved without local backup",
+    "portfolioControls.toast.saveWarning.body":
+      "Browser storage is unavailable. Data will reload from the API only.",
+    "portfolioControls.toast.saveError.title": "Unable to save portfolio {id}",
+    "portfolioControls.toast.loadSuccess.title": "Portfolio {id} loaded",
+    "portfolioControls.toast.loadSuccess.body": "Transactions and settings were restored.",
+    "portfolioControls.toast.loadError.title": "Unable to load portfolio {id}",
+    "portfolioControls.toast.requestId": "Request ID: {requestId}",
+    "alerts.price.refreshFailed.title": "Price refresh failed",
+    "alerts.price.refreshFailed.detail":
+      "Unable to update prices for {tickers}. Showing last known values until the next successful refresh.",
+    "alerts.price.refreshFailed.detailFallback": "selected holdings",
+    "alerts.price.marketClosed.title": "Market is closed — using last close from {date}",
+    "alerts.price.marketClosed.detail":
+      "Values for {tickers} will refresh on {next}.",
+    "alerts.price.marketClosed.detailToday": "later today when trading resumes",
+    "alerts.price.marketClosed.nextSession": "the next trading session",
+    "alerts.price.marketClosed.allHoldings": "all tracked holdings",
+    "alerts.roi.disabled":
+      "Cash benchmark service is disabled. Displaying locally computed ROI.",
+    "alerts.roi.fallback":
+      "ROI service failed. Displaying locally computed fallback data.",
+    "alerts.roi.unavailable":
+      "ROI service and fallback computation failed. Try again after reloading the page.",
     "transactions.depositor.title": "Add depositor",
     "transactions.depositor.close": "Close add depositor",
     "transactions.depositor.name": "Depositor name",
@@ -638,6 +665,33 @@ export const translations = {
       "Demasiados intentos. Espera unos minutos antes de reintentar.",
     "portfolioControls.error.status.500":
       "Ocurrió un error en el servidor. Intenta nuevamente más tarde.",
+    "portfolioControls.toast.saveSuccess.title": "Portafolio {id} guardado",
+    "portfolioControls.toast.saveSuccess.body":
+      "Lo recargaremos automáticamente la próxima vez que regreses.",
+    "portfolioControls.toast.saveWarning.title": "Guardado sin copia local",
+    "portfolioControls.toast.saveWarning.body":
+      "El almacenamiento del navegador no está disponible. Los datos se recargarán solo desde la API.",
+    "portfolioControls.toast.saveError.title": "No se pudo guardar el portafolio {id}",
+    "portfolioControls.toast.loadSuccess.title": "Portafolio {id} cargado",
+    "portfolioControls.toast.loadSuccess.body": "Se restauraron las transacciones y configuraciones.",
+    "portfolioControls.toast.loadError.title": "No se pudo cargar el portafolio {id}",
+    "portfolioControls.toast.requestId": "ID de solicitud: {requestId}",
+    "alerts.price.refreshFailed.title": "Error al actualizar precios",
+    "alerts.price.refreshFailed.detail":
+      "No se pudieron actualizar los precios de {tickers}. Se mostrarán los últimos valores conocidos hasta la próxima actualización exitosa.",
+    "alerts.price.refreshFailed.detailFallback": "las posiciones seleccionadas",
+    "alerts.price.marketClosed.title": "El mercado está cerrado — usando el último cierre del {date}",
+    "alerts.price.marketClosed.detail":
+      "Los valores de {tickers} se actualizarán en {next}.",
+    "alerts.price.marketClosed.detailToday": "más tarde hoy cuando se reanude la sesión",
+    "alerts.price.marketClosed.nextSession": "la próxima sesión bursátil",
+    "alerts.price.marketClosed.allHoldings": "todas las posiciones rastreadas",
+    "alerts.roi.disabled":
+      "El servicio de referencia en efectivo está deshabilitado. Mostrando ROI calculado localmente.",
+    "alerts.roi.fallback":
+      "El servicio de ROI falló. Mostrando datos de respaldo calculados localmente.",
+    "alerts.roi.unavailable":
+      "El servicio de ROI y el cálculo de respaldo fallaron. Intenta nuevamente después de recargar la página.",
     "transactions.depositor.title": "Agregar depositante",
     "transactions.depositor.close": "Cerrar agregar depositante",
     "transactions.depositor.name": "Nombre del depositante",

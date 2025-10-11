@@ -5,9 +5,11 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 import PortfolioControls from "./components/PortfolioControls.jsx";
+import ToastStack from "./components/ToastStack.jsx";
 import TabBar from "./components/TabBar.jsx";
 import {
   fetchDailyReturns,
@@ -38,12 +40,18 @@ import {
   persistSettingsToStorage,
   updateSetting,
 } from "./utils/settings.js";
+import { getMarketClock } from "./utils/marketHours.js";
 import { loadPortfolioKey, savePortfolioKey } from "./utils/portfolioKeys.js";
 import {
   createInitialLedgerState,
   ledgerReducer,
 } from "./utils/holdingsLedger.js";
 import { useI18n } from "./i18n/I18nProvider.jsx";
+import {
+  loadActivePortfolioSnapshot,
+  persistActivePortfolioSnapshot,
+  setActivePortfolioId,
+} from "./state/portfolioStore.js";
 
 const DashboardTab = lazy(() => import("./components/DashboardTab.jsx"));
 const HoldingsTab = lazy(() => import("./components/HoldingsTab.jsx"));
@@ -73,6 +81,8 @@ export default function PortfolioManagerApp() {
   const [portfolioKeyNew, setPortfolioKeyNew] = useState("");
   const [ledger, dispatchLedger] = useReducer(ledgerReducer, undefined, createInitialLedgerState);
   const { transactions, holdings } = ledger;
+  const [toasts, setToasts] = useState([]);
+  const toastIdRef = useRef(0);
   const [signals, setSignals] = useState({});
   const [currentPrices, setCurrentPrices] = useState({});
   const [roiData, setRoiData] = useState([]);
@@ -83,6 +93,60 @@ export default function PortfolioManagerApp() {
   const [roiAlert, setRoiAlert] = useState(null);
   const [roiSource, setRoiSource] = useState("api");
   const [roiServiceDisabled, setRoiServiceDisabled] = useState(false);
+
+  const dismissToast = useCallback((id) => {
+    if (!id) {
+      return;
+    }
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const pushToast = useCallback((toast) => {
+    setToasts((current) => {
+      const generatedId = `toast-${Date.now()}-${toastIdRef.current + 1}`;
+      toastIdRef.current += 1;
+      const id =
+        typeof toast?.id === "string" && toast.id.trim().length > 0
+          ? toast.id
+          : generatedId;
+      const payload = {
+        id,
+        type: toast?.type ?? "info",
+        title: toast?.title ?? "",
+        message: toast?.message ?? "",
+        detail: toast?.detail,
+        durationMs: toast?.durationMs,
+      };
+      const filtered = current.filter((entry) => entry.id !== id);
+      const merged = [...filtered, payload];
+      if (merged.length > 5) {
+        merged.shift();
+      }
+      return merged;
+    });
+  }, []);
+
+  useEffect(() => {
+    const snapshot = loadActivePortfolioSnapshot();
+    if (!snapshot || !snapshot.id) {
+      return;
+    }
+    const normalizedId = String(snapshot.id);
+    setPortfolioId(normalizedId);
+    if (Array.isArray(snapshot.transactions)) {
+      dispatchLedger({
+        type: "replace",
+        transactions: snapshot.transactions,
+        logSummary: false,
+      });
+    }
+    if (snapshot.signals && typeof snapshot.signals === "object") {
+      setSignals(snapshot.signals);
+    }
+    if (snapshot.settings && typeof snapshot.settings === "object") {
+      setSettings((previous) => mergeSettings(previous, snapshot.settings));
+    }
+  }, []);
 
   useEffect(() => {
     if (!portfolioId) {
@@ -174,6 +238,26 @@ export default function PortfolioManagerApp() {
         return;
       }
 
+      const marketClock = getMarketClock();
+
+      const formatMarketDate = (dateKey) => {
+        if (typeof dateKey !== "string" || dateKey.length === 0) {
+          return t("alerts.price.marketClosed.nextSession");
+        }
+        const segments = dateKey.split("-");
+        if (segments.length !== 3) {
+          return dateKey;
+        }
+        const [yearRaw, monthRaw, dayRaw] = segments;
+        const year = Number.parseInt(yearRaw, 10);
+        const month = Number.parseInt(monthRaw, 10);
+        const day = Number.parseInt(dayRaw, 10);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+          return dateKey;
+        }
+        return formatDate(new Date(year, month - 1, day));
+      };
+
       const priceEntries = await Promise.all(
         uniqueTickers.map(async (ticker) => {
           try {
@@ -182,6 +266,7 @@ export default function PortfolioManagerApp() {
             return {
               ticker,
               price: latest?.close ?? 0,
+              asOf: latest?.date ?? null,
               requestId: requestId ?? null,
               error: null,
             };
@@ -190,6 +275,7 @@ export default function PortfolioManagerApp() {
             return {
               ticker,
               price: null,
+              asOf: null,
               requestId: error?.requestId ?? null,
               error,
             };
@@ -215,19 +301,61 @@ export default function PortfolioManagerApp() {
       });
 
       const failures = priceEntries.filter((entry) => entry.error);
+      const successfulTickers = priceEntries
+        .filter((entry) => Number.isFinite(entry.price))
+        .map((entry) => entry.ticker);
+      const impactedTickers = failures.length > 0 ? failures : priceEntries;
+      const impactedList = Array.from(
+        new Set(
+          impactedTickers
+            .map((entry) => entry.ticker)
+            .filter((ticker) => typeof ticker === "string" && ticker.length > 0),
+        ),
+      );
+      const requestIds = failures
+        .map((entry) => entry.requestId)
+        .filter((value) => typeof value === "string" && value?.trim().length > 0);
+
+      if (!marketClock.isOpen) {
+        const lastCloseLabel = formatMarketDate(marketClock.lastTradingDate);
+        const nextSessionLabel = (() => {
+          if (marketClock.isTradingDay && marketClock.isBeforeOpen) {
+            return t("alerts.price.marketClosed.detailToday");
+          }
+          if (typeof marketClock.nextTradingDate === "string") {
+            return formatMarketDate(marketClock.nextTradingDate);
+          }
+          return t("alerts.price.marketClosed.nextSession");
+        })();
+        const summary = impactedList.length > 0
+          ? impactedList.join(", ")
+          : successfulTickers.length > 0
+            ? successfulTickers.join(", ")
+            : t("alerts.price.marketClosed.allHoldings");
+        setPriceAlert({
+          id: "market-closed",
+          type: failures.length > 0 ? "warning" : "info",
+          message: t("alerts.price.marketClosed.title", { date: lastCloseLabel }),
+          detail: t("alerts.price.marketClosed.detail", {
+            tickers: summary,
+            next: nextSessionLabel,
+          }),
+          requestIds,
+        });
+        return;
+      }
+
       if (failures.length > 0) {
-        const impacted = failures
-          .map((entry) => entry.ticker)
-          .filter((ticker) => typeof ticker === "string" && ticker.length > 0);
-        const requestIds = failures
-          .map((entry) => entry.requestId)
-          .filter((value) => typeof value === "string" && value.length > 0);
-        const impactedList = impacted.length > 0 ? impacted.join(", ") : "selected holdings";
         setPriceAlert({
           id: "price-fetch",
           type: "error",
-          message: "Price refresh failed",
-          detail: `Unable to update prices for ${impactedList}. Showing last known values until the next successful refresh.`,
+          message: t("alerts.price.refreshFailed.title"),
+          detail: t("alerts.price.refreshFailed.detail", {
+            tickers:
+              impactedList.length > 0
+                ? impactedList.join(", ")
+                : t("alerts.price.refreshFailed.detailFallback"),
+          }),
           requestIds,
         });
       } else {
@@ -240,7 +368,7 @@ export default function PortfolioManagerApp() {
     return () => {
       cancelled = true;
     };
-  }, [transactions]);
+  }, [transactions, t, formatDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -248,11 +376,11 @@ export default function PortfolioManagerApp() {
     const fallbackMessages = {
       disabled: {
         type: "info",
-        message: "Cash benchmark service is disabled. Displaying locally computed ROI.",
+        message: t("alerts.roi.disabled"),
       },
       failure: {
         type: "warning",
-        message: "ROI service failed. Displaying locally computed fallback data.",
+        message: t("alerts.roi.fallback"),
       },
     };
 
@@ -292,7 +420,7 @@ export default function PortfolioManagerApp() {
         setRoiAlert({
           id: "roi-fallback",
           type: "error",
-          message: "ROI service and fallback computation failed. Try again after reloading the page.",
+          message: t("alerts.roi.unavailable"),
           requestId: resolveRequestId(error),
         });
       }
@@ -376,7 +504,7 @@ export default function PortfolioManagerApp() {
     return () => {
       cancelled = true;
     };
-  }, [transactions, roiRefreshKey, roiServiceDisabled]);
+  }, [transactions, roiRefreshKey, roiServiceDisabled, t]);
 
   useEffect(() => {
     persistSettingsToStorage(settings);
@@ -400,9 +528,10 @@ export default function PortfolioManagerApp() {
   }, []);
 
   const handleSavePortfolio = useCallback(async () => {
+    const normalizedId = portfolioId.trim();
     const currentKey = portfolioKey.trim();
     const nextKeyCandidate = portfolioKeyNew.trim();
-    if (!portfolioId) {
+    if (!normalizedId) {
       throw new Error("Portfolio ID required");
     }
     if (!currentKey) {
@@ -414,14 +543,26 @@ export default function PortfolioManagerApp() {
       signals,
       settings: normalizedSettings,
     };
-    await persistPortfolio(portfolioId, body, {
+    const { requestId } = await persistPortfolio(normalizedId, body, {
       apiKey: currentKey,
       newApiKey: nextKeyCandidate || undefined,
     });
     const storedKey = nextKeyCandidate || currentKey;
     setPortfolioKey(storedKey);
     setPortfolioKeyNew("");
-    savePortfolioKey(portfolioId, storedKey);
+    savePortfolioKey(normalizedId, storedKey);
+    const snapshotPersisted = persistActivePortfolioSnapshot({
+      id: normalizedId,
+      name: normalizedId,
+      transactions,
+      signals,
+      settings: normalizedSettings,
+      updatedAt: new Date().toISOString(),
+    });
+    if (snapshotPersisted) {
+      setActivePortfolioId(normalizedId);
+    }
+    return { snapshotPersisted, requestId };
   }, [
     portfolioId,
     portfolioKey,
@@ -433,13 +574,14 @@ export default function PortfolioManagerApp() {
 
   const handleLoadPortfolio = useCallback(async () => {
     const currentKey = portfolioKey.trim();
-    if (!portfolioId) {
+    const normalizedId = portfolioId.trim();
+    if (!normalizedId) {
       throw new Error("Portfolio ID required");
     }
     if (!currentKey) {
       throw new Error("API key required");
     }
-    const { data } = await retrievePortfolio(portfolioId, { apiKey: currentKey });
+    const { data, requestId } = await retrievePortfolio(normalizedId, { apiKey: currentKey });
     dispatchLedger({
       type: "replace",
       transactions: Array.isArray(data.transactions) ? data.transactions : [],
@@ -453,7 +595,20 @@ export default function PortfolioManagerApp() {
     });
     setPortfolioKey(currentKey);
     setPortfolioKeyNew("");
-    savePortfolioKey(portfolioId, currentKey);
+    savePortfolioKey(normalizedId, currentKey);
+    const normalizedSettings = normalizeSettings(data.settings ?? {});
+    const snapshotPersisted = persistActivePortfolioSnapshot({
+      id: normalizedId,
+      name: normalizedId,
+      transactions: Array.isArray(data.transactions) ? data.transactions : [],
+      signals: data.signals ?? {},
+      settings: normalizedSettings,
+      updatedAt: new Date().toISOString(),
+    });
+    if (snapshotPersisted) {
+      setActivePortfolioId(normalizedId);
+    }
+    return { requestId, snapshotPersisted };
   }, [portfolioId, portfolioKey]);
 
   const handleRefreshRoi = useCallback(() => {
@@ -515,6 +670,7 @@ export default function PortfolioManagerApp() {
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-2">
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -546,6 +702,7 @@ export default function PortfolioManagerApp() {
           onPortfolioKeyNewChange={setPortfolioKeyNew}
           onSave={handleSavePortfolio}
           onLoad={handleLoadPortfolio}
+          onNotify={pushToast}
         />
 
         <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
