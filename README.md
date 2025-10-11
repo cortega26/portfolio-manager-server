@@ -13,6 +13,18 @@ This project provides a full‑stack portfolio manager that runs client‑side i
   [Frontend Operations Playbook](docs/playbooks/frontend-operations.md) documents how to operate the
   refreshed Admin tab, benchmark toggles, and KPI workflows after each deploy.
 
+## Health checks
+
+| Check            | Command                                       | Notes |
+|------------------|-----------------------------------------------|-------|
+| Dependencies     | `npm run verify:deps`                         | Reinstalls modules with `npm ci` for reproducible bisect runs. |
+| Lint             | `npm run verify:lint`                         | ESLint across JS/TS/JSX with warnings treated as failures. |
+| Type safety      | `npm run verify:typecheck`                    | Executes `tsc --noEmit` with `checkJs` enabled for `.js/.jsx`. |
+| Build            | `npm run verify:build`                        | Vite production build, matches CI artifact build. |
+| Smoke test       | `npm run verify:smoke`                        | Chains deps, lint, typecheck, build, and runs `src/__smoke__/`. |
+| Full fast tests  | `NO_NETWORK_TESTS=1 npm run test:fast`        | Optional quick regression sweep (non-blocking while stabilizing). |
+| Coverage (opt-in)| `npm run test:coverage`                       | Use after smoke is green to validate broader suites. |
+
 ## Getting Started
 
 Content adapted from Section 6 ("Complete User Guide") of `comprehensive_audit_v3.md` so new contributors can follow a single source of truth.
