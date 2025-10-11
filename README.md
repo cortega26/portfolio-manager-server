@@ -703,7 +703,7 @@ Feel free to fork this repository and customise it to your needs. Pull requests 
 - **Host:** GitHub Pages (Fastly CDN edge). DNS `www.tooltician.com` is a CNAME to GitHub's Pages edge (`185.199.108.153` – `185.199.111.153`).
 - **Canonical URL:** `https://www.tooltician.com/` with HSTS enabled.
 - **Source branch:** `main` → GitHub Pages workflow (`Deploy Vite app to GitHub Pages`).
-- **SPA fallback:** `404.html` mirrors `index.html` and stores the original path so React Router can hydrate deep links.
+- **SPA fallback:** `public/404.html` persists the requested path in `sessionStorage` before redirecting to `/index.html`, letting React Router hydrate deep links without server rewrites.
 
 ### DNS and TLS configuration
 | Name | Type | Value | Required | Description |
