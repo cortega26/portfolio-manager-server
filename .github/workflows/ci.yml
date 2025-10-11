@@ -37,11 +37,28 @@ jobs:
           NODE_OPTIONS: --trace-warnings --trace-deprecation --throw-deprecation
         run: npm run test:coverage
 
-      - name: Verify production routing
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build static artifact for admin fallback check
+        env:
+          VITE_APP_CSP: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        run: npm run build
+
+      - name: Run admin SPA fallback check
+        env:
+          E2E_BASE_URL: http://127.0.0.1:4173
         run: |
-          curl --retry 3 --fail --silent --show-error https://www.tooltician.com/ > /dev/null
-          curl --retry 3 --silent --show-error https://www.tooltician.com/admin \
-            | grep -q "tooltician:spa:redirect"
+          npx http-server dist -p 4173 --silent &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in $(seq 1 10); do
+            if curl --silent --fail http://127.0.0.1:4173 > /dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          npx playwright test e2e/admin-routing.spec.ts --config=playwright.admin-static.config.ts --project=chromium --reporter=line
 
       - name: Scan for secrets with gitleaks
         run: npx --yes gitleaks detect --no-banner
