@@ -14,6 +14,7 @@ export default defineConfig({
     unstubGlobals: true,
     unstubEnvs: true,
     coverage: {
+      provider: 'v8',
       enabled: true,
       reporter: ['text-summary', 'lcov'],
       include: ['src/**/*.{js,jsx,ts,tsx}'],

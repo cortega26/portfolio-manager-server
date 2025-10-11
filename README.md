@@ -34,7 +34,7 @@ Content adapted from Section 6 ("Complete User Guide") of `comprehensive_audit_
 
 ### Prerequisites
 
-- **Node.js** 20.x or later
+- **Node.js** 20.19.x or later (per `.nvmrc`)
 - **npm** 9.x or later
 - **Git** for cloning the repository
 - **A text editor** (VS Code recommended)
