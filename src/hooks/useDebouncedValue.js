@@ -41,7 +41,7 @@ export default function useDebouncedValue(value, delay = DEFAULT_DELAY) {
         timeoutRef.current = undefined;
       }
     };
-  }, [safeDelay, value]);
+  }, [isBrowser, safeDelay, value]);
 
   return debouncedValue;
 }
