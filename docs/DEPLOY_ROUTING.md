@@ -7,7 +7,7 @@ This document captures the routing configuration required to keep the Tooltician
 | Setting | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | SPA fallback | Static file (`public/404.html`) | N/A | Yes | Redirects all unknown paths to `/index.html` after saving the requested location in `sessionStorage`. |
-| Health check | GitHub Actions step | N/A | Yes | Executes `curl -f` against `/` and `/admin` to detect regressions before merge. |
+| Health check | GitHub Actions step | N/A | Yes | Builds the SPA, runs Playwright against the local `dist/`, and performs a post-deploy curl smoke test for `/admin`. |
 
 ### Why GitHub Pages needs a fallback
 
@@ -17,13 +17,13 @@ GitHub Pages serves static files as-is and responds with a `404` when a path doe
 
 1. **`public/404.html`** now ships with the build output. It captures the original `pathname + search + hash`, stores it in `sessionStorage`, and then redirects visitors to `/index.html`. Once the SPA hydrates, `public/redirect-spa.js` restores the saved URL so the intended route renders.
 2. The file lives under `public/` so Vite copies it verbatim into `dist/404.html`. Deploying the `dist/` directory to GitHub Pages ensures the fallback is present in production.
-3. **CI health checks** (`.github/workflows/ci.yml`) run `curl -f` against both the homepage and `/admin`. Any regression (missing fallback, DNS outage) fails the workflow early.
+3. **CI health checks** (`.github/workflows/ci.yml`) build the static assets, serve them with an ephemeral HTTP server, and run Playwright against `/admin` routes before deployment. After Pages publishes a release, `.github/workflows/deploy.yml` polls the live `/admin` route until the fallback marker is available.
 
 ### Verification checklist
 
 - `npm run build` produces `dist/404.html` alongside `index.html`.
 - Visiting `https://www.tooltician.com/admin` responds with HTTP 200 and renders the Admin panel even after a hard refresh.
-- GitHub Actions `CI` workflow passes the routing health check.
+- GitHub Actions `CI` workflow passes the routing health check and the deployment job's smoke test.
 
 ## Troubleshooting
 
