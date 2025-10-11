@@ -95,6 +95,22 @@ describe("ROI utilities", () => {
     assert.deepEqual(series, []);
   });
 
+  it("propagates price fetch failures", async () => {
+    const fetcher = async () => {
+      throw new Error("network down");
+    };
+
+    await assert.rejects(async () => buildRoiSeries(transactions, fetcher), (error) => {
+      assert.equal(error.name, "RoiPriceFetchError");
+      assert.equal(error.symbol, "SPY");
+      assert.match(error.message, /Failed to fetch prices for SPY/);
+      if (error.cause) {
+        assert.equal(error.cause.message, "network down");
+      }
+      return true;
+    });
+  });
+
   it("falls back to the previous close when a ticker lacks data for a date", async () => {
     const extendedTransactions = [
       ...transactions,

@@ -126,8 +126,39 @@ export async function buildRoiSeries(transactions, priceFetcher) {
         }
         return [symbol, []];
       } catch (error) {
-        console.error(error);
-        return [symbol, []];
+        const normalizedSymbol =
+          typeof symbol === "string" && symbol.trim().length > 0
+            ? symbol.trim().toUpperCase()
+            : "UNKNOWN";
+        const failure = new Error(
+          `Failed to fetch prices for ${normalizedSymbol}`,
+          error instanceof Error ? { cause: error } : undefined,
+        );
+        failure.name = "RoiPriceFetchError";
+        failure.symbol = normalizedSymbol;
+        if (
+          error &&
+          typeof error === "object" &&
+          error !== null &&
+          !Array.isArray(error)
+        ) {
+          if (
+            typeof error.requestId === "string" &&
+            error.requestId.trim().length > 0
+          ) {
+            failure.requestId = error.requestId;
+          }
+          if (error.status !== undefined && failure.status === undefined) {
+            failure.status = error.status;
+          }
+          if (
+            error.statusCode !== undefined &&
+            failure.statusCode === undefined
+          ) {
+            failure.statusCode = error.statusCode;
+          }
+        }
+        throw failure;
       }
     }),
   );
