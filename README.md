@@ -39,8 +39,8 @@
 flowchart LR
   user((Investor)) --> ui[React SPA]
   ui -->|REST /api/v1| api[Express API]
-  api --> auth[API key + rate limit guards]
-  api --> cache[Price cache (TTL + metrics)]
+  api --> auth["API key + rate limit guards"]
+  api --> cache["Price cache (TTL + metrics)"]
   cache --> providers[External price sources]
   api --> ledger[Portfolio & ROI engine]
   ledger --> store[Data directory JSON snapshots]
