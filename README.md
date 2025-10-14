@@ -38,7 +38,7 @@
 ```mermaid
 flowchart LR
   user((Investor)) --> ui[React SPA]
-  ui --> REST /api/v1 api[Express API]
+  ui --> |REST /api/v1| api[Express API]
   api --> auth["API key + rate limit guards"]
   api --> cache["Price cache (TTL + metrics)"]
   cache --> providers[External price sources]
