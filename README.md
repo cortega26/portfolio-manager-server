@@ -124,9 +124,4 @@ CI uploads the coverage artifact for every run; wire it to Codecov or Pages when
 - Open to thoughtful contributions—please open an issue describing the improvement before submitting a PR.
 - License not yet published; treat the codebase as all rights reserved unless granted explicit permission.
 
-## Contact & Portfolio
-- GitHub: [@cortega26](https://github.com/cortega26)
-- Website: [tooltician.com](https://www.tooltician.com)
-- LinkedIn: not currently public—reach out via GitHub issues if you'd like to connect.
-
 [^todo-coverage]: TODO: Expose `coverage/lcov-report` via GitHub Pages or Codecov; see [docs/playbooks/testing-strategy.md](docs/playbooks/testing-strategy.md) for rollout steps.
