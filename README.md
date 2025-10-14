@@ -1,6 +1,18 @@
 <!-- markdownlint-disable -->
 # Portfolio Manager (Server Edition)
 
+
+[▶ Live Demo]u25B6 Live Demo](https://cortega26.github.io/portfolio-manager-server "Open live demo")
+
+![CI](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/github/license/cortega26/portfolio-manager-server)
+![Last commit](https://img.shields.io/github/last-commit/cortega26/portfolio-manager-server)
+![Node](https://img.shields.io/badge/node-22.x-339933?logo=node.js)
+
+> **Problem:** Manage investment portfolios with accurate ROI tracking and insights  
+> **Solution:** Full-stack web app for portfolio tracking, trade management & analytics  
+> **Stack:** Node.js + Express + React + Vite + PostgreSQL
+
 This project provides a full‑stack portfolio manager that runs client‑side in the browser but persists data on the server. It allows you to record transactions (buy, sell, dividends, deposits and withdrawals) using amounts and exact prices, computes holdings and portfolio value, tracks return on investment (ROI) relative to the S&P 500 (SPY) and displays configurable trading signals for each ticker.
 
 ## Project status
@@ -756,3 +768,22 @@ Run the commands listed in [`docs/POST_DEPLOY_CHECKLIST.md`](docs/POST_DEPLOY_CH
 
 ## Post-deploy checklist
 The automated checklist now lives in [`docs/POST_DEPLOY_CHECKLIST.md`](docs/POST_DEPLOY_CHECKLIST.md). Keep that document in sync whenever you adjust deployment or verification procedures.
+
+
+## Quick Start (60s)
+```bash
+git clone https://github.com/cortega26/portfolio-manager-server.git
+cd portfolio-manager-server
+nvm use 22 && npm ci
+npm run dev
+```
+> Expected: open http://localhost:5173 and see the portfolio manager dashboard.
+
+```mermaid
+flowchart LR
+  User --> UI[React/Vite UI]
+  UI --> API[Express API]
+  API --> DB[(PostgreSQL database)]
+  API --> Auth[(Auth service)]
+  DB --> |Events| UI
+```
