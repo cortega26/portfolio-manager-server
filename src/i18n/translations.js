@@ -327,9 +327,10 @@ export const translations = {
     "settings.sections.notifications.description":
       "Tailor alerts for trades, rebalancing opportunities, and market changes.",
     "settings.notifications.email.label": "Email alerts",
-    "settings.notifications.email.description": "Receive a daily summary when new transactions are logged.",
+    "settings.notifications.email.description": "Store your preference for future email digests (feature in development).",
+    "settings.notifications.email.helper": "Email summaries will be delivered once background notifications launch. For now the app records your preference only.",
     "settings.notifications.push.label": "Push notifications",
-    "settings.notifications.push.description": "Notify me when a signal breaches the configured threshold.",
+    "settings.notifications.push.description": "Show in-app toast alerts for portfolio events and warnings.",
     "settings.alerts.rebalance.label": "Monthly rebalance reminders",
     "settings.alerts.rebalance.description":
       "Get a reminder when allocations drift beyond their target bands.",
@@ -764,9 +765,10 @@ export const translations = {
     "settings.sections.notifications.description":
       "Personaliza alertas para operaciones, oportunidades de rebalanceo y cambios de mercado.",
     "settings.notifications.email.label": "Alertas por correo",
-    "settings.notifications.email.description": "Recibe un resumen diario cuando se registren nuevas transacciones.",
+    "settings.notifications.email.description": "Guarda tu preferencia para futuros resúmenes por correo (función en desarrollo).",
+    "settings.notifications.email.helper": "Los resúmenes por correo estarán disponibles cuando lancemos las notificaciones automáticas. Por ahora solo guardamos tu preferencia.",
     "settings.notifications.push.label": "Notificaciones push",
-    "settings.notifications.push.description": "Avísame cuando una señal sobrepase el umbral configurado.",
+    "settings.notifications.push.description": "Mostrar avisos emergentes en la aplicación para eventos y advertencias del portafolio.",
     "settings.alerts.rebalance.label": "Recordatorios de rebalanceo mensual",
     "settings.alerts.rebalance.description":
       "Obtén un recordatorio cuando las asignaciones se desvíen de sus bandas objetivo.",

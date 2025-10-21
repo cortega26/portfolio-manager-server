@@ -95,6 +95,29 @@ describe("ROI utilities", () => {
     assert.deepEqual(series, []);
   });
 
+  it("omits benchmark-only series when falling back to local ROI", async () => {
+    const fetcher = async (symbol) => {
+      const upper = symbol.toUpperCase();
+      if (upper === "AAPL") {
+        return priceMap.AAPL;
+      }
+      if (upper === "SPY") {
+        return priceMap.SPY;
+      }
+      return [];
+    };
+
+    const series = await buildRoiSeries(transactions, fetcher);
+    assert.ok(series.length > 0);
+    for (const point of series) {
+      assert.equal("portfolio" in point, true);
+      assert.equal("spy" in point, true);
+      assert.equal("blended" in point, false);
+      assert.equal("exCash" in point, false);
+      assert.equal("cash" in point, false);
+    }
+  });
+
   it("falls back to the previous close when a ticker lacks data for a date", async () => {
     const extendedTransactions = [
       ...transactions,

@@ -82,7 +82,8 @@ function reducer(state, action) {
 const DEFAULT_PAGE_SIZE = 50;
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 const VIRTUALIZATION_THRESHOLD = 200;
-const ROW_HEIGHT = 56;
+const ROW_HEIGHT_DEFAULT = 56;
+const ROW_HEIGHT_COMPACT = 44;
 const VIRTUALIZED_MAX_HEIGHT = 480;
 const GRID_TEMPLATE =
   "140px minmax(100px, 1fr) 120px 140px 140px 120px minmax(120px, 1fr)";
@@ -122,6 +123,7 @@ function TransactionRow({
   onDeleteTransaction,
   style,
   rowIndexOffset = 0,
+  compact = false,
 }) {
   const { t, formatCurrency } = useI18n();
   const { transaction, originalIndex } = item;
@@ -140,7 +142,8 @@ function TransactionRow({
     <div
       aria-rowindex={rowIndexOffset + index + 2}
       className={clsx(
-        "grid items-center border-b border-slate-200 px-3 py-2 text-sm transition-colors last:border-none dark:border-slate-800",
+        "grid items-center border-b border-slate-200 px-3 transition-colors last:border-none dark:border-slate-800",
+        compact ? "py-1 text-xs" : "py-2 text-sm",
         index % 2 === 0
           ? "bg-white dark:bg-slate-900"
           : "bg-slate-50 dark:bg-slate-900/70",
@@ -167,7 +170,10 @@ function TransactionRow({
         <button
           type="button"
           onClick={() => onDeleteTransaction?.(originalIndex)}
-          className="rounded-md border border-transparent px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10"
+          className={clsx(
+            "rounded-md border border-transparent text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10",
+            compact ? "px-2 py-0.5" : "px-3 py-1",
+          )}
           aria-label={t("transactions.table.undoAria", {
             ticker: transaction.ticker,
             date: transaction.date,
@@ -188,6 +194,7 @@ function VirtualizedRow({ index, style, data }) {
       onDeleteTransaction={data.onDeleteTransaction}
       style={style}
       rowIndexOffset={0}
+      compact={data.compact}
     />
   );
 }
@@ -338,11 +345,19 @@ function TransactionsTable({
   listRef,
   hasSearch = false,
   totalTransactions = 0,
+  rowHeight = ROW_HEIGHT_DEFAULT,
+  compact = false,
 }) {
   const { t } = useI18n();
   if (transactions.length === 0) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400" role="status">
+      <p
+        className={clsx(
+          "text-sm text-slate-500 dark:text-slate-400",
+          compact && "text-xs",
+        )}
+        role="status"
+      >
         {totalTransactions === 0
           ? t("transactions.table.empty")
           : hasSearch
@@ -353,7 +368,7 @@ function TransactionsTable({
   }
 
   const listHeight = Math.min(
-    Math.max(ROW_HEIGHT * 6, transactions.length * ROW_HEIGHT),
+    Math.max(rowHeight * 6, transactions.length * rowHeight),
     VIRTUALIZED_MAX_HEIGHT,
   );
 
@@ -362,11 +377,17 @@ function TransactionsTable({
       <div role="table" aria-label={t("transactions.table.aria")} className="w-full">
         <div
           role="rowgroup"
-          className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-300"
+          className={clsx(
+            "bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-300",
+            compact && "text-[11px]",
+          )}
         >
           <div
             role="row"
-            className="grid grid-cols-[140px_minmax(100px,1fr)_120px_140px_140px_120px_minmax(120px,1fr)] items-center px-3 py-2"
+            className={clsx(
+              "grid grid-cols-[140px_minmax(100px,1fr)_120px_140px_140px_120px_minmax(120px,1fr)] items-center px-3",
+              compact ? "py-1.5" : "py-2",
+            )}
           >
             <span role="columnheader">{t("transactions.table.date")}</span>
             <span role="columnheader">{t("transactions.table.ticker")}</span>
@@ -384,8 +405,8 @@ function TransactionsTable({
             height={listHeight}
             innerElementType={VirtualizedInner}
             itemCount={transactions.length}
-            itemData={{ transactions, onDeleteTransaction }}
-            itemSize={ROW_HEIGHT}
+            itemData={{ transactions, onDeleteTransaction, compact }}
+            itemSize={rowHeight}
             outerElementType={VirtualizedRowGroup}
             ref={listRef ?? undefined}
             width="100%"
@@ -401,6 +422,7 @@ function TransactionsTable({
                 item={item}
                 onDeleteTransaction={onDeleteTransaction}
                 rowIndexOffset={rowIndexOffset}
+                compact={compact}
               />
             ))}
           </div>
@@ -414,6 +436,7 @@ export default function TransactionsTab({
   onAddTransaction,
   onDeleteTransaction,
   transactions = [],
+  compact = false,
 }) {
   const { t } = useI18n();
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -424,6 +447,7 @@ export default function TransactionsTab({
   const [isDepositorModalOpen, setDepositorModalOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const listRef = useRef(null);
+  const rowHeight = compact ? ROW_HEIGHT_COMPACT : ROW_HEIGHT_DEFAULT;
 
   const indexedTransactions = useMemo(
     () =>
@@ -898,12 +922,27 @@ export default function TransactionsTab({
         />
       </div>
 
-      <section aria-label={t("transactions.section.aria")} className="space-y-4">
-        <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
+      <section
+        aria-label={t("transactions.section.aria")}
+        className={clsx("space-y-4", compact && "space-y-3")}
+      >
+        <h2
+          className={clsx(
+            "font-semibold text-slate-700 dark:text-slate-200",
+            compact ? "text-base" : "text-lg",
+          )}
+        >
           {t("transactions.section.recent")}
         </h2>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-600 dark:text-slate-300">{summaryText}</p>
+          <p
+            className={clsx(
+              "text-sm text-slate-600 dark:text-slate-300",
+              compact && "text-xs",
+            )}
+          >
+            {summaryText}
+          </p>
           {totalTransactions > 0 ? (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -935,7 +974,10 @@ export default function TransactionsTab({
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   placeholder={t("transactions.search.placeholder")}
-                  className="w-full min-w-[200px] rounded-md border border-slate-300 px-3 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  className={clsx(
+                    "w-full min-w-[200px] rounded-md border border-slate-300 px-3 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+                    compact ? "py-0.5 text-xs" : "py-1 text-sm",
+                  )}
                   aria-label={t("transactions.search.label")}
                 />
               </label>
@@ -951,20 +993,30 @@ export default function TransactionsTab({
           rowIndexOffset={virtualized ? 0 : startIndex}
           hasSearch={hasSearch}
           totalTransactions={totalTransactions}
+          rowHeight={rowHeight}
+          compact={compact}
         />
 
         {!virtualized && filteredCount > pageSize ? (
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
-              className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              className={clsx(
+                "rounded-md border border-slate-300 text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
+                compact ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm",
+              )}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               aria-label={t("transactions.pagination.previous")}
               disabled={currentPage <= 1}
             >
               {t("transactions.pagination.previous")}
             </button>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
+            <p
+              className={clsx(
+                "text-sm text-slate-600 dark:text-slate-300",
+                compact && "text-xs",
+              )}
+            >
               {t("transactions.pagination.page", {
                 current: currentPage,
                 total: totalPages,
@@ -972,7 +1024,10 @@ export default function TransactionsTab({
             </p>
             <button
               type="button"
-              className="rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              className={clsx(
+                "rounded-md border border-slate-300 text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
+                compact ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm",
+              )}
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               aria-label={t("transactions.pagination.next")}
               disabled={currentPage >= totalPages}
