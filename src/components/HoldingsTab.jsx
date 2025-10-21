@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { deriveHoldingStats, deriveSignalRow } from "../utils/holdings.js";
 
-function HoldingsTable({ holdings, currentPrices, t }) {
+function HoldingsTable({ holdings, currentPrices, t, compact = false }) {
   if (holdings.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -15,18 +15,40 @@ function HoldingsTable({ holdings, currentPrices, t }) {
   return (
     <div className="overflow-x-auto">
       <table
-        className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700"
+        className={clsx(
+          "min-w-full divide-y divide-slate-200 dark:divide-slate-700",
+          compact ? "text-xs" : "text-sm",
+        )}
         aria-label={t("holdings.table.aria")}
       >
         <thead className="bg-slate-50 dark:bg-slate-800/60">
-          <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-            <th className="px-3 py-2">{t("holdings.table.header.ticker")}</th>
-            <th className="px-3 py-2">{t("holdings.table.header.shares")}</th>
-            <th className="px-3 py-2">{t("holdings.table.header.avgCost")}</th>
-            <th className="px-3 py-2">{t("holdings.table.header.currentPrice")}</th>
-            <th className="px-3 py-2">{t("holdings.table.header.value")}</th>
-            <th className="px-3 py-2">{t("holdings.table.header.unrealised")}</th>
-            <th className="px-3 py-2">{t("holdings.table.header.realised")}</th>
+          <tr
+            className={clsx(
+              "text-left font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300",
+              compact ? "text-[11px]" : "text-xs",
+            )}
+          >
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+              {t("holdings.table.header.ticker")}
+            </th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+              {t("holdings.table.header.shares")}
+            </th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+              {t("holdings.table.header.avgCost")}
+            </th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+              {t("holdings.table.header.currentPrice")}
+            </th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+              {t("holdings.table.header.value")}
+            </th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+              {t("holdings.table.header.unrealised")}
+            </th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+              {t("holdings.table.header.realised")}
+            </th>
           </tr>
         </thead>
         <tbody
@@ -40,13 +62,19 @@ function HoldingsTable({ holdings, currentPrices, t }) {
             );
             return (
               <tr key={holding.ticker} className="bg-white dark:bg-slate-900">
-                <td className="px-3 py-2 font-semibold">{holding.ticker}</td>
-                <td className="px-3 py-2">{holding.shares.toFixed(4)}</td>
-                <td className="px-3 py-2">{enriched.avgCostLabel}</td>
-                <td className="px-3 py-2">{enriched.priceLabel}</td>
-                <td className="px-3 py-2">{enriched.valueLabel}</td>
-                <td className="px-3 py-2">{enriched.unrealisedLabel}</td>
-                <td className="px-3 py-2">{enriched.realisedLabel ?? "—"}</td>
+                <td className={clsx("px-3 font-semibold", compact ? "py-1.5" : "py-2")}>
+                  {holding.ticker}
+                </td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+                  {holding.shares.toFixed(4)}
+                </td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{enriched.avgCostLabel}</td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{enriched.priceLabel}</td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{enriched.valueLabel}</td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{enriched.unrealisedLabel}</td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+                  {enriched.realisedLabel ?? "—"}
+                </td>
               </tr>
             );
           })}
@@ -63,7 +91,7 @@ const SIGNAL_LABEL_KEYS = {
   "NO DATA": "holdings.signals.status.noData",
 };
 
-function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t }) {
+function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t, compact = false }) {
   function resolvePctWindow(ticker) {
     if (!signals || !ticker) {
       return 3;
@@ -102,17 +130,25 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t }) {
   return (
     <div className="overflow-x-auto">
       <table
-        className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700"
+        className={clsx(
+          "min-w-full divide-y divide-slate-200 dark:divide-slate-700",
+          compact ? "text-xs" : "text-sm",
+        )}
         aria-label={t("holdings.signals.aria")}
       >
         <thead className="bg-slate-50 dark:bg-slate-800/60">
-          <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-            <th className="px-3 py-2">{t("holdings.signals.header.ticker")}</th>
-            <th className="px-3 py-2">{t("holdings.signals.header.window")}</th>
-            <th className="px-3 py-2">{t("holdings.signals.header.lastPrice")}</th>
-            <th className="px-3 py-2">{t("holdings.signals.header.lower")}</th>
-            <th className="px-3 py-2">{t("holdings.signals.header.upper")}</th>
-            <th className="px-3 py-2">{t("holdings.signals.header.signal")}</th>
+          <tr
+            className={clsx(
+              "text-left font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300",
+              compact ? "text-[11px]" : "text-xs",
+            )}
+          >
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{t("holdings.signals.header.ticker")}</th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{t("holdings.signals.header.window")}</th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{t("holdings.signals.header.lastPrice")}</th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{t("holdings.signals.header.lower")}</th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{t("holdings.signals.header.upper")}</th>
+            <th className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{t("holdings.signals.header.signal")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -125,13 +161,16 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t }) {
             );
             return (
               <tr key={holding.ticker} className="bg-white dark:bg-slate-900">
-                <td className="px-3 py-2 font-semibold">{holding.ticker}</td>
-                <td className="px-3 py-2">
+                <td className={clsx("px-3 font-semibold", compact ? "py-1.5" : "py-2")}>{holding.ticker}</td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
                   <input
                     type="number"
                     step="0.1"
                     min="0"
-                    className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    className={clsx(
+                      "w-20 rounded-md border border-slate-300 px-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+                      compact ? "py-0.5 text-xs" : "py-1 text-sm",
+                    )}
                     value={pctWindow}
                     onChange={(event) =>
                       onSignalChange(holding.ticker, event.target.value)
@@ -140,10 +179,10 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t }) {
                     title={t("holdings.signals.windowAria", { ticker: holding.ticker })}
                   />
                 </td>
-                <td className="px-3 py-2">{row.price}</td>
-                <td className="px-3 py-2">{row.lower}</td>
-                <td className="px-3 py-2">{row.upper}</td>
-                <td className="px-3 py-2">
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.price}</td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.lower}</td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.upper}</td>
+                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
                   {(() => {
                     const translationKey = SIGNAL_LABEL_KEYS[row.signal];
                     const signalLabel = translationKey ? t(translationKey) : row.signal;
@@ -180,20 +219,46 @@ export default function HoldingsTab({
   currentPrices,
   signals,
   onSignalChange,
+  compact = false,
 }) {
   const { t } = useI18n();
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
+      <div
+        className={clsx(
+          "rounded-xl border border-slate-200 bg-white shadow dark:border-slate-800 dark:bg-slate-900",
+          compact ? "p-3" : "p-4",
+        )}
+      >
+        <h2
+          className={clsx(
+            "font-semibold text-slate-700 dark:text-slate-200",
+            compact ? "text-base" : "text-lg",
+          )}
+        >
           {t("holdings.section.title")}
         </h2>
         <div className="mt-4">
-          <HoldingsTable holdings={holdings} currentPrices={currentPrices} t={t} />
+          <HoldingsTable
+            holdings={holdings}
+            currentPrices={currentPrices}
+            t={t}
+            compact={compact}
+          />
         </div>
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200">
+      <div
+        className={clsx(
+          "rounded-xl border border-slate-200 bg-white shadow dark:border-slate-800 dark:bg-slate-900",
+          compact ? "p-3" : "p-4",
+        )}
+      >
+        <h2
+          className={clsx(
+            "font-semibold text-slate-700 dark:text-slate-200",
+            compact ? "text-base" : "text-lg",
+          )}
+        >
           {t("holdings.signals.title")}
         </h2>
         <div className="mt-4">
@@ -203,6 +268,7 @@ export default function HoldingsTab({
             signals={signals}
             onSignalChange={onSignalChange}
             t={t}
+            compact={compact}
           />
         </div>
       </div>

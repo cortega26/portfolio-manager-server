@@ -74,7 +74,16 @@ export function LoadingFallback() {
 const DEFAULT_TAB = "Dashboard";
 
 export default function PortfolioManagerApp() {
-  const { t, language, setLanguage, locale, formatCurrency, formatDate, formatPercent } = useI18n();
+  const {
+    t,
+    language,
+    setLanguage,
+    locale,
+    formatCurrency,
+    formatDate,
+    formatPercent,
+    setCurrencyOverride,
+  } = useI18n();
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
   const [portfolioId, setPortfolioId] = useState("");
   const [portfolioKey, setPortfolioKey] = useState("");
@@ -94,6 +103,11 @@ export default function PortfolioManagerApp() {
   const [roiSource, setRoiSource] = useState("api");
   const [roiServiceDisabled, setRoiServiceDisabled] = useState(false);
 
+  const pushAlertsEnabled = settings?.notifications?.push !== false;
+  const selectedCurrency = settings?.display?.currency ?? "";
+  const refreshIntervalMinutes = Number(settings?.display?.refreshInterval ?? 0);
+  const compactTables = Boolean(settings?.display?.compactTables);
+
   const dismissToast = useCallback((id) => {
     if (!id) {
       return;
@@ -101,30 +115,37 @@ export default function PortfolioManagerApp() {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
-  const pushToast = useCallback((toast) => {
-    setToasts((current) => {
-      const generatedId = `toast-${Date.now()}-${toastIdRef.current + 1}`;
-      toastIdRef.current += 1;
-      const id =
-        typeof toast?.id === "string" && toast.id.trim().length > 0
-          ? toast.id
-          : generatedId;
-      const payload = {
-        id,
-        type: toast?.type ?? "info",
-        title: toast?.title ?? "",
-        message: toast?.message ?? "",
-        detail: toast?.detail,
-        durationMs: toast?.durationMs,
-      };
-      const filtered = current.filter((entry) => entry.id !== id);
-      const merged = [...filtered, payload];
-      if (merged.length > 5) {
-        merged.shift();
-      }
-      return merged;
-    });
-  }, []);
+  const pushToast = useCallback(
+    (toast) => {
+      setToasts((current) => {
+        const toastType = toast?.type ?? "info";
+        if (!pushAlertsEnabled && toastType !== "error" && toastType !== "warning") {
+          return current;
+        }
+        const generatedId = `toast-${Date.now()}-${toastIdRef.current + 1}`;
+        toastIdRef.current += 1;
+        const id =
+          typeof toast?.id === "string" && toast.id.trim().length > 0
+            ? toast.id
+            : generatedId;
+        const payload = {
+          id,
+          type: toastType,
+          title: toast?.title ?? "",
+          message: toast?.message ?? "",
+          detail: toast?.detail,
+          durationMs: toast?.durationMs,
+        };
+        const filtered = current.filter((entry) => entry.id !== id);
+        const merged = [...filtered, payload];
+        if (merged.length > 5) {
+          merged.shift();
+        }
+        return merged;
+      });
+    },
+    [pushAlertsEnabled],
+  );
 
   useEffect(() => {
     const snapshot = loadActivePortfolioSnapshot();
@@ -209,6 +230,30 @@ export default function PortfolioManagerApp() {
     },
     [language, setLanguage],
   );
+
+  useEffect(() => {
+    if (typeof setCurrencyOverride !== "function") {
+      return;
+    }
+    if (typeof selectedCurrency === "string" && selectedCurrency.trim().length > 0) {
+      setCurrencyOverride(selectedCurrency.trim());
+    } else {
+      setCurrencyOverride(null);
+    }
+  }, [selectedCurrency, setCurrencyOverride]);
+
+  useEffect(() => {
+    if (!Number.isFinite(refreshIntervalMinutes) || refreshIntervalMinutes <= 0) {
+      return undefined;
+    }
+    const intervalMs = Math.max(1, refreshIntervalMinutes) * 60 * 1000;
+    const timerId = setInterval(() => {
+      setRoiRefreshKey((previous) => previous + 1);
+    }, intervalMs);
+    return () => {
+      clearInterval(timerId);
+    };
+  }, [refreshIntervalMinutes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -668,7 +713,9 @@ export default function PortfolioManagerApp() {
   }, [priceAlert, roiAlert]);
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div
+      className={`min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100${compactTables ? " compact-tables" : ""}`}
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <ToastStack toasts={toasts} onDismiss={dismissToast} />
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -762,6 +809,7 @@ export default function PortfolioManagerApp() {
                   currentPrices={currentPrices}
                   signals={signals}
                   onSignalChange={handleSignalChange}
+                  compact={compactTables}
                 />
               </section>
             )}
@@ -777,6 +825,7 @@ export default function PortfolioManagerApp() {
                   transactions={transactions}
                   onAddTransaction={handleAddTransaction}
                   onDeleteTransaction={handleDeleteTransaction}
+                  compact={compactTables}
                 />
               </section>
             )}
@@ -791,6 +840,7 @@ export default function PortfolioManagerApp() {
                 <HistoryTab
                   monthlyBreakdown={historyMonthlyBreakdown}
                   timeline={historyTimeline}
+                  compact={compactTables}
                 />
               </section>
             )}

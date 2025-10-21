@@ -187,9 +187,6 @@ export async function buildRoiSeries(transactions, priceFetcher) {
       date,
       portfolio: Number(portfolioRoi.toFixed(3)),
       spy: Number(spyRoi.toFixed(3)),
-      blended: 0,
-      exCash: 0,
-      cash: 0,
     };
   });
 }

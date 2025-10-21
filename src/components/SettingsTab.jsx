@@ -1,22 +1,42 @@
+import clsx from "clsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 
-function ToggleField({ id, label, description, checked, onChange }) {
+function ToggleField({ id, label, description, checked, onChange, disabled = false, helperText }) {
   return (
-    <label htmlFor={id} className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-500/50">
-      <div>
-        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</span>
-        {description && (
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{description}</p>
+    <div>
+      <label
+        htmlFor={id}
+        className={clsx(
+          "flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition dark:border-slate-800 dark:bg-slate-900",
+          disabled
+            ? "cursor-not-allowed opacity-60"
+            : "hover:border-indigo-300 dark:hover:border-indigo-500/50",
         )}
-      </div>
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-1 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800"
-      />
-    </label>
+        aria-disabled={disabled}
+      >
+        <div>
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+          {description && (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{description}</p>
+          )}
+        </div>
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => {
+            if (!disabled) {
+              onChange(event.target.checked);
+            }
+          }}
+          disabled={disabled}
+          className="mt-1 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800"
+        />
+      </label>
+      {helperText ? (
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{helperText}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -94,14 +114,16 @@ export default function SettingsTab({ settings, onSettingChange, onReset }) {
             id="setting-email-alerts"
             label={t("settings.notifications.email.label")}
             description={t("settings.notifications.email.description")}
-            checked={settings.notifications.email}
+            checked={Boolean(settings.notifications.email)}
             onChange={(value) => onSettingChange("notifications.email", value)}
+            disabled
+            helperText={t("settings.notifications.email.helper")}
           />
           <ToggleField
             id="setting-push-alerts"
             label={t("settings.notifications.push.label")}
             description={t("settings.notifications.push.description")}
-            checked={settings.notifications.push}
+            checked={settings.notifications.push !== false}
             onChange={(value) => onSettingChange("notifications.push", value)}
           />
           <ToggleField

@@ -46,7 +46,8 @@ export function I18nProvider({ children }) {
 
   const config = LANGUAGE_CONFIG[language] ?? LANGUAGE_CONFIG[FALLBACK_LANGUAGE];
   const locale = config.locale;
-  const currency = config.currency;
+  const [currencyOverride, setCurrencyOverride] = useState(null);
+  const currency = currencyOverride ?? config.currency;
 
   useEffect(() => {
     configureFormat({ locale, currency });
@@ -108,6 +109,7 @@ export function I18nProvider({ children }) {
       currency,
       measurementSystem: config.measurementSystem,
       setLanguage,
+      setCurrencyOverride,
       t: translate,
       formatCurrency,
       formatPercent,
@@ -122,6 +124,7 @@ export function I18nProvider({ children }) {
       formatPercent,
       formatSignedPercent,
       language,
+      setCurrencyOverride,
       locale,
       translate,
     ],

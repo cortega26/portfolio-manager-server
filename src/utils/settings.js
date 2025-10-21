@@ -4,7 +4,7 @@ export function createDefaultSettings() {
   return {
     notifications: {
       email: false,
-      push: false,
+      push: true,
     },
     alerts: {
       rebalance: true,
@@ -64,6 +64,15 @@ export function normalizeSettings(rawSettings) {
   }
 
   const merged = deepMerge(defaults, rawSettings);
+  if (!isPlainObject(merged.notifications)) {
+    merged.notifications = { ...defaults.notifications };
+  }
+  if (typeof merged.notifications.email !== "boolean") {
+    merged.notifications.email = Boolean(merged.notifications.email);
+  }
+  if (typeof merged.notifications.push !== "boolean") {
+    merged.notifications.push = true;
+  }
   merged.alerts.drawdownThreshold = coerceNumber(
     merged.alerts.drawdownThreshold,
     defaults.alerts.drawdownThreshold,
