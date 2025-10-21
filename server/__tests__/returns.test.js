@@ -18,6 +18,54 @@ test('computeReturnStep handles flows correctly', () => {
   assert.equal(roundDecimal(result, 4).toNumber(), 0.05);
 });
 
+test('cash flows on non-valuation days align to the next available state', () => {
+  const states = [
+    { date: '2024-01-05', nav: 1000, cash: 1000, riskValue: 0 },
+    { date: '2024-01-08', nav: 1500, cash: 1500, riskValue: 0 },
+  ];
+  const rates = [{ effective_date: '2024-01-01', apy: 0 }];
+  const spyPrices = new Map([
+    ['2024-01-05', 100],
+    ['2024-01-08', 100],
+  ]);
+  const transactions = [
+    { date: '2024-01-06', type: 'DEPOSIT', amount: 500 },
+  ];
+  const rows = computeDailyReturnRows({ states, rates, spyPrices, transactions });
+  assert.equal(rows.length, 2);
+  const mondayRow = rows[1];
+  assert.ok(Math.abs(mondayRow.r_port) < 1e-10);
+  assert.ok(Math.abs(mondayRow.r_ex_cash) < 1e-10);
+});
+
+test('cash policy timeline normalizes overlapping entries', () => {
+  const states = [
+    { date: '2024-01-14', nav: 1000, cash: 1000, riskValue: 0 },
+    { date: '2024-01-15', nav: 1000, cash: 1000, riskValue: 0 },
+    { date: '2024-02-01', nav: 1000, cash: 1000, riskValue: 0 },
+  ];
+  const cashPolicy = {
+    currency: 'USD',
+    apyTimeline: [
+      { from: '2024-01-01', apy: 0.02 },
+      { from: '2024-02-01', apy: 0.05 },
+      { from: '2024-01-15', apy: 0.04 },
+    ],
+  };
+  const spyPrices = new Map(states.map((state) => [state.date, 100]));
+  const transactions = [{ date: '2024-01-01', type: 'DEPOSIT', amount: 1000 }];
+  const rows = computeDailyReturnRows({ states, cashPolicy, spyPrices, transactions });
+  const jan14 = rows.find((row) => row.date === '2024-01-14');
+  const jan15 = rows.find((row) => row.date === '2024-01-15');
+  const feb01 = rows.find((row) => row.date === '2024-02-01');
+  assert.ok(jan14);
+  assert.ok(jan15);
+  assert.ok(feb01);
+  assert.ok(Math.abs(jan14.r_cash - 0.02 / 365) < 1e-6);
+  assert.ok(Math.abs(jan15.r_cash - 0.04 / 365) < 1e-6);
+  assert.ok(Math.abs(feb01.r_cash - 0.05 / 365) < 1e-6);
+});
+
 test('daily returns align with blended expectation for 50% cash', () => {
   const states = [
     { date: '2024-01-01', nav: 1000, cash: 500, riskValue: 500 },

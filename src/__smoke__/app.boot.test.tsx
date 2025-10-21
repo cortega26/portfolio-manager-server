@@ -8,7 +8,10 @@ import { I18nProvider } from "../i18n/I18nProvider.jsx";
 function renderWithProviders(initialEntries: string[]) {
   return render(
     <I18nProvider>
-      <MemoryRouter initialEntries={initialEntries}>
+      <MemoryRouter
+        initialEntries={initialEntries}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <App />
       </MemoryRouter>
     </I18nProvider>,
