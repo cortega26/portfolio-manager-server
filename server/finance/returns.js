@@ -3,6 +3,82 @@ import { externalFlowsByDate } from './portfolio.js';
 import { d, fromCents, roundDecimal, toCents, ZERO } from './decimal.js';
 const MS_PER_DAY = 86_400_000;
 
+function toCanonicalDate(value) {
+  if (typeof value !== 'string' && !(value instanceof Date)) {
+    return null;
+  }
+  const key = toDateKey(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(key)) {
+    return null;
+  }
+  return key;
+}
+
+function previousDate(dateKey) {
+  const current = new Date(`${dateKey}T00:00:00Z`);
+  if (Number.isNaN(current.getTime())) {
+    return dateKey;
+  }
+  current.setUTCDate(current.getUTCDate() - 1);
+  return current.toISOString().slice(0, 10);
+}
+
+function normalizeApyTimeline(raw) {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const canonical = raw
+    .map((entry) => {
+      const from = toCanonicalDate(entry?.from ?? entry?.effective_date ?? entry?.date);
+      if (!from) {
+        return null;
+      }
+      const to = toCanonicalDate(entry?.to ?? entry?.through ?? null);
+      const apy = Number.isFinite(entry?.apy) ? Number(entry.apy) : 0;
+      return { from, to: to ?? null, apy };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const fromDiff = a.from.localeCompare(b.from);
+      if (fromDiff !== 0) {
+        return fromDiff;
+      }
+      return (a.to ?? '').localeCompare(b.to ?? '');
+    });
+
+  const result = [];
+  for (const entry of canonical) {
+    const normalized = {
+      from: entry.from,
+      to: entry.to && entry.to < entry.from ? entry.from : entry.to,
+      apy: entry.apy,
+    };
+    const last = result[result.length - 1];
+    if (!last) {
+      result.push(normalized);
+      continue;
+    }
+    if (normalized.from <= last.from) {
+      result[result.length - 1] = normalized;
+      continue;
+    }
+    if (last.to && last.to < normalized.from) {
+      result.push(normalized);
+      continue;
+    }
+    const adjustedEnd = previousDate(normalized.from);
+    if (adjustedEnd < last.from) {
+      result[result.length - 1] = normalized;
+      continue;
+    }
+    result[result.length - 1] = {
+      ...last,
+      to: adjustedEnd,
+    };
+    result.push(normalized);
+  }
+  return result;
+}
 
 function normalizeCashPolicy(input) {
   if (input && typeof input === 'object' && Array.isArray(input.apyTimeline)) {
@@ -11,20 +87,21 @@ function normalizeCashPolicy(input) {
       : 'USD';
     return {
       currency: /^[A-Z]{3}$/u.test(currency) ? currency : 'USD',
-      apyTimeline: input.apyTimeline,
+      apyTimeline: normalizeApyTimeline(input.apyTimeline),
     };
   }
   if (Array.isArray(input)) {
     return {
       currency: 'USD',
-      apyTimeline: [...input]
-        .filter((row) => typeof row?.effective_date === 'string')
-        .sort((a, b) => a.effective_date.localeCompare(b.effective_date))
-        .map((row) => ({
-          from: row.effective_date,
-          to: null,
-          apy: Number.isFinite(row.apy) ? Number(row.apy) : 0,
-        })),
+      apyTimeline: normalizeApyTimeline(
+        [...input]
+          .filter((row) => typeof row?.effective_date === 'string')
+          .map((row) => ({
+            from: row.effective_date,
+            to: null,
+            apy: Number.isFinite(row.apy) ? Number(row.apy) : 0,
+          })),
+      ),
     };
   }
   return { currency: 'USD', apyTimeline: [] };
@@ -70,9 +147,47 @@ export function buildCashReturnSeries({ policy, from, to }) {
   return map;
 }
 
+function alignFlowsToDates({ flowsByDate, dates }) {
+  if (!(flowsByDate instanceof Map) || flowsByDate.size === 0) {
+    return flowsByDate instanceof Map ? new Map(flowsByDate) : new Map();
+  }
+  const sortedDates = [...dates].sort((a, b) => a.localeCompare(b));
+  if (sortedDates.length === 0) {
+    return new Map(flowsByDate);
+  }
+  const dateSet = new Set(sortedDates);
+  const sortedFlows = [...flowsByDate.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  );
+  const aligned = new Map();
+
+  for (const [dateKey, amount] of sortedFlows) {
+    const decimalAmount = d(amount ?? 0);
+    if (decimalAmount.isZero()) {
+      continue;
+    }
+    let targetDate = dateKey;
+    if (!dateSet.has(targetDate)) {
+      targetDate = sortedDates.find((candidate) => candidate >= dateKey)
+        ?? sortedDates[sortedDates.length - 1];
+    }
+    const existing = aligned.get(targetDate);
+    aligned.set(targetDate, existing ? existing.plus(decimalAmount) : decimalAmount);
+  }
+
+  for (const dateKey of sortedDates) {
+    if (!aligned.has(dateKey) && flowsByDate.has(dateKey)) {
+      aligned.set(dateKey, d(flowsByDate.get(dateKey) ?? 0));
+    }
+  }
+
+  return aligned;
+}
+
 function prepareReturnSeries({ states, policy, spyPrices, transactions }) {
   const dates = states.map((state) => state.date);
-  const flowsByDate = externalFlowsByDate(transactions);
+  const rawFlows = externalFlowsByDate(transactions);
+  const flowsByDate = alignFlowsToDates({ flowsByDate: rawFlows, dates });
   const cashReturns = buildCashReturnSeries({
     policy,
     from: dates[0],

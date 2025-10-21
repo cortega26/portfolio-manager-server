@@ -1,3 +1,6 @@
+import { promises as fs } from 'fs';
+import path from 'path';
+
 import { toDateKey, accrueInterest, postMonthlyInterest } from '../finance/cash.js';
 import { isTradingDay } from '../utils/calendar.js';
 import { computeDailyStates } from '../finance/portfolio.js';
@@ -10,6 +13,87 @@ import {
 } from '../data/prices.js';
 
 const MS_PER_DAY = 86_400_000;
+const PORTFOLIO_FILE_PREFIX = 'portfolio_';
+const PORTFOLIO_FILE_SUFFIX = '.json';
+
+function normalizePortfolioId(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  return String(value);
+}
+
+function sanitizePortfolioTimeline(raw) {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      const from =
+        typeof entry.from === 'string'
+          ? entry.from
+          : typeof entry.effective_date === 'string'
+            ? entry.effective_date
+            : null;
+      if (!from) {
+        return null;
+      }
+      const to =
+        typeof entry.to === 'string'
+          ? entry.to
+          : typeof entry.through === 'string'
+            ? entry.through
+            : null;
+      const apy = Number.isFinite(entry.apy) ? Number(entry.apy) : 0;
+      return { from, to: to ?? null, apy };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.from.localeCompare(b.from));
+}
+
+function sanitizePortfolioPolicy(raw, fallbackCurrency) {
+  const currency = normalizeCurrencyCode(raw?.currency ?? fallbackCurrency);
+  const apyTimeline = sanitizePortfolioTimeline(raw?.apyTimeline);
+  return { currency, apyTimeline };
+}
+
+async function loadPortfolioPolicies({ dataDir, fallbackCurrency, logger }) {
+  const policies = new Map();
+  let entries = [];
+  try {
+    entries = await fs.readdir(dataDir);
+  } catch (error) {
+    logger?.warn?.('portfolio_policy_list_failed', { error: error.message });
+    return policies;
+  }
+  for (const entry of entries) {
+    if (!entry.startsWith(PORTFOLIO_FILE_PREFIX) || !entry.endsWith(PORTFOLIO_FILE_SUFFIX)) {
+      continue;
+    }
+    const portfolioId = entry.slice(
+      PORTFOLIO_FILE_PREFIX.length,
+      entry.length - PORTFOLIO_FILE_SUFFIX.length,
+    );
+    const filePath = path.join(dataDir, entry);
+    let parsed;
+    try {
+      const raw = await fs.readFile(filePath, 'utf8');
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      logger?.warn?.('portfolio_policy_read_failed', {
+        portfolio_id: portfolioId,
+        error: error.message,
+      });
+      continue;
+    }
+    const policy = sanitizePortfolioPolicy(parsed?.cash ?? null, fallbackCurrency);
+    policies.set(portfolioId, policy);
+  }
+  return policies;
+}
 
 function listDates(from, to) {
   const start = new Date(`${toDateKey(from)}T00:00:00Z`).getTime();
@@ -143,26 +227,65 @@ export async function runDailyClose({
   );
 
   const rates = await storage.readTable('cash_rates');
-  const policy = {
-    currency: normalizeCurrencyCode(config?.cash?.currency ?? 'USD'),
+  const defaultCurrency = normalizeCurrencyCode(config?.cash?.currency ?? 'USD');
+  const defaultPolicy = {
+    currency: defaultCurrency,
     apyTimeline: timelineFromRates(rates),
   };
-  await accrueInterest({
-    storage,
-    date: targetDateKey,
-    policy,
+  const featureFlags = config?.featureFlags ?? {};
+  const postingDay = config?.cash?.postingDay ?? 'last';
+
+  const transactionsSnapshot = await storage.readTable('transactions');
+  const portfolioIds = new Set();
+  let hasGlobalTransactions = false;
+  for (const tx of transactionsSnapshot) {
+    const normalizedId = normalizePortfolioId(tx?.portfolio_id);
+    if (normalizedId) {
+      portfolioIds.add(normalizedId);
+    } else {
+      hasGlobalTransactions = true;
+    }
+  }
+
+  const portfolioPolicies = await loadPortfolioPolicies({
+    dataDir,
+    fallbackCurrency: defaultCurrency,
     logger,
-    featureFlags: config?.featureFlags ?? {},
-    postingDay: config?.cash?.postingDay ?? 'last',
   });
-  if (config?.featureFlags?.monthlyCashPosting) {
-    await postMonthlyInterest({
+
+  const processInterest = async (portfolioId, policyOverride) => {
+    const chosenPolicy = policyOverride ?? { currency: defaultCurrency, apyTimeline: [] };
+    await accrueInterest({
       storage,
       date: targetDateKey,
-      postingDay: config?.cash?.postingDay ?? 'last',
+      policy: chosenPolicy,
       logger,
-      currency: policy.currency,
+      featureFlags,
+      postingDay,
+      portfolioId,
     });
+    if (featureFlags.monthlyCashPosting) {
+      await postMonthlyInterest({
+        storage,
+        date: targetDateKey,
+        postingDay,
+        logger,
+        currency: chosenPolicy.currency,
+        portfolioId,
+      });
+    }
+  };
+
+  if (hasGlobalTransactions || portfolioIds.size === 0) {
+    await processInterest(null, defaultPolicy);
+  }
+
+  for (const portfolioId of portfolioIds) {
+    const policyOverride = portfolioPolicies.get(portfolioId) ?? {
+      currency: defaultCurrency,
+      apyTimeline: [],
+    };
+    await processInterest(portfolioId, policyOverride);
   }
 
   const transactions = await storage.readTable('transactions');

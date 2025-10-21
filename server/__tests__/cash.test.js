@@ -282,6 +282,7 @@ test('monthly interest accrual buffers and posts once per month', async () => {
     policy,
     logger: noopLogger,
     featureFlags: { monthlyCashPosting: true },
+    portfolioId: 'pf-monthly',
   });
   await accrueInterest({
     storage,
@@ -289,6 +290,7 @@ test('monthly interest accrual buffers and posts once per month', async () => {
     policy,
     logger: noopLogger,
     featureFlags: { monthlyCashPosting: true },
+    portfolioId: 'pf-monthly',
   });
   let transactions = await storage.readTable('transactions');
   assert.equal(
@@ -302,10 +304,12 @@ test('monthly interest accrual buffers and posts once per month', async () => {
     postingDay: 'last',
     logger: noopLogger,
     currency: 'USD',
+    portfolioId: 'pf-monthly',
   });
   assert.ok(posting);
   assert.equal(posting.note, 'Automated monthly cash interest posting');
   assert.equal(posting.currency, 'USD');
+  assert.equal(posting.portfolio_id, 'pf-monthly');
 
   transactions = await storage.readTable('transactions');
   const interest = transactions.filter((tx) => tx.type === 'INTEREST');
@@ -314,6 +318,7 @@ test('monthly interest accrual buffers and posts once per month', async () => {
   assert.equal(interest[0].date, '2024-01-31');
   assert.ok(interest[0].amount > 0);
   assert.equal(interest[0].currency, 'USD');
+  assert.equal(interest[0].portfolio_id, 'pf-monthly');
 
   const second = await postMonthlyInterest({
     storage,
@@ -321,6 +326,144 @@ test('monthly interest accrual buffers and posts once per month', async () => {
     postingDay: 'last',
     logger: noopLogger,
     currency: 'USD',
+    portfolioId: 'pf-monthly',
   });
   assert.equal(second, null);
+});
+
+test('monthly interest accrual respects portfolio boundaries and policies', async () => {
+  await storage.upsertRow(
+    'transactions',
+    {
+      id: 'pf1-deposit',
+      portfolio_id: 'pf-1',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-01-01',
+      amount: 5000,
+      currency: 'USD',
+    },
+    ['id'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    {
+      id: 'pf2-deposit',
+      portfolio_id: 'pf-2',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-01-01',
+      amount: 7500,
+      currency: 'USD',
+    },
+    ['id'],
+  );
+
+  const earningPolicy = {
+    currency: 'USD',
+    apyTimeline: [{ from: '2023-12-01', to: null, apy: 0.048 }],
+  };
+  const zeroPolicy = { currency: 'USD', apyTimeline: [] };
+
+  await accrueInterest({
+    storage,
+    date: '2024-01-02',
+    policy: earningPolicy,
+    logger: noopLogger,
+    featureFlags: { monthlyCashPosting: true },
+    portfolioId: 'pf-1',
+  });
+  await accrueInterest({
+    storage,
+    date: '2024-01-02',
+    policy: zeroPolicy,
+    logger: noopLogger,
+    featureFlags: { monthlyCashPosting: true },
+    portfolioId: 'pf-2',
+  });
+
+  const postingPf1 = await postMonthlyInterest({
+    storage,
+    date: '2024-01-31',
+    postingDay: 'last',
+    logger: noopLogger,
+    currency: 'USD',
+    portfolioId: 'pf-1',
+  });
+  const postingPf2 = await postMonthlyInterest({
+    storage,
+    date: '2024-01-31',
+    postingDay: 'last',
+    logger: noopLogger,
+    currency: 'USD',
+    portfolioId: 'pf-2',
+  });
+
+  assert.ok(postingPf1);
+  assert.equal(postingPf1.portfolio_id, 'pf-1');
+  assert.ok(postingPf1.amount > 0);
+
+  assert.equal(postingPf2, null);
+
+  const transactions = await storage.readTable('transactions');
+  const pf1Interest = transactions.filter(
+    (tx) =>
+      tx.type === 'INTEREST'
+      && tx.portfolio_id === 'pf-1'
+      && tx.note === 'Automated monthly cash interest posting',
+  );
+  const pf2Interest = transactions.filter(
+    (tx) => tx.type === 'INTEREST' && tx.portfolio_id === 'pf-2',
+  );
+
+  assert.equal(pf1Interest.length, 1);
+  assert.equal(pf2Interest.length, 0);
+});
+
+test('accrueInterest respects custom day count conventions', async () => {
+  await storage.upsertRow(
+    'transactions',
+    {
+      id: 'deposit-365',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-01-01',
+      amount: 1000,
+      currency: 'USD',
+    },
+    ['id'],
+  );
+
+  const basePolicy = {
+    currency: 'USD',
+    apyTimeline: [{ from: '2024-01-01', apy: 0.1 }],
+  };
+
+  const defaultDayCountRecord = await accrueInterest({
+    storage,
+    date: '2024-01-02',
+    policy: basePolicy,
+    logger: noopLogger,
+  });
+  assert.ok(defaultDayCountRecord);
+  assert.equal(defaultDayCountRecord.amount, 0.27);
+
+  await storage.deleteWhere(
+    'transactions',
+    (tx) => tx.id === defaultDayCountRecord?.id,
+  );
+
+  const customPolicy = {
+    ...basePolicy,
+    dayCount: 360,
+  };
+
+  const customDayCountRecord = await accrueInterest({
+    storage,
+    date: '2024-01-02',
+    policy: customPolicy,
+    logger: noopLogger,
+  });
+  assert.ok(customDayCountRecord);
+  assert.equal(customDayCountRecord.amount, 0.28);
 });

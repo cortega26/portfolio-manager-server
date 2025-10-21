@@ -138,6 +138,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
         let monthlyInterest = 0;
 
         await withStorage(async (dailyStorage) => {
+          const portfolioId = 'pf-property';
           await dailyStorage.upsertRow(
             'transactions',
             {
@@ -146,6 +147,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
               ticker: 'CASH',
               date: '2024-01-01',
               amount,
+              portfolio_id: portfolioId,
             },
             ['id'],
           );
@@ -158,6 +160,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                 ticker: 'CASH',
                 date: '2024-01-01',
                 amount,
+                portfolio_id: portfolioId,
               },
               ['id'],
             );
@@ -178,6 +181,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                   date: dateKey,
                   policy,
                   logger: noopLogger,
+                  portfolioId,
                 });
                 await accrueInterest({
                   storage: monthlyStorage,
@@ -186,6 +190,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                   logger: noopLogger,
                   featureFlags: { monthlyCashPosting: true },
                   postingDay: 'last',
+                  portfolioId,
                 });
                 await postMonthlyInterest({
                   storage: monthlyStorage,
@@ -193,6 +198,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                   postingDay: 'last',
                   logger: noopLogger,
                   currency: 'USD',
+                  portfolioId,
                 });
               }
               const monthEndKey = monthEnd.toISOString().slice(0, 10);
@@ -202,6 +208,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                 postingDay: 'last',
                 logger: noopLogger,
                 currency: 'USD',
+                portfolioId,
               });
             }
 

@@ -42,25 +42,25 @@ SVG_TEMPLATE = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
     <text x=\"600\" y=\"330\" font-size=\"40\" fill=\"#94a3b8\">Portfolio intelligence for modern investors</text>
   </g>
   <g transform=\"translate(600 430)\" text-anchor=\"middle\" font-family=\"'Inter', 'Segoe UI', 'DejaVu Sans', sans-serif\" fill=\"#cbd5f5\">
-    <text font-size=\"26\">Monitor. Optimise. Collaborate.</text>
+    <text font-size=\"26\">Track. Benchmark. Decide.</text>
   </g>
 </svg>
 """
 
 
 def create_social_card(output_path: Path) -> None:
-  """Render the branded social card to ``output_path``."""
-  output_path.parent.mkdir(parents=True, exist_ok=True)
-  output_path.write_text(SVG_TEMPLATE, encoding="utf-8")
+    """Render the branded social card to ``output_path``."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(SVG_TEMPLATE, encoding="utf-8")
 
 
 def main() -> None:
-  """Entry point for CLI execution."""
-  destination = Path("public/tooltician-social-card.svg")
-  create_social_card(destination)
-  size = destination.stat().st_size
-  print(f"Generated {destination} ({size} bytes)")
+    """Entry point for CLI execution."""
+    destination = Path("public/tooltician-social-card.svg")
+    create_social_card(destination)
+    size = destination.stat().st_size
+    print(f"Generated {destination} ({size} bytes)")
 
 
 if __name__ == "__main__":
-  main()
+    main()

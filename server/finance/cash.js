@@ -64,6 +64,14 @@ function roundToCurrency(value, currency) {
   return roundDecimal(d(value), decimals);
 }
 
+function resolveDayCount(policy) {
+  const raw = Number(policy?.dayCount ?? policy?.day_count);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_DAY_COUNT;
+  }
+  return Math.round(raw);
+}
+
 function clampPostingDay({ year, monthIndex, postingDay }) {
   if (postingDay === 'last') {
     return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
@@ -99,18 +107,19 @@ function resolvePostingDateForMonth(monthKey, postingDay) {
   return `${monthKey}-${String(postingDayNumber).padStart(2, '0')}`;
 }
 
+function normalizePortfolioId(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  return String(value);
+}
+
 function matchesPortfolio(tx, portfolioId) {
-  const normalizedTarget =
-    portfolioId === undefined || portfolioId === null || portfolioId === ''
-      ? null
-      : String(portfolioId);
+  const normalizedTarget = normalizePortfolioId(portfolioId);
   if (!normalizedTarget) {
     return true;
   }
-  const txPortfolio =
-    tx?.portfolio_id === undefined || tx?.portfolio_id === null || tx?.portfolio_id === ''
-      ? null
-      : String(tx.portfolio_id);
+  const txPortfolio = normalizePortfolioId(tx?.portfolio_id);
   return txPortfolio === normalizedTarget;
 }
 
@@ -210,12 +219,15 @@ export function postInterestForDate(
   {
     transactions = [],
     policy = {},
-    dayCount = DEFAULT_DAY_COUNT,
+    dayCount,
   } = {},
 ) {
   const dateKey = toDateKey(date);
   const currency = normalizeCurrency(policy?.currency);
   const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
+  const effectiveDayCount = Number.isFinite(dayCount) && dayCount > 0
+    ? Math.round(dayCount)
+    : resolveDayCount(policy);
 
   const alreadyPosted = transactions.some(
     (tx) =>
@@ -233,7 +245,7 @@ export function postInterestForDate(
     includeInterestOnDate: false,
   });
   const apy = resolveApyForDate(timeline, dateKey);
-  const dailyRate = dailyRateFromApy(apy, { dayCount });
+  const dailyRate = dailyRateFromApy(apy, { dayCount: effectiveDayCount });
   if (dailyRate.isZero()) {
     return null;
   }
@@ -268,12 +280,19 @@ async function recordMonthlyAccrual({
   interestCents,
   currency,
   logger,
+  portfolioId,
 }) {
   await storage.ensureTable('cash_interest_accruals', []);
   const rows = await storage.readTable('cash_interest_accruals');
-  const existing = rows.find((row) => row.month === monthKey);
+  const normalizedCurrency = normalizeCurrency(currency);
+  const normalizedPortfolioId = normalizePortfolioId(portfolioId);
+  const existing = rows.find(
+    (row) =>
+      row.month === monthKey
+      && normalizePortfolioId(row.portfolio_id) === normalizedPortfolioId
+      && normalizeCurrency(row?.currency ?? normalizedCurrency) === normalizedCurrency,
+  );
   const accruedCents = (existing?.accrued_cents ?? 0) + interestCents;
-  const normalizedCurrency = normalizeCurrency(existing?.currency ?? currency);
   const updated = {
     month: monthKey,
     accrued_cents: accruedCents,
@@ -281,13 +300,19 @@ async function recordMonthlyAccrual({
     posted_at: existing?.posted_at ?? null,
     posted_amount_cents: existing?.posted_amount_cents ?? 0,
     currency: normalizedCurrency,
+    portfolio_id: normalizedPortfolioId ?? undefined,
   };
-  await storage.upsertRow('cash_interest_accruals', updated, ['month']);
+  await storage.upsertRow(
+    'cash_interest_accruals',
+    updated,
+    ['month', 'portfolio_id'],
+  );
   logger?.info?.('interest_accrual_buffered', {
     month: monthKey,
     date: dateKey,
     accrued_cents: accruedCents,
     currency: normalizedCurrency,
+    portfolio_id: normalizedPortfolioId ?? null,
   });
   return {
     ...updated,
@@ -309,6 +334,7 @@ export async function accrueInterest({
   const transactions = await storage.readTable('transactions');
   const currency = normalizeCurrency(policy?.currency);
   const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
+  const dayCount = resolveDayCount(policy);
 
   const existingInterest = transactions.find(
     (tx) =>
@@ -326,7 +352,7 @@ export async function accrueInterest({
     includeInterestOnDate: false,
   });
   const apy = resolveApyForDate(timeline, dateKey);
-  const dailyRate = dailyRateFromApy(apy);
+  const dailyRate = dailyRateFromApy(apy, { dayCount });
   if (dailyRate.isZero()) {
     return null;
   }
@@ -346,6 +372,7 @@ export async function accrueInterest({
       interestCents,
       currency,
       logger,
+      portfolioId,
     });
   }
 
@@ -383,6 +410,7 @@ export async function postMonthlyInterest({
   postingDay = 'last',
   logger,
   currency = DEFAULT_CURRENCY,
+  portfolioId,
 }) {
   const dateKey = toDateKey(date);
   const monthKey = dateKey.slice(0, 7);
@@ -393,13 +421,21 @@ export async function postMonthlyInterest({
 
   await storage.ensureTable('cash_interest_accruals', []);
   const accruals = await storage.readTable('cash_interest_accruals');
-  const target = accruals.find((row) => row.month === monthKey);
+  const normalizedPortfolioId = normalizePortfolioId(portfolioId);
+  const target = accruals.find(
+    (row) =>
+      row.month === monthKey
+      && normalizePortfolioId(row.portfolio_id) === normalizedPortfolioId,
+  );
   if (!target) {
     return null;
   }
 
   const normalizedCurrency = normalizeCurrency(target?.currency ?? currency);
-  if (target?.currency && normalizeCurrency(target.currency) !== normalizeCurrency(currency)) {
+  if (
+    target?.currency
+    && normalizeCurrency(target.currency) !== normalizedCurrency
+  ) {
     return null;
   }
 
@@ -410,7 +446,9 @@ export async function postMonthlyInterest({
 
   const amountDecimal = roundToCurrency(fromCents(accruedCents), normalizedCurrency);
   const record = {
-    id: `interest-${postingDate}`,
+    id: normalizedPortfolioId
+      ? `interest-${normalizedPortfolioId}-${postingDate}`
+      : `interest-${postingDate}`,
     type: 'INTEREST',
     ticker: 'CASH',
     date: postingDate,
@@ -419,6 +457,7 @@ export async function postMonthlyInterest({
     note: MONTHLY_POSTING_NOTE,
     internal: false,
     currency: normalizedCurrency,
+    portfolio_id: normalizedPortfolioId ?? undefined,
   };
 
   await storage.upsertRow('transactions', record, ['id']);
@@ -431,8 +470,9 @@ export async function postMonthlyInterest({
       posted_at: postingDate,
       posted_amount_cents: accruedCents,
       currency: normalizedCurrency,
+      portfolio_id: normalizedPortfolioId ?? undefined,
     },
-    ['month'],
+    ['month', 'portfolio_id'],
   );
   await storage.deleteWhere(
     'transactions',
@@ -440,7 +480,8 @@ export async function postMonthlyInterest({
       tx.type === 'INTEREST'
       && tx.note === DAILY_INTEREST_NOTE
       && toDateKey(tx.date).startsWith(monthKey)
-      && normalizeCurrency(tx.currency) === normalizedCurrency,
+      && normalizeCurrency(tx.currency) === normalizedCurrency
+      && normalizePortfolioId(tx.portfolio_id) === normalizedPortfolioId,
   );
 
   logger?.info?.('interest_posted_monthly', {
@@ -448,6 +489,7 @@ export async function postMonthlyInterest({
     month: monthKey,
     amount: record.amount,
     currency: normalizedCurrency,
+    portfolio_id: normalizedPortfolioId ?? null,
   });
   return record;
 }
@@ -457,13 +499,14 @@ export function buildCashSeries({ policy, from, to }) {
   const end = new Date(`${toDateKey(to)}T00:00:00Z`);
   const result = [];
   const timeline = Array.isArray(policy?.apyTimeline) ? policy.apyTimeline : [];
+  const dayCount = resolveDayCount(policy);
   for (let ts = start.getTime(); ts <= end.getTime(); ts += MS_PER_DAY) {
     const date = new Date(ts);
     const dateKey = toDateKey(date);
     const apy = resolveApyForDate(timeline, dateKey);
     result.push({
       date: dateKey,
-      rate: dailyRateFromApy(apy),
+      rate: dailyRateFromApy(apy, { dayCount }),
     });
   }
   return result;
