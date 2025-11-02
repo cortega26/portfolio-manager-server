@@ -64,13 +64,16 @@ function normalizeBulkSymbols(symbols) {
   return [];
 }
 
-export async function fetchBulkPrices(symbols, { range = "1y", signal, onRequestMetadata } = {}) {
+export async function fetchBulkPrices(
+  symbols,
+  { range = "1y", signal, onRequestMetadata } = {},
+) {
   const candidateSymbols = normalizeBulkSymbols(symbols)
     .map((symbol) => (typeof symbol === "string" ? symbol.trim() : ""))
     .filter((symbol) => symbol.length > 0);
   const uniqueSymbols = Array.from(new Set(candidateSymbols));
   if (uniqueSymbols.length === 0) {
-    return { series: new Map(), errors: {}, metadata: {} };
+    return { series: new Map(), errors: {}, metadata: {}, requestId: undefined, version: undefined };
   }
   const params = new URLSearchParams();
   params.set("symbols", uniqueSymbols.join(","));
@@ -78,7 +81,7 @@ export async function fetchBulkPrices(symbols, { range = "1y", signal, onRequest
     params.set("range", String(range));
   }
   const query = params.toString();
-  const { data } = await requestJson(`/prices/bulk${query ? `?${query}` : ""}`, {
+  const { data, requestId, version } = await requestJson(`/prices/bulk${query ? `?${query}` : ""}`, {
     signal,
     onRequestMetadata,
   });
@@ -103,6 +106,8 @@ export async function fetchBulkPrices(symbols, { range = "1y", signal, onRequest
     series,
     errors: data?.errors ?? {},
     metadata: data?.metadata ?? {},
+    requestId,
+    version,
   };
 }
 

@@ -20,7 +20,7 @@
 - **Evidence pointers:**
   - Transactions tab implements virtualised history, undo, and pagination to handle Marcus’s high trade count.【F:README.md†L185-L197】【F:src/components/TransactionsTab.jsx†L200-L310】
   - Holdings tab derives allocation metrics and signals Marcus tunes per ticker.【F:src/components/HoldingsTab.jsx†L34-L155】
-  - ROI fetch and fallback logic determine how quickly his dashboard responds after edits.【F:src/App.jsx†L158-L205】【F:src/utils/roi.js†L104-L175】
+  - ROI fetch and fallback logic determine how quickly his dashboard responds after edits.【F:src/PortfolioManagerApp.jsx†L337-L640】【F:src/utils/roi.js†L104-L175】
 
 ## 3. Priya “Compliance” Desai — Portfolio Compliance & Security Lead
 - **Goals & constraints:** Enforce API key hygiene, monitor rate limits, and audit security events to satisfy regulators. Operates under strict evidence requirements and must document every key rotation.

@@ -56,6 +56,7 @@ The product ships a mature security and testing baseline, yet several high-impac
 - **Evidence:** `loadPrices` fans out one `/prices/:symbol?range=1y` call per ticker and only uses the trailing close, while the server fetches full daily history from upstream providers before caching.【F:src/PortfolioManagerApp.jsx†L286-L345】【F:src/utils/api.js†L44-L55】【F:server/app.js†L1-L1】
 - **Impact:** In degraded mode the app hammers the backend and external data sources, risking rate limits precisely when stability is needed.
 - **Recommendation:** Introduce a bulk price endpoint returning only current quotes or reuse cached monitoring data. Gate fallback ROI behind that aggregate call.
+- **Resolution (2025-10-22):** Frontend price refresh now batches tickers through the existing bulk endpoint, reusing cached series for all holdings in a single request and surfacing shared request IDs when degradations occur (`src/PortfolioManagerApp.jsx`, `src/utils/api.js`, `src/__tests__/App.pricing.test.jsx`).
 
 ### CQ-006 — JSON storage rewrites entire tables per write *(S2, Performance, Effort: 1–2d)*
 - **Evidence:** `JsonTableStorage.upsertRow` loads the whole table array and rewrites it on every update/delete.【F:server/data/storage.js†L52-L75】

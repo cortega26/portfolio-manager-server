@@ -18,9 +18,29 @@ vi.mock("../utils/api.js", async (importOriginal) => {
     __esModule: true,
     fetchBulkPrices: vi.fn(async (symbols) => {
       const list = Array.isArray(symbols) ? symbols : [];
-      const normalized = list.map((ticker) => String(ticker ?? "").toUpperCase());
+      const normalized = list
+        .map((ticker) => String(ticker ?? "").toUpperCase())
+        .filter((ticker) => ticker && ticker !== "SPY");
       for (const ticker of normalized) {
         priceCalls.push(ticker);
+      }
+      if (shouldFailNextPrice) {
+        shouldFailNextPrice = false;
+        return {
+          series: new Map(),
+          errors: Object.fromEntries(
+            normalized.map((ticker) => [
+              ticker,
+              {
+                code: "PRICE_FETCH_FAILED",
+                message: "Pricing temporarily unavailable",
+                requestId: "price-fail-001",
+              },
+            ]),
+          ),
+          metadata: {},
+          requestId: "price-fail-001",
+        };
       }
       return {
         series: new Map(
@@ -33,22 +53,7 @@ vi.mock("../utils/api.js", async (importOriginal) => {
           ]),
         ),
         errors: {},
-      };
-    }),
-    fetchPrices: vi.fn(async (ticker) => {
-      if (shouldFailNextPrice) {
-        const error = new Error("Pricing temporarily unavailable");
-        error.name = "ApiError";
-        error.requestId = "price-fail-001";
-        shouldFailNextPrice = false;
-        throw error;
-      }
-      priceCalls.push(ticker);
-      return {
-        data: [
-          { date: "2024-01-01", close: 120 },
-          { date: "2024-01-02", close: 125 },
-        ],
+        metadata: {},
         requestId: "price-success-001",
       };
     }),
