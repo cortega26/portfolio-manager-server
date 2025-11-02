@@ -15,6 +15,25 @@ vi.mock("../utils/api.js", async (importOriginal) => {
   return {
     ...actual,
     __esModule: true,
+    fetchBulkPrices: vi.fn(async (symbols) => {
+      const list = Array.isArray(symbols) ? symbols : [];
+      const series = new Map(
+        list.map((symbol) => [
+          String(symbol ?? "").toUpperCase(),
+          [
+            { date: "2024-01-01", close: 100 },
+            { date: "2024-01-02", close: 105 },
+          ],
+        ]),
+      );
+      if (!series.has("SPY")) {
+        series.set("SPY", [
+          { date: "2024-01-01", close: 100 },
+          { date: "2024-01-02", close: 105 },
+        ]);
+      }
+      return { series, errors: {} };
+    }),
     fetchPrices: vi.fn(async () => ({
       data: [
         { date: "2024-01-01", close: 100 },

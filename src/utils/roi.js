@@ -261,6 +261,14 @@ export async function buildRoiSeries(transactions, priceFetcher) {
   ];
 
   const symbols = [...tickers, "spy"];
+  if (priceFetcher && typeof priceFetcher.prefetch === "function") {
+    try {
+      await priceFetcher.prefetch(symbols);
+    } catch (error) {
+      console.error("Failed to prefetch price series", error);
+    }
+  }
+
   const priceMapEntries = await Promise.all(
     symbols.map(async (symbol) => {
       try {
