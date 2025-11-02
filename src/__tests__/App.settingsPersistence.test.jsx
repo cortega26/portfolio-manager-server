@@ -19,6 +19,7 @@ vi.mock("../utils/api.js", async (importOriginal) => {
   return {
     ...actual,
     __esModule: true,
+    fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
     fetchPrices: vi.fn(async () => ({ data: [], requestId: "price-none" })),
     fetchDailyReturns: vi.fn(async () => ({
       data: { series: { port: [], spy: [] } },

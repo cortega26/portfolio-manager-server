@@ -12,6 +12,7 @@ import PortfolioControls from "./components/PortfolioControls.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import TabBar from "./components/TabBar.jsx";
 import {
+  fetchBulkPrices,
   fetchDailyReturns,
   fetchPrices,
   persistPortfolio,
@@ -72,6 +73,80 @@ export function LoadingFallback() {
 }
 
 const DEFAULT_TAB = "Dashboard";
+
+function normalizeTickerSymbol(symbol) {
+  if (typeof symbol !== "string") {
+    return "";
+  }
+  const trimmed = symbol.trim();
+  return trimmed.length > 0 ? trimmed.toUpperCase() : "";
+}
+
+function createRoiPriceFetcher({ fetcher, onErrors } = {}) {
+  const cache = new Map();
+  let inflight = null;
+
+  const loadSymbols = async (symbols) => {
+    const unique = Array.from(
+      new Set(
+        symbols
+          .map((symbol) => normalizeTickerSymbol(symbol))
+          .filter((symbol) => symbol.length > 0 && !cache.has(symbol)),
+      ),
+    );
+    if (unique.length === 0) {
+      return;
+    }
+    const result = await fetcher(unique);
+    for (const [symbol, entries] of result.series.entries()) {
+      cache.set(symbol, Array.isArray(entries) ? entries : []);
+    }
+    for (const symbol of unique) {
+      if (!cache.has(symbol)) {
+        cache.set(symbol, []);
+      }
+    }
+    if (typeof onErrors === "function" && result.errors) {
+      const errorKeys = Object.keys(result.errors);
+      if (errorKeys.length > 0) {
+        onErrors(result.errors);
+      }
+    }
+  };
+
+  const loader = async (symbol) => {
+    const normalized = normalizeTickerSymbol(symbol);
+    if (!normalized) {
+      return [];
+    }
+    if (cache.has(normalized)) {
+      return cache.get(normalized);
+    }
+    if (inflight) {
+      try {
+        await inflight;
+      } catch (error) {
+        console.error(error);
+      }
+      if (cache.has(normalized)) {
+        return cache.get(normalized);
+      }
+    }
+    await loadSymbols([normalized]);
+    return cache.get(normalized) ?? [];
+  };
+
+  loader.prefetch = async (symbols) => {
+    inflight = loadSymbols(symbols);
+    try {
+      await inflight;
+    } finally {
+      inflight = null;
+    }
+  };
+
+  return loader;
+}
 
 export default function PortfolioManagerApp() {
     const {
@@ -440,7 +515,16 @@ export default function PortfolioManagerApp() {
 
     async function applyRoiFallback(reason, error) {
       try {
-        const fallbackSeries = await buildRoiSeries(transactions, fetchPrices);
+        const priceFetcher = createRoiPriceFetcher({
+          fetcher: async (symbols) => {
+            const { series, errors } = await fetchBulkPrices(symbols);
+            return { series, errors };
+          },
+          onErrors: (errors) => {
+            console.warn("Bulk price fetch encountered errors", errors);
+          },
+        });
+        const fallbackSeries = await buildRoiSeries(transactions, priceFetcher);
         if (cancelled) {
           return;
         }

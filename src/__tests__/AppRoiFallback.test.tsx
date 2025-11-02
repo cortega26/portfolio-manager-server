@@ -7,12 +7,14 @@ import App from '../App.jsx';
 
 const {
   fetchDailyReturnsMock,
+  fetchBulkPricesMock,
   fetchPricesMock,
   buildRoiSeriesMock,
   mergeReturnSeriesMock,
   createInitialLedgerStateMock,
 } = vi.hoisted(() => ({
   fetchDailyReturnsMock: vi.fn(),
+  fetchBulkPricesMock: vi.fn(),
   fetchPricesMock: vi.fn(),
   buildRoiSeriesMock: vi.fn(),
   mergeReturnSeriesMock: vi.fn(),
@@ -48,6 +50,7 @@ vi.mock('../components/AdminTab.jsx', () => ({
 
 vi.mock('../utils/api.js', () => ({
   fetchDailyReturns: fetchDailyReturnsMock,
+  fetchBulkPrices: fetchBulkPricesMock,
   fetchPrices: fetchPricesMock,
   persistPortfolio: vi.fn(),
   retrievePortfolio: vi.fn(async () => null),
@@ -74,6 +77,7 @@ describe('ROI fallback alerts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fetchPricesMock.mockResolvedValue({ data: [] });
+    fetchBulkPricesMock.mockResolvedValue({ series: new Map(), errors: {} });
     buildRoiSeriesMock.mockResolvedValue([
       { date: '2024-01-02', value: 0 },
     ]);
