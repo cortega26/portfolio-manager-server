@@ -14,7 +14,6 @@ import TabBar from "./components/TabBar.jsx";
 import {
   fetchBulkPrices,
   fetchDailyReturns,
-  fetchPrices,
   persistPortfolio,
   retrievePortfolio,
 } from "./utils/api.js";
@@ -380,34 +379,85 @@ export default function PortfolioManagerApp() {
         return formatDate(new Date(year, month - 1, day));
       };
 
-      const priceEntries = await Promise.all(
-        uniqueTickers.map(async (ticker) => {
-          try {
-            const { data: priceSeries, requestId } = await fetchPrices(ticker);
-            const latest = priceSeries.at(-1);
-            return {
-              ticker,
-              price: latest?.close ?? 0,
-              asOf: latest?.date ?? null,
-              requestId: requestId ?? null,
-              error: null,
-            };
-          } catch (error) {
-            console.error(error);
-            return {
-              ticker,
-              price: null,
-              asOf: null,
-              requestId: error?.requestId ?? null,
-              error,
-            };
-          }
-        }),
-      );
+      let requestMetadata = null;
+      let bulkError = null;
+      let bulkResult;
+      try {
+        bulkResult = await fetchBulkPrices(uniqueTickers, {
+          onRequestMetadata: (meta) => {
+            requestMetadata = meta;
+          },
+        });
+      } catch (error) {
+        console.error(error);
+        bulkError = error;
+        bulkResult = { series: new Map(), errors: {}, metadata: {} };
+      }
 
       if (cancelled) {
         return;
       }
+
+      const requestIdSet = new Set();
+      const addRequestId = (candidate) => {
+        if (typeof candidate !== "string") {
+          return null;
+        }
+        const trimmed = candidate.trim();
+        if (!trimmed) {
+          return null;
+        }
+        requestIdSet.add(trimmed);
+        return trimmed;
+      };
+
+      const fallbackRequestId =
+        addRequestId(bulkResult?.requestId) ??
+        addRequestId(requestMetadata?.requestId) ??
+        addRequestId(bulkError?.requestId);
+
+      const priceEntries = (() => {
+        if (bulkError) {
+          return uniqueTickers.map((ticker) => ({
+            ticker,
+            price: null,
+            asOf: null,
+            requestId: fallbackRequestId,
+            error: bulkError,
+          }));
+        }
+
+        const { series = new Map(), errors = {} } = bulkResult ?? {};
+        return uniqueTickers.map((ticker) => {
+          const normalized = normalizeTickerSymbol(ticker);
+          const tickerSeries = series.get(normalized) ?? series.get(ticker) ?? [];
+          const latest = Array.isArray(tickerSeries)
+            ? tickerSeries[tickerSeries.length - 1]
+            : null;
+          const rawClose =
+            Number.isFinite(latest?.close)
+              ? latest.close
+              : Number.isFinite(latest?.adjClose)
+              ? latest?.adjClose
+              : null;
+          const price = Number.isFinite(rawClose) ? rawClose : null;
+          const tickerError = errors?.[normalized] ?? errors?.[ticker] ?? null;
+          const entryRequestId =
+            addRequestId(tickerError?.requestId) ?? fallbackRequestId ?? null;
+          if (tickerError) {
+            console.error("Failed to refresh price for %s", normalized, tickerError);
+          }
+          return {
+            ticker,
+            price,
+            asOf: latest?.date ?? null,
+            requestId: entryRequestId,
+            error: tickerError ?? null,
+          };
+        });
+      })();
+
+      const requestIds = Array.from(requestIdSet);
 
       setCurrentPrices((previous) => {
         const next = {};
@@ -434,9 +484,10 @@ export default function PortfolioManagerApp() {
             .filter((ticker) => typeof ticker === "string" && ticker.length > 0),
         ),
       );
-      const requestIds = failures
+      const failureRequestIds = failures
         .map((entry) => entry.requestId)
         .filter((value) => typeof value === "string" && value?.trim().length > 0);
+      const aggregatedRequestIds = failureRequestIds.length > 0 ? failureRequestIds : requestIds;
 
       if (!marketClock.isOpen) {
         const lastCloseLabel = formatMarketDate(marketClock.lastTradingDate);
@@ -462,7 +513,7 @@ export default function PortfolioManagerApp() {
             tickers: summary,
             next: nextSessionLabel,
           }),
-          requestIds,
+          requestIds: aggregatedRequestIds,
         });
         return;
       }
@@ -478,7 +529,7 @@ export default function PortfolioManagerApp() {
                 ? impactedList.join(", ")
                 : t("alerts.price.refreshFailed.detailFallback"),
           }),
-          requestIds,
+          requestIds: aggregatedRequestIds,
         });
       } else {
         setPriceAlert(null);
