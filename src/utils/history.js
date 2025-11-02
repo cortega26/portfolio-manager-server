@@ -89,7 +89,7 @@ export function groupTransactionsByMonth(transactions, { locale } = {}) {
 
 export function buildTransactionTimeline(
   transactions,
-  { locale, formatCurrency, translate, formatDate },
+  { locale, formatCurrency, formatNumber, translate, formatDate } = {},
 ) {
   if (!Array.isArray(transactions)) {
     return [];
@@ -110,37 +110,97 @@ export function buildTransactionTimeline(
           });
         };
 
-  const describeTransaction = (transaction) => {
-    if (typeof formatCurrency !== "function" || typeof translate !== "function") {
-      return null;
-    }
-    const amountLabel = formatCurrency(transaction.amount);
-    switch (transaction.type) {
-      case "DEPOSIT":
-        return translate("history.timeline.deposit", { amount: amountLabel });
-      case "WITHDRAWAL":
-      case "WITHDRAW":
-        return translate("history.timeline.withdraw", { amount: amountLabel });
-      default:
+    const describeTransaction = (transaction) => {
+      if (typeof formatCurrency !== "function" || typeof translate !== "function") {
         return null;
-    }
-  };
+      }
+      const amountLabel = formatCurrency(transaction.amount);
+      const ticker = typeof transaction.ticker === "string" ? transaction.ticker : null;
+      const shareValue =
+        typeof transaction.shares === "number"
+          ? transaction.shares
+          : typeof transaction.shares === "string"
+            ? Number.parseFloat(transaction.shares)
+            : Number.NaN;
+      const sharesLabel =
+        typeof formatNumber === "function" && Number.isFinite(shareValue)
+          ? formatNumber(shareValue, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 6,
+            })
+          : null;
+      const fallbackShares =
+        sharesLabel ?? (Number.isFinite(shareValue) ? String(shareValue) : "—");
+      switch (transaction.type) {
+        case "DEPOSIT":
+          return translate("history.timeline.deposit", { amount: amountLabel });
+        case "WITHDRAWAL":
+        case "WITHDRAW":
+          return translate("history.timeline.withdraw", { amount: amountLabel });
+        case "BUY":
+          return translate("history.timeline.buy", {
+            amount: amountLabel,
+            shares: fallbackShares,
+            ticker: ticker ?? translate("history.timeline.portfolioFallback"),
+          });
+        case "SELL":
+          return translate("history.timeline.sell", {
+            amount: amountLabel,
+            shares: fallbackShares,
+            ticker: ticker ?? translate("history.timeline.portfolioFallback"),
+          });
+        case "DIVIDEND":
+          return translate("history.timeline.dividend", {
+            amount: amountLabel,
+            ticker: ticker ?? translate("history.timeline.portfolioFallback"),
+          });
+        case "INTEREST":
+          return translate("history.timeline.interest", { amount: amountLabel });
+        case "FEE":
+          return translate("history.timeline.fee", { amount: amountLabel });
+        default:
+          return null;
+      }
+    };
 
-  return [...transactions]
-    .filter((transaction) => Boolean(parseMonthKey(transaction.date, locale)))
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
-    .slice(0, 20)
-    .map((transaction) => {
-      const dateLabel = formatDateLabel(transaction.date);
-      const typeLabel = transaction.type ?? "Activity";
-      return {
-        date: transaction.date,
-        dateLabel,
-        typeLabel,
-        title: `${transaction.ticker ?? "Portfolio"} ${typeLabel}`,
-        description: describeTransaction(transaction),
-        transaction,
-      };
-    })
-    .filter(Boolean);
+    const resolveTypeLabel = (type) => {
+      if (typeof translate !== "function") {
+        return type ?? "Activity";
+      }
+      const normalized = typeof type === "string" ? type.trim().toLowerCase() : "";
+      if (!normalized) {
+        return translate("history.timeline.activityLabel");
+      }
+      const key = `transactions.type.${normalized}`;
+      const label = translate(key);
+      return label === key ? type ?? translate("history.timeline.activityLabel") : label;
+    };
+
+    return [...transactions]
+      .filter((transaction) => Boolean(parseMonthKey(transaction.date, locale)))
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .slice(0, 20)
+      .map((transaction) => {
+        const dateLabel = formatDateLabel(transaction.date);
+        const typeLabel = resolveTypeLabel(transaction.type);
+        const ticker =
+          typeof transaction.ticker === "string" && transaction.ticker.trim().length > 0
+            ? transaction.ticker.trim()
+            : translate?.("history.timeline.portfolioFallback") ?? "Portfolio";
+        return {
+          date: transaction.date,
+          dateLabel,
+          typeLabel,
+          title:
+            typeof translate === "function"
+              ? translate("history.timeline.itemTitle", {
+                  name: ticker,
+                  type: typeLabel,
+                })
+              : `${ticker} ${typeLabel}`,
+          description: describeTransaction(transaction),
+          transaction,
+        };
+      })
+      .filter(Boolean);
 }

@@ -45,6 +45,7 @@ The product ships a mature security and testing baseline, yet several high-impac
 - **Evidence:** `ensureTransactionUids` filters out repeated `uid`s, logs a warning, and returns success to the caller without surfacing errors to the client.【F:server/app.js†L1-L1】
 - **Impact:** Legitimate edits (e.g., re-importing corrected CSV rows) can lose trades with no user feedback, leading to reconciliation gaps.
 - **Recommendation:** Reject payloads containing duplicate `uid`s with a 409-style response and surface precise validation errors. Extend tests to assert the failure mode.
+- **Resolution (2025-10-22):** Duplicate identifiers now trigger a 409 error with structured details, preventing silent data loss and logging the offending IDs (`server/app.js`).
 
 ### CQ-004 — Snapshot persistence exceeds `localStorage` *(S1, Frontend Persistence, Effort: 1–2d)*
 - **Evidence:** `persistActivePortfolioSnapshot` clones and stores the entire transaction/signals/settings payload per portfolio inside `localStorage` without paging.【F:src/state/portfolioStore.js†L72-L109】
@@ -65,6 +66,7 @@ The product ships a mature security and testing baseline, yet several high-impac
 - **Evidence:** Holdings and transactions tables render share counts via `toFixed(4)` without locale awareness, omitting thousands separators and mismatching user preferences.【F:src/components/HoldingsTab.jsx†L30-L76】【F:src/components/TransactionsTab.jsx†L120-L168】
 - **Impact:** International users see misleading decimal formatting, and rounding to four decimals can distort fractional shares for high-precision assets.
 - **Recommendation:** Pipe share counts through `formatNumber` with configurable fraction digits aligned to asset precision and locale.
+- **Resolution (2025-10-22):** Share counts route through the i18n `formatNumber` helper with updated Vitest coverage, ensuring locale-aware rendering in holdings and transactions tables (`src/components/HoldingsTab.jsx`, `src/components/TransactionsTab.jsx`, `src/__tests__/HoldingsTable.test.tsx`).
 
 ### CQ-008 — Toast dismiss control not localised *(S2, Accessibility/I18n, Effort: ≤2h)*
 - **Evidence:** The toast close button hardcodes `aria-label="Dismiss notification"` and bypasses the translation layer.【F:src/components/ToastStack.jsx†L48-L76】

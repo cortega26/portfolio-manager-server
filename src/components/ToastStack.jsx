@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 
+import { useI18n } from "../i18n/I18nProvider.jsx";
+
 const TYPE_STYLES = {
   success:
     "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200",
@@ -16,6 +18,7 @@ function resolveClassName(type) {
 }
 
 export default function ToastStack({ toasts, onDismiss }) {
+  const { t } = useI18n();
   useEffect(() => {
     if (!Array.isArray(toasts) || toasts.length === 0) {
       return undefined;
@@ -67,12 +70,12 @@ export default function ToastStack({ toasts, onDismiss }) {
                   <p className="mt-1 text-sm leading-snug">{toast.message}</p>
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => onDismiss?.(toast.id)}
-                className="-mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold uppercase tracking-wide text-inherit/80 hover:text-inherit"
-                aria-label="Dismiss notification"
-              >
+                <button
+                  type="button"
+                  onClick={() => onDismiss?.(toast.id)}
+                  className="-mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold uppercase tracking-wide text-inherit/80 hover:text-inherit"
+                  aria-label={t("toast.dismiss")}
+                >
                 ×
               </button>
             </div>

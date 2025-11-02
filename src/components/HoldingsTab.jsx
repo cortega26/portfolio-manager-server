@@ -3,7 +3,13 @@ import clsx from "clsx";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { deriveHoldingStats, deriveSignalRow } from "../utils/holdings.js";
 
-function HoldingsTable({ holdings, currentPrices, t, compact = false }) {
+function HoldingsTable({
+  holdings,
+  currentPrices,
+  t,
+  formatNumber,
+  compact = false,
+}) {
   if (holdings.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -55,19 +61,42 @@ function HoldingsTable({ holdings, currentPrices, t, compact = false }) {
           className="divide-y divide-slate-200 dark:divide-slate-800"
           data-testid="holdings-tbody"
         >
-          {holdings.map((holding) => {
-            const enriched = deriveHoldingStats(
-              holding,
-              currentPrices[holding.ticker],
-            );
-            return (
-              <tr key={holding.ticker} className="bg-white dark:bg-slate-900">
+            {holdings.map((holding) => {
+              const enriched = deriveHoldingStats(
+                holding,
+                currentPrices[holding.ticker],
+              );
+              const sharesLabel = (() => {
+                if (typeof formatNumber === "function" && Number.isFinite(holding.shares)) {
+                  return formatNumber(holding.shares, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 6,
+                  });
+                }
+                if (typeof holding.shares === "number" && Number.isFinite(holding.shares)) {
+                  return holding.shares.toFixed(4);
+                }
+                if (typeof holding.shares === "string" && holding.shares.trim()) {
+                  const parsed = Number.parseFloat(holding.shares);
+                  if (Number.isFinite(parsed) && typeof formatNumber === "function") {
+                    return formatNumber(parsed, {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 6,
+                    });
+                  }
+                  if (Number.isFinite(parsed)) {
+                    return parsed.toFixed(4);
+                  }
+                  return holding.shares;
+                }
+                return "—";
+              })();
+              return (
+                <tr key={holding.ticker} className="bg-white dark:bg-slate-900">
                 <td className={clsx("px-3 font-semibold", compact ? "py-1.5" : "py-2")}>
                   {holding.ticker}
                 </td>
-                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
-                  {holding.shares.toFixed(4)}
-                </td>
+                  <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{sharesLabel}</td>
                 <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{enriched.avgCostLabel}</td>
                 <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{enriched.priceLabel}</td>
                 <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{enriched.valueLabel}</td>
@@ -221,7 +250,7 @@ export default function HoldingsTab({
   onSignalChange,
   compact = false,
 }) {
-  const { t } = useI18n();
+  const { t, formatNumber } = useI18n();
   return (
     <div className="space-y-6">
       <div
@@ -243,6 +272,7 @@ export default function HoldingsTab({
             holdings={holdings}
             currentPrices={currentPrices}
             t={t}
+            formatNumber={formatNumber}
             compact={compact}
           />
         </div>
