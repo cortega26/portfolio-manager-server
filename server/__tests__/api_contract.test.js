@@ -111,6 +111,42 @@ for (const basePath of API_PREFIXES) {
 }
 
 for (const basePath of API_PREFIXES) {
+  test(`GET ${basePath}/prices/bulk returns multiple price series`, async () => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const todayKey = today.toISOString().slice(0, 10);
+    const yesterdayKey = yesterday.toISOString().slice(0, 10);
+    const priceProvider = {
+      async getDailyAdjustedClose(symbol) {
+        return [
+          { date: yesterdayKey, adjClose: symbol === 'MSFT' ? 222.22 : 123.45 },
+          { date: todayKey, adjClose: symbol === 'MSFT' ? 223.33 : 124.56 },
+        ];
+      },
+    };
+
+    const app = buildApp({
+      priceProvider,
+      config: {
+        featureFlags: { cashBenchmarks: true },
+        cors: { allowedOrigins: [] },
+        freshness: { maxStaleTradingDays: 30 },
+      },
+    });
+
+    const response = await request(app).get(`${basePath}/prices/bulk?symbols=AAPL,MSFT&range=1y`);
+
+    assert.equal(response.status, 200);
+    assert.ok(response.body?.series?.AAPL);
+    assert.ok(response.body?.series?.MSFT);
+    assert.equal(Array.isArray(response.body.series.AAPL), true);
+    assert.equal(Array.isArray(response.body.series.MSFT), true);
+    assert.equal((response.headers["x-cache"] ?? "MISS").toUpperCase(), "MISS");
+  });
+}
+
+for (const basePath of API_PREFIXES) {
   test(`GET ${basePath}/nav/daily matches the OpenAPI contract`, async () => {
     await storage.writeTable('nav_snapshots', [
       {

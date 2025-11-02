@@ -54,6 +54,58 @@ export async function fetchPrices(symbol, range = "1y", options = {}) {
   });
 }
 
+function normalizeBulkSymbols(symbols) {
+  if (Array.isArray(symbols)) {
+    return symbols;
+  }
+  if (typeof symbols === "string") {
+    return symbols.split(",");
+  }
+  return [];
+}
+
+export async function fetchBulkPrices(symbols, { range = "1y", signal, onRequestMetadata } = {}) {
+  const candidateSymbols = normalizeBulkSymbols(symbols)
+    .map((symbol) => (typeof symbol === "string" ? symbol.trim() : ""))
+    .filter((symbol) => symbol.length > 0);
+  const uniqueSymbols = Array.from(new Set(candidateSymbols));
+  if (uniqueSymbols.length === 0) {
+    return { series: new Map(), errors: {}, metadata: {} };
+  }
+  const params = new URLSearchParams();
+  params.set("symbols", uniqueSymbols.join(","));
+  if (range !== undefined && range !== null) {
+    params.set("range", String(range));
+  }
+  const query = params.toString();
+  const { data } = await requestJson(`/prices/bulk${query ? `?${query}` : ""}`, {
+    signal,
+    onRequestMetadata,
+  });
+  const series = new Map();
+  const rawSeries = data?.series ?? {};
+  for (const [symbol, entries] of Object.entries(rawSeries)) {
+    const normalized = symbol.toUpperCase();
+    series.set(
+      normalized,
+      Array.isArray(entries)
+        ? entries.map((entry) => ({ ...entry }))
+        : [],
+    );
+  }
+  for (const symbol of uniqueSymbols) {
+    const normalized = symbol.toUpperCase();
+    if (!series.has(normalized)) {
+      series.set(normalized, []);
+    }
+  }
+  return {
+    series,
+    errors: data?.errors ?? {},
+    metadata: data?.metadata ?? {},
+  };
+}
+
 const RETURN_VIEWS = new Set(["port", "excash", "spy", "bench", "cash"]);
 
 function normalizeDateParam(value) {

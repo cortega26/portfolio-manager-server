@@ -33,6 +33,7 @@ vi.mock('../components/AdminTab.jsx', () => ({
 }));
 
 vi.mock('../utils/api.js', () => ({
+  fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
   fetchDailyReturns: vi.fn(async () => ({ data: { series: [] } })),
   fetchPrices: vi.fn(async () => ({ data: [] })),
   persistPortfolio: vi.fn(),

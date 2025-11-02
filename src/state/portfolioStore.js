@@ -1,4 +1,115 @@
 const STORAGE_KEY = "portfolio-manager-active-portfolio";
+const MAX_SNAPSHOT_SIZE_BYTES = 2_000_000;
+
+const textEncoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
+
+function estimateSize(value) {
+  if (!textEncoder) {
+    const normalized = typeof value === "string" ? value : String(value ?? "");
+    return normalized.length * 2;
+  }
+  return textEncoder.encode(value).length;
+}
+
+function summarizeSnapshot(originalSnapshot, transactionsLimit) {
+  const snapshot = { ...originalSnapshot };
+  const transactions = Array.isArray(snapshot.transactions)
+    ? snapshot.transactions
+    : [];
+  if (transactionsLimit >= transactions.length) {
+    const storedCount = transactions.length;
+    if (storedCount > 0) {
+      snapshot.transactions = cloneForStorage(transactions);
+    } else {
+      snapshot.transactions = [];
+    }
+    snapshot.__storage = {
+      ...(snapshot.__storage ?? {}),
+      truncated: false,
+      transactionCount: transactions.length,
+      storedTransactions: storedCount,
+    };
+    return snapshot;
+  }
+
+  const preserve = Math.max(0, Math.min(transactionsLimit, transactions.length));
+  if (preserve === 0) {
+    snapshot.transactions = [];
+  } else {
+    const head = Math.ceil(preserve / 2);
+    const tail = preserve - head;
+    const leading = transactions.slice(0, head);
+    const trailing = tail > 0 ? transactions.slice(transactions.length - tail) : [];
+    snapshot.transactions = cloneForStorage([...leading, ...trailing]);
+  }
+  snapshot.__storage = {
+    ...(snapshot.__storage ?? {}),
+    truncated: true,
+    transactionCount: transactions.length,
+    storedTransactions: snapshot.transactions.length,
+  };
+  return snapshot;
+}
+
+function prepareSnapshotState(state, snapshot) {
+  const attemptSerialize = (candidateState) => {
+    const serialized = JSON.stringify(candidateState);
+    return { serialized, size: estimateSize(serialized) };
+  };
+
+  const firstPass = attemptSerialize(state);
+  if (firstPass.size <= MAX_SNAPSHOT_SIZE_BYTES) {
+    return { state, serialized: firstPass.serialized };
+  }
+
+  const transactions = Array.isArray(snapshot.transactions)
+    ? snapshot.transactions
+    : [];
+  if (transactions.length === 0) {
+    return { state, serialized: firstPass.serialized };
+  }
+
+  let limit = Math.max(50, Math.floor(transactions.length * 0.5));
+  let bestState = state;
+  let bestSerialized = firstPass.serialized;
+  let bestSize = firstPass.size;
+  while (limit >= 0 && bestSize > MAX_SNAPSHOT_SIZE_BYTES) {
+    const candidateSnapshot = summarizeSnapshot(snapshot, limit);
+    const candidateState = {
+      ...state,
+      snapshots: {
+        ...state.snapshots,
+        [snapshot.id]: candidateSnapshot,
+      },
+    };
+    const attempt = attemptSerialize(candidateState);
+    bestState = candidateState;
+    bestSerialized = attempt.serialized;
+    bestSize = attempt.size;
+    if (limit === 0) {
+      break;
+    }
+    limit = Math.floor(limit * 0.5);
+    if (limit < 0) {
+      limit = 0;
+    }
+  }
+
+  if (bestSize > MAX_SNAPSHOT_SIZE_BYTES) {
+    const strippedSnapshot = summarizeSnapshot(snapshot, 0);
+    const strippedState = {
+      ...state,
+      snapshots: {
+        ...state.snapshots,
+        [snapshot.id]: strippedSnapshot,
+      },
+    };
+    const attempt = attemptSerialize(strippedState);
+    return { state: strippedState, serialized: attempt.serialized };
+  }
+
+  return { state: bestState, serialized: bestSerialized };
+}
 
 function getStorage(storage) {
   if (storage) {
@@ -31,9 +142,13 @@ function readStore(storage) {
   }
 }
 
-function writeStore(storage, value) {
+function writeStore(storage, value, serializedOverride) {
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(value));
+    const serialized =
+      typeof serializedOverride === "string"
+        ? serializedOverride
+        : JSON.stringify(value);
+    storage.setItem(STORAGE_KEY, serialized);
     return true;
   } catch (error) {
     console.error("Failed to persist portfolio snapshot", error);
@@ -105,7 +220,8 @@ export function persistActivePortfolioSnapshot(snapshot, storage) {
       [id]: safeSnapshot,
     },
   };
-  return writeStore(store, nextState);
+  const { state: preparedState, serialized } = prepareSnapshotState(nextState, safeSnapshot);
+  return writeStore(store, preparedState, serialized);
 }
 
 export function markSnapshotInactive(id, storage) {
