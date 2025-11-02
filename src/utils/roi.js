@@ -37,6 +37,165 @@ const SERIES_SOURCE_KEYS = {
   cash: "r_cash",
 };
 
+const TYPE_ORDER = {
+  DEPOSIT: 1,
+  BUY: 2,
+  SELL: 3,
+  DIVIDEND: 4,
+  INTEREST: 5,
+  WITHDRAWAL: 6,
+  FEE: 7,
+};
+
+const CASH_IN_TYPES = new Set(["DEPOSIT"]);
+const CASH_OUT_TYPES = new Set(["WITHDRAWAL", "FEE"]);
+const INCOME_TYPES = new Set(["DIVIDEND", "INTEREST"]);
+const SHARE_TYPES = new Set(["BUY", "SELL"]);
+const SHARE_EPSILON = 1e-8;
+
+function toComparableTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      return 0;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
+
+function toComparableSeq(value) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      return 0;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
+  }
+  return 0;
+}
+
+function normalizeTransaction(raw) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const date = typeof raw.date === "string" ? raw.date.trim() : "";
+  if (!date) {
+    return null;
+  }
+  const type = String(raw.type ?? "").toUpperCase();
+  const ticker = typeof raw.ticker === "string" ? raw.ticker.trim().toUpperCase() : "";
+  const shares = Number.isFinite(raw.shares) ? Math.abs(Number(raw.shares)) : 0;
+  const amount = Number.isFinite(raw.amount) ? Number(raw.amount) : 0;
+  return {
+    date,
+    type,
+    ticker,
+    shares,
+    amount,
+    createdAt: raw.createdAt,
+    seq: raw.seq,
+    id: raw.id,
+    uid: raw.uid,
+  };
+}
+
+function sortTransactions(transactions) {
+  return [...transactions].sort((a, b) => {
+    const dateDiff = a.date.localeCompare(b.date);
+    if (dateDiff !== 0) {
+      return dateDiff;
+    }
+
+    const orderA = TYPE_ORDER[a.type] ?? 99;
+    const orderB = TYPE_ORDER[b.type] ?? 99;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    const createdDiff =
+      toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
+    if (createdDiff !== 0) {
+      return createdDiff;
+    }
+
+    const seqDiff = toComparableSeq(a.seq) - toComparableSeq(b.seq);
+    if (seqDiff !== 0) {
+      return seqDiff;
+    }
+
+    const idDiff = String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    if (idDiff !== 0) {
+      return idDiff;
+    }
+
+    return String(a.uid ?? "").localeCompare(String(b.uid ?? ""));
+  });
+}
+
+function normalizePriceSeries(rawSeries) {
+  if (!Array.isArray(rawSeries)) {
+    return [];
+  }
+  const entries = [];
+  for (const point of rawSeries) {
+    const date = typeof point?.date === "string" ? point.date.trim() : "";
+    if (!date) {
+      continue;
+    }
+    const close = Number(point?.close ?? point?.price ?? 0);
+    const safeClose = Number.isFinite(close) ? close : 0;
+    entries.push({ date, close: safeClose });
+  }
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  const deduped = [];
+  for (const entry of entries) {
+    const last = deduped[deduped.length - 1];
+    if (last && last.date === entry.date) {
+      deduped[deduped.length - 1] = entry;
+    } else {
+      deduped.push(entry);
+    }
+  }
+  return deduped;
+}
+
+function createPriceCursor(rawSeries) {
+  const series = normalizePriceSeries(rawSeries);
+  let index = 0;
+  let lastPrice = 0;
+  return {
+    advanceTo(date) {
+      while (index < series.length && series[index].date <= date) {
+        const candidate = Number(series[index].close);
+        if (Number.isFinite(candidate)) {
+          lastPrice = candidate;
+        }
+        index += 1;
+      }
+      return lastPrice;
+    },
+    peek() {
+      return lastPrice;
+    },
+  };
+}
+
+function roundPercentage(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Number(value.toFixed(3));
+}
+
 function toNumeric(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) {
@@ -80,113 +239,191 @@ export function mergeReturnSeries(series = {}) {
   });
 }
 
-function findClosestPrice(series, targetDate) {
-  if (!Array.isArray(series) || series.length === 0) {
-    return 0;
-  }
-
-  let previous = series[0].close ?? 0;
-  for (const point of series) {
-    if (point.date === targetDate) {
-      return point.close ?? previous;
-    }
-
-    if (point.date > targetDate) {
-      return previous;
-    }
-
-    previous = point.close ?? previous;
-  }
-
-  return previous;
-}
-
 export async function buildRoiSeries(transactions, priceFetcher) {
   if (!Array.isArray(transactions) || transactions.length === 0) {
     return [];
   }
 
+  const normalizedTransactions = transactions
+    .map((tx) => normalizeTransaction(tx))
+    .filter(Boolean);
+
+  if (normalizedTransactions.length === 0) {
+    return [];
+  }
+
   const tickers = [
     ...new Set(
-      transactions
-        .map((tx) => (typeof tx?.ticker === "string" ? tx.ticker.trim() : ""))
-        .filter((ticker) => ticker.length > 0),
+      normalizedTransactions
+        .filter((tx) => tx.ticker && SHARE_TYPES.has(tx.type))
+        .map((tx) => tx.ticker),
     ),
   ];
+
   const symbols = [...tickers, "spy"];
   const priceMapEntries = await Promise.all(
     symbols.map(async (symbol) => {
       try {
         const result = await priceFetcher(symbol);
         if (Array.isArray(result)) {
-          return [symbol, result];
+          return [symbol.toUpperCase(), result];
         }
         if (result && Array.isArray(result.data)) {
-          return [symbol, result.data];
+          return [symbol.toUpperCase(), result.data];
         }
-        return [symbol, []];
+        return [symbol.toUpperCase(), []];
       } catch (error) {
         console.error(error);
-        return [symbol, []];
+        return [symbol.toUpperCase(), []];
       }
     }),
   );
-  const priceMap = Object.fromEntries(priceMapEntries);
-  const spySeries = priceMap.spy ?? [];
+
+  const priceMap = new Map(
+    priceMapEntries.map(([symbol, series]) => [symbol, normalizePriceSeries(series)]),
+  );
+
+  const spySeries = priceMap.get("SPY") ?? priceMap.get("spy") ?? [];
   if (spySeries.length === 0) {
     return [];
   }
 
-  const cumulativeShares = Object.fromEntries(
-    tickers.map((ticker) => [ticker, 0]),
-  );
-  let initialValue = null;
-  const initialSpyPrice = spySeries[0].close ?? 0;
+  const sortedTransactions = sortTransactions(normalizedTransactions);
+  const priceCursors = new Map();
+  for (const ticker of tickers) {
+    priceCursors.set(ticker, createPriceCursor(priceMap.get(ticker) ?? []));
+  }
 
-  return spySeries.map((point) => {
+  const holdings = new Map();
+  for (const ticker of tickers) {
+    holdings.set(ticker, 0);
+  }
+
+  let cashBalance = 0;
+  let transactionIndex = 0;
+  let previousNav = null;
+  let cumulativeFactor = 1;
+  let initialSpyPrice = null;
+
+  const results = [];
+
+  for (const point of spySeries) {
     const date = point.date;
-    transactions
-      .filter((tx) => tx.date === date)
-      .forEach((tx) => {
-        const ticker = typeof tx?.ticker === "string" ? tx.ticker.trim() : "";
-        if (!ticker) {
-          return;
-        }
+    let flowForDate = 0;
 
-        if (!(ticker in cumulativeShares)) {
-          cumulativeShares[ticker] = 0;
-        }
+    while (
+      transactionIndex < sortedTransactions.length &&
+      sortedTransactions[transactionIndex].date <= date
+    ) {
+      const tx = sortedTransactions[transactionIndex];
+      transactionIndex += 1;
+      const amount = Number.isFinite(tx.amount) ? tx.amount : 0;
 
+      if (SHARE_TYPES.has(tx.type) && tx.ticker) {
+        const previousShares = holdings.get(tx.ticker) ?? 0;
+        const sharesDelta = tx.type === "BUY" ? tx.shares : -tx.shares;
+        const nextShares = previousShares + sharesDelta;
+        holdings.set(
+          tx.ticker,
+          Math.abs(nextShares) < SHARE_EPSILON ? 0 : nextShares,
+        );
+        const tradeCash = Math.abs(amount);
         if (tx.type === "BUY") {
-          cumulativeShares[ticker] += tx.shares;
-        } else if (tx.type === "SELL") {
-          cumulativeShares[ticker] -= tx.shares;
+          if (tradeCash > 0) {
+            cashBalance -= tradeCash;
+          }
+          if (cashBalance < 0) {
+            cashBalance = 0;
+          }
+        } else if (tx.type === "SELL" && tradeCash > 0) {
+          cashBalance += tradeCash;
         }
-      });
+        continue;
+      }
 
-    const portfolioValue = tickers.reduce((total, ticker) => {
-      const price = findClosestPrice(priceMap[ticker], date);
-      return total + cumulativeShares[ticker] * price;
-    }, 0);
+      if (CASH_IN_TYPES.has(tx.type)) {
+        const contribution = Math.abs(amount);
+        if (contribution > 0) {
+          cashBalance += contribution;
+          flowForDate += contribution;
+        }
+        continue;
+      }
 
-    if (initialValue === null) {
-      initialValue = portfolioValue;
+      if (CASH_OUT_TYPES.has(tx.type)) {
+        const withdrawal = Math.abs(amount);
+        if (withdrawal > 0) {
+          cashBalance -= withdrawal;
+          flowForDate -= withdrawal;
+        }
+        if (cashBalance < 0) {
+          cashBalance = 0;
+        }
+        continue;
+      }
+
+      if (INCOME_TYPES.has(tx.type)) {
+        if (amount !== 0) {
+          cashBalance += amount;
+        }
+        continue;
+      }
+
+      if (amount !== 0) {
+        cashBalance += amount;
+      }
     }
 
-    const portfolioRoi =
-      initialValue === 0
-        ? 0
-        : ((portfolioValue - initialValue) / initialValue) * 100;
-    const spyPrice = point.close ?? initialSpyPrice;
-    const spyRoi =
-      initialSpyPrice === 0
-        ? 0
-        : ((spyPrice - initialSpyPrice) / initialSpyPrice) * 100;
+    let portfolioValue = cashBalance;
+    for (const [ticker, shares] of holdings.entries()) {
+      if (!Number.isFinite(shares) || Math.abs(shares) < SHARE_EPSILON) {
+        continue;
+      }
+      const cursor = priceCursors.get(ticker);
+      const price = cursor ? cursor.advanceTo(date) : 0;
+      portfolioValue += shares * price;
+    }
 
-    return {
+    if (Math.abs(portfolioValue) < SHARE_EPSILON) {
+      portfolioValue = 0;
+    }
+
+    let periodReturn = 0;
+    if (previousNav !== null && previousNav > 0) {
+      periodReturn = (portfolioValue - flowForDate - previousNav) / previousNav;
+    }
+
+    if (!Number.isFinite(periodReturn)) {
+      periodReturn = 0;
+    }
+
+    cumulativeFactor *= 1 + periodReturn;
+    if (!Number.isFinite(cumulativeFactor) || cumulativeFactor <= 0) {
+      cumulativeFactor = 1;
+    }
+
+    if (previousNav === null && portfolioValue > 0) {
+      cumulativeFactor = 1;
+    }
+
+    const spyClose = Number.isFinite(point.close) ? Number(point.close) : 0;
+    if (initialSpyPrice === null && spyClose > 0) {
+      initialSpyPrice = spyClose;
+    }
+    const spyBaseline = initialSpyPrice ?? spyClose;
+    const spyReturn =
+      spyBaseline && spyBaseline !== 0
+        ? ((spyClose - spyBaseline) / spyBaseline) * 100
+        : 0;
+
+    results.push({
       date,
-      portfolio: Number(portfolioRoi.toFixed(3)),
-      spy: Number(spyRoi.toFixed(3)),
-    };
-  });
+      portfolio: roundPercentage((cumulativeFactor - 1) * 100),
+      spy: roundPercentage(spyReturn),
+    });
+
+    previousNav = portfolioValue;
+  }
+
+  return results;
 }
