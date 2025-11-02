@@ -84,5 +84,33 @@ describe("portfolioStore", () => {
   it("throws when snapshot id is missing", () => {
     assert.throws(() => persistActivePortfolioSnapshot({ transactions: [] }, storage));
   });
+
+  it("trims large snapshots to stay within storage budget", () => {
+    const transactions = Array.from({ length: 5000 }, (_, index) => ({
+      id: `tx-${index}`,
+      date: `2024-01-${String((index % 27) + 1).padStart(2, "0")}`,
+      type: "DEPOSIT",
+      amount: index * 10,
+      note: "x".repeat(200),
+    }));
+
+    const persisted = persistActivePortfolioSnapshot(
+      {
+        id: "large",
+        transactions,
+      },
+      storage,
+    );
+
+    assert.equal(persisted, true);
+
+    const stored = JSON.parse(storage.getItem("portfolio-manager-active-portfolio"));
+    const snapshot = stored.snapshots.large;
+    assert.ok(snapshot);
+    assert.equal(snapshot.id, "large");
+    assert.ok(snapshot.__storage?.truncated);
+    assert.equal(snapshot.__storage?.transactionCount, transactions.length);
+    assert.ok(snapshot.__storage?.storedTransactions < transactions.length);
+  });
 });
 

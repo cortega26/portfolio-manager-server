@@ -16,6 +16,25 @@ vi.mock("../utils/api.js", async (importOriginal) => {
   return {
     ...actual,
     __esModule: true,
+    fetchBulkPrices: vi.fn(async (symbols) => {
+      const list = Array.isArray(symbols) ? symbols : [];
+      const normalized = list.map((ticker) => String(ticker ?? "").toUpperCase());
+      for (const ticker of normalized) {
+        priceCalls.push(ticker);
+      }
+      return {
+        series: new Map(
+          normalized.map((ticker) => [
+            ticker,
+            [
+              { date: "2024-01-01", close: 120 },
+              { date: "2024-01-02", close: 125 },
+            ],
+          ]),
+        ),
+        errors: {},
+      };
+    }),
     fetchPrices: vi.fn(async (ticker) => {
       if (shouldFailNextPrice) {
         const error = new Error("Pricing temporarily unavailable");
@@ -54,7 +73,9 @@ vi.mock("../utils/api.js", async (importOriginal) => {
       shouldFailNextPrice = flag;
     },
     __getPriceCalls() {
-      return priceCalls.slice();
+      return priceCalls
+        .filter((ticker) => typeof ticker === "string" && ticker.toUpperCase() !== "SPY")
+        .map((ticker) => ticker.toUpperCase());
     },
   };
 });
