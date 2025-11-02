@@ -28,14 +28,17 @@
 ### UI-3 — System alerts and toast controls bypass localisation
 - Hardcoded English strings remain in the “System alerts” region label and toast dismiss button (`src/PortfolioManagerApp.jsx:712`; `src/components/ToastStack.jsx:74`), so Spanish users encounter untranslated UI chrome.
 - **Fix direction:** Pipe these through `t(...)`, adding the missing keys to `translations.js`, and ensure aria-labels are localised.
+- **Resolution (2025-10-22):** Region label and toast dismiss actions now rely on shared translation keys with English/Spanish coverage (`src/PortfolioManagerApp.jsx`, `src/components/ToastStack.jsx`, `src/i18n/translations.js`).
 
 ### UI-4 — Timeline titles expose raw event codes
 - The history timeline assembles titles using the raw `transaction.type` (“BUY”, “SELL”) and a generic “Portfolio” fallback (`src/utils/history.js:135`). Only deposits and withdrawals receive narrative copy, leaving most events terse and untranslated.
 - **Fix direction:** Map transaction types to friendly, localised labels (reuse existing `transactions.type.*` keys) and extend narrative templates so buy/sell/dividend actions receive meaningful descriptions.
+- **Resolution (2025-10-22):** Timeline entries now map types through translations, add narrative templates for buy/sell/dividend/interest/fee events, and include regression coverage for buy scenarios (`src/utils/history.js`, `src/__tests__/history.utils.test.js`).
 
 ### UI-5 — Share quantities ignore locale number formatting
 - Holdings and transactions tables render share counts via `toFixed(4)` (`src/components/HoldingsTab.jsx:44`; `src/components/TransactionsTab.jsx:130`), which strips thousands separators and locale digits.
 - **Fix direction:** Use `Intl.NumberFormat` (via `formatNumber`) to format share quantities, respecting locale and user measurement settings.
+- **Resolution (2025-10-22):** Share quantities flow through `formatNumber`, ensuring locale-aware formatting in holdings and transactions tables with updated unit tests (`src/components/HoldingsTab.jsx`, `src/components/TransactionsTab.jsx`, `src/__tests__/HoldingsTable.test.tsx`).
 
 ## Strengths & Positive Observations
 - Navigation primitives (`TabBar`, tab panels, aria roles) are accessible, keyboard-friendly, and synchronised with translation keys.

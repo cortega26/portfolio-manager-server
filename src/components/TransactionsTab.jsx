@@ -117,20 +117,34 @@ function matchesTransaction(transaction, term) {
     .some((value) => value.includes(normalized));
 }
 
-function TransactionRow({
-  index,
-  item,
-  onDeleteTransaction,
-  style,
-  rowIndexOffset = 0,
-  compact = false,
-}) {
-  const { t, formatCurrency } = useI18n();
-  const { transaction, originalIndex } = item;
-  const sharesDisplay =
-    typeof transaction.shares === "number"
-      ? transaction.shares.toFixed(4)
-      : "—";
+  function TransactionRow({
+    index,
+    item,
+    onDeleteTransaction,
+    style,
+    rowIndexOffset = 0,
+    compact = false,
+  }) {
+    const { t, formatCurrency, formatNumber } = useI18n();
+    const { transaction, originalIndex } = item;
+    const shareValue =
+      typeof transaction.shares === "number"
+        ? transaction.shares
+        : typeof transaction.shares === "string"
+          ? Number.parseFloat(transaction.shares)
+          : Number.NaN;
+    const sharesDisplay = (() => {
+      if (typeof formatNumber === "function" && Number.isFinite(shareValue)) {
+        return formatNumber(shareValue, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 6,
+        });
+      }
+      if (Number.isFinite(shareValue)) {
+        return shareValue.toFixed(4);
+      }
+      return "—";
+    })();
   const typeKey =
     typeof transaction.type === "string" ? transaction.type.toLowerCase() : "";
   const typeLabel =

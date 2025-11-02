@@ -74,16 +74,17 @@ export function LoadingFallback() {
 const DEFAULT_TAB = "Dashboard";
 
 export default function PortfolioManagerApp() {
-  const {
-    t,
-    language,
-    setLanguage,
-    locale,
-    formatCurrency,
-    formatDate,
-    formatPercent,
-    setCurrencyOverride,
-  } = useI18n();
+    const {
+      t,
+      language,
+      setLanguage,
+      locale,
+      formatCurrency,
+      formatNumber,
+      formatDate,
+      formatPercent,
+      setCurrencyOverride,
+    } = useI18n();
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
   const [portfolioId, setPortfolioId] = useState("");
   const [portfolioKey, setPortfolioKey] = useState("");
@@ -189,16 +190,17 @@ export default function PortfolioManagerApp() {
     () => groupTransactionsByMonth(transactions, { locale }),
     [transactions, locale],
   );
-  const historyTimeline = useMemo(
-    () =>
-      buildTransactionTimeline(transactions, {
-        locale,
-        formatCurrency,
-        translate: t,
-        formatDate,
-      }),
-    [transactions, locale, formatCurrency, t, formatDate],
-  );
+    const historyTimeline = useMemo(
+      () =>
+        buildTransactionTimeline(transactions, {
+          locale,
+          formatCurrency,
+          formatNumber,
+          translate: t,
+          formatDate,
+        }),
+      [transactions, locale, formatCurrency, formatNumber, t, formatDate],
+    );
 
   const metricCards = useMemo(
     () => buildMetricCards(metrics, { translate: t, formatCurrency, formatPercent }),
@@ -755,8 +757,8 @@ export default function PortfolioManagerApp() {
         <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
         <main className="pb-12">
-          {activeAlerts.length > 0 && (
-            <div className="mb-6 space-y-3" role="region" aria-label="System alerts">
+            {activeAlerts.length > 0 && (
+              <div className="mb-6 space-y-3" role="region" aria-label={t("app.systemAlertsRegion")}>
               {activeAlerts.map((alert) => (
                 <div
                   key={alert.id}
