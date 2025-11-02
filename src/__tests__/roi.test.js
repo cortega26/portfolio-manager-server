@@ -153,6 +153,55 @@ describe("ROI utilities", () => {
     assert.equal(series[1].portfolio, 0);
   });
 
+  it("accounts for deposits and dividends when computing fallback ROI", async () => {
+    const scenarioTransactions = [
+      { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
+      {
+        date: "2024-01-01",
+        ticker: "AAPL",
+        type: "BUY",
+        shares: 5,
+        amount: -500,
+      },
+      { date: "2024-01-02", type: "DIVIDEND", amount: 10 },
+    ];
+    const fetcher = async (symbol) => priceMap[symbol.toUpperCase()];
+
+    const series = await buildRoiSeries(scenarioTransactions, fetcher);
+
+    assert.equal(series.length, 3);
+    assert.equal(series[0].portfolio, 0);
+    const secondDay = series.find((point) => point.date === "2024-01-02");
+    assert.ok(secondDay);
+    assert.equal(secondDay.portfolio, 11);
+  });
+
+  it("aligns weekend cash flows with the next available trading date", async () => {
+    const weekendTransactions = [
+      { date: "2024-01-06", type: "DEPOSIT", amount: 1000 },
+    ];
+    const spyOnlyFetcher = async (symbol) => {
+      const upper = symbol.toUpperCase();
+      if (upper === "SPY") {
+        return [
+          { date: "2024-01-05", close: 200 },
+          { date: "2024-01-08", close: 200 },
+        ];
+      }
+      return [];
+    };
+
+    const series = await buildRoiSeries(weekendTransactions, spyOnlyFetcher);
+
+    assert.deepEqual(
+      series,
+      [
+        { date: "2024-01-05", portfolio: 0, spy: 0 },
+        { date: "2024-01-08", portfolio: 0, spy: 0 },
+      ],
+    );
+  });
+
   it("skips price fetches for transactions without tickers", async () => {
     const calls = [];
     const mixedTransactions = [
