@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import {
   configureFormat,
   formatCurrency as baseFormatCurrency,
+  formatNumber as baseFormatNumber,
   formatPercent as baseFormatPercent,
   formatSignedPercent as baseFormatSignedPercent,
 } from "../utils/format.js";
@@ -83,6 +84,11 @@ export function I18nProvider({ children }) {
     [locale],
   );
 
+  const formatNumber = useCallback(
+    (value, options = {}) => baseFormatNumber(value, { locale, ...options }),
+    [locale],
+  );
+
   const formatDate = useCallback(
     (value, options = {}) => {
       if (!value) {
@@ -112,6 +118,7 @@ export function I18nProvider({ children }) {
       setCurrencyOverride,
       t: translate,
       formatCurrency,
+      formatNumber,
       formatPercent,
       formatSignedPercent,
       formatDate,
@@ -120,6 +127,7 @@ export function I18nProvider({ children }) {
       config.measurementSystem,
       currency,
       formatCurrency,
+      formatNumber,
       formatDate,
       formatPercent,
       formatSignedPercent,
