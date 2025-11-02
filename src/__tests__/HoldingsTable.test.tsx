@@ -29,9 +29,14 @@ describe('HoldingsTab', () => {
     const rows = within(body).getAllByRole('row');
     expect(rows).toHaveLength(2);
 
+    const shareFormatter = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 6,
+    });
+
     const appleRow = within(rows[0]);
     expect(appleRow.getByText('AAPL')).toBeVisible();
-    expect(appleRow.getByText('10.0000')).toBeVisible();
+    expect(appleRow.getByText(shareFormatter.format(10))).toBeVisible();
     expect(appleRow.getByText('$100.00')).toBeVisible();
     expect(appleRow.getByText('$150.00')).toBeVisible();
     expect(appleRow.getByText('$1,500.00')).toBeVisible();
@@ -40,7 +45,7 @@ describe('HoldingsTab', () => {
 
     const msftRow = within(rows[1]);
     expect(msftRow.getByText('MSFT')).toBeVisible();
-    expect(msftRow.getByText('5.0000')).toBeVisible();
+    expect(msftRow.getByText(shareFormatter.format(5))).toBeVisible();
     expect(msftRow.getAllByText('$160.00')).toHaveLength(2);
     expect(msftRow.getByText('$800.00')).toBeVisible();
     expect(msftRow.getByText('$12.00')).toBeVisible();
