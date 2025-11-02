@@ -22,7 +22,7 @@ Ranked with **ICE (Impact × Confidence ÷ Effort)**; all are high-impact, low-c
    - **Tests/docs:** Update or add a Transactions form unit test covering cash-only submissions; confirm README examples mention optional price.
 
 2. **Filter undefined tickers before price fetch** — ICE ≈ 7×0.9÷1 = **6.3**
-   - **Location:** `src/App.jsx`
+   - **Location:** `src/PortfolioManagerApp.jsx`
    - **Sample diff:**
      ```diff
      - const uniqueTickers = [...new Set(transactions.map((tx) => tx.ticker))];
@@ -36,7 +36,7 @@ Ranked with **ICE (Impact × Confidence ÷ Effort)**; all are high-impact, low-c
    - **Tests/docs:** Add regression test in a holdings/ROI hook to assert no fetch when ticker missing.
 
 3. **Expose ROI fetch failures to users** — ICE ≈ 6×0.8÷2 = **2.4**
-   - **Location:** `src/App.jsx` (ROI effect) + shared notification component if available.
+   - **Location:** `src/PortfolioManagerApp.jsx` (ROI effect) + shared notification component if available.
    - **Sample diff:**
      ```diff
        try {

@@ -4,13 +4,13 @@
 
 - **Erin Carter**
   - P001 – Friendly Portfolio Controls errors remain in place with request IDs (`src/components/PortfolioControls.jsx`).
-  - P002 – Price refresh keeps prior values and alerts on failure (`src/App.jsx`).
+- P002 – Price refresh keeps prior values and alerts on failure (`src/PortfolioManagerApp.jsx`).
   - P003 – README and Reports tab flag importer as upcoming and point to API workflow (`README.md`, `src/components/ReportsTab.jsx`).
 - **Marcus Nguyen**
   - P004 – Cash-only transactions bypass price validation and tests guard the flow (`src/components/TransactionsTab.jsx`).
-  - P005 – Undefined tickers are filtered before price fetches (`src/App.jsx`).
-  - P006 – ROI fallback banner with request IDs prevents silent degradation (`src/App.jsx`).
-  - P007 – Settings persist with portfolio payload across devices (`src/App.jsx`, `src/components/SettingsTab.jsx`).
+- P005 – Undefined tickers are filtered before price fetches (`src/PortfolioManagerApp.jsx`).
+- P006 – ROI fallback banner with request IDs prevents silent degradation (`src/PortfolioManagerApp.jsx`).
+- P007 – Settings persist with portfolio payload across devices (`src/PortfolioManagerApp.jsx`, `src/components/SettingsTab.jsx`).
 - **Priya Desai**
   - P001 – Shares Erin’s friendly error messaging improvements.
   - P008 – Admin tab exports security events CSV with metadata (`src/components/AdminTab.jsx`, `src/utils/reports.js`).
