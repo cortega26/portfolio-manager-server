@@ -62,6 +62,7 @@ The product ships a mature security and testing baseline, yet several high-impac
 - **Evidence:** `JsonTableStorage.upsertRow` loads the whole table array and rewrites it on every update/delete.【F:server/data/storage.js†L52-L75】
 - **Impact:** Persisting portfolios with hundreds of thousands of transactions forces repeated multi-megabyte reads/writes, lengthening save times and increasing corruption risk on failure.
 - **Recommendation:** Introduce append-only journaling or chunked writes (e.g., per-portfolio directories) and background compaction to keep IO bounded.
+- **Resolution (2024-11-15):** `JsonTableStorage` now journals upserts to an append-only log with opportunistic compaction, eliminating full-table rewrites during normal saves while maintaining atomic snapshot files for durability.【F:server/data/storage.js†L1-L213】【F:server/__tests__/storage_concurrency.test.js†L63-L131】
 
 ### CQ-007 — Share displays ignore locale & precision *(S2, UX/I18n, Effort: ≤2h)*
 - **Evidence:** Holdings and transactions tables render share counts via `toFixed(4)` without locale awareness, omitting thousands separators and mismatching user preferences.【F:src/components/HoldingsTab.jsx†L30-L76】【F:src/components/TransactionsTab.jsx†L120-L168】
@@ -83,6 +84,7 @@ The product ships a mature security and testing baseline, yet several high-impac
 - **Evidence:** The Express bootstrap packs hundreds of statements into 74 long lines, combining imports, middleware, and route logic onto line 1.【F:server/app.js†L1-L74】
 - **Impact:** Reviewers cannot rely on diff granularity, blame, or automated formatters; tooling (linting, coverage) becomes brittle.
 - **Recommendation:** Restore source formatting (one statement per line) or split modules by concern (auth, pricing, persistence) with proper lint hooks.
+- **Resolution (2024-11-15):** Reflowed `server/app.js` with the project formatter, restoring readable imports, middleware declarations, and route handlers so linting and code review operate on meaningful diffs.【F:server/app.js†L1-L400】
 
 ## Recommendations Overview
 1. Treat CQ-001, CQ-002, CQ-003, and CQ-004 as release blockers; ship guarded fixes with regression tests.

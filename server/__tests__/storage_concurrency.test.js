@@ -62,6 +62,62 @@ test('JsonTableStorage serializes Promise.all writes without corrupting the tabl
   assert.match(raw.trim(), /^\[/u, 'serialized file should remain valid JSON array');
 });
 
+test('JsonTableStorage appends upserts to a journal and compacts safely', async () => {
+  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const tableName = 'portfolio_journal';
+  await storage.writeTable(tableName, [{ id: 'baseline', value: 1 }]);
+
+  const basePath = path.join(dataDir, `${tableName}.json`);
+  const snapshotPath = path.join(dataDir, `${tableName}.snapshot.json`);
+  const logPath = path.join(dataDir, `${tableName}.log.ndjson`);
+
+  const initialBase = readFileSync(basePath, 'utf8');
+  const initialSnapshot = readFileSync(snapshotPath, 'utf8');
+  assert.equal(
+    initialSnapshot,
+    initialBase,
+    'snapshot should mirror base table before journal writes',
+  );
+
+  await storage.upsertRow(tableName, { id: 'baseline', value: 2 }, ['id']);
+
+  const postUpsertBase = readFileSync(basePath, 'utf8');
+  assert.equal(postUpsertBase, initialBase, 'base file should remain untouched after journaled upsert');
+  const journalContents = readFileSync(logPath, 'utf8');
+  assert.ok(journalContents.includes('"op":"upsert"'));
+
+  const resolved = await storage.readTable(tableName);
+  assert.deepEqual(resolved, [{ id: 'baseline', value: 2 }]);
+
+  const largeNote = 'x'.repeat(1_200_000);
+  await storage.upsertRow(
+    tableName,
+    { id: 'baseline', value: 3, note: largeNote },
+    ['id'],
+  );
+  await storage.upsertRow(
+    tableName,
+    { id: 'baseline', value: 4, note: largeNote },
+    ['id'],
+  );
+
+  let logStat;
+  try {
+    logStat = readFileSync(logPath, 'utf8');
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  const compactedBase = JSON.parse(readFileSync(basePath, 'utf8'));
+  const compactedSnapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
+  assert.equal(compactedBase[0].value, 4);
+  assert.equal(compactedBase[0].note.length, largeNote.length);
+  assert.deepEqual(compactedBase, compactedSnapshot);
+  assert.ok(!logStat || logStat.length === 0, 'journal should be cleared after compaction');
+});
+
 test('API writes remain atomic and JSON-parseable under Promise.all load', async () => {
   const app = createApp({ dataDir, logger: noopLogger });
   const portfolioId = 'stress';
