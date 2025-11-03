@@ -2,7 +2,7 @@
 
 | Rank | ID | Severity | Risk | Mitigation | Owner |
 |------|----|----------|------|------------|-------|
-| 1 | CQ-001 | S1 | ROI fallback fabricates gains/losses when API is down, misleading customers during outages. | Rebuild fallback ROI with cash-flow support and dividends; share logic with backend returns module. | Backend Lead |
+| 1 | CQ-001 | S1 | ROI fallback fabricates gains/losses when API is down, misleading customers during outages. | ✅ Fallback now normalises numeric fields before computing cash flows, restoring accurate ROI in degraded mode (2025-10-22). | Backend Lead |
 | 2 | CQ-002 | S1 | Quadratic ROI fallback loop stalls the UI on large ledgers, compounding downtime. | Refactor to linear iteration with pre-sorted transactions and incremental state. | Frontend Lead |
 | 3 | CQ-003 | S1 | Duplicate transaction UIDs are dropped silently, corrupting customer histories. | ✅ Validation now rejects duplicate IDs with a 409 response (2025-10-22). | API Owner |
 | 4 | CQ-004 | S1 | localStorage snapshots overflow browser quotas, breaking offline recovery for enterprise portfolios. | Move to indexedDB/partial snapshots with size caps and telemetry. | Frontend Lead |
