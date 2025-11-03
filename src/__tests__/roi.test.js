@@ -176,6 +176,35 @@ describe("ROI utilities", () => {
     assert.equal(secondDay.portfolio, 11);
   });
 
+  it("parses numeric transaction fields provided as strings", async () => {
+    const stringTransactions = [
+      { date: "2024-01-01", type: "DEPOSIT", amount: "1000" },
+      {
+        date: "2024-01-02",
+        ticker: "AAPL",
+        type: "BUY",
+        shares: "1",
+        amount: "-500",
+      },
+      {
+        date: "2024-01-03",
+        ticker: "AAPL",
+        type: "BUY",
+        shares: "1",
+        amount: "-500",
+      },
+      { date: "2024-01-04", type: "DIVIDEND", amount: "10" },
+    ];
+
+    const fetcher = async (symbol) => priceMap[symbol.toUpperCase()];
+
+    const series = await buildRoiSeries(stringTransactions, fetcher);
+
+    const lastPoint = series.at(-1);
+    assert.ok(lastPoint);
+    assert.ok(lastPoint.portfolio > 0);
+  });
+
   it("aligns weekend cash flows with the next available trading date", async () => {
     const weekendTransactions = [
       { date: "2024-01-06", type: "DEPOSIT", amount: 1000 },
