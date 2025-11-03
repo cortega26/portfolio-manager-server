@@ -314,6 +314,7 @@ export async function buildRoiSeries(transactions, priceFetcher) {
   for (const ticker of tickers) {
     holdings.set(ticker, 0);
   }
+  const activeTickers = new Set();
 
   let cashBalance = 0;
   let transactionIndex = 0;
@@ -338,11 +339,15 @@ export async function buildRoiSeries(transactions, priceFetcher) {
       if (SHARE_TYPES.has(tx.type) && tx.ticker) {
         const previousShares = holdings.get(tx.ticker) ?? 0;
         const sharesDelta = tx.type === "BUY" ? tx.shares : -tx.shares;
-        const nextShares = previousShares + sharesDelta;
-        holdings.set(
-          tx.ticker,
-          Math.abs(nextShares) < SHARE_EPSILON ? 0 : nextShares,
-        );
+        const rawNextShares = previousShares + sharesDelta;
+        const nextShares =
+          Math.abs(rawNextShares) < SHARE_EPSILON ? 0 : rawNextShares;
+        holdings.set(tx.ticker, nextShares);
+        if (Math.abs(nextShares) < SHARE_EPSILON) {
+          activeTickers.delete(tx.ticker);
+        } else {
+          activeTickers.add(tx.ticker);
+        }
         const tradeCash = Math.abs(amount);
         if (tx.type === "BUY") {
           if (tradeCash > 0) {
@@ -391,7 +396,8 @@ export async function buildRoiSeries(transactions, priceFetcher) {
     }
 
     let portfolioValue = cashBalance;
-    for (const [ticker, shares] of holdings.entries()) {
+    for (const ticker of activeTickers) {
+      const shares = holdings.get(ticker);
       if (!Number.isFinite(shares) || Math.abs(shares) < SHARE_EPSILON) {
         continue;
       }
