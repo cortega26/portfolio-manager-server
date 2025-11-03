@@ -53,6 +53,14 @@ const INCOME_TYPES = new Set(["DIVIDEND", "INTEREST"]);
 const SHARE_TYPES = new Set(["BUY", "SELL"]);
 const SHARE_EPSILON = 1e-8;
 
+function toFiniteNumber(value) {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
 function toComparableTimestamp(value) {
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
     return Math.trunc(value);
@@ -93,8 +101,8 @@ function normalizeTransaction(raw) {
   }
   const type = String(raw.type ?? "").toUpperCase();
   const ticker = typeof raw.ticker === "string" ? raw.ticker.trim().toUpperCase() : "";
-  const shares = Number.isFinite(raw.shares) ? Math.abs(Number(raw.shares)) : 0;
-  const amount = Number.isFinite(raw.amount) ? Number(raw.amount) : 0;
+  const shares = Math.abs(toFiniteNumber(raw.shares));
+  const amount = toFiniteNumber(raw.amount);
   return {
     date,
     type,
