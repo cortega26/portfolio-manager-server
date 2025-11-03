@@ -11,6 +11,27 @@ function estimateSize(value) {
   return textEncoder.encode(value).length;
 }
 
+function estimateTransactionsFootprint(transactions) {
+  if (!Array.isArray(transactions) || transactions.length === 0) {
+    return 0;
+  }
+
+  const sampleSize = Math.min(10, transactions.length);
+  try {
+    const sampleJson = JSON.stringify(transactions.slice(0, sampleSize));
+    const averageBytes =
+      sampleJson && sampleJson.length > 0
+        ? estimateSize(sampleJson) / sampleSize
+        : 0;
+    if (!Number.isFinite(averageBytes) || averageBytes <= 0) {
+      return 0;
+    }
+    return averageBytes * transactions.length;
+  } catch {
+    return MAX_SNAPSHOT_SIZE_BYTES;
+  }
+}
+
 function summarizeSnapshot(originalSnapshot, transactionsLimit) {
   const snapshot = { ...originalSnapshot };
   const transactions = Array.isArray(snapshot.transactions)
@@ -57,22 +78,35 @@ function prepareSnapshotState(state, snapshot) {
     return { serialized, size: estimateSize(serialized) };
   };
 
-  const firstPass = attemptSerialize(state);
-  if (firstPass.size <= MAX_SNAPSHOT_SIZE_BYTES) {
-    return { state, serialized: firstPass.serialized };
-  }
-
   const transactions = Array.isArray(snapshot.transactions)
     ? snapshot.transactions
     : [];
+
+  const estimatedTransactionsBytes = estimateTransactionsFootprint(transactions);
+
+  let bestState = state;
+  let bestSerialized = null;
+  let bestSize = Number.POSITIVE_INFINITY;
+
+  if (estimatedTransactionsBytes <= MAX_SNAPSHOT_SIZE_BYTES * 1.1) {
+    const firstPass = attemptSerialize(state);
+    if (firstPass.size <= MAX_SNAPSHOT_SIZE_BYTES) {
+      return { state, serialized: firstPass.serialized };
+    }
+    bestState = state;
+    bestSerialized = firstPass.serialized;
+    bestSize = firstPass.size;
+  }
+
   if (transactions.length === 0) {
-    return { state, serialized: firstPass.serialized };
+    if (bestSerialized) {
+      return { state: bestState, serialized: bestSerialized };
+    }
+    const fallback = attemptSerialize(state);
+    return { state, serialized: fallback.serialized };
   }
 
   let limit = Math.max(50, Math.floor(transactions.length * 0.5));
-  let bestState = state;
-  let bestSerialized = firstPass.serialized;
-  let bestSize = firstPass.size;
   while (limit >= 0 && bestSize > MAX_SNAPSHOT_SIZE_BYTES) {
     const candidateSnapshot = summarizeSnapshot(snapshot, limit);
     const candidateState = {
@@ -106,6 +140,11 @@ function prepareSnapshotState(state, snapshot) {
     };
     const attempt = attemptSerialize(strippedState);
     return { state: strippedState, serialized: attempt.serialized };
+  }
+
+  if (!bestSerialized) {
+    const fallback = attemptSerialize(bestState);
+    return { state: bestState, serialized: fallback.serialized };
   }
 
   return { state: bestState, serialized: bestSerialized };
@@ -198,7 +237,7 @@ export function persistActivePortfolioSnapshot(snapshot, storage) {
     id,
     name: typeof snapshot.name === "string" ? snapshot.name : id,
     transactions: Array.isArray(snapshot.transactions)
-      ? cloneForStorage(snapshot.transactions)
+      ? snapshot.transactions
       : [],
     signals:
       snapshot && typeof snapshot.signals === "object"

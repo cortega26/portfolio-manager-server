@@ -205,6 +205,27 @@ describe("ROI utilities", () => {
     assert.ok(lastPoint.portfolio > 0);
   });
 
+  it("treats withdrawals as external cash flows without fabricating losses", async () => {
+    const withdrawalScenario = [
+      { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
+      {
+        date: "2024-01-01",
+        ticker: "AAPL",
+        type: "BUY",
+        shares: 5,
+        amount: -500,
+      },
+      { date: "2024-01-02", type: "WITHDRAWAL", amount: 500 },
+    ];
+
+    const fetcher = async (symbol) => priceMap[symbol.toUpperCase()];
+    const series = await buildRoiSeries(withdrawalScenario, fetcher);
+
+    const secondDay = series.find((point) => point.date === "2024-01-02");
+    assert.ok(secondDay);
+    assert.equal(secondDay.portfolio, 5);
+  });
+
   it("aligns weekend cash flows with the next available trading date", async () => {
     const weekendTransactions = [
       { date: "2024-01-06", type: "DEPOSIT", amount: 1000 },
