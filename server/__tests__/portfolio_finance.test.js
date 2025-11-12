@@ -84,6 +84,33 @@ test('computeDailyStates valuations remain stable across long ledgers', () => {
   }
 });
 
+test('computeDailyStates treats signed buy amounts as cash outflows', () => {
+  const date = '2024-01-01';
+  const deposit = { date, type: 'DEPOSIT', amount: 1000 };
+  const signedBuy = { date, type: 'BUY', ticker: 'SPY', amount: -500, quantity: 5 };
+  const positiveBuy = { date, type: 'BUY', ticker: 'SPY', amount: 500, quantity: 5 };
+  const pricesByDate = new Map([[date, new Map([['SPY', 100]])]]);
+
+  const [stateWithSignedAmount] = computeDailyStates({
+    transactions: [deposit, signedBuy],
+    pricesByDate,
+    dates: [date],
+  });
+
+  const [stateWithPositiveAmount] = computeDailyStates({
+    transactions: [deposit, positiveBuy],
+    pricesByDate,
+    dates: [date],
+  });
+
+  assert.equal(stateWithSignedAmount.cash, 500);
+  assert.equal(stateWithSignedAmount.riskValue, 500);
+  assert.equal(stateWithSignedAmount.nav, 1000);
+  assert.equal(stateWithSignedAmount.holdings.get('SPY'), 5);
+
+  assert.deepEqual(stateWithSignedAmount, stateWithPositiveAmount);
+});
+
 test('holdingsToObject and weightsFromState provide stable transforms', () => {
   const holdings = new Map([
     ['AAPL', 5.25],

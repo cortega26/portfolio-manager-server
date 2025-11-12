@@ -1,73 +1,56 @@
-const STORAGE_KEY = 'portfolio-manager-portfolio-keys';
+const keyVault = new Map();
+const MAX_ENTRIES = 32;
 
-function getStorage(storage) {
-  if (storage) {
-    return storage;
+function normalizeId(portfolioId) {
+  if (typeof portfolioId !== "string") {
+    return "";
   }
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return null;
-  }
-  return window.localStorage;
+  const normalized = portfolioId.trim();
+  return normalized.length > 0 ? normalized : "";
 }
 
-function readStore(storage) {
-  try {
-    const raw = storage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return {};
+function trimVaultIfNeeded() {
+  if (keyVault.size <= MAX_ENTRIES) {
+    return;
+  }
+  const excess = keyVault.size - MAX_ENTRIES;
+  const iterator = keyVault.keys();
+  for (let index = 0; index < excess; index += 1) {
+    const { value, done } = iterator.next();
+    if (done) {
+      break;
     }
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') {
-      return {};
-    }
-    return parsed;
-  } catch (error) {
-    console.error('Failed to read portfolio keys', error);
-    return {};
+    keyVault.delete(value);
   }
 }
 
-function writeStore(storage, value) {
-  try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(value));
-    return true;
-  } catch (error) {
-    console.error('Failed to persist portfolio key', error);
-    return false;
+export function loadPortfolioKey(portfolioId, _storage) {
+  const normalized = normalizeId(portfolioId);
+  if (!normalized) {
+    return "";
   }
+  const value = keyVault.get(normalized);
+  return typeof value === "string" ? value : "";
 }
 
-export function loadPortfolioKey(portfolioId, storage) {
-  if (!portfolioId) {
-    return '';
-  }
-  const store = getStorage(storage);
-  if (!store) {
-    return '';
-  }
-  const data = readStore(store);
-  const value = data[portfolioId];
-  return typeof value === 'string' ? value : '';
-}
-
-export function savePortfolioKey(portfolioId, key, storage) {
-  if (!portfolioId) {
+export function savePortfolioKey(portfolioId, key, _storage) {
+  const normalized = normalizeId(portfolioId);
+  if (!normalized) {
     return false;
   }
-  const store = getStorage(storage);
-  if (!store) {
-    return false;
-  }
-  const data = readStore(store);
   if (!key) {
-    delete data[portfolioId];
-  } else {
-    data[portfolioId] = key;
+    keyVault.delete(normalized);
+    return true;
   }
-  return writeStore(store, data);
+  keyVault.set(normalized, key);
+  trimVaultIfNeeded();
+  return true;
 }
 
 export function removePortfolioKey(portfolioId, storage) {
-  return savePortfolioKey(portfolioId, '', storage);
+  return savePortfolioKey(portfolioId, "", storage);
 }
 
+export function __dangerous__resetPortfolioKeyVault() {
+  keyVault.clear();
+}

@@ -15,6 +15,7 @@ const MS_PER_DAY = 86_400_000;
 const DEFAULT_CURRENCY = 'USD';
 const DEFAULT_DAY_COUNT = 365;
 const ISO_CURRENCY_PATTERN = /^[A-Z]{3}$/u;
+const ISO_DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 
 const CURRENCY_DECIMAL_PLACES = {
   BIF: 0,
@@ -127,7 +128,25 @@ export function toDateKey(date) {
   if (date instanceof Date) {
     return date.toISOString().slice(0, 10);
   }
-  return String(date);
+  if (typeof date === 'number' && Number.isFinite(date)) {
+    return new Date(date).toISOString().slice(0, 10);
+  }
+  if (typeof date === 'string') {
+    const trimmed = date.trim();
+    if (ISO_DATE_KEY_PATTERN.test(trimmed)) {
+      return trimmed;
+    }
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+    return trimmed;
+  }
+  const parsed = new Date(date);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+  return String(date ?? '');
 }
 
 export function dailyRateFromApy(apy, { dayCount = DEFAULT_DAY_COUNT } = {}) {

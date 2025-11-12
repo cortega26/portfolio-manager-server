@@ -11,6 +11,7 @@ import {
   resolveApyForDate,
   postMonthlyInterest,
   postInterestForDate,
+  toDateKey,
 } from '../finance/cash.js';
 import { d, fromCents, roundDecimal, toCents } from '../finance/decimal.js';
 
@@ -33,6 +34,16 @@ afterEach(() => {
 test('dailyRateFromApy matches expected precision', () => {
   const rate = dailyRateFromApy(0.05);
   assert.ok(rate.gt(0.0001) && rate.lt(0.0002));
+});
+
+test('toDateKey normalizes timestamps into UTC date strings', () => {
+  const isoWithTime = '2024-05-01T15:45:30Z';
+  const epochMs = Date.UTC(2024, 4, 1, 23, 30, 0);
+  const alreadyKeyed = '2024-05-01';
+
+  assert.equal(toDateKey(isoWithTime), '2024-05-01');
+  assert.equal(toDateKey(epochMs), '2024-05-01');
+  assert.equal(toDateKey(alreadyKeyed), '2024-05-01');
 });
 
 test('postInterestForDate produces deterministic interest across scenarios', () => {

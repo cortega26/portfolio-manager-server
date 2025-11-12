@@ -161,21 +161,23 @@ function applyTransaction(state, tx) {
   const ticker = tx.ticker ?? null;
 
   if (Number.isFinite(amount)) {
-    const amountCents = toCents(amount);
-    switch (tx.type) {
-      case 'DEPOSIT':
-      case 'DIVIDEND':
-      case 'INTEREST':
-      case 'SELL':
-        state.cashCents += amountCents;
-        break;
-      case 'WITHDRAWAL':
-      case 'BUY':
-      case 'FEE':
-        state.cashCents -= amountCents;
-        break;
-      default:
-        break;
+    const amountCents = Math.abs(toCents(amount));
+    if (amountCents !== 0) {
+      switch (tx.type) {
+        case 'DEPOSIT':
+        case 'DIVIDEND':
+        case 'INTEREST':
+        case 'SELL':
+          state.cashCents += amountCents;
+          break;
+        case 'WITHDRAWAL':
+        case 'BUY':
+        case 'FEE':
+          state.cashCents -= amountCents;
+          break;
+        default:
+          break;
+      }
     }
   }
 

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import request from 'supertest';
 
 import { createApp } from '../app.js';
+import JsonTableStorage from '../data/storage.js';
 
 const noopLogger = {
   info() {},
@@ -24,6 +25,11 @@ beforeEach(() => {
 afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
+
+async function seedReturnsTable(rows) {
+  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  await storage.writeTable('returns_daily', rows);
+}
 
 test('GET /api/prices/:symbol caches responses for warm hits and exposes TTL header', async () => {
   const today = new Date().toISOString().slice(0, 10);
@@ -72,8 +78,7 @@ test('GET /api/returns/daily serves cached payloads even when storage mutates', 
       r_cash: 0.0001,
     },
   ];
-  const storagePath = path.join(dataDir, 'returns_daily.json');
-  writeFileSync(storagePath, `${JSON.stringify(baseRows, null, 2)}\n`);
+  await seedReturnsTable(baseRows);
   const app = createApp({
     dataDir,
     logger: noopLogger,
@@ -92,7 +97,7 @@ test('GET /api/returns/daily serves cached payloads even when storage mutates', 
       date: '2024-01-02',
     },
   ];
-  writeFileSync(storagePath, `${JSON.stringify(mutatedRows, null, 2)}\n`);
+  await seedReturnsTable(mutatedRows);
 
   const second = await request(app).get('/api/returns/daily');
   assert.equal(second.status, 200);
@@ -110,7 +115,7 @@ test('GET /api/returns/daily negotiates 304 when If-None-Match matches cached ET
       r_cash: 0.0002,
     },
   ];
-  writeFileSync(path.join(dataDir, 'returns_daily.json'), `${JSON.stringify(rows, null, 2)}\n`);
+  await seedReturnsTable(rows);
   const app = createApp({
     dataDir,
     logger: noopLogger,
@@ -129,4 +134,68 @@ test('GET /api/returns/daily negotiates 304 when If-None-Match matches cached ET
   assert.equal(second.headers.etag, etag);
   assert.equal(second.headers['cache-control'], `private, max-age=${CACHE_TTL_SECONDS}`);
   assert.equal(second.text, '');
+});
+
+test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
+  const initialRows = [
+    {
+      date: '2024-03-01',
+      r_port: 0.01,
+      r_ex_cash: 0.015,
+      r_spy_100: 0.02,
+      r_bench_blended: 0.018,
+      r_cash: 0.0003,
+    },
+  ];
+  await seedReturnsTable(initialRows);
+  const app = createApp({
+    dataDir,
+    logger: noopLogger,
+    config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
+  });
+
+  const first = await request(app).get('/api/returns/daily');
+  assert.equal(first.status, 200);
+  const initialValue = first.body.series.r_port[0].value;
+  assert.equal(initialValue, initialRows[0].r_port);
+
+  const updatedRows = [
+    {
+      date: '2024-03-01',
+      r_port: 0.25,
+      r_ex_cash: 0.03,
+      r_spy_100: 0.04,
+      r_bench_blended: 0.033,
+      r_cash: 0.0004,
+    },
+  ];
+  await seedReturnsTable(updatedRows);
+
+  const cached = await request(app).get('/api/returns/daily');
+  assert.equal(cached.status, 200);
+  assert.equal(
+    cached.body.series.r_port[0].value,
+    initialValue,
+    'cache should still serve stale data before invalidation',
+  );
+
+  const payload = {
+    transactions: [],
+    signals: {},
+    settings: { autoClip: false },
+    cash: { currency: 'USD', apyTimeline: [] },
+  };
+  const saveResponse = await request(app)
+    .post('/api/portfolio/cache-test')
+    .set('X-Portfolio-Key', 'Abcd1234!@#$')
+    .send(payload);
+  assert.equal(saveResponse.status, 200);
+
+  const refreshed = await request(app).get('/api/returns/daily');
+  assert.equal(refreshed.status, 200);
+  assert.equal(
+    refreshed.body.series.r_port[0].value,
+    updatedRows[0].r_port,
+    'portfolio save should flush cached analytics data',
+  );
 });
