@@ -5,7 +5,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
     css: true,
-    include: ['src/__tests__/**/*.{test,spec}.tsx', 'src/__smoke__/**/*.test.tsx'],
+    include: ['src/__tests__/**/*.{test,spec}.{ts,tsx}', 'src/__smoke__/**/*.test.tsx'],
     exclude: ['src/__tests__/**/*.test.jsx', 'src/__tests__/**/*.spec.jsx', 'server/**'],
     testTimeout: 10000,
     hookTimeout: 10000,

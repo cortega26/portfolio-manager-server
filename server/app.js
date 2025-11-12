@@ -6,9 +6,8 @@ import fetch from "node-fetch";
 import NodeCache from "node-cache";
 import { promises as fs } from "fs";
 import path from "path";
-import { createHash, randomUUID, timingSafeEqual } from "crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import pino from "pino";
-import pinoHttp from "pino-http";
 import compression from "compression";
 import {
   DEFAULT_API_CACHE_TTL_SECONDS,
@@ -78,6 +77,15 @@ import {
   checkBruteForceLockout,
   getBruteForceStats,
 } from "./middleware/bruteForce.js";
+import {
+  createHttpLogger,
+  buildHttpLoggerOptions,
+} from "./logging/httpLogger.js";
+import {
+  attachRequestId,
+  ensureApiVersionHeader,
+  rewriteLegacyApiPrefix,
+} from "./middleware/requestContext.js";
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? "./data");
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.PRICE_FETCH_TIMEOUT_MS ?? "5000",
@@ -235,6 +243,7 @@ export function createApp({
   config = null,
   priceProvider = null,
   auditSink = null,
+  httpLoggerFactory = null,
 } = {}) {
   const baseLogger = adaptLogger(logger) ?? DEFAULT_LOGGER;
   const log =
@@ -297,6 +306,27 @@ export function createApp({
     checkperiod: Math.max(30, Math.floor(cacheTtlSeconds / 2)),
     useClones: false,
   });
+
+  function invalidateResponseCache(reason) {
+    const stats =
+      typeof responseCache.getStats === "function"
+        ? responseCache.getStats()
+        : null;
+    const flushedKeys =
+      stats && typeof stats.keys === "number" ? stats.keys : null;
+    responseCache.flushAll();
+    const meta = {
+      reason,
+      flushed_keys: flushedKeys ?? 0,
+    };
+    if (flushedKeys > 0 && typeof log.info === "function") {
+      log.info(meta, "response_cache_invalidated");
+    } else if (typeof log.debug === "function") {
+      log.debug(meta, "response_cache_invalidated");
+    } else if (typeof log.info === "function") {
+      log.info(meta, "response_cache_invalidated");
+    }
+  }
   const priceLogger =
     typeof log.child === "function"
       ? log.child({ module: "price_provider" })
@@ -375,11 +405,31 @@ export function createApp({
       requirements: API_KEY_REQUIREMENTS,
     });
   }
-  function digestPortfolioKey(rawKey) {
-    return createHash("sha256").update(rawKey).digest();
+  const KEY_SALT_BYTES = 16;
+  function generateKeySalt() {
+    return randomBytes(KEY_SALT_BYTES);
   }
-  function hashPortfolioKey(rawKey) {
-    return digestPortfolioKey(rawKey).toString("hex");
+  function digestPortfolioKey(rawKey, saltBuffer = null) {
+    const hash = createHash("sha256");
+    if (saltBuffer && saltBuffer.length > 0) {
+      hash.update(saltBuffer);
+    }
+    hash.update(rawKey);
+    return hash.digest();
+  }
+  function hashPortfolioKey(rawKey, saltHex = null) {
+    let saltBuffer =
+      typeof saltHex === "string" && saltHex.length > 0
+        ? Buffer.from(saltHex, "hex")
+        : null;
+    if (!saltBuffer || saltBuffer.length === 0) {
+      saltBuffer = generateKeySalt();
+    }
+    const digest = digestPortfolioKey(rawKey, saltBuffer);
+    return {
+      hash: digest.toString("hex"),
+      salt: saltBuffer.toString("hex"),
+    };
   }
   function normalizeKey(value) {
     if (typeof value !== "string") {
@@ -396,16 +446,30 @@ export function createApp({
     const rows = await storage.readTable("portfolio_keys");
     const record = rows.find((row) => row.id === portfolioId);
     const hash = typeof record?.hash === "string" ? record.hash : null;
-    portfolioKeyCache.set(portfolioId, hash);
-    return hash;
+    if (!hash) {
+      portfolioKeyCache.set(portfolioId, null);
+      return null;
+    }
+    const salt =
+      typeof record?.salt === "string" && record.salt.length > 0
+        ? record.salt
+        : null;
+    const normalized = { hash, salt };
+    portfolioKeyCache.set(portfolioId, normalized);
+    return normalized;
   }
-  async function writePortfolioKeyHash(portfolioId, hash) {
+  async function writePortfolioKeyHash(portfolioId, keyRecord) {
     await withLock(`portfolio-key:${portfolioId}`, async () => {
       const storage = await getStorage();
-      if (hash) {
+      if (keyRecord && keyRecord.hash) {
         await storage.upsertRow(
           "portfolio_keys",
-          { id: portfolioId, hash, updated_at: new Date().toISOString() },
+          {
+            id: portfolioId,
+            hash: keyRecord.hash,
+            salt: keyRecord.salt ?? null,
+            updated_at: new Date().toISOString(),
+          },
           ["id"],
         );
       } else {
@@ -415,7 +479,7 @@ export function createApp({
         );
       }
     });
-    portfolioKeyCache.set(portfolioId, hash ?? null);
+    portfolioKeyCache.set(portfolioId, keyRecord ?? null);
   }
   function createPortfolioKeyVerifier({
     allowBootstrap = false,
@@ -462,8 +526,8 @@ export function createApp({
         return;
       }
       try {
-        const storedHash = await readPortfolioKeyHash(portfolioId);
-        if (!storedHash) {
+        let storedKeyRecord = await readPortfolioKeyHash(portfolioId);
+        if (!storedKeyRecord) {
           if (!providedKey) {
             next(
               createHttpError({
@@ -498,8 +562,8 @@ export function createApp({
             next(createWeakKeyError());
             return;
           }
-          const hashed = hashPortfolioKey(providedKey);
-          await writePortfolioKeyHash(portfolioId, hashed);
+          const hashedRecord = hashPortfolioKey(providedKey);
+          await writePortfolioKeyHash(portfolioId, hashedRecord);
           clearAuthFailures(portfolioId, remoteAddress);
           if (!req.portfolioAuth) {
             req.portfolioAuth = {};
@@ -559,8 +623,12 @@ export function createApp({
           next(error);
           return;
         }
-        const storedBuffer = Buffer.from(storedHash, "hex");
-        const providedDigest = digestPortfolioKey(providedKey);
+        const storedBuffer = Buffer.from(storedKeyRecord.hash, "hex");
+        const saltBuffer =
+          storedKeyRecord.salt && storedKeyRecord.salt.length > 0
+            ? Buffer.from(storedKeyRecord.salt, "hex")
+            : null;
+        const providedDigest = digestPortfolioKey(providedKey, saltBuffer);
         if (
           storedBuffer.length !== providedDigest.length ||
           !timingSafeEqual(storedBuffer, providedDigest)
@@ -621,6 +689,14 @@ export function createApp({
           return;
         }
         clearAuthFailures(portfolioId, remoteAddress);
+        if (!storedKeyRecord.salt) {
+          const upgradedRecord = hashPortfolioKey(providedKey);
+          await writePortfolioKeyHash(portfolioId, upgradedRecord);
+          storedKeyRecord = upgradedRecord;
+          logSecurity("info", "portfolio_key_salt_upgraded", {
+            id: portfolioId,
+          });
+        }
         if (allowRotation && rotationKey) {
           const { ok: rotationKeyOk, issues: rotationIssues } =
             validateKeyStrength(rotationKey, { action: "rotate" });
@@ -635,9 +711,13 @@ export function createApp({
             next(createWeakKeyError());
             return;
           }
-          const newHash = hashPortfolioKey(rotationKey);
-          if (newHash !== storedHash) {
-            await writePortfolioKeyHash(portfolioId, newHash);
+          const newRecord = hashPortfolioKey(rotationKey);
+          if (
+            newRecord.hash !== storedKeyRecord.hash ||
+            newRecord.salt !== storedKeyRecord.salt
+          ) {
+            await writePortfolioKeyHash(portfolioId, newRecord);
+            storedKeyRecord = newRecord;
             clearAuthFailures(portfolioId, remoteAddress);
             if (!req.portfolioAuth) {
               req.portfolioAuth = {};
@@ -986,62 +1066,14 @@ export function createApp({
     },
   });
   app.use(compressionMiddleware);
-  const httpLogger = pinoHttp({
-    logger: DEFAULT_LOGGER,
-    genReqId(req) {
-      return req.headers["x-request-id"] ?? randomUUID();
-    },
-    customSuccessMessage() {
-      return "request_complete";
-    },
-    customErrorMessage() {
-      return "request_error";
-    },
-  });
+  const httpLogger =
+    typeof httpLoggerFactory === "function"
+      ? httpLoggerFactory(buildHttpLoggerOptions(DEFAULT_LOGGER))
+      : createHttpLogger({ logger: DEFAULT_LOGGER });
   app.use(httpLogger);
-  app.use((req, res, next) => {
-    const headerRequestId =
-      typeof req.get === "function"
-        ? req.get("X-Request-ID")
-        : req.headers?.["x-request-id"];
-    const normalizedRequestId =
-      typeof headerRequestId === "string"
-        ? headerRequestId.trim().slice(0, 128)
-        : "";
-    if (normalizedRequestId.length > 0) {
-      req.id = normalizedRequestId;
-    } else if (typeof req.id !== "string" || req.id.length === 0) {
-      req.id = randomUUID();
-    }
-    res.setHeader("X-Request-ID", req.id);
-    res.locals.requestId = req.id;
-    next();
-  });
-  app.use((req, res, next) => {
-    if (!(req.originalUrl && req.originalUrl.startsWith("/api/v1"))) {
-      next();
-      return;
-    }
-    const rewrittenUrl = req.url.replace(/^\/api\/v1(?=\/|$)/u, "/api");
-    req.url = rewrittenUrl.length === 0 ? "/api" : rewrittenUrl;
-    req.originalUrl = req.originalUrl.replace(/^\/api\/v1(?=\/|$)/u, "/api");
-    res.locals.apiVersion = "v1";
-    res.setHeader("X-API-Version", "v1");
-    next();
-  });
-  app.use("/api", (req, res, next) => {
-    if (!res.locals.apiVersion) {
-      res.locals.apiVersion = "legacy";
-      res.setHeader(
-        "Warning",
-        '299 - "Legacy API path /api is deprecated; migrate to /api/v1"',
-      );
-      res.setHeader("X-API-Version", "legacy");
-    } else if (!res.getHeader("X-API-Version")) {
-      res.setHeader("X-API-Version", res.locals.apiVersion);
-    }
-    next();
-  });
+  app.use(attachRequestId);
+  app.use(rewriteLegacyApiPrefix);
+  app.use("/api", ensureApiVersionHeader);
   app.use(
     createSecurityAuditLogger({ logger: log, sink: handleSecurityEvent }),
   );
@@ -1551,6 +1583,7 @@ export function createApp({
         await withLock(`portfolio:${id}`, async () => {
           await atomicWriteFile(filePath, serialized);
         });
+        invalidateResponseCache("portfolio_save");
         res.json({ status: "ok" });
       } catch (error) {
         log.error("portfolio_write_failed", { id, error: error.message });
@@ -1808,6 +1841,7 @@ export function createApp({
           { effective_date: effectiveDate, apy },
           ["effective_date"],
         );
+        invalidateResponseCache("cash_rate_upsert");
         res.json({ status: "ok" });
       } catch (error) {
         next(
