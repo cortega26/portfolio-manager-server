@@ -226,7 +226,19 @@ export class JsonTableStorage {
       const stats = await fs
         .stat(logPath)
         .catch((error) => (error.code === 'ENOENT' ? null : Promise.reject(error)));
-      const averageEntryBytes = Math.max(64, JSON.stringify(entry).length);
+      const sampleEntry =
+        removals.length > 0
+          ? {
+              op: 'delete',
+              keyFields: resolveKeyFields(removals[0]),
+              row: cloneRow(removals[0]),
+              timestamp: new Date().toISOString(),
+            }
+          : null;
+      const averageEntryBytes = Math.max(
+        64,
+        sampleEntry ? JSON.stringify(sampleEntry).length : 0,
+      );
       const estimatedEntries =
         stats && stats.size > 0 ? Math.ceil(stats.size / averageEntryBytes) : 0;
       if (
