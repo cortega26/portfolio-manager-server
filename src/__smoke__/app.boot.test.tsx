@@ -5,6 +5,11 @@ import { MemoryRouter } from "react-router-dom";
 import App from "../App.jsx";
 import { I18nProvider } from "../i18n/I18nProvider.jsx";
 
+vi.mock("../components/DashboardTab.jsx", () => ({
+  __esModule: true,
+  default: () => <div data-testid="stub-dashboard-tab" />,
+}));
+
 function renderWithProviders(initialEntries: string[]) {
   return render(
     <I18nProvider>

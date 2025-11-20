@@ -124,7 +124,11 @@ export function getRuntimeConfigSync() {
  * @param {RuntimeConfig|null} nextConfig
  */
 export function setRuntimeConfigForTesting(nextConfig) {
-  cachedConfig = nextConfig ?? DEFAULT_RUNTIME_CONFIG;
+  if (nextConfig == null) {
+    cachedConfig = null;
+  } else {
+    cachedConfig = normalizeRuntimeConfig(nextConfig);
+  }
   loadingPromise = null;
 }
 

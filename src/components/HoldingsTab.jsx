@@ -66,30 +66,28 @@ function HoldingsTable({
                 holding,
                 currentPrices[holding.ticker],
               );
+              const parsedShares =
+                typeof holding.shares === "number"
+                  ? holding.shares
+                  : typeof holding.shares === "string"
+                    ? Number.parseFloat(holding.shares)
+                    : Number.NaN;
               const sharesLabel = (() => {
-                if (typeof formatNumber === "function" && Number.isFinite(holding.shares)) {
-                  return formatNumber(holding.shares, {
+                if (Number.isFinite(parsedShares) && typeof formatNumber === "function") {
+                  return formatNumber(parsedShares, {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 6,
                   });
                 }
-                if (typeof holding.shares === "number" && Number.isFinite(holding.shares)) {
-                  return holding.shares.toFixed(4);
+                if (Number.isFinite(parsedShares)) {
+                  return parsedShares.toLocaleString(undefined, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 6,
+                  });
                 }
-                if (typeof holding.shares === "string" && holding.shares.trim()) {
-                  const parsed = Number.parseFloat(holding.shares);
-                  if (Number.isFinite(parsed) && typeof formatNumber === "function") {
-                    return formatNumber(parsed, {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 6,
-                    });
-                  }
-                  if (Number.isFinite(parsed)) {
-                    return parsed.toFixed(4);
-                  }
-                  return holding.shares;
-                }
-                return "—";
+                return typeof holding.shares === "string" && holding.shares.trim()
+                  ? holding.shares
+                  : "—";
               })();
               return (
                 <tr key={holding.ticker} className="bg-white dark:bg-slate-900">

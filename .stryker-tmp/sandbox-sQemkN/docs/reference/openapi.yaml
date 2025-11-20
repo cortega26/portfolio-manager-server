@@ -1,0 +1,982 @@
+openapi: 3.1.0
+info:
+  title: Portfolio Manager API
+  version: 1.0.0
+  description: Cash and benchmark endpoints behind the `features.cash_benchmarks`
+    flag.
+servers:
+- url: http://localhost:3000
+paths:
+  /api/returns/daily:
+    get:
+      summary: Daily time-weighted returns
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: views
+        schema:
+          type: string
+        description: Comma separated list of views (port, excash, spy, bench)
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number (1-indexed)
+      - in: query
+        name: per_page
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+        description: Page size (max 500)
+      responses:
+        '200':
+          description: Daily return series
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  series:
+                    type: object
+                    properties:
+                      r_port:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_ex_cash:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_spy_100:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_bench_blended:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_cash:
+                        $ref: '#/components/schemas/DateValueSeries'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/nav/daily:
+    get:
+      summary: Daily NAV snapshots and sleeve weights
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number (1-indexed)
+      - in: query
+        name: per_page
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+        description: Page size (max 500)
+      responses:
+        '200':
+          description: NAV series
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        portfolio_nav:
+                          type: number
+                        ex_cash_nav:
+                          type: number
+                        cash_balance:
+                          type: number
+                        risk_assets_value:
+                          type: number
+                        stale_price:
+                          type: boolean
+                        weights:
+                          type: object
+                          properties:
+                            cash:
+                              type: number
+                            risk:
+                              type: number
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/prices/{symbol}:
+    get:
+      summary: Historical adjusted-close prices for a symbol
+      parameters:
+      - in: path
+        name: symbol
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: range
+        schema:
+          type: string
+          enum:
+          - 1y
+        description: Historical window (currently only `1y` is supported)
+      responses:
+        '200':
+          description: Historical price series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - date
+                  - close
+                  properties:
+                    date:
+                      type: string
+                      format: date
+                    close:
+                      type: number
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/benchmarks/summary:
+    get:
+      summary: Cumulative returns and drag metrics
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: Summary totals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    $ref: '#/components/schemas/ReturnSummary'
+                  drag:
+                    type: object
+                    properties:
+                      vs_self:
+                        type: number
+                      allocation:
+                        type: number
+                  money_weighted:
+                    type: object
+                    properties:
+                      portfolio:
+                        type: number
+                      start_date:
+                        type: string
+                        format: date
+                        nullable: true
+                      end_date:
+                        type: string
+                        format: date
+                        nullable: true
+                      method:
+                        type: string
+                        enum:
+                        - xirr
+                    required:
+                    - portfolio
+                    - method
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/portfolio/{id}:
+    get:
+      summary: Load a persisted portfolio definition
+      security:
+      - PortfolioKey: []
+      parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+      - $ref: '#/components/parameters/PortfolioKey'
+      responses:
+        '200':
+          description: Portfolio payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioPayload'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '401':
+          description: Missing portfolio API key header
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '403':
+          description: Invalid portfolio API key header
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '404':
+          description: Portfolio not provisioned
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+    post:
+      summary: Persist a portfolio definition
+      security:
+      - PortfolioKey: []
+      parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+      - $ref: '#/components/parameters/PortfolioKey'
+      - $ref: '#/components/parameters/PortfolioKeyNew'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioPayload'
+      responses:
+        '200':
+          description: Persistence acknowledgement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '400':
+          description: Validation failure or weak API key
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/WeakKeyErrorResponse'
+                - $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                weakKey:
+                  summary: Weak API key rejection
+                  value:
+                    error: WEAK_KEY
+                    message: API key does not meet strength requirements
+                    requirements:
+                    - At least 12 characters
+                    - At least 1 uppercase letter
+                    - At least 1 lowercase letter
+                    - At least 1 number
+                    - At least 1 special character (!@#$%^&*)
+                validation:
+                  summary: Portfolio payload validation failure
+                  value:
+                    error: VALIDATION_ERROR
+                    message: Request could not be processed
+                    details:
+                    - path:
+                      - transactions
+                      - 0
+                      - amount
+                      message: Amount must be a finite number
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '401':
+          description: Missing portfolio API key header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: NO_KEY
+                message: Portfolio key required.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '403':
+          description: Invalid portfolio API key header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: INVALID_KEY
+                message: Invalid portfolio key.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '429':
+          description: Too many invalid key attempts (temporary lockout)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: TOO_MANY_KEY_ATTEMPTS
+                message: Too many invalid portfolio key attempts. Try again later.
+                retry_after_seconds: 900
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/admin/cash-rate:
+    post:
+      summary: Upsert a cash APY effective date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - effective_date
+              - apy
+              properties:
+                effective_date:
+                  type: string
+                  format: date
+                apy:
+                  type: number
+      responses:
+        '200':
+          description: Upsert acknowledgement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/v1/returns/daily:
+    get:
+      summary: Daily time-weighted returns
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: views
+        schema:
+          type: string
+        description: Comma separated list of views (port, excash, spy, bench)
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number (1-indexed)
+      - in: query
+        name: per_page
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+        description: Page size (max 500)
+      responses:
+        '200':
+          description: Daily return series
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  series:
+                    type: object
+                    properties:
+                      r_port:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_ex_cash:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_spy_100:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_bench_blended:
+                        $ref: '#/components/schemas/DateValueSeries'
+                      r_cash:
+                        $ref: '#/components/schemas/DateValueSeries'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/v1/nav/daily:
+    get:
+      summary: Daily NAV snapshots and sleeve weights
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Page number (1-indexed)
+      - in: query
+        name: per_page
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+        description: Page size (max 500)
+      responses:
+        '200':
+          description: NAV series
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        portfolio_nav:
+                          type: number
+                        ex_cash_nav:
+                          type: number
+                        cash_balance:
+                          type: number
+                        risk_assets_value:
+                          type: number
+                        stale_price:
+                          type: boolean
+                        weights:
+                          type: object
+                          properties:
+                            cash:
+                              type: number
+                            risk:
+                              type: number
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/v1/prices/{symbol}:
+    get:
+      summary: Historical adjusted-close prices for a symbol
+      parameters:
+      - in: path
+        name: symbol
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: range
+        schema:
+          type: string
+          enum:
+          - 1y
+        description: Historical window (currently only `1y` is supported)
+      responses:
+        '200':
+          description: Historical price series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - date
+                  - close
+                  properties:
+                    date:
+                      type: string
+                      format: date
+                    close:
+                      type: number
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Strong validator for conditional requests
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/v1/benchmarks/summary:
+    get:
+      summary: Cumulative returns and drag metrics
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: Summary totals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    $ref: '#/components/schemas/ReturnSummary'
+                  drag:
+                    type: object
+                    properties:
+                      vs_self:
+                        type: number
+                      allocation:
+                        type: number
+                  money_weighted:
+                    type: object
+                    properties:
+                      portfolio:
+                        type: number
+                      start_date:
+                        type: string
+                        format: date
+                        nullable: true
+                      end_date:
+                        type: string
+                        format: date
+                        nullable: true
+                      method:
+                        type: string
+                        enum:
+                        - xirr
+                    required:
+                    - portfolio
+                    - method
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/v1/portfolio/{id}:
+    get:
+      summary: Load a persisted portfolio definition
+      security:
+      - PortfolioKey: []
+      parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+      - $ref: '#/components/parameters/PortfolioKey'
+      responses:
+        '200':
+          description: Portfolio payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioPayload'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '401':
+          description: Missing portfolio API key header
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '403':
+          description: Invalid portfolio API key header
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '404':
+          description: Portfolio not provisioned
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+    post:
+      summary: Persist a portfolio definition
+      security:
+      - PortfolioKey: []
+      parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+      - $ref: '#/components/parameters/PortfolioKey'
+      - $ref: '#/components/parameters/PortfolioKeyNew'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioPayload'
+      responses:
+        '200':
+          description: Persistence acknowledgement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '400':
+          description: Validation failure or weak API key
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/WeakKeyErrorResponse'
+                - $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                weakKey:
+                  summary: Weak API key rejection
+                  value:
+                    error: WEAK_KEY
+                    message: API key does not meet strength requirements
+                    requirements:
+                    - At least 12 characters
+                    - At least 1 uppercase letter
+                    - At least 1 lowercase letter
+                    - At least 1 number
+                    - At least 1 special character (!@#$%^&*)
+                validation:
+                  summary: Portfolio payload validation failure
+                  value:
+                    error: VALIDATION_ERROR
+                    message: Request could not be processed
+                    details:
+                    - path:
+                      - transactions
+                      - 0
+                      - amount
+                      message: Amount must be a finite number
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '401':
+          description: Missing portfolio API key header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: NO_KEY
+                message: Portfolio key required.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '403':
+          description: Invalid portfolio API key header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: INVALID_KEY
+                message: Invalid portfolio key.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '429':
+          description: Too many invalid key attempts (temporary lockout)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: TOO_MANY_KEY_ATTEMPTS
+                message: Too many invalid portfolio key attempts. Try again later.
+                retry_after_seconds: 900
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/v1/admin/cash-rate:
+    post:
+      summary: Upsert a cash APY effective date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - effective_date
+              - apy
+              properties:
+                effective_date:
+                  type: string
+                  format: date
+                apy:
+                  type: number
+      responses:
+        '200':
+          description: Upsert acknowledgement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+components:
+  securitySchemes:
+    PortfolioKey:
+      type: apiKey
+      in: header
+      name: X-Portfolio-Key
+  parameters:
+    PortfolioId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+      description: Portfolio identifier matching `[A-Za-z0-9_-]{1,64}`
+    PortfolioKey:
+      in: header
+      name: X-Portfolio-Key
+      required: true
+      schema:
+        type: string
+      description: Per-portfolio API key used to authorise requests
+    PortfolioKeyNew:
+      in: header
+      name: X-Portfolio-Key-New
+      required: false
+      schema:
+        type: string
+      description: Optional new portfolio API key to rotate during a save
+  schemas:
+    DateValueSeries:
+      type: array
+      items:
+        type: object
+        properties:
+          date:
+            type: string
+            format: date
+          value:
+            type: number
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+    ReturnSummary:
+      type: object
+      properties:
+        r_port:
+          type: number
+        r_ex_cash:
+          type: number
+        r_bench_blended:
+          type: number
+        r_spy_100:
+          type: number
+        r_cash:
+          type: number
+    PortfolioTransaction:
+      type: object
+      properties:
+        uid:
+          type: string
+        date:
+          type: string
+          format: date
+        ticker:
+          type: string
+        type:
+          type: string
+          description: Transaction type (BUY, SELL, DIVIDEND, etc.)
+        amount:
+          type: number
+        price:
+          type: number
+        shares:
+          type: number
+        quantity:
+          type: number
+        metadata:
+          type: object
+          additionalProperties: true
+        currency:
+          type: string
+          description: ISO 4217 currency code for cash movements.
+    PortfolioPayload:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortfolioTransaction'
+        signals:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              pct:
+                type: number
+        settings:
+          type: object
+          properties:
+            autoClip:
+              type: boolean
+        schemaVersion:
+          type: integer
+          minimum: 1
+        cash:
+          type: object
+          properties:
+            currency:
+              type: string
+              description: ISO 4217 currency code for the portfolio cash policy.
+            apyTimeline:
+              type: array
+              items:
+                type: object
+                required:
+                - from
+                - apy
+                properties:
+                  from:
+                    type: string
+                    format: date
+                  to:
+                    type: string
+                    format: date
+                    nullable: true
+                  apy:
+                    type: number
+            version:
+              type: integer
+    ErrorResponse:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: string
+          description: Stable machine-readable error code (e.g., VALIDATION_ERROR,
+            WEAK_KEY).
+        message:
+          type: string
+          description: Human-readable description safe to surface in clients.
+        details:
+          description: Optional validation metadata or failure context.
+          oneOf:
+          - type: array
+            items:
+              type: object
+              additionalProperties: true
+          - type: object
+            additionalProperties: true
+        requirements:
+          type: array
+          description: Present on WEAK_KEY responses; enumerates password requirements.
+          items:
+            type: string
+        retry_after_seconds:
+          type: integer
+          minimum: 0
+          description: Seconds clients must wait before retrying after a lockout.
+    WeakKeyErrorResponse:
+      allOf:
+      - $ref: '#/components/schemas/ErrorResponse'
+      - type: object
+        required:
+        - requirements
+        properties:
+          error:
+            type: string
+            enum:
+            - WEAK_KEY
+          requirements:
+            type: array
+            items:
+              type: string
+  headers:
+    XRequestId:
+      description: Correlation identifier echoed back on every response.
+      schema:
+        type: string
+        format: uuid
+      example: 0d7b0f8a-9f34-4b45-9aa5-7f0df7f56e6d

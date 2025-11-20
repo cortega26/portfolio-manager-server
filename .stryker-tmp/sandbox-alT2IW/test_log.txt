@@ -1,0 +1,810 @@
+cortega26@i5-12600 MINGW64 ~/VS Code Projects/portfolio-manager-server (main)
+$ npm run test:coverage
+
+> portfolio-manager-server@1.0.0 test:coverage
+> vitest run --coverage --coverage.reporter=text-summary --coverage.reporter=lcov
+
+
+ RUN  v3.2.4 C:/Users/corte/VS Code Projects/portfolio-manager-server
+      Coverage enabled with v8
+
+ ❯ src/__tests__/portfolioKeys.test.ts (3 tests | 1 failed) 6ms
+   ✓ portfolioKeys > returns empty string when nothing was persisted 1ms
+   × portfolioKeys > persists keys only in memory 3ms
+     → setItem does not exist
+   ✓ portfolioKeys > removes entries when asked 0ms
+ ✓ src/__tests__/runtimeConfig.test.ts (3 tests) 11ms
+stderr | src/__smoke__/app.boot.test.tsx > app smoke > renders the dashboard route by default
+Failed to load user settings TypeError: localStorageRef.getItem is not a function
+    at loadSettingsFromStorage (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\utils\settings.js:102:33)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:175:50
+    at mountState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:16167:20)
+    at Object.useState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:16880:16)
+    at useState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react\cjs\react.development.js:1622:21)
+    at PortfolioManagerApp (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:175:35)
+    at renderWithHooks (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:20103:13)
+    at beginWork (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:21626:16)
+    at beginWork$1 (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27465:14)
+Failed to read portfolio snapshot store TypeError: storage.getItem is not a function
+    at readStore (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\state\portfolioStore.js:165:25)
+    at loadActivePortfolioSnapshot (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\state\portfolioStore.js:215:17)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:226:22
+    at commitHookEffectListMount (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27078:3)
+    at flushPassiveEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27023:14)
+Failed to persist user settings TypeError: localStorageRef.setItem is not a function
+    at persistSettingsToStorage (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\utils\settings.js:124:21)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:692:5
+    at commitHookEffectListMount (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27078:3)
+    at flushPassiveEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27023:14)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:26808:9
+
+(node:30792) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:22212) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/transactions/transactions-tab-interactions.spec.tsx (2 tests) 673ms
+   ✓ TransactionsTab interactions > supports search, pagination, and deletion in the non-virtualized table  592ms
+(node:22888) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:13204) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+stderr | src/__tests__/DashboardNavigation.test.tsx > switches tabs and shows expected panels
+Failed to load user settings TypeError: localStorageRef.getItem is not a function
+    at loadSettingsFromStorage (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\utils\settings.js:102:33)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:175:50
+    at mountState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:16167:20)
+    at Object.useState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:16880:16)
+    at useState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react\cjs\react.development.js:1622:21)
+    at PortfolioManagerApp (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:175:35)
+    at renderWithHooks (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:20103:13)
+    at beginWork (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:21626:16)
+    at beginWork$1 (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27465:14)
+Failed to read portfolio snapshot store TypeError: storage.getItem is not a function
+    at readStore (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\state\portfolioStore.js:165:25)
+    at loadActivePortfolioSnapshot (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\state\portfolioStore.js:215:17)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:226:22
+    at commitHookEffectListMount (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27078:3)
+    at flushPassiveEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27023:14)
+Failed to persist user settings TypeError: localStorageRef.setItem is not a function
+    at persistSettingsToStorage (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\utils\settings.js:124:21)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:692:5
+    at commitHookEffectListMount (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27078:3)
+    at flushPassiveEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27023:14)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:26808:9
+
+(node:6692) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/DashboardNavigation.test.tsx (1 test) 234ms
+(node:19012) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ src/__tests__/transactions/deposit-disables-fields.spec.tsx (1 test) 524ms                                                                                                                                                                 
+   ✓ TransactionsTab deposit UX > disables ticker and shares for deposits and omits them from submission payload  522ms                                                                                                                       
+stderr | src/__tests__/AppRoiFallback.test.tsx > ROI fallback alerts > surfaces cash benchmark disablement as an informational alert                                                                                                          
+Failed to load user settings TypeError: localStorageRef.getItem is not a function                                                                                                                                                             
+    at loadSettingsFromStorage (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\utils\settings.js:102:33)                                                                                                                        
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:175:50                                                                                                                                            
+    at mountState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:16167:20)                                                                                                     
+    at Object.useState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:16880:16)                                                                                                
+    at useState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react\cjs\react.development.js:1622:21)                                                                                                                
+    at PortfolioManagerApp (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:175:35)                                                                                                                      
+    at renderWithHooks (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:15486:18)                                                                                                
+    at mountIndeterminateComponent (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:20103:13)                                                                                    
+    at beginWork (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:21626:16)                                                                                                      
+    at beginWork$1 (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27465:14)                                                                                                    
+Failed to read portfolio snapshot store TypeError: storage.getItem is not a function
+    at readStore (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\state\portfolioStore.js:165:25)
+    at loadActivePortfolioSnapshot (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\state\portfolioStore.js:215:17)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:226:22
+    at commitHookEffectListMount (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27078:3)
+    at flushPassiveEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27023:14)
+Failed to persist user settings TypeError: localStorageRef.setItem is not a function
+    at persistSettingsToStorage (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\utils\settings.js:124:21)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\PortfolioManagerApp.jsx:692:5
+    at commitHookEffectListMount (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27078:3)
+    at flushPassiveEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27023:14)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:26808:9
+Error [ApiError]: cash benchmarks disabled
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\__tests__\AppRoiFallback.test.tsx:103:27
+    at file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/node_modules/@vitest/runner/dist/chunk-hooks.js:155:11
+    at file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/node_modules/@vitest/runner/dist/chunk-hooks.js:752:26
+    at file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/node_modules/@vitest/runner/dist/chunk-hooks.js:1897:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/node_modules/@vitest/runner/dist/chunk-hooks.js:1863:10)
+    at runTest (file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/node_modules/@vitest/runner/dist/chunk-hooks.js:1574:12)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at runSuite (file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/node_modules/@vitest/runner/dist/chunk-hooks.js:1729:8)
+    at runSuite (file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/node_modules/@vitest/runner/dist/chunk-hooks.js:1729:8) {
+  body: { error: 'CASH_BENCHMARKS_DISABLED' },
+  requestId: 'req-123'
+}
+
+(node:2336) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:23076) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:13432) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+stderr | src/__smoke__/app.boot.test.tsx
+TypeError: window.localStorage.getItem is not a function
+    at readStoredSelection (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\hooks\usePersistentBenchmarkSelection.js:10:37)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\hooks\usePersistentBenchmarkSelection.js:53:20
+    at mountState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:16167:20)
+    at Object.useState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:16880:16)
+    at useState (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react\cjs\react.development.js:1622:21)
+    at usePersistentBenchmarkSelection (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\hooks\usePersistentBenchmarkSelection.js:52:45)
+    at DashboardTab (C:\Users\corte\VS Code Projects\portfolio-manager-server\src\components\DashboardTab.jsx:307:5)
+    at renderWithHooks (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:15486:18)
+    at updateFunctionComponent (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:19617:20)
+    at mountLazyComponent (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:19988:17)
+
+stderr | src/__smoke__/app.boot.test.tsx
+TypeError: window.localStorage.setItem is not a function
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\hooks\usePersistentBenchmarkSelection.js:72:27
+    at commitHookEffectListMount (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27078:3)
+    at flushPassiveEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27023:14)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:26808:9
+    at workLoop (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\scheduler\cjs\scheduler.development.js:266:34)
+TypeError: window.localStorage.setItem is not a function
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\src\hooks\usePersistentBenchmarkSelection.js:72:27
+    at commitHookEffectListMount (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27078:3)
+    at flushPassiveEffects (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:27023:14)
+    at C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\react-dom\cjs\react-dom.development.js:26808:9
+    at workLoop (C:\Users\corte\VS Code Projects\portfolio-manager-server\node_modules\scheduler\cjs\scheduler.development.js:266:34)
+
+ ✓ src/__tests__/AppRoiFallback.test.tsx (1 test) 115ms
+ ✓ src/__tests__/HoldingsTable.test.tsx (4 tests) 223ms
+ ✓ src/__tests__/AdminAccessRouting.test.tsx (3 tests) 75ms
+ ❯ src/__smoke__/app.boot.test.tsx (2 tests | 1 failed) 2640ms
+   × app smoke > renders the dashboard route by default 2582ms
+     → Unable to find an element by: [data-testid="panel-dashboard"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+    >
+      <div
+        class="mx-auto flex max-w-6xl flex-col gap-6"
+      >
+        <header
+          class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+        >
+          <div
+            class="flex flex-col gap-2"
+          >
+            <h1
+              class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white"
+            >
+              Portfolio Manager
+            </h1>
+            <p
+              class="max-w-3xl text-sm text-slate-600 dark:text-slate-400"
+            >
+              Monitor your assets, manage trades, and benchmark performance across dedicated views.
+            </p>
+          </div>
+          <label
+            class="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300"
+          >
+            <span>
+              Language
+            </span>
+            <select
+              class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              <option
+                value="en"
+              >
+                English
+              </option>
+              <option
+                value="es"
+              >
+                Spanish
+              </option>
+            </select>
+          </label>
+        </header>
+        <div
+          class="rounded-xl bg-white p-4 shadow dark:bg-slate-900"
+        >
+          <div
+            class="flex flex-wrap items-end gap-4"
+          >
+            <div
+              class="flex flex-col"
+            >
+              <label
+                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                for="portfolioId"
+              >
+                Portfolio ID
+              </label>
+              <input
+                class="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"    
+                id="portfolioId"
+                placeholder="e.g. demo-portfolio"
+                type="text"
+                value=""
+              />
+            </div>
+            <div
+              class="flex flex-col"
+            >
+              <label
+                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                for="portfolioKey"
+              >
+                API Key
+              </label>
+              <input
+                autocomplete="off"
+                class="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"    
+                id="portfolioKey"
+                placeholder="Required"
+                type="password"
+                value=""
+              />
+              <div
+                class="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300"
+              >
+                <p
+                  class="font-medium text-slate-600 dark:text-slate-300"
+                >
+                  Enter a key to evaluate strength
+                </p>
+                <ul
+                  class="mt-1 space-y-1"
+                >
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class="text-slate-600 dark:text-slate-300"
+                    >
+                      At least 12 characters
+                    </span>
+                  </li>
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class="text-slate-600 dark:text-slate-300"
+                    >
+                      At least 1 uppercase letter
+                    </span>
+                  </li>
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class
+
+
+
+gnored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+    >
+      <div
+        class="mx-auto flex max-w-6xl flex-col gap-6"
+      >
+        <header
+          class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+        >
+          <div
+            class="flex flex-col gap-2"
+          >
+            <h1
+              class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white"
+            >
+              Portfolio Manager
+            </h1>
+            <p
+              class="max-w-3xl text-sm text-slate-600 dark:text-slate-400"
+            >
+              Monitor your assets, manage trades, and benchmark performance across dedicated views.
+            </p>
+          </div>
+          <label
+            class="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300"
+          >
+            <span>
+              Language
+            </span>
+            <select
+              class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              <option
+                value="en"
+              >
+                English
+              </option>
+              <option
+                value="es"
+              >
+                Spanish
+              </option>
+            </select>
+          </label>
+        </header>
+        <div
+          class="rounded-xl bg-white p-4 shadow dark:bg-slate-900"
+        >
+          <div
+            class="flex flex-wrap items-end gap-4"
+          >
+            <div
+              class="flex flex-col"
+            >
+              <label
+                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                for="portfolioId"
+              >
+                Portfolio ID
+              </label>
+              <input
+                class="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"    
+                id="portfolioId"
+                placeholder="e.g. demo-portfolio"
+                type="text"
+                value=""
+              />
+            </div>
+            <div
+              class="flex flex-col"
+            >
+              <label
+                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                for="portfolioKey"
+              >
+                API Key
+              </label>
+              <input
+                autocomplete="off"
+                class="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"    
+                id="portfolioKey"
+                placeholder="Required"
+                type="password"
+                value=""
+              />
+              <div
+                class="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300"
+              >
+                <p
+                  class="font-medium text-slate-600 dark:text-slate-300"
+                >
+                  Enter a key to evaluate strength
+                </p>
+                <ul
+                  class="mt-1 space-y-1"
+                >
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class="text-slate-600 dark:text-slate-300"
+                    >
+                      At least 12 characters
+                    </span>
+                  </li>
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class="text-slate-600 dark:text-slate-300"
+                    >
+                      At least 1 uppercase letter
+                    </span>
+                  </li>
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class
+   ✓ app smoke > guards admin routes when invite tokens are configured 57ms
+ ✓ src/__tests__/transactions/depositor-ui-not-autoopen.spec.tsx (1 test) 491ms
+   ✓ Depositor modal behaviour > opens only on demand and closes after successful create  488ms
+ ✓ src/__tests__/TransactionForm.test.tsx (2 tests) 1059ms
+   ✓ shows validation errors then submits when fixed  666ms
+   ✓ allows cash-only transactions without price information  392ms
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/portfolioKeys.test.ts > portfolioKeys > persists keys only in memory
+Error: setItem does not exist
+ ❯ src/__tests__/portfolioKeys.test.ts:25:24
+     23|
+     24|   test("persists keys only in memory", () => {
+     25|     const setItem = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+       |                        ^
+     26|       throw new Error("localStorage should not be used for portfolio keys");
+     27|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/__smoke__/app.boot.test.tsx > app smoke > renders the dashboard route by default
+TestingLibraryElementError: Unable to find an element by: [data-testid="panel-dashboard"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+    >
+      <div
+        class="mx-auto flex max-w-6xl flex-col gap-6"
+      >
+        <header
+          class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+        >
+          <div
+            class="flex flex-col gap-2"
+          >
+            <h1
+              class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white"
+            >
+              Portfolio Manager
+            </h1>
+            <p
+              class="max-w-3xl text-sm text-slate-600 dark:text-slate-400"
+            >
+              Monitor your assets, manage trades, and benchmark performance across dedicated views.
+            </p>
+          </div>
+          <label
+            class="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300"
+          >
+            <span>
+              Language
+            </span>
+            <select
+              class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              <option
+                value="en"
+              >
+                English
+              </option>
+              <option
+                value="es"
+              >
+                Spanish
+              </option>
+            </select>
+          </label>
+        </header>
+        <div
+          class="rounded-xl bg-white p-4 shadow dark:bg-slate-900"
+        >
+          <div
+            class="flex flex-wrap items-end gap-4"
+          >
+            <div
+              class="flex flex-col"
+            >
+              <label
+                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                for="portfolioId"
+              >
+                Portfolio ID
+              </label>
+              <input
+                class="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"    
+                id="portfolioId"
+                placeholder="e.g. demo-portfolio"
+                type="text"
+                value=""
+              />
+            </div>
+            <div
+              class="flex flex-col"
+            >
+              <label
+                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                for="portfolioKey"
+              >
+                API Key
+              </label>
+              <input
+                autocomplete="off"
+                class="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"    
+                id="portfolioKey"
+                placeholder="Required"
+                type="password"
+                value=""
+              />
+              <div
+                class="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300"
+              >
+                <p
+                  class="font-medium text-slate-600 dark:text-slate-300"
+                >
+                  Enter a key to evaluate strength
+                </p>
+                <ul
+                  class="mt-1 space-y-1"
+                >
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class="text-slate-600 dark:text-slate-300"
+                    >
+                      At least 12 characters
+                    </span>
+                  </li>
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class="text-slate-600 dark:text-slate-300"
+                    >
+                      At least 1 uppercase letter
+                    </span>
+                  </li>
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class
+
+
+
+gnored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+    >
+      <div
+        class="mx-auto flex max-w-6xl flex-col gap-6"
+      >
+        <header
+          class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+        >
+          <div
+            class="flex flex-col gap-2"
+          >
+            <h1
+              class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white"
+            >
+              Portfolio Manager
+            </h1>
+            <p
+              class="max-w-3xl text-sm text-slate-600 dark:text-slate-400"
+            >
+              Monitor your assets, manage trades, and benchmark performance across dedicated views.
+            </p>
+          </div>
+          <label
+            class="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300"
+          >
+            <span>
+              Language
+            </span>
+            <select
+              class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              <option
+                value="en"
+              >
+                English
+              </option>
+              <option
+                value="es"
+              >
+                Spanish
+              </option>
+            </select>
+          </label>
+        </header>
+        <div
+          class="rounded-xl bg-white p-4 shadow dark:bg-slate-900"
+        >
+          <div
+            class="flex flex-wrap items-end gap-4"
+          >
+            <div
+              class="flex flex-col"
+            >
+              <label
+                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                for="portfolioId"
+              >
+                Portfolio ID
+              </label>
+              <input
+                class="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"    
+                id="portfolioId"
+                placeholder="e.g. demo-portfolio"
+                type="text"
+                value=""
+              />
+            </div>
+            <div
+              class="flex flex-col"
+            >
+              <label
+                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                for="portfolioKey"
+              >
+                API Key
+              </label>
+              <input
+                autocomplete="off"
+                class="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"    
+                id="portfolioKey"
+                placeholder="Required"
+                type="password"
+                value=""
+              />
+              <div
+                class="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300"
+              >
+                <p
+                  class="font-medium text-slate-600 dark:text-slate-300"
+                >
+                  Enter a key to evaluate strength
+                </p>
+                <ul
+                  class="mt-1 space-y-1"
+                >
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class="text-slate-600 dark:text-slate-300"
+                    >
+                      At least 12 characters
+                    </span>
+                  </li>
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class="text-slate-600 dark:text-slate-300"
+                    >
+                      At least 1 uppercase letter
+                    </span>
+                  </li>
+                  <li
+                    class="flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      class="inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    >
+                      --
+                    </span>
+                    <span
+                      class
+ ❯ waitForWrapper node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/react/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/__smoke__/app.boot.test.tsx:30:25
+     28|
+     29|     expect(await screen.findByText(/Portfolio Manager/i)).toBeInTheDocument();
+     30|     expect(await screen.findByTestId("panel-dashboard")).toBeVisible();
+       |                         ^
+     31|   });
+     32|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 9 passed (11)
+      Tests  2 failed | 21 passed (23)
+   Start at  15:05:13
+   Duration  14.50s (transform 443ms, setup 8.22s, collect 25.71s, tests 6.05s, environment 91.01s, prepare 5.73s)
+

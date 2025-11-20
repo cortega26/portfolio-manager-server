@@ -25,20 +25,34 @@ function interpolate(template, values = {}) {
   );
 }
 
+function getStorage() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const storage = window.localStorage;
+  if (!storage || typeof storage.getItem !== "function" || typeof storage.setItem !== "function") {
+    return null;
+  }
+  return storage;
+}
+
 function getInitialLanguage() {
-  if (typeof window !== "undefined") {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+  const storage = getStorage();
+  if (storage) {
+    const stored = storage.getItem(STORAGE_KEY);
     if (stored && LANGUAGE_CONFIG[stored]) {
       return stored;
     }
-    const navigatorLang = window.navigator?.language ?? window.navigator?.languages?.[0];
-    if (typeof navigatorLang === "string") {
-      const normalized = navigatorLang.slice(0, 2).toLowerCase();
-      if (LANGUAGE_CONFIG[normalized]) {
-        return normalized;
-      }
+  }
+  const navigator = typeof window !== "undefined" ? window.navigator : undefined;
+  const navigatorLang = navigator?.language ?? navigator?.languages?.[0];
+  if (typeof navigatorLang === "string") {
+    const normalized = navigatorLang.slice(0, 2).toLowerCase();
+    if (LANGUAGE_CONFIG[normalized]) {
+      return normalized;
     }
   }
+
   return FALLBACK_LANGUAGE;
 }
 
@@ -52,8 +66,9 @@ export function I18nProvider({ children }) {
 
   useEffect(() => {
     configureFormat({ locale, currency });
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, language);
+    const storage = getStorage();
+    if (storage) {
+      storage.setItem(STORAGE_KEY, language);
     }
   }, [currency, language, locale]);
 

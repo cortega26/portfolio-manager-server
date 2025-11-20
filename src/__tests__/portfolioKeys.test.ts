@@ -15,7 +15,6 @@ describe("portfolioKeys", () => {
   afterEach(() => {
     __dangerous__resetPortfolioKeyVault();
     vi.restoreAllMocks();
-    Reflect.deleteProperty(globalThis, "localStorage");
   });
 
   test("returns empty string when nothing was persisted", () => {
@@ -23,15 +22,11 @@ describe("portfolioKeys", () => {
   });
 
   test("persists keys only in memory", () => {
-    const setItem = vi.fn(() => {
+    const setItem = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
       throw new Error("localStorage should not be used for portfolio keys");
     });
-    const getItem = vi.fn(() => {
+    const getItem = vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
       throw new Error("localStorage should not be used for portfolio keys");
-    });
-    Object.defineProperty(global, "localStorage", {
-      configurable: true,
-      value: { setItem, getItem },
     });
     const saved = savePortfolioKey("abc", "secret");
     expect(saved).toBe(true);
