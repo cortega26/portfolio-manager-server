@@ -96,6 +96,11 @@ test("SPY-only portfolios track the SPY benchmark", async () => {
       const transactions = [
         {
           date: dayString(0),
+          type: "DEPOSIT",
+          amount: Number.parseFloat((normalizedShare * days[0].spy).toFixed(2)),
+        },
+        {
+          date: dayString(0),
           ticker: "SPY",
           type: "BUY",
           shares: normalizedShare,

@@ -3,6 +3,7 @@ import { strict as assert } from "node:assert";
 import { buildRoiSeries, mergeReturnSeries } from "../utils/roi.js";
 
 const transactions = [
+  { date: "2024-01-01", type: "DEPOSIT", amount: 500 },
   { date: "2024-01-01", ticker: "AAPL", type: "BUY", shares: 1, amount: -100 },
   { date: "2024-01-02", ticker: "AAPL", type: "BUY", shares: 1, amount: -110 },
 ];
@@ -78,9 +79,11 @@ describe("ROI utilities", () => {
     const series = await buildRoiSeries(transactions, fetcher);
 
     assert.equal(series.length, 3);
-    assert.equal(series[0].portfolio, 0);
-    assert.ok(series[2].portfolio > 0);
-    assert.equal(series[0].spy, 0);
+    assert.deepEqual(series, [
+      { date: "2024-01-01", portfolio: 0, spy: 0 },
+      { date: "2024-01-02", portfolio: 6, spy: 5 },
+      { date: "2024-01-03", portfolio: 14, spy: 10 },
+    ]);
   });
 
   it("returns an empty series when transactions are missing", async () => {
@@ -93,6 +96,39 @@ describe("ROI utilities", () => {
     const fetcher = async (symbol) => (symbol === "spy" ? [] : priceMap.AAPL);
     const series = await buildRoiSeries(transactions, fetcher);
     assert.deepEqual(series, []);
+  });
+
+  it("ignores unfunded buys to prevent artificial gains", async () => {
+    const fetcher = async (symbol) => priceMap[symbol.toUpperCase()] ?? [];
+    const series = await buildRoiSeries(
+      [
+        { date: "2024-01-02", ticker: "AAPL", type: "BUY", shares: 10, amount: -1000 },
+        { date: "2024-01-03", ticker: "AAPL", type: "BUY", shares: 5, amount: -500 },
+      ],
+      fetcher,
+    );
+    assert.deepEqual(series, [
+      { date: "2024-01-01", portfolio: 0, spy: 0 },
+      { date: "2024-01-02", portfolio: 0, spy: 5 },
+      { date: "2024-01-03", portfolio: 0, spy: 10 },
+    ]);
+  });
+
+  it("ignores oversells that exceed current holdings", async () => {
+    const fetcher = async (symbol) => priceMap[symbol.toUpperCase()] ?? [];
+    const series = await buildRoiSeries(
+      [
+        { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
+        { date: "2024-01-01", ticker: "AAPL", type: "BUY", shares: 5, amount: -500 },
+        { date: "2024-01-02", ticker: "AAPL", type: "SELL", shares: 10, amount: 2000 },
+      ],
+      fetcher,
+    );
+    assert.deepEqual(series, [
+      { date: "2024-01-01", portfolio: 0, spy: 0 },
+      { date: "2024-01-02", portfolio: 10, spy: 5 },
+      { date: "2024-01-03", portfolio: 20, spy: 10 },
+    ]);
   });
 
   it("omits benchmark-only series when falling back to local ROI", async () => {
@@ -141,8 +177,11 @@ describe("ROI utilities", () => {
     };
 
     const series = await buildRoiSeries(extendedTransactions, fetcher);
-    assert.equal(series.length, 3);
-    assert.ok(series[1].portfolio >= 0);
+    assert.deepEqual(series, [
+      { date: "2024-01-01", portfolio: 0, spy: 0 },
+      { date: "2024-01-02", portfolio: -2, spy: 5 },
+      { date: "2024-01-03", portfolio: 12, spy: 10 },
+    ]);
   });
 
   it("uses zero pricing when a ticker series is empty", async () => {
