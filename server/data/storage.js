@@ -6,7 +6,8 @@ import { withLock } from '../utils/locks.js';
 
 const SNAPSHOT_SUFFIX = '.snapshot.json';
 const LOG_SUFFIX = '.log.ndjson';
-const MAX_LOG_SIZE_BYTES = 2_000_000;
+const MAX_LOG_SIZE_BYTES = 200_000;
+const MAX_LOG_ENTRIES_BEFORE_COMPACT = 5_000;
 
 async function readJson(filePath, fallback) {
   try {
@@ -79,6 +80,18 @@ function applyLogEntries(baseRows, logEntries) {
   const rows = [...baseRows];
   for (const entry of logEntries) {
     if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    if (entry.op === 'delete' || entry.deleted) {
+      const keyFields = resolveKeyFields(entry);
+      const row = entry.row && typeof entry.row === 'object' ? entry.row : null;
+      if (!row) {
+        continue;
+      }
+      const index = rows.findIndex((candidate) => matchByKeyFields(row, candidate, keyFields));
+      if (index >= 0) {
+        rows.splice(index, 1);
+      }
       continue;
     }
     if (entry.op === 'upsert') {
@@ -196,11 +209,32 @@ export class JsonTableStorage {
   async deleteWhere(name, predicate) {
     await withLock(this.tableLockKey(name), async () => {
       const rows = await this.readCombinedTable(name);
-      const filtered = rows.filter((row) => !predicate(row));
-      if (filtered.length === rows.length) {
+      const removals = rows.filter((row) => predicate(row));
+      if (removals.length === 0) {
         return;
       }
-      await this.writeTableUnsafe(name, filtered);
+      const logPath = this.tableLogPath(name);
+      for (const row of removals) {
+        const entry = {
+          op: 'delete',
+          keyFields: resolveKeyFields(row),
+          row: cloneRow(row),
+          timestamp: new Date().toISOString(),
+        };
+        await appendJsonLine(logPath, entry);
+      }
+      const stats = await fs
+        .stat(logPath)
+        .catch((error) => (error.code === 'ENOENT' ? null : Promise.reject(error)));
+      const averageEntryBytes = Math.max(64, JSON.stringify(entry).length);
+      const estimatedEntries =
+        stats && stats.size > 0 ? Math.ceil(stats.size / averageEntryBytes) : 0;
+      if (
+        (stats && stats.size > MAX_LOG_SIZE_BYTES) ||
+        estimatedEntries > MAX_LOG_ENTRIES_BEFORE_COMPACT
+      ) {
+        await this.compactTableUnsafe(name);
+      }
     });
   }
 

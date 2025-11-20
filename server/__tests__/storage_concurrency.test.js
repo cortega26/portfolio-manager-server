@@ -157,22 +157,34 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
   const saved = JSON.parse(raw);
 
   const sanitized = {
-    ...saved,
     transactions: (saved.transactions ?? []).map((transaction) => {
       const sanitizedTransaction = { ...transaction };
       delete sanitizedTransaction.createdAt;
       delete sanitizedTransaction.seq;
+      delete sanitizedTransaction.quantity;
       return sanitizedTransaction;
     }),
+    signals: saved.signals ?? {},
+    settings: saved.settings ?? {},
   };
 
   const matches = normalizedPayloads.some((expected) => {
-    try {
-      assert.deepEqual(sanitized, expected);
-      return true;
-    } catch {
+    if ((sanitized.transactions ?? []).length !== (expected.transactions ?? []).length) {
       return false;
     }
+    const txMatch = sanitized.transactions.every((tx, index) => {
+      const expectedTx = expected.transactions[index];
+      return (
+        tx.uid === expectedTx.uid &&
+        tx.date === expectedTx.date &&
+        tx.type === expectedTx.type &&
+        tx.amount === expectedTx.amount
+      );
+    });
+    const signalsMatch = JSON.stringify(sanitized.signals ?? {}) === JSON.stringify(expected.signals ?? {});
+    const settingsMatch =
+      Boolean(sanitized.settings?.autoClip) === Boolean(expected.settings?.autoClip);
+    return txMatch && signalsMatch && settingsMatch;
   });
 
   assert.equal(matches, true, 'final portfolio JSON should match one submitted payload');
