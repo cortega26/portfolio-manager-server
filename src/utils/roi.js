@@ -307,7 +307,11 @@ export async function buildRoiSeries(transactions, priceFetcher) {
   const sortedTransactions = sortTransactions(normalizedTransactions);
   const priceCursors = new Map();
   for (const ticker of tickers) {
-    priceCursors.set(ticker, createPriceCursor(priceMap.get(ticker) ?? []));
+    const series = priceMap.get(ticker) ?? [];
+    if (series.length === 0) {
+      continue;
+    }
+    priceCursors.set(ticker, createPriceCursor(series));
   }
 
   const holdings = new Map();
@@ -337,8 +341,21 @@ export async function buildRoiSeries(transactions, priceFetcher) {
       const amount = Number.isFinite(tx.amount) ? tx.amount : 0;
 
       if (SHARE_TYPES.has(tx.type) && tx.ticker) {
+        if (!priceCursors.has(tx.ticker)) {
+          continue;
+        }
         const previousShares = holdings.get(tx.ticker) ?? 0;
         const sharesDelta = tx.type === "BUY" ? tx.shares : -tx.shares;
+        if (tx.type === "BUY") {
+          const tradeCash = Math.abs(amount);
+          if (tradeCash > cashBalance + SHARE_EPSILON) {
+            continue;
+          }
+          cashBalance -= tradeCash;
+        }
+        if (tx.type === "SELL" && previousShares + SHARE_EPSILON < tx.shares) {
+          continue;
+        }
         const rawNextShares = previousShares + sharesDelta;
         const nextShares =
           Math.abs(rawNextShares) < SHARE_EPSILON ? 0 : rawNextShares;
@@ -348,16 +365,11 @@ export async function buildRoiSeries(transactions, priceFetcher) {
         } else {
           activeTickers.add(tx.ticker);
         }
-        const tradeCash = Math.abs(amount);
-        if (tx.type === "BUY") {
+        if (tx.type === "SELL") {
+          const tradeCash = Math.abs(amount);
           if (tradeCash > 0) {
-            cashBalance -= tradeCash;
+            cashBalance += tradeCash;
           }
-          if (cashBalance < 0) {
-            cashBalance = 0;
-          }
-        } else if (tx.type === "SELL" && tradeCash > 0) {
-          cashBalance += tradeCash;
         }
         continue;
       }
