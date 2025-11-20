@@ -384,6 +384,7 @@ export default function PortfolioManagerApp() {
       let bulkResult;
       try {
         bulkResult = await fetchBulkPrices(uniqueTickers, {
+          latestOnly: true,
           onRequestMetadata: (meta) => {
             requestMetadata = meta;
           },

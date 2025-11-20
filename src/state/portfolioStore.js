@@ -1,5 +1,5 @@
 const STORAGE_KEY = "portfolio-manager-active-portfolio";
-const MAX_SNAPSHOT_SIZE_BYTES = 2_000_000;
+const MAX_SNAPSHOT_SIZE_BYTES = 200_000;
 
 const textEncoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
 
@@ -39,11 +39,8 @@ function summarizeSnapshot(originalSnapshot, transactionsLimit) {
     : [];
   if (transactionsLimit >= transactions.length) {
     const storedCount = transactions.length;
-    if (storedCount > 0) {
-      snapshot.transactions = cloneForStorage(transactions);
-    } else {
-      snapshot.transactions = [];
-    }
+    snapshot.transactions =
+      storedCount > 0 ? compactTransactions(transactions) : [];
     snapshot.__storage = {
       ...(snapshot.__storage ?? {}),
       truncated: false,
@@ -61,7 +58,7 @@ function summarizeSnapshot(originalSnapshot, transactionsLimit) {
     const tail = preserve - head;
     const leading = transactions.slice(0, head);
     const trailing = tail > 0 ? transactions.slice(transactions.length - tail) : [];
-    snapshot.transactions = cloneForStorage([...leading, ...trailing]);
+    snapshot.transactions = compactTransactions([...leading, ...trailing]);
   }
   snapshot.__storage = {
     ...(snapshot.__storage ?? {}),
@@ -237,7 +234,7 @@ export function persistActivePortfolioSnapshot(snapshot, storage) {
     id,
     name: typeof snapshot.name === "string" ? snapshot.name : id,
     transactions: Array.isArray(snapshot.transactions)
-      ? snapshot.transactions
+      ? compactTransactions(snapshot.transactions)
       : [],
     signals:
       snapshot && typeof snapshot.signals === "object"
@@ -261,6 +258,20 @@ export function persistActivePortfolioSnapshot(snapshot, storage) {
   };
   const { state: preparedState, serialized } = prepareSnapshotState(nextState, safeSnapshot);
   return writeStore(store, preparedState, serialized);
+}
+
+function compactTransactions(transactions) {
+  return transactions.map((tx) => ({
+    id: tx.id,
+    uid: tx.uid,
+    date: tx.date,
+    ticker: tx.ticker,
+    type: tx.type,
+    amount: tx.amount,
+    shares: tx.shares,
+    price: tx.price,
+    metadata: tx.metadata?.system ? { system: tx.metadata.system } : undefined,
+  }));
 }
 
 export function markSnapshotInactive(id, storage) {

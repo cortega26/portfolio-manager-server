@@ -1252,7 +1252,7 @@ export function createApp({
     }),
   });
   app.use("/api/prices", priceLimiter);
-  async function fetchHistoricalPrices(symbol, range = "1y") {
+  async function fetchHistoricalPrices(symbol, range = "1y", { latestOnly = false } = {}) {
     if (!SYMBOL_PATTERN.test(symbol)) {
       throw createHttpError({
         status: 400,
@@ -1266,7 +1266,7 @@ export function createApp({
         : "1y";
     const normalizedSymbol = symbol.trim().toUpperCase();
     const cached = getCachedPrice(normalizedSymbol, normalizedRange);
-    if (cached) {
+    if (cached && !latestOnly) {
       return { prices: cached.data, etag: cached.etag, cacheHit: true };
     }
     const today = new Date();
@@ -1288,6 +1288,14 @@ export function createApp({
         .map((item) => ({ date: item.date, close: Number(item.adjClose) }))
         .sort((a, b) => a.date.localeCompare(b.date));
       const etag = setCachedPrice(normalizedSymbol, normalizedRange, sorted);
+      if (latestOnly) {
+        const last = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+        return {
+          prices: last ? [last] : [],
+          etag,
+          cacheHit: false,
+        };
+      }
       return { prices: sorted, etag, cacheHit: false };
     } catch (error) {
       if (error.name === "AbortError") {
@@ -1333,6 +1341,7 @@ export function createApp({
       const { prices, etag, cacheHit } = await fetchHistoricalPrices(
         symbol,
         range ?? "1y",
+        { latestOnly: req.query?.latest === "1" || req.query?.latest === "true" },
       );
       const latestDate =
         prices.length > 0 ? prices[prices.length - 1].date : null;
@@ -1377,7 +1386,7 @@ export function createApp({
     }
   });
   app.get("/api/prices/bulk", async (req, res, next) => {
-    const { symbols: rawSymbols, range } = req.query;
+    const { symbols: rawSymbols, range, latest } = req.query;
     try {
       const normalizedSymbols = Array.from(
         new Set(
@@ -1399,7 +1408,9 @@ export function createApp({
       const results = await Promise.all(
         normalizedSymbols.map(async (symbol) => {
           try {
-            const result = await fetchHistoricalPrices(symbol, range ?? "1y");
+            const result = await fetchHistoricalPrices(symbol, range ?? "1y", {
+              latestOnly: latest === "1" || latest === "true",
+            });
             return { symbol, status: "fulfilled", result };
           } catch (error) {
             return { symbol, status: "rejected", error };

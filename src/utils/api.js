@@ -66,7 +66,7 @@ function normalizeBulkSymbols(symbols) {
 
 export async function fetchBulkPrices(
   symbols,
-  { range = "1y", signal, onRequestMetadata } = {},
+  { range = "1y", latestOnly = false, signal, onRequestMetadata } = {},
 ) {
   const candidateSymbols = normalizeBulkSymbols(symbols)
     .map((symbol) => (typeof symbol === "string" ? symbol.trim() : ""))
@@ -79,6 +79,9 @@ export async function fetchBulkPrices(
   params.set("symbols", uniqueSymbols.join(","));
   if (range !== undefined && range !== null) {
     params.set("range", String(range));
+  }
+  if (latestOnly) {
+    params.set("latest", "1");
   }
   const query = params.toString();
   const { data, requestId, version } = await requestJson(`/prices/bulk${query ? `?${query}` : ""}`, {
