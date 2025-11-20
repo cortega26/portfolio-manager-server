@@ -21,6 +21,7 @@ const dailyScenarioArb = fc.array(
   { minLength: 3, maxLength: 9 },
 );
 const initialShareArb = fc.double({ min: 0.1, max: 20, noNaN: true });
+const incomeArb = fc.double({ min: 0.01, max: 500, noNaN: true });
 
 function toSeries(days, key) {
   return days.map((entry, index) => ({
@@ -110,5 +111,59 @@ test("SPY-only portfolios track the SPY benchmark", async () => {
         assert.ok(delta <= 0.0015, `SPY parity drift at index ${i}: ${delta}`);
       }
     }),
+  );
+});
+
+test("income cash flows are reflected as performance gains", async () => {
+  await fc.assert(
+    fc.asyncProperty(
+      dailyScenarioArb,
+      initialShareArb,
+      incomeArb,
+      async (days, share, income) => {
+        const equitySeries = toSeries(days, "price");
+        const spySeries = toSeries(days, "spy");
+        const normalizedShare = Number.parseFloat(share.toFixed(6));
+        const initialPrice = equitySeries[0].close;
+        const purchaseCost = Number.parseFloat(
+          (normalizedShare * initialPrice).toFixed(2),
+        );
+        const baseTransactions = [
+          {
+            date: dayString(0),
+            type: "DEPOSIT",
+            amount: purchaseCost,
+          },
+          {
+            date: dayString(0),
+            ticker: "ACME",
+            type: "BUY",
+            shares: normalizedShare,
+            amount: -purchaseCost,
+          },
+        ];
+        const dividendAmount = Number.parseFloat(income.toFixed(2));
+        const incomeTransactions = [
+          ...baseTransactions,
+          {
+            date: dayString(equitySeries.length - 1),
+            type: "DIVIDEND",
+            amount: dividendAmount,
+          },
+        ];
+
+        const fetcher = buildFetcher({ ACME: equitySeries, SPY: spySeries });
+        const withIncome = await buildRoiSeries(incomeTransactions, fetcher);
+        const withoutIncome = await buildRoiSeries(baseTransactions, fetcher);
+
+        const lastWithIncome = withIncome.at(-1);
+        const lastWithoutIncome = withoutIncome.at(-1);
+        assert.ok(lastWithIncome && lastWithoutIncome);
+        assert.ok(
+          lastWithIncome.portfolio >= lastWithoutIncome.portfolio - 0.01,
+          `income ROI should not be worse (with=${lastWithIncome.portfolio}, without=${lastWithoutIncome.portfolio})`,
+        );
+      },
+    ),
   );
 });

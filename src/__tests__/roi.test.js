@@ -184,14 +184,14 @@ describe("ROI utilities", () => {
         ticker: "AAPL",
         type: "BUY",
         shares: "1",
-        amount: "-500",
+        amount: "-120",
       },
       {
         date: "2024-01-03",
         ticker: "AAPL",
         type: "BUY",
         shares: "1",
-        amount: "-500",
+        amount: "-140",
       },
       { date: "2024-01-04", type: "DIVIDEND", amount: "10" },
     ];
@@ -223,7 +223,7 @@ describe("ROI utilities", () => {
 
     const secondDay = series.find((point) => point.date === "2024-01-02");
     assert.ok(secondDay);
-    assert.equal(secondDay.portfolio, 5);
+    assert.equal(secondDay.portfolio, 10);
   });
 
   it("aligns weekend cash flows with the next available trading date", async () => {

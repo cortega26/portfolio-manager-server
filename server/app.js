@@ -1539,10 +1539,16 @@ export function createApp({
       }
       const payload = req.body;
       const autoClip = Boolean(payload.settings?.autoClip);
-      const normalizedTransactions = ensureTransactionUids(
-        payload.transactions ?? [],
-        id,
-      );
+      let normalizedTransactions;
+      try {
+        normalizedTransactions = ensureTransactionUids(
+          payload.transactions ?? [],
+          id,
+        );
+      } catch (error) {
+        next(error);
+        return;
+      }
       const cashCurrency =
         typeof payload.cash?.currency === "string"
           ? payload.cash.currency

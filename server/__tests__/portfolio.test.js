@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 import { randomInt } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import request from 'supertest';
@@ -64,6 +64,11 @@ test('POST /api/portfolio/:id persists validated portfolio payloads', async () =
   const payload = {
     transactions: [
       {
+        date: '2023-12-30',
+        type: 'DEPOSIT',
+        amount: 1000,
+      },
+      {
         date: '2024-01-01',
         ticker: 'aapl',
         type: 'buy',
@@ -84,9 +89,15 @@ test('POST /api/portfolio/:id persists validated portfolio payloads', async () =
 
   const filePath = path.join(dataDir, 'portfolio_sample_01.json');
   const saved = JSON.parse(readFileSync(filePath, 'utf8'));
-  assert.equal(saved.transactions.length, 1);
-  const [transaction] = saved.transactions;
-  const { uid: savedUid, createdAt, seq, ...rest } = transaction;
+  assert.equal(saved.transactions.length, 2);
+  const deposit = saved.transactions.find((tx) => tx.type === 'DEPOSIT');
+  assert.ok(deposit);
+  assert.equal(deposit.amount, 1000);
+  assert.equal(deposit.date, '2023-12-30');
+
+  const buyTx = saved.transactions.find((tx) => tx.type === 'BUY');
+  assert.ok(buyTx);
+  const { uid: savedUid, createdAt, seq, ...rest } = buyTx;
   assert.equal(typeof savedUid, 'string');
   assert.ok(savedUid.length > 0);
   assert.equal(typeof createdAt, 'number');
@@ -156,6 +167,11 @@ test('POST /api/portfolio/:id rejects oversells when autoClip is disabled', asyn
   const payload = {
     transactions: [
       {
+        date: '2023-12-31',
+        type: 'DEPOSIT',
+        amount: 2000,
+      },
+      {
         date: '2024-01-01',
         ticker: 'AAPL',
         type: 'BUY',
@@ -190,6 +206,11 @@ test('POST /api/portfolio/:id clips oversells when autoClip is enabled', async (
   const payload = {
     transactions: [
       {
+        date: '2023-12-31',
+        type: 'DEPOSIT',
+        amount: 3000,
+      },
+      {
         date: '2024-01-01',
         ticker: 'MSFT',
         type: 'BUY',
@@ -219,7 +240,11 @@ test('POST /api/portfolio/:id clips oversells when autoClip is enabled', async (
 
   const filePath = path.join(dataDir, 'portfolio_oversell_clip.json');
   const saved = JSON.parse(readFileSync(filePath, 'utf8'));
-  const [{ uid: buyUid, ...buy }, { uid: sellUid, ...sell }] = saved.transactions;
+  const buyTx = saved.transactions.find((tx) => tx.type === 'BUY');
+  const sellTx = saved.transactions.find((tx) => tx.type === 'SELL');
+  assert.ok(buyTx && sellTx);
+  const { uid: buyUid, ...buy } = buyTx;
+  const { uid: sellUid, ...sell } = sellTx;
   assert.ok(buyUid && sellUid);
   assert.equal(buy.shares, 20);
   assert.equal(buy.amount, -2000);
@@ -231,8 +256,9 @@ test('POST /api/portfolio/:id clips oversells when autoClip is enabled', async (
   assert.equal(sell.metadata.system.oversell_clipped.delivered_shares, 20);
 });
 
-test('POST /api/portfolio/:id deduplicates transactions by uid', async () => {
+test('POST /api/portfolio/:id rejects duplicate transaction uids with a 409', async () => {
   const app = createApp({ dataDir, logger: noopLogger });
+  const portfolioId = 'dedupe';
   const payload = {
     transactions: [
       {
@@ -256,15 +282,18 @@ test('POST /api/portfolio/:id deduplicates transactions by uid', async () => {
   };
 
   const response = await withKey(
-    request(app).post('/api/portfolio/dedupe').send(payload),
+    request(app).post(`/api/portfolio/${portfolioId}`).send(payload),
   );
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error, 'DUPLICATE_TRANSACTION_UID');
+  assert.match(response.body.message, /Duplicate transaction identifiers/i);
+  assert.deepEqual(response.body.details, {
+    portfolioId,
+    duplicates: ['duplicate-id'],
+  });
 
   const filePath = path.join(dataDir, 'portfolio_dedupe.json');
-  const saved = JSON.parse(readFileSync(filePath, 'utf8'));
-  assert.equal(saved.transactions.length, 2);
-  const duplicateCount = saved.transactions.filter((tx) => tx.uid === 'duplicate-id').length;
-  assert.equal(duplicateCount, 1);
+  assert.equal(existsSync(filePath), false);
 });
 
 test('concurrent POST requests to the same portfolio remain consistent', async () => {

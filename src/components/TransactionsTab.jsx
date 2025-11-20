@@ -141,7 +141,10 @@ function matchesTransaction(transaction, term) {
         });
       }
       if (Number.isFinite(shareValue)) {
-        return shareValue.toFixed(4);
+        return shareValue.toLocaleString(undefined, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 6,
+        });
       }
       return "—";
     })();

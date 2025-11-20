@@ -1,0 +1,39 @@
+﻿[[ COMMIT 78f2a7783825269b8bdfa65950d5d6606227ae18 | 2025-10-10 17:09:27 -0300 ]]
+[[ SUBJECT Merge pull request #95 from cortega26/ciog/parse-roadmap-and-create-task-list ]]
+[[ STRICT=True ALWAYS_INSTALL=True PURGE_NODE_MODULES=True FORCE_REBUILD=True ]]
+[[ CMD: npm ci ]]
+
+added 783 packages, and audited 785 packages in 10s
+
+170 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+
+[[ STDERR ]]
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+
+
+[[ BUILD START @ 2025-10-11T11:42:25 ]]
+[[ CMD: npm run -s build -- --force ]]
+
+[[ STDERR ]]
+file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/.tmp-build-worktree/node_modules/vite/dist/node/cli.js:311
+			for (const name of Object.keys(options)) if (name !== "--" && !this.hasOption(name) && !globalCommand.hasOption(name)) throw new CACError(`Unknown option \`${name.length > 1 ? `--${name}` : `-${name}`}\``);
+			                                                                                                                             ^
+
+CACError: Unknown option `--force`
+    at Command.checkUnknownOptions (file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/.tmp-build-worktree/node_modules/vite/dist/node/cli.js:311:129)
+    at CAC.runMatchedCommand (file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/.tmp-build-worktree/node_modules/vite/dist/node/cli.js:474:11)
+    at CAC.parse (file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/.tmp-build-worktree/node_modules/vite/dist/node/cli.js:430:17)
+    at file:///C:/Users/corte/VS%20Code%20Projects/portfolio-manager-server/.tmp-build-worktree/node_modules/vite/dist/node/cli.js:698:5
+    at ModuleJob.run (node:internal/modules/esm/module_job:345:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:651:26)
+
+Node.js v22.19.0
+
+[[ BUILD END   @ 2025-10-11T11:42:26 ]]
+

@@ -1,0 +1,63 @@
+*** Update File: src/components/PortfolioControls.jsx
+@@
+ export default function PortfolioControls({
+   portfolioId,
+   portfolioKey,
+   portfolioKeyNew,
+   onPortfolioIdChange,
+   onPortfolioKeyChange,
+   onPortfolioKeyNewChange,
+   onSave,
+   onLoad,
+ }) {
++  const { t } = useI18n();
+   const [status, setStatus] = useState(null);
+@@
+-    if (!portfolioId) {
+-      setStatus({ type: "error", message: "Set a portfolio ID first.", requestId: undefined });
++    if (!portfolioId) {
++      setStatus({
++        type: "error",
++        message: t("portfolioControls.error.validation"),
++        requestId: undefined,
++      });
+       return;
+     }
+     if (!portfolioKey) {
+-      setStatus({ type: "error", message: "Provide an API key to continue.", requestId: undefined });
++      setStatus({
++        type: "error",
++        message: t("portfolioControls.error.noKey"),
++        requestId: undefined,
++      });
+       return;
+     }
+@@
+-      setStatus({
+-        type: "error",
+-        message: "New API key does not meet strength requirements.",
+-        requestId: undefined,
+-      });
++      setStatus({
++        type: "error",
++        message: t("portfolioControls.error.rotateWeak"),
++        requestId: undefined,
++      });
+       return;
+     }
+ 
+     try {
+       await action();
+       setStatus({
+         type: "success",
+-        message: "Operation completed successfully.",
++        message: t("portfolioControls.status.success"),
+         requestId: undefined,
+       });
+     } catch (error) {
+-      const { message, requestId } = formatControlError(error);
++      const { message, requestId } = formatControlError(error, t);
+       setStatus({ type: "error", message, requestId });
+     }
+   }
+*** End Patch
