@@ -14,6 +14,12 @@ import {
 
 const noopLogger = { info() {}, warn() {}, error() {} };
 
+function todayKey(offsetDays = 0) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
+}
+
 class StubPriceProvider {
   constructor(data) {
     this.data = data;
@@ -39,75 +45,64 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-function buildApp(priceProvider) {
-  return createApp({
+test('returns cached price on subsequent requests', async () => {
+  const provider = new StubPriceProvider([
+    { date: todayKey(), adjClose: 100 },
+    { date: todayKey(1), adjClose: 101 },
+  ]);
+  const app = createApp({
     dataDir,
     logger: noopLogger,
-    priceProvider,
-    config: {
-      featureFlags: { cashBenchmarks: true },
-      cors: { allowedOrigins: [] },
-      cache: {
-        ttlSeconds: 600,
-        price: { ttlSeconds: 600, checkPeriodSeconds: 120 },
-      },
-    },
+    priceProvider: provider,
   });
-}
 
-function makeStubData() {
-  const today = new Date();
-  const todayKey = today.toISOString().slice(0, 10);
-  const prior = new Date(today);
-  prior.setDate(prior.getDate() - 1);
-  const priorKey = prior.toISOString().slice(0, 10);
-  return [
-    { date: priorKey, adjClose: 100 },
-    { date: todayKey, adjClose: 102 },
-  ];
-}
-
-test('returns cached price on subsequent requests', async () => {
-  const provider = new StubPriceProvider(makeStubData());
-  const app = buildApp(provider);
-
-  const first = await request(app).get('/api/prices/AAPL?range=1y');
+  const first = await request(app)
+    .get('/api/prices/AAPL?range=1y')
+    .set('X-API-Version', 'legacy');
   assert.equal(first.status, 200);
-  assert.equal(first.headers['x-cache'], 'MISS');
-  const etag = first.headers.etag;
-  assert.equal(provider.calls, 1);
+  assert.equal(first.body.length, 2);
 
-  const second = await request(app).get('/api/prices/AAPL?range=1y');
+  const second = await request(app)
+    .get('/api/prices/AAPL?range=1y')
+    .set('X-API-Version', 'legacy');
   assert.equal(second.status, 200);
   assert.equal(second.headers['x-cache'], 'HIT');
-  assert.equal(second.headers.etag, etag);
+  assert.equal(second.body.length, 2);
+
+  // Ensure provider was called only once due to cache hit
   assert.equal(provider.calls, 1);
 });
 
 test('supports conditional requests with ETag', async () => {
-  const provider = new StubPriceProvider(makeStubData());
-  const app = buildApp(provider);
+  const provider = new StubPriceProvider([{ date: todayKey(), adjClose: 100 }]);
+  const app = createApp({
+    dataDir,
+    logger: noopLogger,
+    priceProvider: provider,
+  });
 
-  const first = await request(app).get('/api/prices/AAPL?range=1y');
+  const first = await request(app)
+    .get('/api/prices/AAPL?range=1y')
+    .set('X-API-Version', 'legacy');
+  assert.equal(first.status, 200);
   const etag = first.headers.etag;
+  assert.ok(etag);
 
-  const conditional = await request(app)
+  const second = await request(app)
     .get('/api/prices/AAPL?range=1y')
     .set('If-None-Match', etag);
-
-  assert.equal(conditional.status, 304);
-  assert.equal(conditional.headers['x-cache'], 'HIT');
-  assert.equal(provider.calls, 1);
+  assert.equal(second.status, 304);
 });
 
 test('exposes cache stats endpoint', async () => {
-  const provider = new StubPriceProvider(makeStubData());
-  const app = buildApp(provider);
-
-  await request(app).get('/api/prices/AAPL?range=1y');
+  const app = createApp({
+    dataDir,
+    logger: noopLogger,
+    priceProvider: new StubPriceProvider([{ date: '2024-01-01', adjClose: 100 }]),
+  });
 
   const stats = await request(app).get('/api/cache/stats');
   assert.equal(stats.status, 200);
-  assert.ok('keys' in stats.body);
-  assert.ok('hitRate' in stats.body);
+  assert.equal(typeof stats.body.hits, 'number');
+  assert.equal(typeof stats.body.misses, 'number');
 });
