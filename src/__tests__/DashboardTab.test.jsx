@@ -21,6 +21,7 @@ const ROI_FIXTURE = [
     date: "2024-01-01",
     portfolio: 0,
     spy: 0,
+    qqq: 0,
     blended: 0,
     exCash: 0,
     cash: 0,
@@ -29,11 +30,22 @@ const ROI_FIXTURE = [
     date: "2024-01-02",
     portfolio: 1.23,
     spy: 1.1,
+    qqq: 1.4,
     blended: 0.9,
     exCash: 1.5,
     cash: 0.05,
   },
 ];
+
+const BENCHMARK_CATALOG_FIXTURE = {
+  available: [
+    { id: "spy", ticker: "SPY", label: "100% SPY benchmark", kind: "market" },
+    { id: "qqq", ticker: "QQQ", label: "Nasdaq-100 (QQQ)", kind: "market" },
+  ],
+  derived: [{ id: "blended", label: "Blended benchmark", kind: "derived" }],
+  defaults: ["spy", "qqq"],
+  priceSymbols: ["SPY", "QQQ"],
+};
 
 describe("DashboardTab benchmark controls", () => {
   beforeEach(() => {
@@ -69,6 +81,7 @@ describe("DashboardTab benchmark controls", () => {
         roiData={ROI_FIXTURE}
         loadingRoi={false}
         onRefreshRoi={() => {}}
+        benchmarkCatalog={BENCHMARK_CATALOG_FIXTURE}
       />,
     );
 
@@ -77,26 +90,31 @@ describe("DashboardTab benchmark controls", () => {
     const spyToggle = screen.getByRole("button", {
       name: /100% spy benchmark/i,
     });
+    const qqqToggle = screen.getByRole("button", {
+      name: /nasdaq-100 \(qqq\)/i,
+    });
     const blendedToggle = screen.getByRole("button", {
       name: /blended benchmark/i,
     });
     const resetButton = screen.getByRole("button", { name: /reset/i });
 
     assert.equal(spyToggle.getAttribute("aria-pressed"), "true");
-    assert.equal(blendedToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(qqqToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(blendedToggle.getAttribute("aria-pressed"), "false");
     assert.equal(resetButton.hasAttribute("disabled"), true);
 
     await user.click(spyToggle);
     assert.equal(spyToggle.getAttribute("aria-pressed"), "false");
-    assert.equal(blendedToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(qqqToggle.getAttribute("aria-pressed"), "true");
     assert.equal(resetButton.hasAttribute("disabled"), false);
-    assert.deepEqual(JSON.parse(window.localStorage.getItem(storageKey)), ["blended"]);
+    assert.deepEqual(JSON.parse(window.localStorage.getItem(storageKey)), ["qqq"]);
 
     await user.click(resetButton);
     assert.equal(spyToggle.getAttribute("aria-pressed"), "true");
-    assert.equal(blendedToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(qqqToggle.getAttribute("aria-pressed"), "true");
+    assert.equal(blendedToggle.getAttribute("aria-pressed"), "false");
     assert.equal(resetButton.hasAttribute("disabled"), true);
-    assert.deepEqual(JSON.parse(window.localStorage.getItem(storageKey)), ["spy", "blended"]);
+    assert.deepEqual(JSON.parse(window.localStorage.getItem(storageKey)), ["spy", "qqq"]);
 
     cleanup();
 
@@ -106,6 +124,7 @@ describe("DashboardTab benchmark controls", () => {
         roiData={ROI_FIXTURE}
         loadingRoi={false}
         onRefreshRoi={() => {}}
+        benchmarkCatalog={BENCHMARK_CATALOG_FIXTURE}
       />,
     );
 
@@ -113,6 +132,10 @@ describe("DashboardTab benchmark controls", () => {
       name: /100% spy benchmark/i,
     });
     assert.equal(spyTogglePersisted.getAttribute("aria-pressed"), "false");
+    const qqqTogglePersisted = screen.getByRole("button", {
+      name: /nasdaq-100 \(qqq\)/i,
+    });
+    assert.equal(qqqTogglePersisted.getAttribute("aria-pressed"), "true");
     const resetButtonPersisted = screen.getByRole("button", { name: /reset/i });
     assert.equal(resetButtonPersisted.hasAttribute("disabled"), false);
   });

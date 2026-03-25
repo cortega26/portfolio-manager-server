@@ -121,6 +121,9 @@ function matchesPortfolio(tx, portfolioId) {
     return true;
   }
   const txPortfolio = normalizePortfolioId(tx?.portfolio_id);
+  if (!txPortfolio) {
+    return true;
+  }
   return txPortfolio === normalizedTarget;
 }
 
@@ -156,7 +159,10 @@ export function dailyRateFromApy(apy, { dayCount = DEFAULT_DAY_COUNT } = {}) {
   if (!Number.isFinite(dayCount) || dayCount <= 0) {
     throw new Error('dayCount must be a positive finite number');
   }
-  return d(apy).div(dayCount);
+  return d(1)
+    .plus(apy)
+    .pow(d(1).div(dayCount))
+    .minus(1);
 }
 
 export function resolveApyForDate(timeline, date) {
@@ -363,7 +369,7 @@ export async function accrueInterest({
       && normalizeCurrency(tx.currency) === currency,
   );
   if (existingInterest) {
-    return existingInterest;
+    return null;
   }
 
   const cashBalance = computeCashBalanceUntil(transactions, dateKey, currency, {

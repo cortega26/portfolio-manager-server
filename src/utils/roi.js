@@ -1,10 +1,19 @@
-export const BENCHMARK_SERIES_META = [
+import { getDefaultBenchmarkConfig } from "../../shared/benchmarks.js";
+
+const SERIES_META_FALLBACK = Object.freeze([
   {
     id: "spy",
     dataKey: "spy",
     label: "100% SPY benchmark",
     description: "Opportunity cost if fully invested in SPY",
     color: "#6366f1",
+  },
+  {
+    id: "qqq",
+    dataKey: "qqq",
+    label: "Nasdaq-100 (QQQ)",
+    description: "Technology-heavy benchmark using QQQ as the Nasdaq-100 proxy",
+    color: "#0f766e",
   },
   {
     id: "blended",
@@ -27,11 +36,135 @@ export const BENCHMARK_SERIES_META = [
     description: "Isolated cash performance with accrued interest",
     color: "#0ea5e9",
   },
-];
+]);
+
+const SERIES_META_BY_ID = new Map(
+  SERIES_META_FALLBACK.map((entry) => [entry.id, entry]),
+);
+const FALLBACK_CHART_PALETTE = Object.freeze([
+  "#6366f1",
+  "#0f766e",
+  "#f97316",
+  "#ec4899",
+  "#0ea5e9",
+  "#f59e0b",
+  "#14b8a6",
+  "#8b5cf6",
+]);
+
+function createFallbackSeriesMeta(entry, index) {
+  const id = typeof entry?.id === "string" ? entry.id : `benchmark-${index + 1}`;
+  return {
+    id,
+    dataKey: id,
+    label: typeof entry?.label === "string" && entry.label.trim().length > 0 ? entry.label : id,
+    description:
+      typeof entry?.ticker === "string" && entry.ticker.trim().length > 0
+        ? `Historical benchmark overlay for ${entry.ticker.trim().toUpperCase()}`
+        : typeof entry?.label === "string" && entry.label.trim().length > 0
+          ? entry.label
+          : id,
+    color: FALLBACK_CHART_PALETTE[index % FALLBACK_CHART_PALETTE.length],
+    kind: entry?.kind ?? "market",
+    ticker:
+      typeof entry?.ticker === "string" && entry.ticker.trim().length > 0
+        ? entry.ticker.trim().toUpperCase()
+        : undefined,
+  };
+}
+
+export const BENCHMARK_SERIES_META = SERIES_META_FALLBACK;
+
+export function getFallbackBenchmarkCatalog() {
+  const fallback = getDefaultBenchmarkConfig();
+  return {
+    available: fallback.available.map((entry) => ({ ...entry })),
+    derived: fallback.derived.map((entry) => ({ ...entry })),
+    defaults: [...fallback.defaultSelection],
+    priceSymbols: [...fallback.priceSymbols],
+  };
+}
+
+export function normalizeBenchmarkCatalogResponse(payload) {
+  const fallback = getFallbackBenchmarkCatalog();
+  const available = Array.isArray(payload?.available)
+    ? payload.available
+        .filter((entry) => entry && typeof entry === "object")
+        .map((entry) => ({
+          id: String(entry.id ?? "").trim(),
+          ticker: String(entry.ticker ?? "").trim().toUpperCase(),
+          label: String(entry.label ?? "").trim(),
+          kind: "market",
+        }))
+        .filter((entry) => entry.id && entry.ticker && entry.label)
+    : fallback.available;
+  const availableIds = new Set(available.map((entry) => entry.id));
+  const derived = Array.isArray(payload?.derived)
+    ? payload.derived
+        .filter((entry) => entry && typeof entry === "object")
+        .map((entry) => ({
+          id: String(entry.id ?? "").trim(),
+          label: String(entry.label ?? "").trim(),
+          kind: "derived",
+        }))
+        .filter((entry) => entry.id && entry.label)
+    : fallback.derived;
+  const defaults = Array.isArray(payload?.defaults)
+    ? payload.defaults
+        .map((entry) => String(entry ?? "").trim())
+        .filter((entry) => availableIds.has(entry))
+    : [];
+  const fallbackDefaults = fallback.defaults.filter((entry) => availableIds.has(entry));
+  return {
+    available,
+    derived,
+    defaults:
+      defaults.length > 0
+        ? Array.from(new Set(defaults))
+        : fallbackDefaults.length > 0
+          ? fallbackDefaults
+          : available[0]
+            ? [available[0].id]
+            : [],
+    priceSymbols: available.map((entry) => entry.ticker),
+  };
+}
+
+export function buildBenchmarkSeriesMeta(catalog) {
+  const normalizedCatalog = normalizeBenchmarkCatalogResponse(catalog);
+  const marketMeta = normalizedCatalog.available.map((entry, index) => {
+    const known = SERIES_META_BY_ID.get(entry.id);
+    if (known) {
+      return {
+        ...known,
+        label: entry.label || known.label,
+        ticker: entry.ticker,
+        kind: "market",
+      };
+    }
+    return createFallbackSeriesMeta(entry, index);
+  });
+  const derivedMeta = normalizedCatalog.derived.map((entry, index) => {
+    const known = SERIES_META_BY_ID.get(entry.id);
+    if (known) {
+      return {
+        ...known,
+        label: entry.label || known.label,
+        kind: "derived",
+      };
+    }
+    return createFallbackSeriesMeta(entry, marketMeta.length + index);
+  });
+  const fixedMeta = ["exCash", "cash"]
+    .map((id) => SERIES_META_BY_ID.get(id))
+    .filter(Boolean);
+  return [...marketMeta, ...derivedMeta, ...fixedMeta];
+}
 
 const SERIES_SOURCE_KEYS = {
   portfolio: "r_port",
   spy: "r_spy_100",
+  qqq: "r_qqq_100",
   blended: "r_bench_blended",
   exCash: "r_ex_cash",
   cash: "r_cash",
@@ -236,7 +369,7 @@ export function mergeReturnSeries(series = {}) {
 
   return sortedDates.map((date) => {
     const entry = entriesByDate.get(date) ?? { date };
-    return {
+    const row = {
       date,
       portfolio: toNumeric(entry.portfolio),
       spy: toNumeric(entry.spy),
@@ -244,7 +377,60 @@ export function mergeReturnSeries(series = {}) {
       exCash: toNumeric(entry.exCash),
       cash: toNumeric(entry.cash),
     };
+    if (Object.prototype.hasOwnProperty.call(entry, "qqq")) {
+      row.qqq = toNumeric(entry.qqq);
+    }
+    return row;
   });
+}
+
+export function buildBenchmarkOverlaySeries(roiData = [], rawSeries = []) {
+  if (!Array.isArray(roiData) || roiData.length === 0) {
+    return [];
+  }
+
+  const normalizedSeries = normalizePriceSeries(rawSeries);
+  if (normalizedSeries.length === 0) {
+    return [];
+  }
+
+  const cursor = createPriceCursor(normalizedSeries);
+  let baseline = null;
+
+  return roiData.map((point) => {
+    const date = typeof point?.date === "string" ? point.date : "";
+    const price = date ? cursor.advanceTo(date) : 0;
+    if (baseline === null && price > 0) {
+      baseline = price;
+    }
+    if (!date || baseline === null || baseline === 0 || price <= 0) {
+      return { date, value: null };
+    }
+    return {
+      date,
+      value: roundPercentage(((price - baseline) / baseline) * 100),
+    };
+  });
+}
+
+export function mergeBenchmarkOverlaySeries(roiData = [], overlaySeries = [], dataKey) {
+  if (!Array.isArray(roiData) || roiData.length === 0) {
+    return [];
+  }
+  if (!dataKey || !Array.isArray(overlaySeries) || overlaySeries.length === 0) {
+    return roiData.map((point) => ({ ...point }));
+  }
+
+  const overlayMap = new Map(
+    overlaySeries
+      .filter((point) => typeof point?.date === "string")
+      .map((point) => [point.date, point.value]),
+  );
+
+  return roiData.map((point) => ({
+    ...point,
+    [dataKey]: overlayMap.has(point.date) ? overlayMap.get(point.date) : null,
+  }));
 }
 
 export async function buildRoiSeries(transactions, priceFetcher) {

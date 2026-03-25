@@ -1,66 +1,54 @@
-import path from 'path';
-import { promises as fs } from 'fs';
-
 import JsonTableStorage from '../data/storage.js';
-import { PORTFOLIO_SCHEMA_VERSION, CASH_POLICY_SCHEMA_VERSION } from '../../shared/constants.js';
 import { atomicWriteFile } from '../utils/atomicStore.js';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { d, roundDecimal } from '../finance/decimal.js';
 
-const PORTFOLIO_FILE_PREFIX = 'portfolio_';
-const PORTFOLIO_FILE_SUFFIX = '.json';
+const NVDA_ALL_TRADES_ADJUSTMENT_RULE = 'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES';
 
-async function pathExists(candidate) {
-  try {
-    await fs.access(candidate);
-    return true;
-  } catch {
-    return false;
-  }
+function isLegacyNvdaPreSplitCsvBootstrapTransaction(row) {
+  return row?.ticker === 'NVDA'
+    && (row?.type === 'BUY' || row?.type === 'SELL')
+    && typeof row?.date === 'string'
+    && row.date < '2024-06-10'
+    && row?.metadata?.system?.import?.source === 'csv-bootstrap';
 }
 
-function normalizeCurrencyCode(value) {
-  if (typeof value !== 'string') {
-    return 'USD';
+function buildAdjustedNvdaTransaction(row) {
+  const originalQuantity = row?.metadata?.system?.import?.original?.quantity;
+  const baseQuantity = d(originalQuantity ?? row?.shares ?? 0).abs();
+  if (baseQuantity.isZero()) {
+    return row;
   }
-  const normalized = value.trim().toUpperCase();
-  return /^[A-Z]{3}$/u.test(normalized) ? normalized : 'USD';
-}
 
-function toIsoDate(value) {
-  if (!value) {
-    return null;
-  }
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/u.test(value)) {
-    return value;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return date.toISOString().slice(0, 10);
-}
+  const adjustedShares = roundDecimal(baseQuantity.times(10), 9);
+  const quantity = row.type === 'SELL'
+    ? adjustedShares.neg()
+    : adjustedShares;
+  const amount = d(row?.amount ?? 0).abs();
+  const price = amount.isZero()
+    ? d(0)
+    : roundDecimal(amount.div(adjustedShares), 8);
 
-function normalizeTimeline(raw) {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  return raw
-    .map((entry) => {
-      const from = toIsoDate(entry?.from ?? entry?.effective_date ?? entry?.date);
-      if (!from) {
-        return null;
-      }
-      const to = toIsoDate(entry?.to ?? entry?.through ?? null);
-      const apy = Number.isFinite(entry?.apy) ? Number(entry.apy) : 0;
-      return { from, to: to ?? null, apy };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.from.localeCompare(b.from));
-}
-
-function buildTimelineFromRates(rates) {
-  return normalizeTimeline(
-    rates.map((row) => ({ from: row?.effective_date, apy: row?.apy })),
-  );
+  return {
+    ...row,
+    shares: adjustedShares.toNumber(),
+    quantity: quantity.toNumber(),
+    price: price.toNumber(),
+    metadata: {
+      ...row.metadata,
+      system: {
+        ...row.metadata?.system,
+        import: {
+          ...row.metadata?.system?.import,
+          adjustment: {
+            rule: NVDA_ALL_TRADES_ADJUSTMENT_RULE,
+            factor: '10',
+          },
+        },
+      },
+    },
+  };
 }
 
 const MIGRATIONS = [
@@ -78,7 +66,7 @@ const MIGRATIONS = [
   },
   {
     id: '002_portfolio_keys',
-    description: 'Create portfolio_keys table for hashed API credentials',
+    description: 'Create portfolio_keys table (schema compat, no longer used in runtime)',
     async up({ storage }) {
       await storage.ensureTable('portfolio_keys', []);
     },
@@ -92,59 +80,56 @@ const MIGRATIONS = [
   },
   {
     id: '004_portfolio_cash_policy',
-    description: 'Normalize portfolio cash policy schema',
-    async up({ storage, dataDir, logger }) {
-      const rates = await storage.readTable('cash_rates');
-      const defaultTimeline = buildTimelineFromRates(rates);
-      let migrated = 0;
-      const entries = await fs.readdir(dataDir);
-      for (const entry of entries) {
-        if (!entry.startsWith(PORTFOLIO_FILE_PREFIX) || !entry.endsWith(PORTFOLIO_FILE_SUFFIX)) {
-          continue;
-        }
-        const filePath = path.join(dataDir, entry);
-        let raw;
-        try {
-          raw = await fs.readFile(filePath, 'utf8');
-        } catch (error) {
-          if (error.code === 'ENOENT') {
-            continue;
-          }
-          throw error;
-        }
-        let parsed;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          continue;
-        }
-        const currentVersion = Number(parsed.schemaVersion ?? 0);
-        const cashVersion = Number(parsed.cash?.version ?? 0);
-        if (
-          currentVersion >= PORTFOLIO_SCHEMA_VERSION
-          && cashVersion >= CASH_POLICY_SCHEMA_VERSION
-        ) {
-          continue;
-        }
-        const existingTimeline = normalizeTimeline(parsed.cash?.apyTimeline);
-        const timeline = existingTimeline.length > 0 ? existingTimeline : defaultTimeline;
-        const next = {
-          ...parsed,
-          schemaVersion: PORTFOLIO_SCHEMA_VERSION,
-          cash: {
-            currency: normalizeCurrencyCode(parsed.cash?.currency),
-            apyTimeline: timeline,
-            version: CASH_POLICY_SCHEMA_VERSION,
-          },
-        };
-        const backupPath = `${filePath}.bak`;
-        if (!(await pathExists(backupPath))) {
-          await fs.copyFile(filePath, backupPath);
-        }
-        await atomicWriteFile(filePath, `${JSON.stringify(next, null, 2)}\n`);
-        migrated += 1;
+    description: 'Initialize portfolio cash policy tables (SQLite-only, no JSON migration)',
+    async up({ storage, logger }) {
+      // Fresh install: ensure the table exists with empty data.
+      // No legacy JSON files are read — the app starts from a clean SQLite state.
+      await storage.ensureTable('cash_rates', []);
+      logger?.info?.('portfolio_cash_policy_migrated', { migrated: 0 });
+    },
+  },
+  {
+    id: '005_nvda_presplit_split_backfill',
+    description: 'Backfill NVDA pre-split csv transactions to apply the 10:1 adjustment to all trades',
+    async up({ storage, logger }) {
+      const transactions = await storage.readTable('transactions');
+      if (!Array.isArray(transactions) || transactions.length === 0) {
+        logger?.info?.('nvda_presplit_split_backfill_applied', { migrated: 0 });
+        return;
       }
-      logger?.info?.('portfolio_cash_policy_migrated', { migrated });
+
+      let migrated = 0;
+      const nextTransactions = transactions.map((row) => {
+        if (!isLegacyNvdaPreSplitCsvBootstrapTransaction(row)) {
+          return row;
+        }
+
+        const nextRow = buildAdjustedNvdaTransaction(row);
+        const changed =
+          nextRow.shares !== row.shares
+          || nextRow.quantity !== row.quantity
+          || nextRow.price !== row.price
+          || nextRow.metadata?.system?.import?.adjustment?.rule
+            !== row.metadata?.system?.import?.adjustment?.rule;
+
+        if (changed) {
+          migrated += 1;
+        }
+
+        return nextRow;
+      });
+
+      if (migrated > 0) {
+        await storage.writeTable('transactions', nextTransactions);
+      }
+      logger?.info?.('nvda_presplit_split_backfill_applied', { migrated });
+    },
+  },
+  {
+    id: '006_portfolio_pins',
+    description: 'Initialize local per-portfolio PIN hashes for desktop session unlock',
+    async up({ storage }) {
+      await storage.ensureTable('portfolio_pins', []);
     },
   },
 ];

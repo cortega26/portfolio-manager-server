@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import path from 'path';
 
-import { runDailyClose } from '../jobs/daily_close.js';
-import { loadConfig } from '../config.js';
+import { loadProjectEnv } from '../runtime/loadProjectEnv.js';
 
 const MS_PER_DAY = 86_400_000;
+
+loadProjectEnv();
 
 function parseArgs(argv) {
   const args = { from: null, to: null };
@@ -38,6 +39,10 @@ function listDates(from, to) {
 }
 
 async function main() {
+  const [{ runDailyClose }, { loadConfig }] = await Promise.all([
+    import('../jobs/daily_close.js'),
+    import('../config.js'),
+  ]);
   const [, , ...argv] = process.argv;
   const args = parseArgs(argv);
   const config = loadConfig();

@@ -16,27 +16,6 @@ function normalizePortfolioId(portfolioId) {
   return trimmed;
 }
 
-function normalizeKey(value) {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function buildPortfolioHeaders({ apiKey, newApiKey } = {}, baseHeaders = {}) {
-  const headers = { ...baseHeaders };
-  const normalizedKey = normalizeKey(apiKey);
-  const normalizedNewKey = normalizeKey(newApiKey);
-  if (normalizedKey) {
-    headers["X-Portfolio-Key"] = normalizedKey;
-  }
-  if (normalizedNewKey) {
-    headers["X-Portfolio-Key-New"] = normalizedNewKey;
-  }
-  return headers;
-}
-
 async function requestJson(path, options = {}) {
   return requestJsonInternal(path, options);
 }
@@ -112,6 +91,13 @@ export async function fetchBulkPrices(
     requestId,
     version,
   };
+}
+
+export async function fetchBenchmarkCatalog({ signal, onRequestMetadata } = {}) {
+  return requestJson("/benchmarks", {
+    signal,
+    onRequestMetadata,
+  });
 }
 
 const RETURN_VIEWS = new Set(["port", "excash", "spy", "bench", "cash"]);
@@ -206,15 +192,14 @@ export async function fetchNavSnapshots({
 }
 
 export async function persistPortfolio(portfolioId, body, options = {}) {
-  const { signal, onRequestMetadata, ...headerOptions } = options;
+  const { signal, onRequestMetadata } = options;
   const normalizedId = normalizePortfolioId(portfolioId);
   const payload = validateAndNormalizePortfolioPayload(body ?? {});
-  const headers = buildPortfolioHeaders(headerOptions, {
-    "Content-Type": "application/json",
-  });
   return requestJson(`/portfolio/${normalizedId}`, {
     method: "POST",
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(payload),
     allowEmptyObject: true,
     signal,
@@ -223,14 +208,27 @@ export async function persistPortfolio(portfolioId, body, options = {}) {
 }
 
 export async function retrievePortfolio(portfolioId, options = {}) {
-  const { signal, onRequestMetadata, ...headerOptions } = options;
+  const { signal, onRequestMetadata } = options;
   const normalizedId = normalizePortfolioId(portfolioId);
-  const headers = buildPortfolioHeaders(headerOptions);
-  const requestOptions = { signal, onRequestMetadata };
-  if (Object.keys(headers).length > 0) {
-    requestOptions.headers = headers;
-  }
-  return requestJson(`/portfolio/${normalizedId}`, requestOptions);
+  return requestJson(`/portfolio/${normalizedId}`, {
+    signal,
+    onRequestMetadata,
+  });
+}
+
+export async function evaluateSignals(body, options = {}) {
+  const { signal, onRequestMetadata } = options;
+  const payload = validateAndNormalizePortfolioPayload(body ?? {});
+  return requestJson("/signals", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    allowEmptyObject: true,
+    signal,
+    onRequestMetadata,
+  });
 }
 
 export async function fetchMonitoringSnapshot(options = {}) {

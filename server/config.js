@@ -1,4 +1,4 @@
-import path from 'path';
+import path from "path";
 
 import {
   DEFAULT_API_CACHE_TTL_SECONDS,
@@ -9,20 +9,25 @@ import {
   SECURITY_AUDIT_DEFAULT_MAX_EVENTS,
   SECURITY_AUDIT_MAX_EVENTS,
   SECURITY_AUDIT_MIN_EVENTS,
-} from '../shared/constants.js';
+} from "../shared/constants.js";
+import { normalizeBenchmarkConfig } from "../shared/benchmarks.js";
+import {
+  normalizeLatestQuoteProviderName,
+  normalizePriceProviderName,
+} from "./data/priceProviderFactory.js";
 
 function parseBoolean(value, defaultValue = false) {
   if (value === undefined) {
     return defaultValue;
   }
-  if (typeof value === 'boolean') {
+  if (typeof value === "boolean") {
     return value;
   }
   const normalized = String(value).trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+  if (["1", "true", "yes", "on"].includes(normalized)) {
     return true;
   }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+  if (["0", "false", "no", "off"].includes(normalized)) {
     return false;
   }
   return defaultValue;
@@ -44,13 +49,13 @@ function parseList(value, defaultValue = []) {
     return value.map((item) => String(item).trim()).filter(Boolean);
   }
   return String(value)
-    .split(',')
+    .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
 export function loadConfig(env = process.env) {
-  const dataDir = path.resolve(env.DATA_DIR ?? './data');
+  const dataDir = path.resolve(env.DATA_DIR ?? "./data");
   const fetchTimeoutMs = parseNumber(env.PRICE_FETCH_TIMEOUT_MS, 5000);
   const featureFlagCashBenchmarks = parseBoolean(
     env.FEATURES_CASH_BENCHMARKS,
@@ -63,17 +68,22 @@ export function loadConfig(env = process.env) {
   const cashPostingDay = (() => {
     const raw = env.CASH_POSTING_DAY;
     if (!raw) {
-      return 'last';
+      return "last";
     }
     const normalized = String(raw).trim().toLowerCase();
-    if (['last', 'eom', 'end'].includes(normalized)) {
-      return 'last';
+    if (["last", "eom", "end"].includes(normalized)) {
+      return "last";
     }
     const parsed = Number.parseInt(normalized, 10);
-    return Number.isFinite(parsed) ? parsed : 'last';
+    return Number.isFinite(parsed) ? parsed : "last";
   })();
+  const benchmarkConfig = normalizeBenchmarkConfig({
+    tickers: parseList(env.BENCHMARK_TICKERS),
+    defaultSelection: parseList(env.BENCHMARK_DEFAULT_SELECTION),
+  });
   const allowedOrigins = parseList(env.CORS_ALLOWED_ORIGINS, []);
   const nightlyHour = parseNumber(env.JOB_NIGHTLY_HOUR, 4);
+  const nightlyEnabled = parseBoolean(env.JOB_NIGHTLY_ENABLED, true);
   const maxStaleTradingDays = parseNumber(
     env.FRESHNESS_MAX_STALE_TRADING_DAYS,
     DEFAULT_MAX_STALE_TRADING_DAYS,
@@ -91,11 +101,26 @@ export function loadConfig(env = process.env) {
     DEFAULT_PRICE_CACHE_CHECK_PERIOD_SECONDS,
   );
   const bruteForceMaxAttempts = parseNumber(env.BRUTE_FORCE_MAX_ATTEMPTS, 5);
-  const bruteForceAttemptWindowSeconds = parseNumber(env.BRUTE_FORCE_ATTEMPT_WINDOW_SECONDS, 15 * 60);
-  const bruteForceLockoutSeconds = parseNumber(env.BRUTE_FORCE_LOCKOUT_SECONDS, 15 * 60);
-  const bruteForceMaxLockoutSeconds = parseNumber(env.BRUTE_FORCE_MAX_LOCKOUT_SECONDS, 60 * 60);
-  const bruteForceMultiplier = parseNumber(env.BRUTE_FORCE_LOCKOUT_MULTIPLIER, 2);
-  const bruteForceCheckPeriodSeconds = parseNumber(env.BRUTE_FORCE_CHECK_PERIOD, 60);
+  const bruteForceAttemptWindowSeconds = parseNumber(
+    env.BRUTE_FORCE_ATTEMPT_WINDOW_SECONDS,
+    15 * 60,
+  );
+  const bruteForceLockoutSeconds = parseNumber(
+    env.BRUTE_FORCE_LOCKOUT_SECONDS,
+    15 * 60,
+  );
+  const bruteForceMaxLockoutSeconds = parseNumber(
+    env.BRUTE_FORCE_MAX_LOCKOUT_SECONDS,
+    60 * 60,
+  );
+  const bruteForceMultiplier = parseNumber(
+    env.BRUTE_FORCE_LOCKOUT_MULTIPLIER,
+    2,
+  );
+  const bruteForceCheckPeriodSeconds = parseNumber(
+    env.BRUTE_FORCE_CHECK_PERIOD,
+    60,
+  );
   const auditLogMaxEvents = (() => {
     const parsed = parseNumber(
       env.SECURITY_AUDIT_MAX_EVENTS,
@@ -103,7 +128,10 @@ export function loadConfig(env = process.env) {
     );
     return Math.min(
       SECURITY_AUDIT_MAX_EVENTS,
-      Math.max(SECURITY_AUDIT_MIN_EVENTS, Math.round(parsed ?? SECURITY_AUDIT_DEFAULT_MAX_EVENTS)),
+      Math.max(
+        SECURITY_AUDIT_MIN_EVENTS,
+        Math.round(parsed ?? SECURITY_AUDIT_DEFAULT_MAX_EVENTS),
+      ),
     );
   })();
   const generalRateLimitWindowMs = parseNumber(
@@ -138,11 +166,13 @@ export function loadConfig(env = process.env) {
       cashBenchmarks: featureFlagCashBenchmarks,
       monthlyCashPosting: featureFlagMonthlyCashPosting,
     },
+    benchmarks: benchmarkConfig,
     cash: {
       postingDay: cashPostingDay,
     },
     jobs: {
       nightlyHour,
+      nightlyEnabled,
     },
     cors: {
       allowedOrigins,
@@ -155,6 +185,20 @@ export function loadConfig(env = process.env) {
       price: {
         ttlSeconds: priceCacheTtlSeconds,
         checkPeriodSeconds: priceCacheCheckPeriodSeconds,
+      },
+    },
+    prices: {
+      providers: {
+        primary: normalizePriceProviderName(env.PRICE_PROVIDER_PRIMARY, "yahoo"),
+        fallback: normalizePriceProviderName(env.PRICE_PROVIDER_FALLBACK, "stooq"),
+      },
+      latest: {
+        provider: normalizeLatestQuoteProviderName(
+          env.PRICE_PROVIDER_LATEST,
+          "none",
+        ),
+        apiKey: typeof env.TWELVE_DATA_API_KEY === "string" ? env.TWELVE_DATA_API_KEY.trim() : "",
+        prepost: parseBoolean(env.TWELVE_DATA_PREPOST, true),
       },
     },
     security: {

@@ -1,20 +1,18 @@
-import { promises as fs } from 'fs';
-import path from 'path';
-
 import { toDateKey, accrueInterest, postMonthlyInterest } from '../finance/cash.js';
 import { isTradingDay } from '../utils/calendar.js';
 import { computeDailyStates } from '../finance/portfolio.js';
 import { computeDailyReturnRows } from '../finance/returns.js';
 import { runMigrations } from '../migrations/index.js';
+import { listPortfolioStates } from '../data/portfolioState.js';
 import {
   DualPriceProvider,
   YahooPriceProvider,
   StooqPriceProvider,
 } from '../data/prices.js';
+import { createConfiguredPriceProvider } from '../data/priceProviderFactory.js';
+import { normalizeBenchmarkConfig } from '../../shared/benchmarks.js';
 
 const MS_PER_DAY = 86_400_000;
-const PORTFOLIO_FILE_PREFIX = 'portfolio_';
-const PORTFOLIO_FILE_SUFFIX = '.json';
 
 function normalizePortfolioId(value) {
   if (value === undefined || value === null || value === '') {
@@ -60,37 +58,15 @@ function sanitizePortfolioPolicy(raw, fallbackCurrency) {
   return { currency, apyTimeline };
 }
 
-async function loadPortfolioPolicies({ dataDir, fallbackCurrency, logger }) {
+async function loadPortfolioPolicies({ storage, fallbackCurrency }) {
   const policies = new Map();
-  let entries = [];
-  try {
-    entries = await fs.readdir(dataDir);
-  } catch (error) {
-    logger?.warn?.('portfolio_policy_list_failed', { error: error.message });
-    return policies;
-  }
-  for (const entry of entries) {
-    if (!entry.startsWith(PORTFOLIO_FILE_PREFIX) || !entry.endsWith(PORTFOLIO_FILE_SUFFIX)) {
+  const states = await listPortfolioStates(storage);
+  for (const state of states) {
+    if (!state?.id) {
       continue;
     }
-    const portfolioId = entry.slice(
-      PORTFOLIO_FILE_PREFIX.length,
-      entry.length - PORTFOLIO_FILE_SUFFIX.length,
-    );
-    const filePath = path.join(dataDir, entry);
-    let parsed;
-    try {
-      const raw = await fs.readFile(filePath, 'utf8');
-      parsed = JSON.parse(raw);
-    } catch (error) {
-      logger?.warn?.('portfolio_policy_read_failed', {
-        portfolio_id: portfolioId,
-        error: error.message,
-      });
-      continue;
-    }
-    const policy = sanitizePortfolioPolicy(parsed?.cash ?? null, fallbackCurrency);
-    policies.set(portfolioId, policy);
+    const policy = sanitizePortfolioPolicy(state.cash ?? null, fallbackCurrency);
+    policies.set(state.id, policy);
   }
   return policies;
 }
@@ -206,6 +182,20 @@ async function ensurePrices({ storage, provider, tickers, from, to, logger }) {
   }
 }
 
+function resolveTrackedTickers(transactions, config) {
+  const tickers = new Set(['SPY', 'CASH']);
+  const benchmarkConfig = normalizeBenchmarkConfig(config?.benchmarks ?? {});
+  for (const ticker of benchmarkConfig.tickers) {
+    tickers.add(ticker);
+  }
+  for (const tx of transactions) {
+    if (tx.ticker && tx.ticker !== 'CASH') {
+      tickers.add(tx.ticker);
+    }
+  }
+  return tickers;
+}
+
 export async function runDailyClose({
   dataDir,
   logger,
@@ -248,9 +238,8 @@ export async function runDailyClose({
   }
 
   const portfolioPolicies = await loadPortfolioPolicies({
-    dataDir,
+    storage,
     fallbackCurrency: defaultCurrency,
-    logger,
   });
 
   const processInterest = async (portfolioId, policyOverride) => {
@@ -289,15 +278,11 @@ export async function runDailyClose({
   }
 
   const transactions = await storage.readTable('transactions');
-  const tickers = new Set(['SPY', 'CASH']);
-  for (const tx of transactions) {
-    if (tx.ticker && tx.ticker !== 'CASH') {
-      tickers.add(tx.ticker);
-    }
-  }
+  const tickers = resolveTrackedTickers(transactions, config);
 
   const provider =
     priceProvider
+    ?? createConfiguredPriceProvider({ config, logger })
     ?? new DualPriceProvider({
       primary: new YahooPriceProvider({ logger }),
       fallback: new StooqPriceProvider({ logger }),

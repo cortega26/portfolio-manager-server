@@ -1,31 +1,13 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-import {
-  evaluateApiKeyRequirements,
-  isApiKeyStrong,
-} from "../../shared/apiKey.js";
 import { useI18n } from "../i18n/I18nProvider.jsx";
 
-const STATUS_META = {
-  empty: {
-    labelKey: "portfolioControls.status.enter",
-    className: "text-slate-600 dark:text-slate-300",
-  },
-  weak: {
-    labelKey: "portfolioControls.status.needsAttention",
-    className: "text-amber-600 dark:text-amber-400",
-  },
-  strong: {
-    labelKey: "portfolioControls.status.strong",
-    className: "text-emerald-600 dark:text-emerald-400",
-  },
-};
-
 const ERROR_MESSAGE_KEYS = {
-  INVALID_KEY: "portfolioControls.error.INVALID_KEY",
-  NO_KEY: "portfolioControls.error.NO_KEY",
+  INVALID_SESSION_TOKEN: "portfolioControls.error.INVALID_SESSION_TOKEN",
+  NO_SESSION_TOKEN: "portfolioControls.error.NO_SESSION_TOKEN",
+  SESSION_AUTH_MISCONFIGURED:
+    "portfolioControls.error.SESSION_AUTH_MISCONFIGURED",
   PORTFOLIO_NOT_FOUND: "portfolioControls.error.PORTFOLIO_NOT_FOUND",
-  WEAK_KEY: "portfolioControls.error.WEAK_KEY",
   E_OVERSELL: "portfolioControls.error.E_OVERSELL",
   E_CASH_OVERDRAW: "portfolioControls.error.E_CASH_OVERDRAW",
 };
@@ -75,61 +57,9 @@ function formatControlError(error, t) {
   return { message, requestId };
 }
 
-function resolveStatus(checks, value) {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  if (!trimmed) {
-    return "empty";
-  }
-  return checks.every((item) => item.met) ? "strong" : "weak";
-}
-
-function RequirementChecklist({ checks, status, t }) {
-  const meta = STATUS_META[status] ?? STATUS_META.empty;
-  return (
-    <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300">
-      <p className={`font-medium ${meta.className}`}>{t(meta.labelKey)}</p>
-      <ul className="mt-1 space-y-1">
-        {checks.map((item) => {
-          const requirementKey = item.translationKey ?? item.requirement;
-          const requirementLabel = item.translationKey
-            ? t(item.translationKey, item.translationValues)
-            : item.requirement;
-          return (
-            <li key={requirementKey} className="flex items-center gap-2">
-              <span
-                className={`inline-flex h-4 w-6 items-center justify-center rounded-full text-[10px] font-semibold uppercase ${
-                  item.met
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                    : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
-              }`}
-              aria-hidden="true"
-            >
-              {item.met ? "OK" : "--"}
-            </span>
-            <span
-              className={
-                item.met
-                  ? "text-emerald-700 dark:text-emerald-300"
-                  : "text-slate-600 dark:text-slate-300"
-              }
-            >
-              {requirementLabel}
-            </span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
 export default function PortfolioControls({
   portfolioId,
-  portfolioKey,
-  portfolioKeyNew,
   onPortfolioIdChange,
-  onPortfolioKeyChange,
-  onPortfolioKeyNewChange,
   onSave,
   onLoad,
   onNotify,
@@ -137,43 +67,11 @@ export default function PortfolioControls({
   const { t } = useI18n();
   const [status, setStatus] = useState(null);
 
-  const keyChecks = useMemo(
-    () => evaluateApiKeyRequirements(portfolioKey),
-    [portfolioKey],
-  );
-  const rotationChecks = useMemo(
-    () => evaluateApiKeyRequirements(portfolioKeyNew),
-    [portfolioKeyNew],
-  );
-  const keyStatus = resolveStatus(keyChecks, portfolioKey);
-  const rotationStatus = resolveStatus(rotationChecks, portfolioKeyNew);
-  const rotationTouched = Boolean((portfolioKeyNew ?? "").trim());
-
   async function handle(action) {
-    if (!portfolioId) {
+    if (!portfolioId?.trim()) {
       setStatus({
         type: "error",
         message: t("portfolioControls.error.validation"),
-        requestId: undefined,
-      });
-      return;
-    }
-    if (!portfolioKey) {
-      setStatus({
-        type: "error",
-        message: t("portfolioControls.error.noKey"),
-        requestId: undefined,
-      });
-      return;
-    }
-    if (
-      action === onSave
-      && rotationTouched
-      && !isApiKeyStrong(portfolioKeyNew)
-    ) {
-      setStatus({
-        type: "error",
-        message: t("portfolioControls.error.rotateWeak"),
         requestId: undefined,
       });
       return;
@@ -189,20 +87,28 @@ export default function PortfolioControls({
       if (typeof onNotify === "function") {
         const detail =
           result?.requestId && typeof result.requestId === "string"
-            ? t("portfolioControls.toast.requestId", { requestId: result.requestId })
+            ? t("portfolioControls.toast.requestId", {
+                requestId: result.requestId,
+              })
             : undefined;
         const normalizedId = portfolioId.trim();
         if (action === onSave) {
           onNotify({
             type: "success",
-            title: t("portfolioControls.toast.saveSuccess.title", { id: normalizedId }),
-            message: t("portfolioControls.toast.saveSuccess.body", { id: normalizedId }),
+            title: t("portfolioControls.toast.saveSuccess.title", {
+              id: normalizedId,
+            }),
+            message: t("portfolioControls.toast.saveSuccess.body", {
+              id: normalizedId,
+            }),
             detail,
           });
           if (result?.snapshotPersisted === false) {
             onNotify({
               type: "warning",
-              title: t("portfolioControls.toast.saveWarning.title", { id: normalizedId }),
+              title: t("portfolioControls.toast.saveWarning.title", {
+                id: normalizedId,
+              }),
               message: t("portfolioControls.toast.saveWarning.body"),
               detail,
             });
@@ -210,14 +116,18 @@ export default function PortfolioControls({
         } else if (action === onLoad) {
           onNotify({
             type: "success",
-            title: t("portfolioControls.toast.loadSuccess.title", { id: normalizedId }),
+            title: t("portfolioControls.toast.loadSuccess.title", {
+              id: normalizedId,
+            }),
             message: t("portfolioControls.toast.loadSuccess.body"),
             detail,
           });
           if (result?.snapshotPersisted === false) {
             onNotify({
               type: "warning",
-              title: t("portfolioControls.toast.saveWarning.title", { id: normalizedId }),
+              title: t("portfolioControls.toast.saveWarning.title", {
+                id: normalizedId,
+              }),
               message: t("portfolioControls.toast.saveWarning.body"),
               detail,
             });
@@ -237,8 +147,12 @@ export default function PortfolioControls({
           type: "error",
           title:
             action === onSave
-              ? t("portfolioControls.toast.saveError.title", { id: normalizedId })
-              : t("portfolioControls.toast.loadError.title", { id: normalizedId }),
+              ? t("portfolioControls.toast.saveError.title", {
+                  id: normalizedId,
+                })
+              : t("portfolioControls.toast.loadError.title", {
+                  id: normalizedId,
+                }),
           message,
           detail,
         });
@@ -265,47 +179,11 @@ export default function PortfolioControls({
             placeholder={t("portfolioControls.id.placeholder")}
           />
         </div>
-        <div className="flex flex-col">
-          <label
-            htmlFor="portfolioKey"
-            className="text-sm font-medium text-slate-600 dark:text-slate-300"
-          >
-            {t("portfolioControls.apiKey")}
-          </label>
-          <input
-            id="portfolioKey"
-            type="password"
-            className="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            value={portfolioKey}
-            onChange={(event) => onPortfolioKeyChange?.(event.target.value)}
-            placeholder={t("portfolioControls.apiKey.placeholder")}
-            autoComplete="off"
-          />
-          <RequirementChecklist checks={keyChecks} status={keyStatus} t={t} />
-        </div>
-        <div className="flex flex-col">
-          <label
-            htmlFor="portfolioKeyNew"
-            className="text-sm font-medium text-slate-600 dark:text-slate-300"
-          >
-            {t("portfolioControls.rotate")}
-          </label>
-          <input
-            id="portfolioKeyNew"
-            type="password"
-            className="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            value={portfolioKeyNew}
-            onChange={(event) => onPortfolioKeyNewChange?.(event.target.value)}
-            placeholder={t("portfolioControls.rotate.placeholder")}
-            autoComplete="off"
-          />
-          {rotationTouched && (
-            <RequirementChecklist
-              checks={rotationChecks}
-              status={rotationStatus}
-              t={t}
-            />
-          )}
+        <div className="max-w-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+          <p className="font-semibold text-slate-700 dark:text-slate-100">
+            {t("portfolioControls.session.title")}
+          </p>
+          <p className="mt-1">{t("portfolioControls.session.description")}</p>
         </div>
         <div className="flex gap-3">
           <button

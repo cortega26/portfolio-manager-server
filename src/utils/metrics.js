@@ -1,4 +1,5 @@
 import { formatCurrency, formatNumber, formatPercent } from "./format.js";
+import { resolveHoldingValuationPrice } from "./holdings.js";
 
 function safeNumber(value) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -36,6 +37,7 @@ export function buildMetricCards(
   const totalCost = safeNumber(metrics.totalCost);
   const totalRealised = safeNumber(metrics.totalRealised);
   const totalUnrealised = safeNumber(metrics.totalUnrealised);
+  const pricingComplete = metrics.pricingComplete !== false;
   const totalReturn = totalRealised + totalUnrealised;
   const returnPct = totalCost === 0 ? 0 : (totalReturn / totalCost) * 100;
   const costCoverage = totalCost === 0 ? 0 : totalValue / totalCost;
@@ -44,8 +46,10 @@ export function buildMetricCards(
   return [
     {
       label: t("metrics.cards.nav.label"),
-      value: formatCurrencyFn(totalValue),
-      detail: t("metrics.cards.nav.detail", { count: metrics.holdingsCount ?? 0 }),
+      value: pricingComplete ? formatCurrencyFn(totalValue) : "—",
+      detail: pricingComplete
+        ? t("metrics.cards.nav.detail", { count: metrics.holdingsCount ?? 0 })
+        : t("metrics.cards.nav.unavailable"),
     },
     {
       label: t("metrics.cards.cost.label"),
@@ -54,8 +58,10 @@ export function buildMetricCards(
     },
     {
       label: t("metrics.cards.return.label"),
-      value: formatCurrencyFn(totalReturn),
-      detail: t("metrics.cards.return.detail", { percent: formatPercentFn(returnPct, 1) }),
+      value: pricingComplete ? formatCurrencyFn(totalReturn) : "—",
+      detail: pricingComplete
+        ? t("metrics.cards.return.detail", { percent: formatPercentFn(returnPct, 1) })
+        : t("metrics.cards.return.unavailable"),
     },
     {
       label: t("metrics.cards.coverage.label"),
@@ -71,7 +77,7 @@ export function calculateAllocationBreakdown(holdings, currentPrices) {
   }
 
   const rows = holdings.map((holding) => {
-    const price = safeNumber(currentPrices?.[holding.ticker]);
+    const price = safeNumber(resolveHoldingValuationPrice(holding, currentPrices?.[holding.ticker]));
     const value = safeNumber(holding.shares) * price;
     return { ticker: holding.ticker, value };
   });

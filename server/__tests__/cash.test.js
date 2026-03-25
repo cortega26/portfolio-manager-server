@@ -64,7 +64,10 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'USD',
         },
       ],
-      expectedAmount: roundDecimal(d(1000).times(0.0365).div(365), 2).toNumber(),
+      expectedAmount: roundDecimal(
+        d(1000).times(dailyRateFromApy(0.0365)),
+        2,
+      ).toNumber(),
     },
     {
       name: 'usd deposits and withdrawals same day',
@@ -91,7 +94,10 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'USD',
         },
       ],
-      expectedAmount: roundDecimal(d(1250).times(0.05).div(365), 2).toNumber(),
+      expectedAmount: roundDecimal(
+        d(1250).times(dailyRateFromApy(0.05)),
+        2,
+      ).toNumber(),
     },
     {
       name: 'clp large balance uses zero decimal precision',
@@ -109,7 +115,10 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'CLP',
         },
       ],
-      expectedAmount: roundDecimal(d(25_000_000).times(0.07).div(365), 0).toNumber(),
+      expectedAmount: roundDecimal(
+        d(25_000_000).times(dailyRateFromApy(0.07)),
+        0,
+      ).toNumber(),
     },
     {
       name: 'apy change mid month applies new rate',
@@ -133,7 +142,10 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'USD',
         },
       ],
-      expectedAmount: roundDecimal(d(5000).times(0.08).div(365), 2).toNumber(),
+      expectedAmount: roundDecimal(
+        d(5000).times(dailyRateFromApy(0.08)),
+        2,
+      ).toNumber(),
     },
     {
       name: 'negative cash accrues negative interest',
@@ -160,7 +172,10 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'USD',
         },
       ],
-      expectedAmount: roundDecimal(d(-1500).times(0.04).div(365), 2).toNumber(),
+      expectedAmount: roundDecimal(
+        d(-1500).times(dailyRateFromApy(0.04)),
+        2,
+      ).toNumber(),
     },
     {
       name: 'zero apy yields no posting',
@@ -457,7 +472,10 @@ test('accrueInterest respects custom day count conventions', async () => {
     logger: noopLogger,
   });
   assert.ok(defaultDayCountRecord);
-  assert.equal(defaultDayCountRecord.amount, 0.27);
+  assert.equal(
+    defaultDayCountRecord.amount,
+    fromCents(toCents(dailyRateFromApy(0.1).times(1000))).toNumber(),
+  );
 
   await storage.deleteWhere(
     'transactions',
@@ -476,5 +494,8 @@ test('accrueInterest respects custom day count conventions', async () => {
     logger: noopLogger,
   });
   assert.ok(customDayCountRecord);
-  assert.equal(customDayCountRecord.amount, 0.28);
+  assert.equal(
+    customDayCountRecord.amount,
+    fromCents(toCents(dailyRateFromApy(0.1, { dayCount: 360 }).times(1000))).toNumber(),
+  );
 });

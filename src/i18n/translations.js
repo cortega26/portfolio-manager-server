@@ -7,6 +7,49 @@ export const translations = {
     "app.language.english": "English",
     "app.language.spanish": "Spanish",
     "app.systemAlertsRegion": "System alerts",
+    "desktopSession.title": "Unlock local portfolio",
+    "desktopSession.subtitle":
+      "Choose the portfolio you want to open, then verify its local PIN. Electron injects the API session in memory only after the PIN check succeeds.",
+    "desktopSession.loading": "Loading local desktop portfolios…",
+    "desktopSession.securityHint":
+      "The PIN stays on this device. The renderer never talks to SQLite directly.",
+    "desktopSession.portfolio.label": "Portfolio",
+    "desktopSession.portfolio.status.setup": "PIN setup required",
+    "desktopSession.portfolio.status.setupDetail":
+      "This portfolio does not have a local PIN yet. Create one now to keep future unlocks tied to this device.",
+    "desktopSession.portfolio.status.locked": "PIN required",
+    "desktopSession.portfolio.status.lockedDetail":
+      "This portfolio is provisioned and locked. Enter the existing PIN to continue.",
+    "desktopSession.pin.label": "PIN",
+    "desktopSession.pin.placeholder": "4 to 12 digits",
+    "desktopSession.pinConfirm.label": "Confirm PIN",
+    "desktopSession.pinConfirm.placeholder": "Repeat the PIN for this portfolio",
+    "desktopSession.submit.unlock": "Unlock portfolio",
+    "desktopSession.submit.setup": "Create PIN and unlock",
+    "desktopSession.submit.pending": "Verifying local session…",
+    "desktopSession.explainer.title": "What happens here",
+    "desktopSession.explainer.stepOne":
+      "Select the portfolio profile you want to load into the desktop app.",
+    "desktopSession.explainer.stepTwo":
+      "If the portfolio has no PIN yet, create one now. Otherwise, enter the existing PIN to verify local access.",
+    "desktopSession.explainer.stepThree":
+      "Once verified, Electron injects an in-memory session token and the renderer continues through the Express API boundary.",
+    "desktopSession.error.generic":
+      "The desktop session could not be opened. Try again.",
+    "desktopSession.error.INVALID_PIN":
+      "The PIN does not match the selected portfolio.",
+    "desktopSession.error.INVALID_PIN_CONFIRMATION":
+      "The confirmation PIN must match exactly.",
+    "desktopSession.error.INVALID_PIN_FORMAT":
+      "Use a numeric PIN with 4 to 12 digits.",
+    "desktopSession.error.INVALID_PORTFOLIO_ID":
+      "The selected portfolio identifier is not valid.",
+    "desktopSession.error.PORTFOLIO_NOT_FOUND":
+      "The selected portfolio has not been provisioned yet.",
+    "desktopSession.error.PORTFOLIO_REQUIRED":
+      "Choose a portfolio before continuing.",
+    "desktopSession.error.PIN_ALREADY_SET":
+      "This portfolio already has a PIN. Use the unlock flow instead.",
     "loading.view": "Loading view…",
     "common.loading": "Loading…",
     "nav.aria": "Dashboard navigation",
@@ -39,6 +82,9 @@ export const translations = {
     "dashboard.benchmarks.reset.title": "Restore the default benchmark combination",
     "dashboard.benchmarks.series.spy.label": "100% SPY benchmark",
     "dashboard.benchmarks.series.spy.description": "Opportunity cost if fully invested in SPY",
+    "dashboard.benchmarks.series.qqq.label": "Nasdaq-100 (QQQ)",
+    "dashboard.benchmarks.series.qqq.description":
+      "Technology-heavy reference using QQQ as the Nasdaq-100 proxy",
     "dashboard.benchmarks.series.blended.label": "Blended benchmark",
     "dashboard.benchmarks.series.blended.description": "Risk-matched mix using start-of-day cash weights",
     "dashboard.benchmarks.series.exCash.label": "Risk sleeve (ex-cash)",
@@ -52,28 +98,45 @@ export const translations = {
     "dashboard.roi.chartEmpty": "Add transactions to see comparative performance.",
     "dashboard.roi.chartAria": "Portfolio performance chart",
     "dashboard.series.portfolio": "Portfolio ROI",
-    "dashboard.metrics.nav": "Net Asset Value",
+    "dashboard.context.title": "Performance context",
+    "dashboard.context.subtitle":
+      "Read current portfolio ROI against the benchmarks that matter before digging into the chart.",
+    "dashboard.context.portfolio.label": "Portfolio ROI",
+    "dashboard.context.portfolio.detail": "Cumulative return for the loaded timeline.",
+    "dashboard.context.spyGap.label": "Gap vs S&P 500",
+    "dashboard.context.spyGap.detail": "S&P 500 benchmark at {benchmark}",
+    "dashboard.context.qqqGap.label": "Gap vs Nasdaq-100",
+    "dashboard.context.qqqGap.detail": "Nasdaq-100 proxy at {benchmark}",
+    "dashboard.context.cashDrag.label": "Cash drag",
+    "dashboard.context.cashDrag.detail": "Difference between SPY and the blended benchmark.",
+    "dashboard.context.cashAllocation.label": "Cash allocation",
+    "dashboard.context.cashAllocation.detail": "Share of current NAV sitting in cash.",
+    "dashboard.metrics.equityBalance": "Equity Balance",
+    "dashboard.metrics.equityBalance.description": "{count} open holdings priced",
+    "dashboard.metrics.equityBalance.unavailable": "Pricing unavailable for {count} open holdings",
+    "dashboard.metrics.equityBalance.title":
+      "Market value of open stock and ETF positions only.",
+    "dashboard.metrics.netStockPurchases": "Net Stock Purchases",
+    "dashboard.metrics.netStockPurchases.description":
+      "Gross buys {buys} minus sells {sells}",
+    "dashboard.metrics.historicalChange": "Historical Change",
+    "dashboard.metrics.historicalChange.description":
+      "Equity balance minus net stock purchases",
+    "dashboard.metrics.historicalChange.unavailable":
+      "Waiting for current market prices to calculate the change",
+    "dashboard.metrics.nav": "Total NAV",
     "dashboard.metrics.nav.description": "Cash balance {value}",
+    "dashboard.metrics.nav.unavailable": "Cash balance {value} · awaiting market prices",
     "dashboard.metrics.nav.title":
       "NAV equals risk assets plus cash. Cash definitions follow docs/guides/cash-benchmarks.md.",
+    "dashboard.metrics.externalContributions": "Net External Contributions",
+    "dashboard.metrics.externalContributions.description":
+      "Funding flows only · net income {value}",
     "dashboard.metrics.return": "Total Return",
     "dashboard.metrics.return.description":
-      "Realised {realised} · Unrealised {unrealised} · ROI {roi}",
-    "dashboard.metrics.cost": "Invested Capital",
-    "dashboard.metrics.cost.description": "{count} holdings tracked · Risk assets {value}",
-    "dashboard.metrics.cashAllocation": "Cash Allocation",
-    "dashboard.metrics.cashAllocation.description":
-      "Share of NAV in cash per docs/guides/cash-benchmarks.md",
-    "dashboard.metrics.cashAllocation.title":
-      "Start-of-day cash weight derived from current ledger balances.",
-    "dashboard.metrics.cashDrag": "Cash Drag",
-    "dashboard.metrics.cashDrag.description": "100% SPY minus blended benchmark",
-    "dashboard.metrics.cashDrag.title":
-      "Positive values indicate performance surrendered to cash holdings.",
-    "dashboard.metrics.delta": "Benchmark Delta",
-    "dashboard.metrics.delta.description": "Blended {value}",
-    "dashboard.metrics.delta.value": "SPY {value}",
-    "dashboard.metrics.delta.title": "Latest cumulative ROI gaps versus SPY and blended sleeves.",
+      "Realised {realised} · Unrealised {unrealised} · Net income {income} · ROI {roi}",
+    "dashboard.metrics.return.unavailable":
+      "Waiting for current market prices before computing return and ROI",
     "history.contribution.title": "Contribution Trends",
     "history.contribution.subtitle":
       "Track deposits, withdrawals, and realised cash flow by calendar month.",
@@ -107,16 +170,17 @@ export const translations = {
     "transactions.form.amount": "Amount",
     "transactions.form.amount.placeholder": "Amount in USD",
     "transactions.form.price": "Price",
-    "transactions.form.price.placeholder": "Price per share",
+    "transactions.form.price.placeholder": "Calculated automatically",
+    "transactions.form.price.helper": "Calculated from amount and shares.",
     "transactions.form.shares": "Shares",
-    "transactions.form.shares.placeholder": "Calculated automatically",
+    "transactions.form.shares.placeholder": "e.g. 0.349861261",
     "transactions.form.shares.disabledDeposit": "Shares disabled for DEPOSIT",
     "transactions.form.shares.disabledCash": "Shares disabled for cash transactions",
     "transactions.form.shares.disabledDepositHelper":
       "Shares are disabled for DEPOSIT transactions.",
     "transactions.form.shares.disabledCashHelper":
       "Shares are disabled for cash transactions.",
-    "transactions.form.shares.helper": "Calculated from amount and price.",
+    "transactions.form.shares.helper": "Enter the exact share count (up to 9 decimals).",
     "transactions.form.submit": "Add Transaction",
     "transactions.form.validation.missing":
       "Please fill in all fields.",
@@ -174,10 +238,12 @@ export const translations = {
       "Add transactions to compute daily performance highlights.",
     "metrics.cards.nav.label": "Net Asset Value",
     "metrics.cards.nav.detail": "Across {count} positions",
+    "metrics.cards.nav.unavailable": "Awaiting market prices for open holdings",
     "metrics.cards.cost.label": "Invested Capital",
     "metrics.cards.cost.detail": "{realised} realised gains",
     "metrics.cards.return.label": "Total Return",
     "metrics.cards.return.detail": "ROI {percent}",
+    "metrics.cards.return.unavailable": "Return resumes when pricing becomes available",
     "metrics.cards.coverage.label": "Coverage Ratio",
     "metrics.cards.coverage.detail": "Value / Cost",
     "metrics.performance.best.label": "Best session",
@@ -200,35 +266,24 @@ export const translations = {
     "metrics.allocations.currentValue": "{value} current value",
     "portfolioControls.id": "Portfolio ID",
     "portfolioControls.id.placeholder": "e.g. demo-portfolio",
-    "portfolioControls.apiKey": "API Key",
-    "portfolioControls.apiKey.placeholder": "Required",
-    "portfolioControls.rotate": "Rotate Key (optional)",
-    "portfolioControls.rotate.placeholder": "Leave blank to keep current",
+    "portfolioControls.session.title": "Desktop session",
+    "portfolioControls.session.description":
+      "Authentication is injected automatically by the Electron shell for this local app.",
     "portfolioControls.save": "Save Portfolio",
     "portfolioControls.load": "Load Portfolio",
-    "portfolioControls.status.enter": "Enter a key to evaluate strength",
-    "portfolioControls.status.needsAttention": "Strength: needs attention",
-    "portfolioControls.status.strong": "Strength: strong",
-    "portfolioControls.requirements.length": "At least {minLength} characters",
-    "portfolioControls.requirements.uppercase": "At least 1 uppercase letter",
-    "portfolioControls.requirements.lowercase": "At least 1 lowercase letter",
-    "portfolioControls.requirements.number": "At least 1 number",
-    "portfolioControls.requirements.special": "At least 1 special character ({characters})",
     "portfolioControls.error.validation":
-      "Please provide a portfolio ID and API key before continuing.",
-    "portfolioControls.error.noKey": "Provide an API key to continue.",
-    "portfolioControls.error.rotateWeak": "New API key does not meet strength requirements.",
+      "Please provide a portfolio ID before continuing.",
     "portfolioControls.status.success": "Operation completed successfully.",
     "portfolioControls.status.genericError":
       "Unexpected error occurred while contacting the server. Try again.",
-    "portfolioControls.error.INVALID_KEY":
-      "Authentication failed. Double-check the API key and try again.",
-    "portfolioControls.error.NO_KEY":
-      "Provide an API key in the field above to continue.",
+    "portfolioControls.error.INVALID_SESSION_TOKEN":
+      "The desktop session token is invalid. Restart the desktop app and try again.",
+    "portfolioControls.error.NO_SESSION_TOKEN":
+      "Desktop session credentials are missing. Restart the desktop app and try again.",
+    "portfolioControls.error.SESSION_AUTH_MISCONFIGURED":
+      "Desktop session auth is not configured. Review the Electron runtime setup.",
     "portfolioControls.error.PORTFOLIO_NOT_FOUND":
       "Portfolio not found. Save it first to provision storage.",
-    "portfolioControls.error.WEAK_KEY":
-      "The provided API key does not meet the strength requirements. Use at least 12 characters with mixed case, numbers, and symbols.",
     "portfolioControls.error.E_OVERSELL":
       "Sell order exceeds available shares. Enable auto-clip in Settings or adjust the share count.",
     "portfolioControls.error.E_CASH_OVERDRAW":
@@ -236,9 +291,9 @@ export const translations = {
     "portfolioControls.error.status.400":
       "The request could not be processed. Review the form inputs and try again.",
     "portfolioControls.error.status.401":
-      "Authentication required. Provide a valid API key to continue.",
+      "Desktop session credentials are required. Restart the desktop app and try again.",
     "portfolioControls.error.status.403":
-      "Access denied for this portfolio. Verify the API key or rotate it.",
+      "Access denied by the desktop session. Restart the app and retry.",
     "portfolioControls.error.status.404":
       "Portfolio not found. Save it first to provision storage.",
     "portfolioControls.error.status.429":
@@ -267,6 +322,10 @@ export const translations = {
     "alerts.price.marketClosed.detailToday": "later today when trading resumes",
     "alerts.price.marketClosed.nextSession": "the next trading session",
     "alerts.price.marketClosed.allHoldings": "all tracked holdings",
+    "alerts.signal.buyZone.title": "{ticker} entered BUY zone",
+    "alerts.signal.trimZone.title": "{ticker} entered TRIM zone",
+    "alerts.signal.message":
+      "Last price {price} versus reference {reference}. Active band: {lower} to {upper}.",
     "alerts.roi.disabled":
       "Cash benchmark service is disabled. Displaying locally computed ROI.",
     "alerts.roi.fallback":
@@ -315,6 +374,7 @@ export const translations = {
     "reports.summary.cards.tickers.detail": "{count} holdings entries",
     "reports.summary.cards.portfolioValue.label": "Portfolio value",
     "reports.summary.cards.portfolioValue.detail": "{unrealised}",
+    "reports.summary.cards.portfolioValue.unavailable": "Pricing unavailable for open holdings",
     "reports.summary.cards.roiCoverage.label": "ROI coverage",
     "reports.summary.cards.roiCoverage.value.ready": "Ready",
     "reports.summary.cards.roiCoverage.value.pending": "Pending",
@@ -442,6 +502,49 @@ export const translations = {
     "app.language.english": "Inglés",
     "app.language.spanish": "Español",
     "app.systemAlertsRegion": "Alertas del sistema",
+    "desktopSession.title": "Desbloquear portafolio local",
+    "desktopSession.subtitle":
+      "Elige el portafolio que quieres abrir y luego valida su PIN local. Electron inyecta la sesión de API en memoria solo después de verificar el PIN.",
+    "desktopSession.loading": "Cargando portafolios locales del desktop…",
+    "desktopSession.securityHint":
+      "El PIN permanece en este dispositivo. El renderer nunca habla directo con SQLite.",
+    "desktopSession.portfolio.label": "Portafolio",
+    "desktopSession.portfolio.status.setup": "Se requiere crear PIN",
+    "desktopSession.portfolio.status.setupDetail":
+      "Este portafolio todavía no tiene un PIN local. Créalo ahora para que los próximos accesos queden protegidos en este equipo.",
+    "desktopSession.portfolio.status.locked": "Se requiere PIN",
+    "desktopSession.portfolio.status.lockedDetail":
+      "Este portafolio ya está provisionado y bloqueado. Ingresa el PIN existente para continuar.",
+    "desktopSession.pin.label": "PIN",
+    "desktopSession.pin.placeholder": "4 a 12 dígitos",
+    "desktopSession.pinConfirm.label": "Confirmar PIN",
+    "desktopSession.pinConfirm.placeholder": "Repite el PIN para este portafolio",
+    "desktopSession.submit.unlock": "Desbloquear portafolio",
+    "desktopSession.submit.setup": "Crear PIN y desbloquear",
+    "desktopSession.submit.pending": "Validando sesión local…",
+    "desktopSession.explainer.title": "Qué ocurre aquí",
+    "desktopSession.explainer.stepOne":
+      "Selecciona el perfil de portafolio que quieres cargar en la app desktop.",
+    "desktopSession.explainer.stepTwo":
+      "Si el portafolio aún no tiene PIN, créalo ahora. Si ya existe, ingrésalo para validar el acceso local.",
+    "desktopSession.explainer.stepThree":
+      "Una vez validado, Electron inyecta un token de sesión en memoria y el renderer continúa usando la API Express como boundary seguro.",
+    "desktopSession.error.generic":
+      "No se pudo abrir la sesión desktop. Inténtalo nuevamente.",
+    "desktopSession.error.INVALID_PIN":
+      "El PIN no coincide con el portafolio seleccionado.",
+    "desktopSession.error.INVALID_PIN_CONFIRMATION":
+      "La confirmación del PIN debe coincidir exactamente.",
+    "desktopSession.error.INVALID_PIN_FORMAT":
+      "Usa un PIN numérico de 4 a 12 dígitos.",
+    "desktopSession.error.INVALID_PORTFOLIO_ID":
+      "El identificador del portafolio seleccionado no es válido.",
+    "desktopSession.error.PORTFOLIO_NOT_FOUND":
+      "El portafolio seleccionado todavía no está provisionado.",
+    "desktopSession.error.PORTFOLIO_REQUIRED":
+      "Elige un portafolio antes de continuar.",
+    "desktopSession.error.PIN_ALREADY_SET":
+      "Este portafolio ya tiene un PIN. Usa el flujo de desbloqueo.",
     "loading.view": "Cargando vista…",
     "common.loading": "Cargando…",
     "nav.aria": "Navegación del tablero",
@@ -474,6 +577,9 @@ export const translations = {
     "dashboard.benchmarks.reset.title": "Restaurar la combinación de referencias predeterminada",
     "dashboard.benchmarks.series.spy.label": "Referencia 100% SPY",
     "dashboard.benchmarks.series.spy.description": "Costo de oportunidad si estuvieras totalmente invertido en SPY",
+    "dashboard.benchmarks.series.qqq.label": "Nasdaq-100 (QQQ)",
+    "dashboard.benchmarks.series.qqq.description":
+      "Referencia tecnológica usando QQQ como proxy del Nasdaq-100",
     "dashboard.benchmarks.series.blended.label": "Referencia combinada",
     "dashboard.benchmarks.series.blended.description":
       "Mezcla ajustada al riesgo usando los pesos de efectivo al inicio del día",
@@ -490,29 +596,47 @@ export const translations = {
     "dashboard.roi.chartEmpty": "Agrega transacciones para ver el rendimiento comparativo.",
     "dashboard.roi.chartAria": "Gráfico de rendimiento del portafolio",
     "dashboard.series.portfolio": "ROI del portafolio",
-    "dashboard.metrics.nav": "Valor neto del portafolio",
+    "dashboard.context.title": "Contexto de rendimiento",
+    "dashboard.context.subtitle":
+      "Lee primero el ROI del portafolio contra sus referencias clave antes de entrar al gráfico.",
+    "dashboard.context.portfolio.label": "ROI del portafolio",
+    "dashboard.context.portfolio.detail": "Retorno acumulado para el período cargado.",
+    "dashboard.context.spyGap.label": "Brecha vs S&P 500",
+    "dashboard.context.spyGap.detail": "Referencia S&P 500 en {benchmark}",
+    "dashboard.context.qqqGap.label": "Brecha vs Nasdaq-100",
+    "dashboard.context.qqqGap.detail": "Proxy Nasdaq-100 en {benchmark}",
+    "dashboard.context.cashDrag.label": "Arrastre por caja",
+    "dashboard.context.cashDrag.detail": "Diferencia entre SPY y la referencia combinada.",
+    "dashboard.context.cashAllocation.label": "Asignación a caja",
+    "dashboard.context.cashAllocation.detail": "Parte del NAV actual que sigue en efectivo.",
+    "dashboard.metrics.equityBalance": "Balance acciones",
+    "dashboard.metrics.equityBalance.description": "{count} posiciones abiertas con precio",
+    "dashboard.metrics.equityBalance.unavailable":
+      "Precio no disponible para {count} posiciones abiertas",
+    "dashboard.metrics.equityBalance.title":
+      "Valor de mercado de las posiciones abiertas en acciones y ETFs.",
+    "dashboard.metrics.netStockPurchases": "Compras netas",
+    "dashboard.metrics.netStockPurchases.description":
+      "Compras brutas {buys} menos ventas {sells}",
+    "dashboard.metrics.historicalChange": "Variación histórica",
+    "dashboard.metrics.historicalChange.description":
+      "Balance acciones menos compras netas",
+    "dashboard.metrics.historicalChange.unavailable":
+      "Esperando precios de mercado para calcular la variación",
+    "dashboard.metrics.nav": "NAV total",
     "dashboard.metrics.nav.description": "Saldo en efectivo {value}",
+    "dashboard.metrics.nav.unavailable":
+      "Saldo en efectivo {value} · esperando precios de mercado",
     "dashboard.metrics.nav.title":
       "El NAV equivale a activos de riesgo más efectivo. Las definiciones de efectivo siguen docs/guides/cash-benchmarks.md.",
+    "dashboard.metrics.externalContributions": "Aportes netos externos",
+    "dashboard.metrics.externalContributions.description":
+      "Solo flujos de fondeo · ingresos netos {value}",
     "dashboard.metrics.return": "Rendimiento total",
     "dashboard.metrics.return.description":
-      "Realizado {realised} · No realizado {unrealised} · ROI {roi}",
-    "dashboard.metrics.cost": "Capital invertido",
-    "dashboard.metrics.cost.description": "{count} posiciones registradas · Activos de riesgo {value}",
-    "dashboard.metrics.cashAllocation": "Proporción en efectivo",
-    "dashboard.metrics.cashAllocation.description":
-      "Porcentaje de NAV en efectivo según docs/guides/cash-benchmarks.md",
-    "dashboard.metrics.cashAllocation.title":
-      "Peso de efectivo al inicio del día derivado de los saldos actuales.",
-    "dashboard.metrics.cashDrag": "Impacto del efectivo",
-    "dashboard.metrics.cashDrag.description": "SPY 100% menos referencia combinada",
-    "dashboard.metrics.cashDrag.title":
-      "Los valores positivos indican rendimiento cedido al mantener efectivo.",
-    "dashboard.metrics.delta": "Diferencial contra referencias",
-    "dashboard.metrics.delta.description": "Combinado {value}",
-    "dashboard.metrics.delta.value": "SPY {value}",
-    "dashboard.metrics.delta.title":
-      "Brechas acumuladas más recientes frente a SPY y carteras combinadas.",
+      "Realizado {realised} · No realizado {unrealised} · Ingresos netos {income} · ROI {roi}",
+    "dashboard.metrics.return.unavailable":
+      "Esperando precios de mercado antes de calcular rendimiento y ROI",
     "history.contribution.title": "Tendencias de aportaciones",
     "history.contribution.subtitle":
       "Sigue depósitos, retiros y flujo de caja realizado por mes calendario.",
@@ -546,16 +670,17 @@ export const translations = {
     "transactions.form.amount": "Monto",
     "transactions.form.amount.placeholder": "Monto en USD",
     "transactions.form.price": "Precio",
-    "transactions.form.price.placeholder": "Precio por acción",
+    "transactions.form.price.placeholder": "Calculado automáticamente",
+    "transactions.form.price.helper": "Calculado a partir del monto y las acciones.",
     "transactions.form.shares": "Acciones",
-    "transactions.form.shares.placeholder": "Calculado automáticamente",
+    "transactions.form.shares.placeholder": "ej. 0.349861261",
     "transactions.form.shares.disabledDeposit": "Acciones inhabilitadas para DEPÓSITO",
     "transactions.form.shares.disabledCash": "Acciones inhabilitadas para transacciones en efectivo",
     "transactions.form.shares.disabledDepositHelper":
       "Las acciones están deshabilitadas para transacciones DEPOSIT.",
     "transactions.form.shares.disabledCashHelper":
       "Las acciones están deshabilitadas para transacciones en efectivo.",
-    "transactions.form.shares.helper": "Calculado a partir del monto y el precio.",
+    "transactions.form.shares.helper": "Ingresa la cantidad exacta de acciones (hasta 9 decimales).",
     "transactions.form.submit": "Agregar transacción",
     "transactions.form.validation.missing":
       "Completa todos los campos.",
@@ -613,10 +738,13 @@ export const translations = {
       "Agrega transacciones para calcular los mejores y peores días del ROI.",
     "metrics.cards.nav.label": "Valor neto del portafolio",
     "metrics.cards.nav.detail": "Distribuido en {count} posiciones",
+    "metrics.cards.nav.unavailable": "Esperando precios de mercado para las posiciones abiertas",
     "metrics.cards.cost.label": "Capital invertido",
     "metrics.cards.cost.detail": "{realised} de ganancias realizadas",
     "metrics.cards.return.label": "Rendimiento total",
     "metrics.cards.return.detail": "ROI {percent}",
+    "metrics.cards.return.unavailable":
+      "El rendimiento se reanuda cuando haya precios disponibles",
     "metrics.cards.coverage.label": "Relación de cobertura",
     "metrics.cards.coverage.detail": "Valor / Costo",
     "metrics.performance.best.label": "Mejor sesión",
@@ -639,36 +767,24 @@ export const translations = {
     "metrics.allocations.currentValue": "{value} valor actual",
     "portfolioControls.id": "ID del portafolio",
     "portfolioControls.id.placeholder": "p. ej. demo-portfolio",
-    "portfolioControls.apiKey": "Clave de API",
-    "portfolioControls.apiKey.placeholder": "Requerida",
-    "portfolioControls.rotate": "Rotar clave (opcional)",
-    "portfolioControls.rotate.placeholder": "Deja en blanco para conservar la actual",
+    "portfolioControls.session.title": "Sesion desktop",
+    "portfolioControls.session.description":
+      "La autenticacion se inyecta automaticamente desde el shell de Electron para esta app local.",
     "portfolioControls.save": "Guardar portafolio",
     "portfolioControls.load": "Cargar portafolio",
-    "portfolioControls.status.enter": "Ingresa una clave para evaluar la fortaleza",
-    "portfolioControls.status.needsAttention": "Fortaleza: requiere atención",
-    "portfolioControls.status.strong": "Fortaleza: sólida",
-    "portfolioControls.requirements.length": "Al menos {minLength} caracteres",
-    "portfolioControls.requirements.uppercase": "Al menos 1 letra mayúscula",
-    "portfolioControls.requirements.lowercase": "Al menos 1 letra minúscula",
-    "portfolioControls.requirements.number": "Al menos 1 número",
-    "portfolioControls.requirements.special": "Al menos 1 carácter especial ({characters})",
     "portfolioControls.error.validation":
-      "Proporciona un ID de portafolio y una clave de API antes de continuar.",
-    "portfolioControls.error.noKey": "Proporciona una clave de API para continuar.",
-    "portfolioControls.error.rotateWeak":
-      "La nueva clave de API no cumple con los requisitos de fortaleza.",
+      "Proporciona un ID de portafolio antes de continuar.",
     "portfolioControls.status.success": "Operación completada con éxito.",
     "portfolioControls.status.genericError":
       "Ocurrió un error inesperado al contactar al servidor. Intenta nuevamente.",
-    "portfolioControls.error.INVALID_KEY":
-      "La autenticación falló. Verifica la clave de API e inténtalo de nuevo.",
-    "portfolioControls.error.NO_KEY":
-      "Proporciona una clave de API en el campo superior para continuar.",
+    "portfolioControls.error.INVALID_SESSION_TOKEN":
+      "El token de sesión desktop es inválido. Reinicia la app desktop e inténtalo nuevamente.",
+    "portfolioControls.error.NO_SESSION_TOKEN":
+      "Faltan las credenciales de sesión desktop. Reinicia la app desktop e inténtalo nuevamente.",
+    "portfolioControls.error.SESSION_AUTH_MISCONFIGURED":
+      "La autenticación de sesión desktop no está configurada. Revisa la configuración runtime de Electron.",
     "portfolioControls.error.PORTFOLIO_NOT_FOUND":
       "Portafolio no encontrado. Guárdalo primero para provisionar almacenamiento.",
-    "portfolioControls.error.WEAK_KEY":
-      "La clave de API no cumple con los requisitos. Usa al menos 12 caracteres con mayúsculas, minúsculas, números y símbolos.",
     "portfolioControls.error.E_OVERSELL":
       "La orden de venta supera las acciones disponibles. Activa el autoajuste en Configuración o ajusta la cantidad.",
     "portfolioControls.error.E_CASH_OVERDRAW":
@@ -676,9 +792,9 @@ export const translations = {
     "portfolioControls.error.status.400":
       "La solicitud no pudo procesarse. Revisa los datos del formulario.",
     "portfolioControls.error.status.401":
-      "Autenticación necesaria. Proporciona una clave de API válida.",
+      "Se requieren credenciales de sesión desktop. Reinicia la app desktop e inténtalo nuevamente.",
     "portfolioControls.error.status.403":
-      "Acceso denegado para este portafolio. Verifica o rota la clave de API.",
+      "La sesión desktop denegó el acceso. Reinicia la app y vuelve a intentarlo.",
     "portfolioControls.error.status.404":
       "Portafolio no encontrado. Guárdalo primero para provisionar almacenamiento.",
     "portfolioControls.error.status.429":
@@ -707,6 +823,10 @@ export const translations = {
     "alerts.price.marketClosed.detailToday": "más tarde hoy cuando se reanude la sesión",
     "alerts.price.marketClosed.nextSession": "la próxima sesión bursátil",
     "alerts.price.marketClosed.allHoldings": "todas las posiciones rastreadas",
+    "alerts.signal.buyZone.title": "{ticker} entró en zona de COMPRA",
+    "alerts.signal.trimZone.title": "{ticker} entró en zona de VENTA",
+    "alerts.signal.message":
+      "Último precio {price} frente a referencia {reference}. Banda activa: {lower} a {upper}.",
     "alerts.roi.disabled":
       "El servicio de referencia en efectivo está deshabilitado. Mostrando ROI calculado localmente.",
     "alerts.roi.fallback":
@@ -756,6 +876,8 @@ export const translations = {
     "reports.summary.cards.tickers.detail": "{count} registros de posiciones",
     "reports.summary.cards.portfolioValue.label": "Valor del portafolio",
     "reports.summary.cards.portfolioValue.detail": "{unrealised}",
+    "reports.summary.cards.portfolioValue.unavailable":
+      "Precio no disponible para las posiciones abiertas",
     "reports.summary.cards.roiCoverage.label": "Cobertura de ROI",
     "reports.summary.cards.roiCoverage.value.ready": "Listo",
     "reports.summary.cards.roiCoverage.value.pending": "Pendiente",

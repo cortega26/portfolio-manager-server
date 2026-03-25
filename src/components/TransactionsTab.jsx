@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import clsx from "clsx";
+import Decimal from "decimal.js";
 import { FixedSizeList } from "react-window";
 
 import useDebouncedValue from "../hooks/useDebouncedValue.js";
@@ -85,8 +86,38 @@ const VIRTUALIZATION_THRESHOLD = 200;
 const ROW_HEIGHT_DEFAULT = 56;
 const ROW_HEIGHT_COMPACT = 44;
 const VIRTUALIZED_MAX_HEIGHT = 480;
+const SHARE_INPUT_DECIMALS = 9;
+const PRICE_INPUT_DECIMALS = 9;
 const GRID_TEMPLATE =
   "140px minmax(100px, 1fr) 120px 140px 140px 120px minmax(120px, 1fr)";
+
+function toPositiveDecimalOrNull(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  try {
+    const decimal = new Decimal(value);
+    if (!decimal.isFinite() || decimal.lte(0)) {
+      return null;
+    }
+    return decimal;
+  } catch {
+    return null;
+  }
+}
+
+function toInputDecimalLabel(decimal, digits) {
+  return decimal.toFixed(digits).replace(/\.?0+$/, "");
+}
+
+function deriveTransactionPriceLabel(amount, shares) {
+  const amountDecimal = toPositiveDecimalOrNull(amount);
+  const sharesDecimal = toPositiveDecimalOrNull(shares);
+  if (!amountDecimal || !sharesDecimal) {
+    return "";
+  }
+  return toInputDecimalLabel(amountDecimal.div(sharesDecimal), PRICE_INPUT_DECIMALS);
+}
 
 function formatTransactionMatchValue(value) {
   if (value === null || value === undefined) {
@@ -549,18 +580,7 @@ export default function TransactionsTab({
     }
 
     if (!nextCashOnly) {
-      const amountValue = Number.parseFloat(nextForm.amount);
-      const priceValue = Number.parseFloat(nextForm.price);
-      if (
-        Number.isFinite(amountValue) &&
-        Number.isFinite(priceValue) &&
-        priceValue !== 0
-      ) {
-        const computedShares = Math.abs(amountValue) / Math.abs(priceValue);
-        nextForm.shares = computedShares.toFixed(8);
-      } else {
-        nextForm.shares = "";
-      }
+      nextForm.price = deriveTransactionPriceLabel(nextForm.amount, nextForm.shares);
     }
 
     if (nextCashOnly) {
@@ -592,7 +612,7 @@ export default function TransactionsTab({
         clearFieldError("shares");
       }
     }
-    if ((field === "amount" || field === "price") && nextForm.shares) {
+    if ((field === "amount" || field === "shares") && nextForm.shares) {
       clearFieldError("shares");
     }
   }
@@ -603,7 +623,7 @@ export default function TransactionsTab({
 
   function handleSubmit(event) {
     event.preventDefault();
-    const { date, ticker, type, amount, price, shares } = form;
+    const { date, ticker, type, amount, shares } = form;
     const cashOnly = isCashOnlyType(type);
 
     const normalizedTicker = ticker.trim();
@@ -620,10 +640,9 @@ export default function TransactionsTab({
     if (!amount) {
       missingFields.amount = t("transactions.form.validation.amountField");
     }
-    if (!price && !cashOnly) {
-      missingFields.price = t("transactions.form.validation.price");
+    if (!cashOnly && !shares) {
+      missingFields.shares = t("transactions.form.validation.shares");
     }
-
     if (Object.keys(missingFields).length > 0) {
       recordError(t("transactions.form.validation.missing"), missingFields);
       return;
@@ -638,23 +657,25 @@ export default function TransactionsTab({
       return;
     }
 
-    let priceValue = null;
+    let priceDecimal = null;
     let sharesValue = null;
     if (!cashOnly) {
-      priceValue = Number.parseFloat(price);
-      if (!Number.isFinite(priceValue) || priceValue <= 0) {
-        recordError(t("transactions.form.validation.price"), {
-          price: t("transactions.form.validation.price"),
-        });
-        return;
-      }
-      sharesValue = Number.parseFloat(shares);
-      if (!Number.isFinite(sharesValue) || sharesValue <= 0) {
+      const amountDecimal = toPositiveDecimalOrNull(amount);
+      const sharesDecimal = toPositiveDecimalOrNull(shares);
+      if (!amountDecimal || !sharesDecimal) {
         recordError(t("transactions.form.validation.shares"), {
           shares: t("transactions.form.validation.shares"),
         });
         return;
       }
+      priceDecimal = amountDecimal.div(sharesDecimal);
+      if (!priceDecimal) {
+        recordError(t("transactions.form.validation.price"), {
+          price: t("transactions.form.validation.price"),
+        });
+        return;
+      }
+      sharesValue = Number(sharesDecimal.toFixed(SHARE_INPUT_DECIMALS));
     }
 
     const payload = {
@@ -666,8 +687,8 @@ export default function TransactionsTab({
     if (!cashOnly) {
       const normalisedTickerValue = normalizedTicker.toUpperCase();
       payload.ticker = normalisedTickerValue;
-      payload.price = Math.abs(priceValue);
-      payload.shares = Number(sharesValue.toFixed(8));
+      payload.price = Number(priceDecimal.toFixed(PRICE_INPUT_DECIMALS));
+      payload.shares = sharesValue;
     }
 
     const validation = validateNonNegativeCash([...transactions, payload]);
@@ -685,6 +706,7 @@ export default function TransactionsTab({
   const requiresPrice = !isCashOnlyType(form.type);
   const tickerDisabled = form.type === "DEPOSIT";
   const sharesDisabled = isCashOnlyType(form.type);
+  const priceReadOnly = requiresPrice;
 
   const hasSearch = Boolean(debouncedSearch?.trim());
   const showingStart =
@@ -854,11 +876,12 @@ export default function TransactionsTab({
                 <input
                   type="number"
                   value={form.price}
-                  onChange={(event) => updateForm("price", event.target.value)}
+                  readOnly={priceReadOnly}
                   className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  step="0.01"
+                  step="0.000000001"
                   placeholder={t("transactions.form.price.placeholder")}
                   aria-invalid={Boolean(fieldErrors.price)}
+                  aria-readonly={priceReadOnly ? "true" : undefined}
                 />
                 {fieldErrors.price ? (
                   <span
@@ -867,21 +890,27 @@ export default function TransactionsTab({
                   >
                     {fieldErrors.price}
                   </span>
-                ) : null}
+                ) : (
+                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {t("transactions.form.price.helper")}
+                  </span>
+                )}
               </label>
             ) : null}
             <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
               {t("transactions.form.shares")}
-              <input
-                type="number"
-                value={form.shares}
-                readOnly={!sharesDisabled}
-                disabled={sharesDisabled}
-                aria-disabled={sharesDisabled ? "true" : undefined}
-                aria-readonly={!sharesDisabled ? "true" : undefined}
-                className={clsx(
-                  "mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
-                  sharesDisabled
+                <input
+                  type="number"
+                  value={form.shares}
+                  onChange={(event) => updateForm("shares", event.target.value)}
+                  readOnly={sharesDisabled}
+                  disabled={sharesDisabled}
+                  aria-disabled={sharesDisabled ? "true" : undefined}
+                  aria-readonly={sharesDisabled ? "true" : undefined}
+                  step="0.000000001"
+                  className={clsx(
+                    "mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+                    sharesDisabled
                     ? "border-dashed border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400"
                     : "border-slate-300",
                 )}

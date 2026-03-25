@@ -5,8 +5,8 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import request from 'supertest';
 
-import { createApp } from '../app.js';
 import JsonTableStorage from '../data/storage.js';
+import { createSessionTestApp, withSession } from './sessionTestUtils.js';
 
 const noopLogger = {
   info() {},
@@ -39,7 +39,7 @@ test('GET /api/prices/:symbol caches responses for warm hits and exposes TTL hea
     fetchCount += 1;
     return { ok: true, text: async () => csv };
   };
-  const app = createApp({
+  const app = createSessionTestApp({
     dataDir,
     logger: noopLogger,
     fetchImpl,
@@ -67,6 +67,83 @@ test('GET /api/prices/:symbol caches responses for warm hits and exposes TTL hea
   assert.equal(second.headers['x-cache'], 'HIT');
 });
 
+test('GET /api/prices/bulk serves cached latest prices when the upstream later fails', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const csv = `Date,Open,High,Low,Close,Adj Close,Volume\n${today},1,1,1,200.12,200.12,1000`;
+  let fetchCount = 0;
+  const fetchImpl = async () => {
+    fetchCount += 1;
+    if (fetchCount === 1) {
+      return { ok: true, text: async () => csv };
+    }
+    throw new Error('upstream unavailable');
+  };
+  const app = createSessionTestApp({
+    dataDir,
+    logger: noopLogger,
+    fetchImpl,
+    config: {
+      cache: {
+        ttlSeconds: CACHE_TTL_SECONDS,
+        price: { ttlSeconds: CACHE_TTL_SECONDS, checkPeriodSeconds: 60 },
+      },
+      freshness: { maxStaleTradingDays: 3 },
+    },
+  });
+
+  const warm = await request(app).get('/api/prices/MSFT');
+  assert.equal(warm.status, 200);
+  assert.equal(fetchCount, 1);
+
+  const fallback = await request(app).get('/api/prices/bulk?symbols=MSFT&latest=1');
+  assert.equal(fallback.status, 200);
+  assert.equal(fetchCount, 3);
+  assert.equal(fallback.headers['x-cache'], 'HIT');
+  assert.deepEqual(fallback.body.errors, {});
+  assert.equal(fallback.body.series.MSFT.length, 1);
+  assert.equal(fallback.body.series.MSFT[0].close, 200.12);
+});
+
+test('GET /api/prices/bulk uses the configured latest quote provider for latest-only requests', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const app = createSessionTestApp({
+    dataDir,
+    logger: noopLogger,
+    fetchImpl: async (url) => {
+      const value = String(url);
+      if (value.startsWith('https://api.twelvedata.com/quote')) {
+        return {
+          ok: true,
+          json: async () => ({
+            symbol: 'MSFT',
+            price: '251.75',
+            datetime: `${today} 10:15:00`,
+          }),
+        };
+      }
+      throw new Error(`Unexpected upstream call: ${value}`);
+    },
+    config: {
+      prices: {
+        latest: {
+          provider: 'twelvedata',
+          apiKey: 'test-key',
+          prepost: true,
+        },
+      },
+      freshness: { maxStaleTradingDays: 3 },
+    },
+  });
+
+  const response = await request(app).get('/api/prices/bulk?symbols=MSFT&latest=1');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.errors, {});
+  assert.equal(response.body.series.MSFT.length, 1);
+  assert.equal(response.body.series.MSFT[0].close, 251.75);
+  assert.equal(response.body.series.MSFT[0].date, today);
+});
+
 test('GET /api/returns/daily serves cached payloads even when storage mutates', async () => {
   const baseRows = [
     {
@@ -79,7 +156,7 @@ test('GET /api/returns/daily serves cached payloads even when storage mutates', 
     },
   ];
   await seedReturnsTable(baseRows);
-  const app = createApp({
+  const app = createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
@@ -116,7 +193,7 @@ test('GET /api/returns/daily negotiates 304 when If-None-Match matches cached ET
     },
   ];
   await seedReturnsTable(rows);
-  const app = createApp({
+  const app = createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
@@ -148,7 +225,7 @@ test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
     },
   ];
   await seedReturnsTable(initialRows);
-  const app = createApp({
+  const app = createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
@@ -185,10 +262,11 @@ test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
     settings: { autoClip: false },
     cash: { currency: 'USD', apyTimeline: [] },
   };
-  const saveResponse = await request(app)
-    .post('/api/portfolio/cache-test')
-    .set('X-Portfolio-Key', 'Abcd1234!@#$')
-    .send(payload);
+  const saveResponse = await withSession(
+    request(app)
+      .post('/api/portfolio/cache-test')
+      .send(payload),
+  );
   assert.equal(saveResponse.status, 200);
 
   const refreshed = await request(app).get('/api/returns/daily');

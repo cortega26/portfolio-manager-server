@@ -1,54 +1,21 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
+import initSqlJs from 'sql.js';
+
 import { atomicWriteFile } from '../utils/atomicStore.js';
 import { withLock } from '../utils/locks.js';
 
-const SNAPSHOT_SUFFIX = '.snapshot.json';
-const LOG_SUFFIX = '.log.ndjson';
-const MAX_LOG_SIZE_BYTES = 200_000;
-const MAX_LOG_ENTRIES_BEFORE_COMPACT = 5_000;
+const SQLITE_FILE_NAME = 'storage.sqlite';
 
-async function readJson(filePath, fallback) {
-  try {
-    const contents = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(contents);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      return fallback;
-    }
-    throw error;
+let sqlModulePromise;
+const databasePromiseByPath = new Map();
+
+async function getSqlModule() {
+  if (!sqlModulePromise) {
+    sqlModulePromise = initSqlJs();
   }
-}
-
-async function writeJson(filePath, value) {
-  const serialized = `${JSON.stringify(value, null, 2)}\n`;
-  await atomicWriteFile(filePath, serialized);
-}
-
-async function appendJsonLine(filePath, value) {
-  const directory = path.dirname(filePath);
-  await fs.mkdir(directory, { recursive: true });
-  await fs.appendFile(filePath, `${JSON.stringify(value)}\n`, 'utf8');
-}
-
-async function readJsonLines(filePath) {
-  try {
-    const contents = await fs.readFile(filePath, 'utf8');
-    if (!contents) {
-      return [];
-    }
-    return contents
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .map((line) => JSON.parse(line));
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      return [];
-    }
-    throw error;
-  }
+  return sqlModulePromise;
 }
 
 function normalizeKeyFields(keyFields) {
@@ -58,57 +25,8 @@ function normalizeKeyFields(keyFields) {
   return keyFields.filter((field) => typeof field === 'string' && field.length > 0);
 }
 
-function resolveKeyFields(entry) {
-  const fields = normalizeKeyFields(entry?.keyFields);
-  if (fields.length > 0) {
-    return fields;
-  }
-  return ['id'];
-}
-
 function matchByKeyFields(target, candidate, keyFields) {
   return keyFields.every((field) => target?.[field] === candidate?.[field]);
-}
-
-function applyLogEntries(baseRows, logEntries) {
-  if (!Array.isArray(baseRows)) {
-    baseRows = [];
-  }
-  if (!Array.isArray(logEntries) || logEntries.length === 0) {
-    return baseRows;
-  }
-  const rows = [...baseRows];
-  for (const entry of logEntries) {
-    if (!entry || typeof entry !== 'object') {
-      continue;
-    }
-    if (entry.op === 'delete' || entry.deleted) {
-      const keyFields = resolveKeyFields(entry);
-      const row = entry.row && typeof entry.row === 'object' ? entry.row : null;
-      if (!row) {
-        continue;
-      }
-      const index = rows.findIndex((candidate) => matchByKeyFields(row, candidate, keyFields));
-      if (index >= 0) {
-        rows.splice(index, 1);
-      }
-      continue;
-    }
-    if (entry.op === 'upsert') {
-      const keyFields = resolveKeyFields(entry);
-      const row = entry.row && typeof entry.row === 'object' ? entry.row : null;
-      if (!row) {
-        continue;
-      }
-      const index = rows.findIndex((candidate) => matchByKeyFields(row, candidate, keyFields));
-      if (index >= 0) {
-        rows[index] = { ...rows[index], ...row };
-      } else {
-        rows.push(row);
-      }
-    }
-  }
-  return rows;
 }
 
 function cloneRow(row) {
@@ -122,146 +40,241 @@ function cloneRow(row) {
   }
 }
 
+function cloneRows(rows) {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+  return rows.map((row) => cloneRow(row));
+}
+
+function statementToRowArray(statement) {
+  const rows = [];
+  while (statement.step()) {
+    const next = statement.getAsObject();
+    rows.push(JSON.parse(next.row_json));
+  }
+  return rows;
+}
+
+function withTransaction(db, task) {
+  db.run('BEGIN');
+  try {
+    const result = task();
+    db.run('COMMIT');
+    return result;
+  } catch (error) {
+    db.run('ROLLBACK');
+    throw error;
+  }
+}
+
 export class JsonTableStorage {
   constructor({ dataDir, logger }) {
-    this.dataDir = dataDir;
+    this.dataDir = path.resolve(dataDir);
     this.logger = logger;
+    this.databasePath = path.join(this.dataDir, SQLITE_FILE_NAME);
+    this.databasePromise = null;
   }
 
-  tablePath(name) {
-    return path.join(this.dataDir, `${name}.json`);
+  storageLockKey() {
+    return `sqlite-storage:${this.databasePath}`;
   }
 
-  tableSnapshotPath(name) {
-    return path.join(this.dataDir, `${name}${SNAPSHOT_SUFFIX}`);
-  }
-
-  tableLogPath(name) {
-    return path.join(this.dataDir, `${name}${LOG_SUFFIX}`);
-  }
-
-  tableLockKey(name) {
-    return `table:${this.dataDir}:${name}`;
-  }
-
-  async readCombinedTable(name) {
-    const snapshotPath = this.tableSnapshotPath(name);
-    let rows = await readJson(snapshotPath, null);
-    if (!Array.isArray(rows)) {
-      rows = await readJson(this.tablePath(name), []);
+  async getDatabase() {
+    if (!this.databasePromise) {
+      const existing = databasePromiseByPath.get(this.databasePath);
+      if (existing) {
+        this.databasePromise = existing;
+      } else {
+        const opened = this.openDatabase().catch((error) => {
+          databasePromiseByPath.delete(this.databasePath);
+          throw error;
+        });
+        databasePromiseByPath.set(this.databasePath, opened);
+        this.databasePromise = opened;
+      }
     }
-    const logEntries = await readJsonLines(this.tableLogPath(name));
-    return applyLogEntries(rows, logEntries);
+    return this.databasePromise;
+  }
+
+  async openDatabase() {
+    await fs.mkdir(this.dataDir, { recursive: true });
+    const SQL = await getSqlModule();
+    let dbBuffer = null;
+    try {
+      dbBuffer = await fs.readFile(this.databasePath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+    const db = dbBuffer && dbBuffer.length > 0 ? new SQL.Database(dbBuffer) : new SQL.Database();
+    db.run(`
+      CREATE TABLE IF NOT EXISTS json_tables (
+        table_name TEXT PRIMARY KEY,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS json_table_rows (
+        table_name TEXT NOT NULL,
+        row_index INTEGER NOT NULL,
+        row_json TEXT NOT NULL,
+        PRIMARY KEY (table_name, row_index),
+        FOREIGN KEY (table_name) REFERENCES json_tables(table_name) ON DELETE CASCADE
+      );
+    `);
+    db.run(`
+      CREATE INDEX IF NOT EXISTS json_table_rows_lookup
+      ON json_table_rows (table_name, row_index);
+    `);
+    return db;
+  }
+
+  async persistDatabase(db) {
+    const bytes = db.export();
+    await atomicWriteFile(this.databasePath, Buffer.from(bytes));
+  }
+
+  hasTableInDatabase(db, name) {
+    const statement = db.prepare(
+      'SELECT 1 AS present FROM json_tables WHERE table_name = $tableName LIMIT 1',
+    );
+    try {
+      statement.bind({ $tableName: name });
+      return statement.step();
+    } finally {
+      statement.free();
+    }
+  }
+
+  readTableFromDatabase(db, name) {
+    const statement = db.prepare(
+      `
+        SELECT row_json
+        FROM json_table_rows
+        WHERE table_name = $tableName
+        ORDER BY row_index ASC
+      `,
+    );
+    try {
+      statement.bind({ $tableName: name });
+      return statementToRowArray(statement);
+    } finally {
+      statement.free();
+    }
+  }
+
+  writeTableToDatabase(db, name, rows) {
+    const timestamp = new Date().toISOString();
+    withTransaction(db, () => {
+      db.run('DELETE FROM json_table_rows WHERE table_name = $tableName', {
+        $tableName: name,
+      });
+      db.run(
+        `
+          INSERT INTO json_tables (table_name, updated_at)
+          VALUES ($tableName, $updatedAt)
+          ON CONFLICT(table_name) DO UPDATE SET updated_at = excluded.updated_at
+        `,
+        { $tableName: name, $updatedAt: timestamp },
+      );
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return;
+      }
+
+      const insert = db.prepare(
+        `
+          INSERT INTO json_table_rows (table_name, row_index, row_json)
+          VALUES ($tableName, $rowIndex, $rowJson)
+        `,
+      );
+      try {
+        rows.forEach((row, index) => {
+          insert.run({
+            $tableName: name,
+            $rowIndex: index,
+            $rowJson: JSON.stringify(row),
+          });
+        });
+      } finally {
+        insert.free();
+      }
+    });
+  }
+
+  async ensureBootstrap(name, { createIfMissing = false, defaultValue = [] } = {}) {
+    const db = await this.getDatabase();
+    if (this.hasTableInDatabase(db, name)) {
+      return this.readTableFromDatabase(db, name);
+    }
+
+    if (!createIfMissing) {
+      return [];
+    }
+
+    const rows = cloneRows(Array.isArray(defaultValue) ? defaultValue : []);
+    this.writeTableToDatabase(db, name, rows);
+    await this.persistDatabase(db);
+    return rows;
   }
 
   async ensureTable(name, defaultValue = []) {
-    const filePath = this.tablePath(name);
-    try {
-      await fs.access(filePath);
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        await writeJson(filePath, defaultValue);
-      } else {
-        throw error;
-      }
-    }
-    const snapshotPath = this.tableSnapshotPath(name);
-    try {
-      await fs.access(snapshotPath);
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        await writeJson(snapshotPath, defaultValue);
-      } else {
-        throw error;
-      }
-    }
+    await withLock(this.storageLockKey(), async () => {
+      await this.ensureBootstrap(name, { createIfMissing: true, defaultValue });
+    });
   }
 
   async readTable(name) {
-    return this.readCombinedTable(name);
+    return withLock(this.storageLockKey(), async () => {
+      const rows = await this.ensureBootstrap(name, { createIfMissing: false });
+      return cloneRows(rows);
+    });
   }
 
   async writeTable(name, rows) {
-    await withLock(this.tableLockKey(name), async () => {
-      await this.writeTableUnsafe(name, rows);
+    await withLock(this.storageLockKey(), async () => {
+      const db = await this.getDatabase();
+      const nextRows = cloneRows(Array.isArray(rows) ? rows : []);
+      this.writeTableToDatabase(db, name, nextRows);
+      await this.persistDatabase(db);
     });
   }
 
   async upsertRow(name, row, keyFields) {
-    const logPath = this.tableLogPath(name);
-    const entry = {
-      op: 'upsert',
-      keyFields: normalizeKeyFields(keyFields),
-      row: cloneRow(row),
-      timestamp: new Date().toISOString(),
-    };
-    await withLock(this.tableLockKey(name), async () => {
-      await appendJsonLine(logPath, entry);
-      const stats = await fs
-        .stat(logPath)
-        .catch((error) => (error.code === 'ENOENT' ? null : Promise.reject(error)));
-      if (stats && stats.size > MAX_LOG_SIZE_BYTES) {
-        await this.compactTableUnsafe(name);
+    await withLock(this.storageLockKey(), async () => {
+      const db = await this.getDatabase();
+      const rows = await this.ensureBootstrap(name, { createIfMissing: true, defaultValue: [] });
+      const nextRows = cloneRows(rows);
+      const normalizedKeyFields = normalizeKeyFields(keyFields);
+      const effectiveKeyFields =
+        normalizedKeyFields.length > 0 ? normalizedKeyFields : ['id'];
+      const nextRow = cloneRow(row);
+      const index = nextRows.findIndex((candidate) =>
+        matchByKeyFields(nextRow, candidate, effectiveKeyFields),
+      );
+      if (index >= 0) {
+        nextRows[index] = { ...nextRows[index], ...nextRow };
+      } else {
+        nextRows.push(nextRow);
       }
+      this.writeTableToDatabase(db, name, nextRows);
+      await this.persistDatabase(db);
     });
   }
 
   async deleteWhere(name, predicate) {
-    await withLock(this.tableLockKey(name), async () => {
-      const rows = await this.readCombinedTable(name);
-      const removals = rows.filter((row) => predicate(row));
-      if (removals.length === 0) {
+    await withLock(this.storageLockKey(), async () => {
+      const db = await this.getDatabase();
+      const rows = await this.ensureBootstrap(name, { createIfMissing: true, defaultValue: [] });
+      const nextRows = rows.filter((row) => !predicate(row)).map((row) => cloneRow(row));
+      if (nextRows.length === rows.length) {
         return;
       }
-      const logPath = this.tableLogPath(name);
-      for (const row of removals) {
-        const entry = {
-          op: 'delete',
-          keyFields: resolveKeyFields(row),
-          row: cloneRow(row),
-          timestamp: new Date().toISOString(),
-        };
-        await appendJsonLine(logPath, entry);
-      }
-      const stats = await fs
-        .stat(logPath)
-        .catch((error) => (error.code === 'ENOENT' ? null : Promise.reject(error)));
-      const sampleEntry =
-        removals.length > 0
-          ? {
-              op: 'delete',
-              keyFields: resolveKeyFields(removals[0]),
-              row: cloneRow(removals[0]),
-              timestamp: new Date().toISOString(),
-            }
-          : null;
-      const averageEntryBytes = Math.max(
-        64,
-        sampleEntry ? JSON.stringify(sampleEntry).length : 0,
-      );
-      const estimatedEntries =
-        stats && stats.size > 0 ? Math.ceil(stats.size / averageEntryBytes) : 0;
-      if (
-        (stats && stats.size > MAX_LOG_SIZE_BYTES) ||
-        estimatedEntries > MAX_LOG_ENTRIES_BEFORE_COMPACT
-      ) {
-        await this.compactTableUnsafe(name);
-      }
+      this.writeTableToDatabase(db, name, nextRows);
+      await this.persistDatabase(db);
     });
-  }
-
-  async writeTableUnsafe(name, rows) {
-    const filePath = this.tablePath(name);
-    const snapshotPath = this.tableSnapshotPath(name);
-    const logPath = this.tableLogPath(name);
-    await writeJson(snapshotPath, rows);
-    await writeJson(filePath, rows);
-    await fs.rm(logPath, { force: true });
-  }
-
-  async compactTableUnsafe(name) {
-    const rows = await this.readCombinedTable(name);
-    await this.writeTableUnsafe(name, rows);
   }
 }
 

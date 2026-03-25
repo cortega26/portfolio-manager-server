@@ -19,6 +19,21 @@ vi.mock("../utils/api.js", async (importOriginal) => {
   return {
     ...actual,
     __esModule: true,
+    evaluateSignals: vi.fn(async () => ({
+      data: {
+        rows: [],
+        prices: {},
+        errors: {},
+        market: {
+          isOpen: true,
+          isBeforeOpen: false,
+          lastTradingDate: "2024-01-02",
+          nextTradingDate: "2024-01-02",
+        },
+      },
+      requestId: "signals-none",
+    })),
+    fetchBenchmarkCatalog: vi.fn(async () => ({ data: {} })),
     fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
     fetchPrices: vi.fn(async () => ({ data: [], requestId: "price-none" })),
     fetchDailyReturns: vi.fn(async () => ({
@@ -70,6 +85,7 @@ describe("App portfolio settings persistence", () => {
       unobserve() {}
       disconnect() {}
     };
+    delete global.window.__APP_CONFIG__;
   });
 
   afterEach(() => {

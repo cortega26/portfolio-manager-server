@@ -6,14 +6,18 @@ import { renderWithProviders } from './test-utils';
 import App from '../App.jsx';
 
 const {
+  evaluateSignalsMock,
   fetchDailyReturnsMock,
+  fetchBenchmarkCatalogMock,
   fetchBulkPricesMock,
   fetchPricesMock,
   buildRoiSeriesMock,
   mergeReturnSeriesMock,
   createInitialLedgerStateMock,
 } = vi.hoisted(() => ({
+  evaluateSignalsMock: vi.fn(),
   fetchDailyReturnsMock: vi.fn(),
+  fetchBenchmarkCatalogMock: vi.fn(),
   fetchBulkPricesMock: vi.fn(),
   fetchPricesMock: vi.fn(),
   buildRoiSeriesMock: vi.fn(),
@@ -49,7 +53,9 @@ vi.mock('../components/AdminTab.jsx', () => ({
 }));
 
 vi.mock('../utils/api.js', () => ({
+  evaluateSignals: evaluateSignalsMock,
   fetchDailyReturns: fetchDailyReturnsMock,
+  fetchBenchmarkCatalog: fetchBenchmarkCatalogMock,
   fetchBulkPrices: fetchBulkPricesMock,
   fetchPrices: fetchPricesMock,
   persistPortfolio: vi.fn(),
@@ -76,6 +82,21 @@ vi.mock('../utils/holdingsLedger.js', async (original) => {
 describe('ROI fallback alerts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    evaluateSignalsMock.mockResolvedValue({
+      data: {
+        rows: [],
+        prices: {},
+        errors: {},
+        market: {
+          isOpen: true,
+          isBeforeOpen: false,
+          lastTradingDate: '2024-01-02',
+          nextTradingDate: '2024-01-02',
+        },
+      },
+      requestId: 'signals-none',
+    });
+    fetchBenchmarkCatalogMock.mockResolvedValue({ data: {} });
     fetchPricesMock.mockResolvedValue({ data: [] });
     fetchBulkPricesMock.mockResolvedValue({ series: new Map(), errors: {} });
     buildRoiSeriesMock.mockResolvedValue([

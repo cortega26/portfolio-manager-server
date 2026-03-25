@@ -4,22 +4,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 
-import fc from 'fast-check';
-
 import { runMigrations } from '../migrations/index.js';
-import { PORTFOLIO_SCHEMA_VERSION, CASH_POLICY_SCHEMA_VERSION } from '../../shared/constants.js';
+import JsonTableStorage from '../data/storage.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
-
-function writeJson(filePath, value) {
-  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-}
-
-function isoDateFrom(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-const isoDateArb = fc.date({ min: new Date('2020-01-01'), max: new Date('2030-12-31') }).map(isoDateFrom);
 
 let dataDir;
 
@@ -31,104 +19,126 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-function readPortfolio(fileName) {
-  const filePath = path.join(dataDir, fileName);
-  return JSON.parse(readFileSync(filePath, 'utf8'));
-}
-
-test('portfolio migration seeds cash policy and backups original file', async () => {
-  writeJson(path.join(dataDir, 'cash_rates.json'), [
-    { effective_date: '2023-12-01', apy: 0.02 },
-    { effective_date: '2024-03-01', apy: 0.025 },
-  ]);
-  const portfolioName = 'portfolio_sample.json';
-  writeJson(path.join(dataDir, portfolioName), {
-    transactions: [],
-    signals: {},
-    settings: {},
-  });
-
+test('migration 004 initializes cash_rates table with empty data on fresh install', async () => {
   await runMigrations({ dataDir, logger: noopLogger });
 
-  const migrated = readPortfolio(portfolioName);
-  assert.equal(migrated.schemaVersion, PORTFOLIO_SCHEMA_VERSION);
-  assert.deepEqual(migrated.cash, {
-    currency: 'USD',
-    apyTimeline: [
-      { from: '2023-12-01', to: null, apy: 0.02 },
-      { from: '2024-03-01', to: null, apy: 0.025 },
-    ],
-    version: CASH_POLICY_SCHEMA_VERSION,
-  });
-  const backupPath = path.join(dataDir, `${portfolioName}.bak`);
-  assert.ok(readFileSync(backupPath, 'utf8').length > 0, 'backup should exist');
+  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const rates = await storage.readTable('cash_rates');
+  assert.deepEqual(rates, [], 'cash_rates table should be empty on fresh install');
+
   const state = JSON.parse(readFileSync(path.join(dataDir, '_migrations_state.json'), 'utf8'));
   assert.ok(state.applied.includes('004_portfolio_cash_policy'));
 });
 
-test('portfolio cash policy migration is idempotent', async () => {
-  await fc.assert(
-    fc.asyncProperty(
-      fc.record({
-        rates: fc.array(
-          fc.record({
-            effective_date: isoDateArb,
-            apy: fc.double({ min: 0, max: 0.15, noNaN: true }),
-          }),
-          { minLength: 0, maxLength: 4 },
-        ),
-        schemaVersion: fc.oneof(fc.constant(undefined), fc.integer({ min: 0, max: 3 })),
-        cashVersion: fc.oneof(fc.constant(undefined), fc.integer({ min: 0, max: 2 })),
-        currency: fc.option(fc.constantFrom('usd', 'EUR', 'JPY', 'cad', 'bad'), { nil: undefined }),
-        timeline: fc.option(
-          fc.array(
-            fc.record({
-              from: isoDateArb,
-              to: fc.option(isoDateArb, { nil: undefined }),
-              apy: fc.double({ min: 0, max: 0.2, noNaN: true }),
-            }),
-            { minLength: 0, maxLength: 4 },
-          ),
-          { nil: undefined },
-        ),
-      }),
-      async ({ rates, schemaVersion, cashVersion, currency, timeline }) => {
-        const dir = mkdtempSync(path.join(tmpdir(), 'migration-cash-prop-'));
-        try {
-          writeJson(path.join(dir, 'cash_rates.json'), rates);
-          const portfolio = {
-            transactions: [],
-            signals: {},
-            settings: {},
-          };
-          if (schemaVersion !== undefined) {
-            portfolio.schemaVersion = schemaVersion;
-          }
-          if (timeline !== undefined || currency !== undefined || cashVersion !== undefined) {
-            portfolio.cash = {};
-            if (currency !== undefined) {
-              portfolio.cash.currency = currency;
-            }
-            if (timeline !== undefined) {
-              portfolio.cash.apyTimeline = timeline;
-            }
-            if (cashVersion !== undefined) {
-              portfolio.cash.version = cashVersion;
-            }
-          }
-          const portfolioName = 'portfolio_prop.json';
-          writeJson(path.join(dir, portfolioName), portfolio);
+test('migration 005 backfills legacy NVDA pre-split csv sells in persisted portfolios', async () => {
+  await runMigrations({ dataDir, logger: noopLogger });
 
-          await runMigrations({ dataDir: dir, logger: noopLogger });
-          const firstPass = readFileSync(path.join(dir, portfolioName), 'utf8');
-          await runMigrations({ dataDir: dir, logger: noopLogger });
-          const secondPass = readFileSync(path.join(dir, portfolioName), 'utf8');
-          assert.equal(secondPass, firstPass);
-        } finally {
-          rmSync(dir, { recursive: true, force: true });
-        }
+  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  await storage.writeTable('transactions', [
+    {
+      id: 'csv:32996_asset_market_buys.csv:3',
+      uid: 'csv:32996_asset_market_buys.csv:3',
+      portfolio_id: 'desktop',
+      date: '2024-01-23',
+      ticker: 'NVDA',
+      type: 'BUY',
+      amount: -1.06,
+      price: 59.44883082,
+      quantity: 0.01783046,
+      shares: 0.01783046,
+      metadata: {
+        system: {
+          import: {
+            source: 'csv-bootstrap',
+            original: {
+              quantity: '0.001783046',
+            },
+            adjustment: {
+              rule: 'NVDA_10_FOR_1_PRE_2024_06_10_BUY_ONLY',
+              factor: '10',
+            },
+          },
+        },
       },
-    ),
-    { numRuns: 25 },
+    },
+    {
+      id: 'csv:32996_asset_market_sells.csv:3',
+      uid: 'csv:32996_asset_market_sells.csv:3',
+      portfolio_id: 'desktop',
+      date: '2024-01-24',
+      ticker: 'NVDA',
+      type: 'SELL',
+      amount: 1.11,
+      price: 622.53020954,
+      quantity: -0.001783046,
+      shares: 0.001783046,
+      metadata: {
+        system: {
+          import: {
+            source: 'csv-bootstrap',
+            original: {
+              quantity: '0.001783046',
+            },
+            adjustment: null,
+          },
+        },
+      },
+    },
+  ]);
+
+  const statePath = path.join(dataDir, '_migrations_state.json');
+  const state = JSON.parse(readFileSync(statePath, 'utf8'));
+  state.applied = state.applied.filter((id) => id !== '005_nvda_presplit_split_backfill');
+  writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
+
+  await runMigrations({ dataDir, logger: noopLogger });
+
+  const transactions = await storage.readTable('transactions');
+  const [buy, sell] = transactions;
+
+  assert.equal(buy.shares, 0.01783046);
+  assert.equal(
+    buy.metadata?.system?.import?.adjustment?.rule,
+    'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES',
   );
+  assert.equal(sell.shares, 0.01783046);
+  assert.equal(sell.quantity, -0.01783046);
+  assert.equal(sell.price, 62.25302095);
+  assert.equal(
+    sell.metadata?.system?.import?.adjustment?.rule,
+    'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES',
+  );
+});
+
+test('migrations are idempotent: running twice yields same state', async () => {
+  await runMigrations({ dataDir, logger: noopLogger });
+
+  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const txFirstRun = await storage.readTable('transactions');
+
+  // Run again — should not error and should not duplicate data
+  await runMigrations({ dataDir, logger: noopLogger });
+  const txSecondRun = await storage.readTable('transactions');
+
+  assert.deepEqual(txSecondRun, txFirstRun, 'second run should produce identical state');
+});
+
+test('all expected tables are created after migrations', async () => {
+  await runMigrations({ dataDir, logger: noopLogger });
+
+  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const expectedTables = [
+    'transactions',
+    'cash_rates',
+    'prices',
+    'nav_snapshots',
+    'returns_daily',
+    'jobs_state',
+    'portfolio_keys',
+    'cash_interest_accruals',
+  ];
+  for (const table of expectedTables) {
+    const rows = await storage.readTable(table);
+    assert.ok(Array.isArray(rows), `table "${table}" should exist and return an array`);
+  }
 });

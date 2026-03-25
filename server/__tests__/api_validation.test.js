@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os';
 
 import request from 'supertest';
 
-import { createApp } from '../app.js';
 import JsonTableStorage from '../data/storage.js';
+import { createSessionTestApp, withSession } from './sessionTestUtils.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
 
@@ -22,10 +22,9 @@ beforeEach(async () => {
   await storage.ensureTable('cash_rates', []);
   await storage.ensureTable('returns_daily', []);
   await storage.ensureTable('nav_snapshots', []);
-  app = createApp({
+  app = createSessionTestApp({
     dataDir,
     logger: noopLogger,
-    config: { featureFlags: { cashBenchmarks: true }, cors: { allowedOrigins: [] } },
   });
 });
 
@@ -34,11 +33,12 @@ afterEach(() => {
 });
 
 test('POST /api/portfolio rejects invalid payloads with validation details', async () => {
-  const response = await request(app)
-    .post('/api/portfolio/test123')
-    .send({ transactions: [{ type: 'BUY', amount: 'invalid' }] })
-    .set('Content-Type', 'application/json')
-    .set('X-Portfolio-Key', 'ValidKey123!');
+  const response = await withSession(
+    request(app)
+      .post('/api/portfolio/test123')
+      .send({ transactions: [{ type: 'BUY', amount: 'invalid' }] })
+      .set('Content-Type', 'application/json'),
+  );
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');
@@ -47,11 +47,12 @@ test('POST /api/portfolio rejects invalid payloads with validation details', asy
 });
 
 test('POST /api/portfolio rejects invalid portfolio id', async () => {
-  const response = await request(app)
-    .post('/api/portfolio/bad id')
-    .send({ transactions: [] })
-    .set('Content-Type', 'application/json')
-    .set('X-Portfolio-Key', 'ValidKey123!');
+  const response = await withSession(
+    request(app)
+      .post('/api/portfolio/bad id')
+      .send({ transactions: [] })
+      .set('Content-Type', 'application/json'),
+  );
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');
@@ -140,23 +141,17 @@ test('POST /api/admin/cash-rate enforces body validation', async () => {
   assert.ok(Array.isArray(response.body.details));
 });
 
-test('POST /api/portfolio enforces rate limiting', async () => {
+test('POST /api/portfolio handles many sequential writes without throttling (desktop mode)', async () => {
+  // Rate limiting was removed because this app runs as a local desktop app on loopback only.
+  // Verify that many requests all succeed (no 429).
   const payload = { transactions: [], signals: {} };
-  const responses = [];
-  for (let index = 0; index < 21; index += 1) {
-    const response = await request(app)
-      .post('/api/portfolio/ratelimit')
-      .send(payload)
-      .set('Content-Type', 'application/json')
-      .set('X-Portfolio-Key', 'ValidKey456!');
-    responses.push(response);
+  for (let index = 0; index < 10; index += 1) {
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/no-ratelimit')
+        .send(payload)
+        .set('Content-Type', 'application/json'),
+    );
+    assert.equal(response.status, 200, `request ${index} should succeed`);
   }
-
-  for (let index = 0; index < 20; index += 1) {
-    assert.equal(responses[index].status, 200);
-  }
-
-  const last = responses[responses.length - 1];
-  assert.equal(last.status, 429);
-  assert.equal(Number(last.headers['ratelimit-remaining'] ?? '0'), 0);
 });

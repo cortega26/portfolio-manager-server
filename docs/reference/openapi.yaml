@@ -237,6 +237,70 @@ paths:
           headers:
             X-Request-ID:
               $ref: '#/components/headers/XRequestId'
+  /api/benchmarks:
+    get:
+      summary: Benchmark metadata catalog
+      responses:
+        '200':
+          description: Configured benchmark metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - available
+                - derived
+                - defaults
+                - priceSymbols
+                properties:
+                  available:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - ticker
+                      - label
+                      - kind
+                      properties:
+                        id:
+                          type: string
+                        ticker:
+                          type: string
+                        label:
+                          type: string
+                        kind:
+                          type: string
+                          enum:
+                          - market
+                  derived:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - label
+                      - kind
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        kind:
+                          type: string
+                          enum:
+                          - derived
+                  defaults:
+                    type: array
+                    items:
+                      type: string
+                  priceSymbols:
+                    type: array
+                    items:
+                      type: string
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
   /api/portfolio/{id}:
     get:
       summary: Load a persisted portfolio definition
@@ -365,6 +429,41 @@ paths:
                 error: TOO_MANY_KEY_ATTEMPTS
                 message: Too many invalid portfolio key attempts. Try again later.
                 retry_after_seconds: 900
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/signals:
+    post:
+      summary: Evaluate signal rows for an in-memory portfolio draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioPayload'
+      responses:
+        '200':
+          description: Signal preview rows and latest prices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalPreviewResponse'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing session token
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '403':
+          description: Invalid session token
           headers:
             X-Request-ID:
               $ref: '#/components/headers/XRequestId'
@@ -629,6 +728,70 @@ paths:
           headers:
             X-Request-ID:
               $ref: '#/components/headers/XRequestId'
+  /api/v1/benchmarks:
+    get:
+      summary: Benchmark metadata catalog
+      responses:
+        '200':
+          description: Configured benchmark metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - available
+                - derived
+                - defaults
+                - priceSymbols
+                properties:
+                  available:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - ticker
+                      - label
+                      - kind
+                      properties:
+                        id:
+                          type: string
+                        ticker:
+                          type: string
+                        label:
+                          type: string
+                        kind:
+                          type: string
+                          enum:
+                          - market
+                  derived:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - label
+                      - kind
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        kind:
+                          type: string
+                          enum:
+                          - derived
+                  defaults:
+                    type: array
+                    items:
+                      type: string
+                  priceSymbols:
+                    type: array
+                    items:
+                      type: string
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
   /api/v1/portfolio/{id}:
     get:
       summary: Load a persisted portfolio definition
@@ -757,6 +920,41 @@ paths:
                 error: TOO_MANY_KEY_ATTEMPTS
                 message: Too many invalid portfolio key attempts. Try again later.
                 retry_after_seconds: 900
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/v1/signals:
+    post:
+      summary: Evaluate signal rows for an in-memory portfolio draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioPayload'
+      responses:
+        '200':
+          description: Signal preview rows and latest prices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalPreviewResponse'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing session token
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+        '403':
+          description: Invalid session token
           headers:
             X-Request-ID:
               $ref: '#/components/headers/XRequestId'
@@ -928,6 +1126,102 @@ components:
                     type: number
             version:
               type: integer
+    SignalPreviewRow:
+      type: object
+      required:
+      - ticker
+      - pctWindow
+      - status
+      - sanityRejected
+      properties:
+        ticker:
+          type: string
+        pctWindow:
+          type: number
+          nullable: true
+        status:
+          type: string
+          enum:
+          - BUY_ZONE
+          - TRIM_ZONE
+          - HOLD
+          - NO_DATA
+        currentPrice:
+          type: number
+          nullable: true
+        currentPriceAsOf:
+          type: string
+          format: date
+          nullable: true
+        lowerBound:
+          type: number
+          nullable: true
+        upperBound:
+          type: number
+          nullable: true
+        referencePrice:
+          type: number
+          nullable: true
+        referenceDate:
+          type: string
+          format: date
+          nullable: true
+        referenceType:
+          type: string
+          nullable: true
+        sanityRejected:
+          type: boolean
+    SignalPreviewPriceError:
+      type: object
+      required:
+      - code
+      - status
+      - message
+      properties:
+        code:
+          type: string
+        status:
+          type: integer
+        message:
+          type: string
+    SignalPreviewResponse:
+      type: object
+      required:
+      - rows
+      - prices
+      - errors
+      - market
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalPreviewRow'
+        prices:
+          type: object
+          additionalProperties:
+            type: number
+        errors:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SignalPreviewPriceError'
+        market:
+          type: object
+          required:
+          - isOpen
+          - isBeforeOpen
+          - lastTradingDate
+          - nextTradingDate
+          properties:
+            isOpen:
+              type: boolean
+            isBeforeOpen:
+              type: boolean
+            lastTradingDate:
+              type: string
+              format: date
+            nextTradingDate:
+              type: string
+              format: date
     ErrorResponse:
       type: object
       required:

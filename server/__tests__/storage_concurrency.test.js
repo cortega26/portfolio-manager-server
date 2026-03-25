@@ -6,10 +6,11 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import request from 'supertest';
 
-import { createApp } from '../app.js';
 import { JsonTableStorage } from '../data/storage.js';
+import { readPortfolioState } from '../data/portfolioState.js';
 import { atomicWriteFile } from '../utils/atomicStore.js';
 import { portfolioBodySchema } from '../middleware/validation.js';
+import { createSessionTestApp, withSession } from './sessionTestUtils.js';
 
 const noopLogger = {
   info() {},
@@ -27,7 +28,7 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-test('JsonTableStorage serializes Promise.all writes without corrupting the table', async () => {
+test('JsonTableStorage serializes Promise.all writes without corrupting the SQLite-backed table', async () => {
   const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
   const tableName = 'portfolio_serialized';
   const payloads = Array.from({ length: 24 }, (_, index) => [
@@ -45,9 +46,7 @@ test('JsonTableStorage serializes Promise.all writes without corrupting the tabl
 
   await Promise.all(payloads.map((rows) => storage.writeTable(tableName, rows)));
 
-  const filePath = path.join(dataDir, `${tableName}.json`);
-  const raw = readFileSync(filePath, 'utf8');
-  const parsed = JSON.parse(raw);
+  const parsed = await storage.readTable(tableName);
 
   const matches = payloads.some((rows) => {
     try {
@@ -59,67 +58,12 @@ test('JsonTableStorage serializes Promise.all writes without corrupting the tabl
   });
 
   assert.equal(matches, true, 'final table should match one of the serialized writers');
-  assert.match(raw.trim(), /^\[/u, 'serialized file should remain valid JSON array');
-});
-
-test('JsonTableStorage appends upserts to a journal and compacts safely', async () => {
-  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
-  const tableName = 'portfolio_journal';
-  await storage.writeTable(tableName, [{ id: 'baseline', value: 1 }]);
-
-  const basePath = path.join(dataDir, `${tableName}.json`);
-  const snapshotPath = path.join(dataDir, `${tableName}.snapshot.json`);
-  const logPath = path.join(dataDir, `${tableName}.log.ndjson`);
-
-  const initialBase = readFileSync(basePath, 'utf8');
-  const initialSnapshot = readFileSync(snapshotPath, 'utf8');
-  assert.equal(
-    initialSnapshot,
-    initialBase,
-    'snapshot should mirror base table before journal writes',
-  );
-
-  await storage.upsertRow(tableName, { id: 'baseline', value: 2 }, ['id']);
-
-  const postUpsertBase = readFileSync(basePath, 'utf8');
-  assert.equal(postUpsertBase, initialBase, 'base file should remain untouched after journaled upsert');
-  const journalContents = readFileSync(logPath, 'utf8');
-  assert.ok(journalContents.includes('"op":"upsert"'));
-
-  const resolved = await storage.readTable(tableName);
-  assert.deepEqual(resolved, [{ id: 'baseline', value: 2 }]);
-
-  const largeNote = 'x'.repeat(1_200_000);
-  await storage.upsertRow(
-    tableName,
-    { id: 'baseline', value: 3, note: largeNote },
-    ['id'],
-  );
-  await storage.upsertRow(
-    tableName,
-    { id: 'baseline', value: 4, note: largeNote },
-    ['id'],
-  );
-
-  let logStat;
-  try {
-    logStat = readFileSync(logPath, 'utf8');
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      throw error;
-    }
-  }
-
-  const compactedBase = JSON.parse(readFileSync(basePath, 'utf8'));
-  const compactedSnapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
-  assert.equal(compactedBase[0].value, 4);
-  assert.equal(compactedBase[0].note.length, largeNote.length);
-  assert.deepEqual(compactedBase, compactedSnapshot);
-  assert.ok(!logStat || logStat.length === 0, 'journal should be cleared after compaction');
+  const raw = readFileSync(path.join(dataDir, 'storage.sqlite'));
+  assert.equal(raw.subarray(0, 15).toString('utf8'), 'SQLite format 3');
 });
 
 test('API writes remain atomic and JSON-parseable under Promise.all load', async () => {
-  const app = createApp({ dataDir, logger: noopLogger });
+  const app = createSessionTestApp({ dataDir, logger: noopLogger });
   const portfolioId = 'stress';
   const payloads = Array.from({ length: 16 }, (_, index) => ({
     transactions: [
@@ -140,10 +84,11 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
 
   const responses = await Promise.all(
     payloads.map((payload) =>
-      request(app)
-        .post(`/api/portfolio/${portfolioId}`)
-        .set('X-Portfolio-Key', 'ValidKeyStress1!')
-        .send(payload),
+      withSession(
+        request(app)
+          .post(`/api/portfolio/${portfolioId}`)
+          .send(payload),
+      ),
     ),
   );
 
@@ -152,9 +97,8 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
     assert.deepEqual(response.body, { status: 'ok' });
   }
 
-  const filePath = path.join(dataDir, 'portfolio_stress.json');
-  const raw = readFileSync(filePath, 'utf8');
-  const saved = JSON.parse(raw);
+  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const saved = await readPortfolioState(storage, portfolioId);
 
   const sanitized = {
     transactions: (saved.transactions ?? []).map((transaction) => {

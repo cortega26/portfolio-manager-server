@@ -1,0 +1,6 @@
+{
+  "name": "portfolio-manager-unified-electron-shell",
+  "private": true,
+  "main": "main.cjs",
+  "type": "module"
+}

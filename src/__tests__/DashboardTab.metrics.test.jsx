@@ -8,6 +8,7 @@ import DashboardTab from "../components/DashboardTab.jsx";
 import {
   computeCashBalance,
   deriveDashboardMetrics,
+  summarizePortfolioFlows,
 } from "../hooks/usePortfolioMetrics.js";
 
 const TRANSACTION_FIXTURE = [
@@ -27,8 +28,8 @@ const METRICS_FIXTURE = {
 };
 
 const ROI_FIXTURE = [
-  { date: "2024-01-01", portfolio: 0, spy: 0, blended: 0, exCash: 0, cash: 0 },
-  { date: "2024-01-10", portfolio: 5.5, spy: 6, blended: 4.5, exCash: 7.2, cash: 0.9 },
+  { date: "2024-01-01", portfolio: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 },
+  { date: "2024-01-10", portfolio: 5.5, spy: 6, qqq: 8, blended: 4.5, exCash: 7.2, cash: 0.9 },
 ];
 
 describe("DashboardTab metrics derivation", () => {
@@ -64,6 +65,13 @@ describe("DashboardTab metrics derivation", () => {
     assert.equal(balance, 745);
   });
 
+  it("summarizes net contributions and income separately", () => {
+    const summary = summarizePortfolioFlows(TRANSACTION_FIXTURE);
+
+    assert.equal(summary.netContributions.toNumber(), 950);
+    assert.equal(summary.netIncome.toNumber(), -5);
+  });
+
   it("derives cash allocation and benchmark deltas", () => {
     const derived = deriveDashboardMetrics({
       metrics: METRICS_FIXTURE,
@@ -72,10 +80,16 @@ describe("DashboardTab metrics derivation", () => {
     });
 
     assert.equal(Math.round(derived.totals.totalNav), 1345);
-    assert.equal(Math.round(derived.percentages.returnPct), 30);
+    assert.equal(derived.totals.netContributions, 950);
+    assert.equal(derived.totals.netStockPurchases, 200);
+    assert.equal(derived.totals.historicalChange, 400);
+    assert.equal(derived.totals.positionCost, 500);
+    assert.equal(derived.totals.netIncome, -5);
+    assert.equal(Math.round(derived.percentages.returnPct), 15);
     assert.ok(Math.abs(derived.percentages.cashAllocationPct - 55.35) < 0.1);
     assert.equal(derived.percentages.cashDragPct, 1.5);
     assert.equal(derived.percentages.spyDeltaPct, -0.5);
+    assert.equal(derived.percentages.qqqDeltaPct, -2.5);
     assert.equal(derived.percentages.blendedDeltaPct, 1.0);
   });
 
@@ -90,13 +104,27 @@ describe("DashboardTab metrics derivation", () => {
       />,
     );
 
-    assert.ok(screen.getByText("Net Asset Value"));
+    assert.ok(screen.getByText("Equity Balance"));
+    assert.ok(screen.getByText("3 open holdings priced"));
+    assert.ok(screen.getByText("Net Stock Purchases"));
+    assert.ok(screen.getAllByText("$200.00").length >= 1);
+    assert.ok(screen.getByText("Gross buys $400.00 minus sells $200.00"));
+    assert.ok(screen.getByText("Performance context"));
+    assert.ok(screen.getByText("Gap vs Nasdaq-100"));
+    assert.ok(screen.getByText("-2.50%"));
+    assert.ok(screen.getByText("Historical Change"));
+    assert.ok(screen.getAllByText("$400.00").length >= 1);
+    assert.ok(screen.getByText("Total NAV"));
     assert.ok(screen.getByText("Cash balance $745.00"));
-    assert.ok(screen.getByText("Cash Allocation"));
-    assert.ok(screen.getByText("55.4%"));
-    assert.ok(screen.getByText(/Cash Drag/));
-    assert.ok(screen.getByText(/\+1.50%/));
-    assert.ok(screen.getByText(/Benchmark Delta/));
-    assert.ok(screen.getByText(/Blended \+1.00%/));
+    assert.ok(screen.getByText("Net External Contributions"));
+    assert.ok(screen.getByText("$950.00"));
+    assert.ok(screen.getByText("Funding flows only · net income -$5.00"));
+    assert.ok(screen.getByText("Total Return"));
+    assert.ok(screen.getByText("$145.00"));
+    assert.ok(
+      screen.getByText(
+        "Realised $50.00 · Unrealised $100.00 · Net income -$5.00 · ROI +41.58%",
+      ),
+    );
   });
 });

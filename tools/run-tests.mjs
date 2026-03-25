@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { readdir } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -92,9 +92,18 @@ async function walk(absDir, relDir, accumulator) {
       continue;
     }
     if (/\.(test|spec)\.(c|m)?js$/u.test(entry.name)) {
+      const filePath = path.join(absDir, entry.name);
+      if (await isVitestSuite(filePath)) {
+        continue;
+      }
       accumulator.push(path.join(relDir, entry.name));
     }
   }
+}
+
+async function isVitestSuite(filePath) {
+  const contents = await readFile(filePath, 'utf8');
+  return /\bfrom\s+['"]vitest['"]|\bimport\s+['"]vitest['"]/u.test(contents);
 }
 
 function toSeed(value) {

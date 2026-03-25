@@ -8,16 +8,22 @@ import {
   useRef,
   useState,
 } from "react";
+import DesktopSessionGate from "./components/DesktopSessionGate.jsx";
 import PortfolioControls from "./components/PortfolioControls.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import TabBar from "./components/TabBar.jsx";
 import {
+  evaluateSignals,
+  fetchBenchmarkCatalog,
   fetchBulkPrices,
   fetchDailyReturns,
   persistPortfolio,
   retrievePortfolio,
 } from "./utils/api.js";
-import { computeDashboardMetrics } from "./utils/holdings.js";
+import {
+  computeDashboardMetrics,
+  filterOpenHoldings,
+} from "./utils/holdings.js";
 import { groupTransactionsByMonth, buildTransactionTimeline } from "./utils/history.js";
 import {
   buildMetricCards,
@@ -31,7 +37,14 @@ import {
   buildHoldingsCsv,
   triggerCsvDownload,
 } from "./utils/reports.js";
-import { buildRoiSeries, mergeReturnSeries } from "./utils/roi.js";
+import {
+  getFallbackBenchmarkCatalog,
+  normalizeBenchmarkCatalogResponse,
+  buildBenchmarkOverlaySeries,
+  buildRoiSeries,
+  mergeBenchmarkOverlaySeries,
+  mergeReturnSeries,
+} from "./utils/roi.js";
 import {
   createDefaultSettings,
   loadSettingsFromStorage,
@@ -40,18 +53,19 @@ import {
   persistSettingsToStorage,
   updateSetting,
 } from "./utils/settings.js";
-import { getMarketClock } from "./utils/marketHours.js";
-import { loadPortfolioKey, savePortfolioKey } from "./utils/portfolioKeys.js";
+import useDebouncedValue from "./hooks/useDebouncedValue.js";
 import {
   createInitialLedgerState,
   ledgerReducer,
 } from "./utils/holdingsLedger.js";
 import { useI18n } from "./i18n/I18nProvider.jsx";
 import {
-  loadActivePortfolioSnapshot,
-  persistActivePortfolioSnapshot,
+  loadActivePortfolioId,
   setActivePortfolioId,
 } from "./state/portfolioStore.js";
+import { getRuntimeConfigSync, mergeRuntimeConfig } from "./lib/runtimeConfig.js";
+import { isSignalStatusActionable, SIGNAL_STATUS } from "../shared/signals.js";
+import { getMarketClock } from "./utils/marketHours.js";
 
 const DashboardTab = lazy(() => import("./components/DashboardTab.jsx"));
 const HoldingsTab = lazy(() => import("./components/HoldingsTab.jsx"));
@@ -72,6 +86,56 @@ export function LoadingFallback() {
 }
 
 const DEFAULT_TAB = "Dashboard";
+const DESKTOP_SESSION_ERROR_KEYS = {
+  INVALID_PIN: "desktopSession.error.INVALID_PIN",
+  INVALID_PIN_CONFIRMATION: "desktopSession.error.INVALID_PIN_CONFIRMATION",
+  INVALID_PIN_FORMAT: "desktopSession.error.INVALID_PIN_FORMAT",
+  INVALID_PORTFOLIO_ID: "desktopSession.error.INVALID_PORTFOLIO_ID",
+  PORTFOLIO_NOT_FOUND: "desktopSession.error.PORTFOLIO_NOT_FOUND",
+  PORTFOLIO_REQUIRED: "desktopSession.error.PORTFOLIO_REQUIRED",
+  PIN_ALREADY_SET: "desktopSession.error.PIN_ALREADY_SET",
+  DESKTOP_SESSION_ERROR: "desktopSession.error.generic",
+};
+
+function getDesktopBridge() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const bridge = window.portfolioDesktop;
+  if (!bridge || bridge.isAvailable !== true) {
+    return null;
+  }
+  return bridge;
+}
+
+function hasRuntimeSessionToken(runtimeConfig) {
+  return (
+    typeof runtimeConfig?.API_SESSION_TOKEN === "string"
+    && runtimeConfig.API_SESSION_TOKEN.trim().length > 0
+  );
+}
+
+function normalizeDesktopPin(pin) {
+  if (typeof pin !== "string") {
+    return "";
+  }
+  return pin.trim();
+}
+
+function formatDesktopSessionError(error, t) {
+  const code =
+    typeof error?.code === "string" && error.code.trim().length > 0
+      ? error.code.trim()
+      : null;
+  const errorKey = code ? DESKTOP_SESSION_ERROR_KEYS[code] : null;
+  if (errorKey) {
+    return t(errorKey);
+  }
+  if (typeof error?.message === "string" && error.message.trim().length > 0) {
+    return error.message.trim();
+  }
+  return t("desktopSession.error.generic");
+}
 
 function normalizeTickerSymbol(symbol) {
   if (typeof symbol !== "string") {
@@ -147,6 +211,46 @@ function createRoiPriceFetcher({ fetcher, onErrors } = {}) {
   return loader;
 }
 
+async function augmentRoiDataWithBenchmarks(roiData, priceFetcher, benchmarks = []) {
+  if (!Array.isArray(roiData) || roiData.length === 0 || typeof priceFetcher !== "function") {
+    return Array.isArray(roiData) ? roiData : [];
+  }
+
+  let nextData = roiData.map((point) => ({ ...point }));
+  for (const benchmark of benchmarks) {
+    const symbol =
+      typeof benchmark?.symbol === "string" ? benchmark.symbol.trim().toUpperCase() : "";
+    const dataKey =
+      typeof benchmark?.dataKey === "string" ? benchmark.dataKey.trim() : "";
+    if (!symbol || !dataKey) {
+      continue;
+    }
+    try {
+      const response = await priceFetcher(symbol);
+      const rawSeries = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+        ? response.data
+        : [];
+      const overlaySeries = buildBenchmarkOverlaySeries(nextData, rawSeries);
+      nextData = mergeBenchmarkOverlaySeries(nextData, overlaySeries, dataKey);
+    } catch (error) {
+      console.error(`Failed to load benchmark overlay for ${symbol}`, error);
+    }
+  }
+  return nextData;
+}
+
+function buildOverlayBenchmarkTargets(catalog) {
+  const normalizedCatalog = normalizeBenchmarkCatalogResponse(catalog);
+  return normalizedCatalog.available
+    .filter((entry) => entry.id !== "spy")
+    .map((entry) => ({
+      symbol: entry.ticker,
+      dataKey: entry.id,
+    }));
+}
+
 export default function PortfolioManagerApp() {
     const {
       t,
@@ -159,16 +263,38 @@ export default function PortfolioManagerApp() {
       formatPercent,
       setCurrencyOverride,
     } = useI18n();
+  const runtimeConfig = getRuntimeConfigSync();
+  const desktopBridge = getDesktopBridge();
+  const initialDesktopLocked = Boolean(desktopBridge && !hasRuntimeSessionToken(runtimeConfig));
   const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
   const [portfolioId, setPortfolioId] = useState("");
-  const [portfolioKey, setPortfolioKey] = useState("");
-  const [portfolioKeyNew, setPortfolioKeyNew] = useState("");
+  const [desktopSessionLocked, setDesktopSessionLocked] = useState(initialDesktopLocked);
+  const [desktopSessionLoading, setDesktopSessionLoading] = useState(initialDesktopLocked);
+  const [desktopSessionSubmitting, setDesktopSessionSubmitting] = useState(false);
+  const [desktopSessionError, setDesktopSessionError] = useState("");
+  const [desktopPortfolios, setDesktopPortfolios] = useState([]);
+  const [desktopSelectedPortfolioId, setDesktopSelectedPortfolioId] = useState(() => {
+    const storedId = loadActivePortfolioId();
+    const runtimePortfolioId =
+      typeof runtimeConfig?.ACTIVE_PORTFOLIO_ID === "string"
+      && runtimeConfig.ACTIVE_PORTFOLIO_ID.trim().length > 0
+        ? runtimeConfig.ACTIVE_PORTFOLIO_ID.trim()
+        : "";
+    return runtimePortfolioId || storedId || "";
+  });
+  const [desktopPin, setDesktopPin] = useState("");
+  const [desktopPinConfirm, setDesktopPinConfirm] = useState("");
   const [ledger, dispatchLedger] = useReducer(ledgerReducer, undefined, createInitialLedgerState);
   const { transactions, holdings } = ledger;
   const [toasts, setToasts] = useState([]);
   const toastIdRef = useRef(0);
+  const bootstrapLoadAttemptedRef = useRef(false);
+  const signalRowsRef = useRef(new Map());
+  const signalNotificationsReadyRef = useRef(false);
   const [signals, setSignals] = useState({});
+  const [signalRows, setSignalRows] = useState([]);
   const [currentPrices, setCurrentPrices] = useState({});
+  const currentPricesRef = useRef({});
   const [roiData, setRoiData] = useState([]);
   const [loadingRoi, setLoadingRoi] = useState(false);
   const [roiRefreshKey, setRoiRefreshKey] = useState(0);
@@ -177,11 +303,29 @@ export default function PortfolioManagerApp() {
   const [roiAlert, setRoiAlert] = useState(null);
   const [roiSource, setRoiSource] = useState("api");
   const [roiServiceDisabled, setRoiServiceDisabled] = useState(false);
+  const [benchmarkCatalog, setBenchmarkCatalog] = useState(() => getFallbackBenchmarkCatalog());
 
   const pushAlertsEnabled = settings?.notifications?.push !== false;
   const selectedCurrency = settings?.display?.currency ?? "";
   const refreshIntervalMinutes = Number(settings?.display?.refreshInterval ?? 0);
   const compactTables = Boolean(settings?.display?.compactTables);
+  const desktopSelectedPortfolio = useMemo(
+    () => desktopPortfolios.find((entry) => entry.id === desktopSelectedPortfolioId) ?? null,
+    [desktopPortfolios, desktopSelectedPortfolioId],
+  );
+  const desktopRequiresPinSetup = desktopSessionLocked && desktopSelectedPortfolio?.hasPin === false;
+  const signalDraft = useMemo(
+    () => ({
+      transactions,
+      signals,
+    }),
+    [transactions, signals],
+  );
+  const debouncedSignalDraft = useDebouncedValue(signalDraft, 200);
+
+  useEffect(() => {
+    currentPricesRef.current = currentPrices;
+  }, [currentPrices]);
 
   const dismissToast = useCallback((id) => {
     if (!id) {
@@ -222,43 +366,12 @@ export default function PortfolioManagerApp() {
     [pushAlertsEnabled],
   );
 
-  useEffect(() => {
-    const snapshot = loadActivePortfolioSnapshot();
-    if (!snapshot || !snapshot.id) {
-      return;
-    }
-    const normalizedId = String(snapshot.id);
-    setPortfolioId(normalizedId);
-    if (Array.isArray(snapshot.transactions)) {
-      dispatchLedger({
-        type: "replace",
-        transactions: snapshot.transactions,
-        logSummary: false,
-      });
-    }
-    if (snapshot.signals && typeof snapshot.signals === "object") {
-      setSignals(snapshot.signals);
-    }
-    if (snapshot.settings && typeof snapshot.settings === "object") {
-      setSettings((previous) => mergeSettings(previous, snapshot.settings));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!portfolioId) {
-      setPortfolioKey("");
-      setPortfolioKeyNew("");
-      return;
-    }
-    const stored = loadPortfolioKey(portfolioId);
-    setPortfolioKey(stored);
-    setPortfolioKeyNew("");
-  }, [portfolioId]);
-
   const metrics = useMemo(
     () => computeDashboardMetrics(holdings, currentPrices),
     [holdings, currentPrices],
   );
+  const openHoldings = useMemo(() => filterOpenHoldings(holdings), [holdings]);
+  const debouncedOpenHoldings = useDebouncedValue(openHoldings, 200);
 
   const historyMonthlyBreakdown = useMemo(
     () => groupTransactionsByMonth(transactions, { locale }),
@@ -281,8 +394,8 @@ export default function PortfolioManagerApp() {
     [metrics, t, formatCurrency, formatPercent],
   );
   const allocationBreakdown = useMemo(
-    () => calculateAllocationBreakdown(holdings, currentPrices),
-    [holdings, currentPrices],
+    () => calculateAllocationBreakdown(openHoldings, currentPrices),
+    [openHoldings, currentPrices],
   );
   const performanceHighlights = useMemo(
     () => derivePerformanceHighlights(roiData, { translate: t, formatPercent, formatDate }),
@@ -290,11 +403,11 @@ export default function PortfolioManagerApp() {
   );
   const reportSummaryCards = useMemo(
     () =>
-      buildReportSummary(transactions, holdings, metrics, {
+      buildReportSummary(transactions, openHoldings, metrics, {
         translate: t,
         formatDate,
       }),
-    [transactions, holdings, metrics, t, formatDate],
+    [transactions, openHoldings, metrics, t, formatDate],
   );
 
   const handleLanguageChange = useCallback(
@@ -334,32 +447,58 @@ export default function PortfolioManagerApp() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPrices() {
-      if (transactions.length === 0) {
+    async function loadBenchmarkMetadata() {
+      try {
+        const { data } = await fetchBenchmarkCatalog();
         if (!cancelled) {
-          setCurrentPrices({});
-          setPriceAlert(null);
+          setBenchmarkCatalog(normalizeBenchmarkCatalogResponse(data));
         }
+      } catch (error) {
+        console.warn("Failed to load benchmark catalog; using fallback metadata", error);
+        if (!cancelled) {
+          setBenchmarkCatalog(getFallbackBenchmarkCatalog());
+        }
+      }
+    }
+
+    loadBenchmarkMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (openHoldings.length > 0) {
+      return;
+    }
+
+    setSignalRows([]);
+    setCurrentPrices({});
+    setPriceAlert(null);
+    signalRowsRef.current = new Map();
+    signalNotificationsReadyRef.current = false;
+  }, [openHoldings.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function loadSignalPreview() {
+      if (debouncedOpenHoldings.length === 0) {
         return;
       }
 
       const uniqueTickers = [
         ...new Set(
-          transactions
-            .map((tx) => tx.ticker)
+          debouncedOpenHoldings
+            .map((holding) => holding.ticker)
             .filter((ticker) => typeof ticker === "string" && ticker.trim().length > 0),
         ),
       ];
-
       if (uniqueTickers.length === 0) {
-        if (!cancelled) {
-          setCurrentPrices({});
-          setPriceAlert(null);
-        }
         return;
       }
-
-      const marketClock = getMarketClock();
 
       const formatMarketDate = (dateKey) => {
         if (typeof dateKey !== "string" || dateKey.length === 0) {
@@ -380,132 +519,91 @@ export default function PortfolioManagerApp() {
       };
 
       let requestMetadata = null;
-      let bulkError = null;
-      let bulkResult;
+      let previewResponse = null;
+      let previewError = null;
       try {
-        bulkResult = await fetchBulkPrices(uniqueTickers, {
-          latestOnly: true,
+        previewResponse = await evaluateSignals(debouncedSignalDraft, {
+          signal: controller.signal,
           onRequestMetadata: (meta) => {
             requestMetadata = meta;
           },
         });
       } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
         console.error(error);
-        bulkError = error;
-        bulkResult = { series: new Map(), errors: {}, metadata: {} };
+        previewError = error;
       }
 
       if (cancelled) {
         return;
       }
 
-      const requestIdSet = new Set();
-      const addRequestId = (candidate) => {
-        if (typeof candidate !== "string") {
-          return null;
+      const requestIds = Array.from(
+        new Set(
+          [
+            previewResponse?.requestId,
+            requestMetadata?.requestId,
+            previewError?.requestId,
+          ].filter((value) => typeof value === "string" && value.trim().length > 0),
+        ),
+      );
+      const responseData = previewResponse?.data ?? {};
+      const responseRows = Array.isArray(responseData?.rows) ? responseData.rows : [];
+      const responsePrices =
+        responseData?.prices && typeof responseData.prices === "object"
+          ? responseData.prices
+          : {};
+      const responseErrors =
+        responseData?.errors && typeof responseData.errors === "object"
+          ? responseData.errors
+          : {};
+      const market = responseData?.market ?? null;
+      const fallbackMarket = getMarketClock();
+      const effectiveMarket = market ?? fallbackMarket;
+      const previousPrices = currentPricesRef.current ?? {};
+      const nextPrices = {};
+
+      for (const ticker of uniqueTickers) {
+        const nextPrice = responsePrices[ticker];
+        if (Number.isFinite(nextPrice)) {
+          nextPrices[ticker] = nextPrice;
+        } else if (Number.isFinite(previousPrices[ticker])) {
+          nextPrices[ticker] = previousPrices[ticker];
         }
-        const trimmed = candidate.trim();
-        if (!trimmed) {
-          return null;
-        }
-        requestIdSet.add(trimmed);
-        return trimmed;
-      };
+      }
 
-      const fallbackRequestId =
-        addRequestId(bulkResult?.requestId) ??
-        addRequestId(requestMetadata?.requestId) ??
-        addRequestId(bulkError?.requestId);
+      setSignalRows(responseRows);
+      setCurrentPrices(nextPrices);
 
-      const priceEntries = (() => {
-        if (bulkError) {
-          return uniqueTickers.map((ticker) => ({
-            ticker,
-            price: null,
-            asOf: null,
-            requestId: fallbackRequestId,
-            error: bulkError,
-          }));
-        }
-
-        const { series = new Map(), errors = {} } = bulkResult ?? {};
-        return uniqueTickers.map((ticker) => {
-          const normalized = normalizeTickerSymbol(ticker);
-          const tickerSeries = series.get(normalized) ?? series.get(ticker) ?? [];
-          const latest = Array.isArray(tickerSeries)
-            ? tickerSeries[tickerSeries.length - 1]
-            : null;
-          const rawClose =
-            Number.isFinite(latest?.close)
-              ? latest.close
-              : Number.isFinite(latest?.adjClose)
-              ? latest?.adjClose
-              : null;
-          const price = Number.isFinite(rawClose) ? rawClose : null;
-          const tickerError = errors?.[normalized] ?? errors?.[ticker] ?? null;
-          const entryRequestId =
-            addRequestId(tickerError?.requestId) ?? fallbackRequestId ?? null;
-          if (tickerError) {
-            console.error("Failed to refresh price for %s", normalized, tickerError);
-          }
-          return {
-            ticker,
-            price,
-            asOf: latest?.date ?? null,
-            requestId: entryRequestId,
-            error: tickerError ?? null,
-          };
-        });
-      })();
-
-      const requestIds = Array.from(requestIdSet);
-
-      setCurrentPrices((previous) => {
-        const next = {};
-        for (const ticker of uniqueTickers) {
-          const result = priceEntries.find((entry) => entry.ticker === ticker);
-          if (result && Number.isFinite(result.price)) {
-            next[ticker] = result.price;
-          } else if (previous && Number.isFinite(previous[ticker])) {
-            next[ticker] = previous[ticker];
-          }
-        }
-        return next;
-      });
-
-      const failures = priceEntries.filter((entry) => entry.error);
-      const successfulTickers = priceEntries
-        .filter((entry) => Number.isFinite(entry.price))
-        .map((entry) => entry.ticker);
-      const impactedTickers = failures.length > 0 ? failures : priceEntries;
+      const failures = Object.entries(responseErrors).map(([ticker, error]) => ({
+        ticker,
+        error,
+      }));
+      const successfulTickers = uniqueTickers.filter((ticker) => Number.isFinite(responsePrices[ticker]));
       const impactedList = Array.from(
         new Set(
-          impactedTickers
-            .map((entry) => entry.ticker)
+          (failures.length > 0 ? failures.map((entry) => entry.ticker) : responseRows.map((row) => row.ticker))
             .filter((ticker) => typeof ticker === "string" && ticker.length > 0),
         ),
       );
-      const failureRequestIds = failures
-        .map((entry) => entry.requestId)
-        .filter((value) => typeof value === "string" && value?.trim().length > 0);
-      const aggregatedRequestIds = failureRequestIds.length > 0 ? failureRequestIds : requestIds;
+      const hasFallbackPrices = uniqueTickers.some((ticker) => Number.isFinite(nextPrices[ticker]));
 
-      if (!marketClock.isOpen) {
-        const lastCloseLabel = formatMarketDate(marketClock.lastTradingDate);
-        const nextSessionLabel = (() => {
-          if (marketClock.isTradingDay && marketClock.isBeforeOpen) {
-            return t("alerts.price.marketClosed.detailToday");
-          }
-          if (typeof marketClock.nextTradingDate === "string") {
-            return formatMarketDate(marketClock.nextTradingDate);
-          }
-          return t("alerts.price.marketClosed.nextSession");
-        })();
-        const summary = impactedList.length > 0
-          ? impactedList.join(", ")
-          : successfulTickers.length > 0
-            ? successfulTickers.join(", ")
-            : t("alerts.price.marketClosed.allHoldings");
+      if (effectiveMarket && effectiveMarket.isOpen === false && (failures.length === 0 || hasFallbackPrices)) {
+        const lastCloseLabel = formatMarketDate(effectiveMarket.lastTradingDate);
+        const nextSessionLabel =
+          effectiveMarket.isBeforeOpen === true
+            ? t("alerts.price.marketClosed.detailToday")
+            : typeof effectiveMarket.nextTradingDate === "string"
+              ? formatMarketDate(effectiveMarket.nextTradingDate)
+              : t("alerts.price.marketClosed.nextSession");
+        const summary =
+          impactedList.length > 0
+            ? impactedList.join(", ")
+            : successfulTickers.length > 0
+              ? successfulTickers.join(", ")
+              : t("alerts.price.marketClosed.allHoldings");
         setPriceAlert({
           id: "market-closed",
           type: failures.length > 0 ? "warning" : "info",
@@ -514,12 +612,9 @@ export default function PortfolioManagerApp() {
             tickers: summary,
             next: nextSessionLabel,
           }),
-          requestIds: aggregatedRequestIds,
+          requestIds,
         });
-        return;
-      }
-
-      if (failures.length > 0) {
+      } else if (failures.length > 0 || previewError) {
         setPriceAlert({
           id: "price-fetch",
           type: "error",
@@ -530,19 +625,76 @@ export default function PortfolioManagerApp() {
                 ? impactedList.join(", ")
                 : t("alerts.price.refreshFailed.detailFallback"),
           }),
-          requestIds: aggregatedRequestIds,
+          requestIds,
         });
       } else {
         setPriceAlert(null);
       }
+
+      const nextRows = new Map(
+        responseRows
+          .filter((row) => typeof row?.ticker === "string" && row.ticker.length > 0)
+          .map((row) => [row.ticker, row]),
+      );
+      const pendingNotifications = [];
+
+      for (const row of responseRows) {
+        const previousRow = signalRowsRef.current.get(row.ticker);
+        const priceChanged =
+          previousRow
+          && previousRow.currentPrice !== null
+          && row.currentPrice !== null
+          && previousRow.currentPrice !== row.currentPrice;
+
+        if (
+          signalNotificationsReadyRef.current
+          && priceChanged
+          && previousRow?.status !== row.status
+          && isSignalStatusActionable(row.status)
+        ) {
+          pendingNotifications.push(row);
+        }
+      }
+
+      if (signalNotificationsReadyRef.current) {
+        for (const row of pendingNotifications) {
+          const titleKey =
+            row.status === SIGNAL_STATUS.BUY_ZONE
+              ? "alerts.signal.buyZone.title"
+              : "alerts.signal.trimZone.title";
+          pushToast({
+            id: `signal-${row.ticker}-${row.status}`,
+            type: row.status === SIGNAL_STATUS.BUY_ZONE ? "success" : "warning",
+            title: t(titleKey, { ticker: row.ticker }),
+            message: t("alerts.signal.message", {
+              ticker: row.ticker,
+              price: formatCurrency(row.currentPrice ?? 0),
+              reference: formatCurrency(row.referencePrice ?? 0),
+              lower: row.lowerBound !== null ? formatCurrency(row.lowerBound) : "—",
+              upper: row.upperBound !== null ? formatCurrency(row.upperBound) : "—",
+            }),
+          });
+        }
+      }
+
+      signalRowsRef.current = nextRows;
+      signalNotificationsReadyRef.current = true;
     }
 
-    loadPrices();
+    void loadSignalPreview();
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [transactions, t, formatDate]);
+  }, [
+    debouncedOpenHoldings,
+    debouncedSignalDraft,
+    formatCurrency,
+    formatDate,
+    pushToast,
+    t,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -569,7 +721,7 @@ export default function PortfolioManagerApp() {
       try {
         const priceFetcher = createRoiPriceFetcher({
           fetcher: async (symbols) => {
-            const { series, errors } = await fetchBulkPrices(symbols);
+            const { series, errors } = await fetchBulkPrices(symbols, { range: "max" });
             return { series, errors };
           },
           onErrors: (errors) => {
@@ -577,10 +729,15 @@ export default function PortfolioManagerApp() {
           },
         });
         const fallbackSeries = await buildRoiSeries(transactions, priceFetcher);
+        const enhancedFallbackSeries = await augmentRoiDataWithBenchmarks(
+          fallbackSeries,
+          priceFetcher,
+          buildOverlayBenchmarkTargets(benchmarkCatalog),
+        );
         if (cancelled) {
           return;
         }
-        setRoiData(fallbackSeries);
+        setRoiData(enhancedFallbackSeries);
         setRoiSource("fallback");
         const meta = fallbackMessages[reason];
         if (meta) {
@@ -651,8 +808,17 @@ export default function PortfolioManagerApp() {
           views: ["port", "spy", "bench", "excash", "cash"],
         });
         const mergedSeries = mergeReturnSeries(data?.series);
+        const benchmarkPriceFetcher = async (symbol) => {
+          const { series } = await fetchBulkPrices([symbol], { range: "max" });
+          return series.get(String(symbol).toUpperCase()) ?? [];
+        };
+        const enhancedSeries = await augmentRoiDataWithBenchmarks(
+          mergedSeries,
+          benchmarkPriceFetcher,
+          buildOverlayBenchmarkTargets(benchmarkCatalog),
+        );
         if (!cancelled) {
-          setRoiData(mergedSeries);
+          setRoiData(enhancedSeries);
           setRoiSource("api");
           setRoiAlert(null);
           if (requestId) {
@@ -687,7 +853,7 @@ export default function PortfolioManagerApp() {
     return () => {
       cancelled = true;
     };
-  }, [transactions, roiRefreshKey, roiServiceDisabled, t]);
+  }, [benchmarkCatalog, transactions, roiRefreshKey, roiServiceDisabled, t]);
 
   useEffect(() => {
     persistSettingsToStorage(settings);
@@ -712,13 +878,8 @@ export default function PortfolioManagerApp() {
 
   const handleSavePortfolio = useCallback(async () => {
     const normalizedId = portfolioId.trim();
-    const currentKey = portfolioKey.trim();
-    const nextKeyCandidate = portfolioKeyNew.trim();
     if (!normalizedId) {
       throw new Error("Portfolio ID required");
-    }
-    if (!currentKey) {
-      throw new Error("API key required");
     }
     const normalizedSettings = normalizeSettings(settings);
     const body = {
@@ -726,73 +887,173 @@ export default function PortfolioManagerApp() {
       signals,
       settings: normalizedSettings,
     };
-    const { requestId } = await persistPortfolio(normalizedId, body, {
-      apiKey: currentKey,
-      newApiKey: nextKeyCandidate || undefined,
-    });
-    const storedKey = nextKeyCandidate || currentKey;
-    setPortfolioKey(storedKey);
-    setPortfolioKeyNew("");
-    savePortfolioKey(normalizedId, storedKey);
-    const snapshotPersisted = persistActivePortfolioSnapshot({
-      id: normalizedId,
-      name: normalizedId,
-      transactions,
-      signals,
-      settings: normalizedSettings,
-      updatedAt: new Date().toISOString(),
-    });
-    if (snapshotPersisted) {
-      setActivePortfolioId(normalizedId);
-    }
-    return { snapshotPersisted, requestId };
+    const { requestId } = await persistPortfolio(normalizedId, body);
+    setActivePortfolioId(normalizedId);
+    return { requestId };
   }, [
     portfolioId,
-    portfolioKey,
-    portfolioKeyNew,
     transactions,
     signals,
     settings,
   ]);
 
+  const applyLoadedPortfolio = useCallback((data, normalizedId) => {
+    dispatchLedger({
+      type: "replace",
+      transactions: Array.isArray(data?.transactions) ? data.transactions : [],
+      logSummary: true,
+    });
+    setSignals(data?.signals ?? {});
+    setSettings((previous) => {
+      const mergedSettings = mergeSettings(previous, data?.settings);
+      persistSettingsToStorage(mergedSettings);
+      return mergedSettings;
+    });
+    setActivePortfolioId(normalizedId);
+  }, []);
+
   const handleLoadPortfolio = useCallback(async () => {
-    const currentKey = portfolioKey.trim();
     const normalizedId = portfolioId.trim();
     if (!normalizedId) {
       throw new Error("Portfolio ID required");
     }
-    if (!currentKey) {
-      throw new Error("API key required");
+    const { data, requestId } = await retrievePortfolio(normalizedId);
+    applyLoadedPortfolio(data, normalizedId);
+    return { requestId };
+  }, [applyLoadedPortfolio, portfolioId]);
+
+  useEffect(() => {
+    if (!desktopBridge || !desktopSessionLocked) {
+      return undefined;
     }
-    const { data, requestId } = await retrievePortfolio(normalizedId, { apiKey: currentKey });
-    dispatchLedger({
-      type: "replace",
-      transactions: Array.isArray(data.transactions) ? data.transactions : [],
-      logSummary: true,
-    });
-    setSignals(data.signals ?? {});
-    setSettings((previous) => {
-      const mergedSettings = mergeSettings(previous, data.settings);
-      persistSettingsToStorage(mergedSettings);
-      return mergedSettings;
-    });
-    setPortfolioKey(currentKey);
-    setPortfolioKeyNew("");
-    savePortfolioKey(normalizedId, currentKey);
-    const normalizedSettings = normalizeSettings(data.settings ?? {});
-    const snapshotPersisted = persistActivePortfolioSnapshot({
-      id: normalizedId,
-      name: normalizedId,
-      transactions: Array.isArray(data.transactions) ? data.transactions : [],
-      signals: data.signals ?? {},
-      settings: normalizedSettings,
-      updatedAt: new Date().toISOString(),
-    });
-    if (snapshotPersisted) {
-      setActivePortfolioId(normalizedId);
+
+    let cancelled = false;
+    setDesktopSessionLoading(true);
+    setDesktopSessionError("");
+    void desktopBridge
+      .listPortfolios()
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        const portfolios = Array.isArray(result?.portfolios) ? result.portfolios : [];
+        setDesktopPortfolios(portfolios);
+        setDesktopSelectedPortfolioId((current) => {
+          const requested = current && portfolios.some((entry) => entry.id === current) ? current : "";
+          if (requested) {
+            return requested;
+          }
+          const nextDefault =
+            typeof result?.defaultPortfolioId === "string" ? result.defaultPortfolioId.trim() : "";
+          if (nextDefault && portfolios.some((entry) => entry.id === nextDefault)) {
+            return nextDefault;
+          }
+          return portfolios[0]?.id ?? "";
+        });
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setDesktopSessionError(formatDesktopSessionError(error, t));
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDesktopSessionLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [desktopBridge, desktopSessionLocked, t]);
+
+  const unlockDesktopSession = useCallback(async () => {
+    if (!desktopBridge) {
+      return;
     }
-    return { requestId, snapshotPersisted };
-  }, [portfolioId, portfolioKey]);
+    const selectedId = desktopSelectedPortfolioId.trim();
+    const normalizedPin = normalizeDesktopPin(desktopPin);
+    const normalizedPinConfirm = normalizeDesktopPin(desktopPinConfirm);
+
+    if (!selectedId) {
+      setDesktopSessionError(t("desktopSession.error.PORTFOLIO_REQUIRED"));
+      return;
+    }
+    if (!/^\d{4,12}$/u.test(normalizedPin)) {
+      setDesktopSessionError(t("desktopSession.error.INVALID_PIN_FORMAT"));
+      return;
+    }
+    if (desktopRequiresPinSetup && normalizedPin !== normalizedPinConfirm) {
+      setDesktopSessionError(t("desktopSession.error.INVALID_PIN_CONFIRMATION"));
+      return;
+    }
+
+    setDesktopSessionSubmitting(true);
+    setDesktopSessionError("");
+    try {
+      const session = desktopRequiresPinSetup
+        ? await desktopBridge.setupPin({ portfolioId: selectedId, pin: normalizedPin })
+        : await desktopBridge.unlockSession({ portfolioId: selectedId, pin: normalizedPin });
+
+      mergeRuntimeConfig(session?.runtimeConfig ?? {});
+      setActivePortfolioId(selectedId);
+      setPortfolioId(selectedId);
+      setDesktopSessionLocked(false);
+      setDesktopPin("");
+      setDesktopPinConfirm("");
+      bootstrapLoadAttemptedRef.current = true;
+
+      const { data } = await retrievePortfolio(selectedId);
+      applyLoadedPortfolio(data, selectedId);
+    } catch (error) {
+      setDesktopSessionError(formatDesktopSessionError(error, t));
+    } finally {
+      setDesktopSessionSubmitting(false);
+    }
+  }, [
+    applyLoadedPortfolio,
+    desktopBridge,
+    desktopPin,
+    desktopPinConfirm,
+    desktopRequiresPinSetup,
+    desktopSelectedPortfolioId,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (desktopSessionLocked) {
+      return;
+    }
+    if (bootstrapLoadAttemptedRef.current) {
+      return;
+    }
+    bootstrapLoadAttemptedRef.current = true;
+
+    const storedId = loadActivePortfolioId();
+    const runtimeConfig = getRuntimeConfigSync();
+    const runtimePortfolioId =
+      typeof runtimeConfig?.ACTIVE_PORTFOLIO_ID === "string" &&
+      runtimeConfig.ACTIVE_PORTFOLIO_ID.trim().length > 0
+        ? runtimeConfig.ACTIVE_PORTFOLIO_ID.trim()
+        : "";
+    const initialPortfolioId = runtimePortfolioId || storedId;
+
+    if (!initialPortfolioId) {
+      return;
+    }
+
+    setPortfolioId((current) =>
+      current && current.trim().length > 0 ? current : initialPortfolioId,
+    );
+    void retrievePortfolio(initialPortfolioId)
+      .then(({ data }) => {
+        applyLoadedPortfolio(data, initialPortfolioId);
+      })
+      .catch((error) => {
+        console.error("Failed to bootstrap initial portfolio", error);
+      });
+  }, [applyLoadedPortfolio, desktopSessionLocked]);
 
   const handleRefreshRoi = useCallback(() => {
     setRoiRefreshKey((prev) => prev + 1);
@@ -806,11 +1067,11 @@ export default function PortfolioManagerApp() {
   }, [transactions]);
 
   const handleExportHoldings = useCallback(() => {
-    const csv = buildHoldingsCsv(holdings, currentPrices);
+    const csv = buildHoldingsCsv(openHoldings, currentPrices);
     if (csv) {
       triggerCsvDownload("portfolio-holdings.csv", csv);
     }
-  }, [holdings, currentPrices]);
+  }, [openHoldings, currentPrices]);
 
   const handleExportPerformance = useCallback(() => {
     const csv = buildPerformanceCsv(roiData);
@@ -850,6 +1111,36 @@ export default function PortfolioManagerApp() {
       });
   }, [priceAlert, roiAlert]);
 
+  if (desktopSessionLocked) {
+    return (
+      <DesktopSessionGate
+        portfolios={desktopPortfolios}
+        selectedPortfolioId={desktopSelectedPortfolioId}
+        onPortfolioChange={(nextPortfolioId) => {
+          setDesktopSelectedPortfolioId(nextPortfolioId);
+          setDesktopPin("");
+          setDesktopPinConfirm("");
+          setDesktopSessionError("");
+        }}
+        pin={desktopPin}
+        onPinChange={(value) => {
+          setDesktopPin(value);
+          setDesktopSessionError("");
+        }}
+        pinConfirm={desktopPinConfirm}
+        onPinConfirmChange={(value) => {
+          setDesktopPinConfirm(value);
+          setDesktopSessionError("");
+        }}
+        loading={desktopSessionLoading}
+        submitting={desktopSessionSubmitting}
+        requiresPinSetup={desktopRequiresPinSetup}
+        error={desktopSessionError}
+        onSubmit={unlockDesktopSession}
+      />
+    );
+  }
+
   return (
     <div
       className={`min-h-screen bg-slate-100 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100${compactTables ? " compact-tables" : ""}`}
@@ -880,11 +1171,7 @@ export default function PortfolioManagerApp() {
 
         <PortfolioControls
           portfolioId={portfolioId}
-          portfolioKey={portfolioKey}
-          portfolioKeyNew={portfolioKeyNew}
           onPortfolioIdChange={setPortfolioId}
-          onPortfolioKeyChange={setPortfolioKey}
-          onPortfolioKeyNewChange={setPortfolioKeyNew}
           onSave={handleSavePortfolio}
           onLoad={handleLoadPortfolio}
           onNotify={pushToast}
@@ -930,6 +1217,7 @@ export default function PortfolioManagerApp() {
                   transactions={transactions}
                   loadingRoi={loadingRoi}
                   roiSource={roiSource}
+                  benchmarkCatalog={benchmarkCatalog}
                   onRefreshRoi={handleRefreshRoi}
                 />
               </section>
@@ -943,9 +1231,11 @@ export default function PortfolioManagerApp() {
                 data-testid="panel-holdings"
               >
                 <HoldingsTab
-                  holdings={holdings}
+                  holdings={openHoldings}
+                  transactions={transactions}
                   currentPrices={currentPrices}
                   signals={signals}
+                  signalRows={signalRows}
                   onSignalChange={handleSignalChange}
                   compact={compactTables}
                 />

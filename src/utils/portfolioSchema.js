@@ -23,6 +23,15 @@ const tickerSchema = sanitizeString(
     .transform((value) => value.toUpperCase()),
 );
 
+const currencyCodeSchema = sanitizeString(
+  z
+    .string({ invalid_type_error: "Currency must be a string" })
+    .min(3, "Currency must be a 3-letter ISO code")
+    .max(3, "Currency must be a 3-letter ISO code")
+    .regex(/^[A-Za-z]{3}$/u, "Currency must be a 3-letter ISO code")
+    .transform((value) => value.toUpperCase()),
+);
+
 const transactionTypeSchema = z.enum([
   "BUY",
   "SELL",
@@ -149,6 +158,38 @@ const settingsSchema = z
   .catchall(z.unknown())
   .transform((value) => ({ autoClip: Boolean(value.autoClip) }));
 
+const cashTimelineEntrySchema = z
+  .object({
+    from: isoDateSchema,
+    to: isoDateSchema.optional().nullable(),
+    apy: numeric("APY must be a finite number"),
+  })
+  .superRefine((value, ctx) => {
+    if (value.to && value.to < value.from) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "`to` date must be on or after `from` date",
+        path: ["to"],
+      });
+    }
+  })
+  .transform((value) => ({
+    from: value.from,
+    to: value.to ?? null,
+    apy: Number(value.apy),
+  }));
+
+const cashPolicySchema = z
+  .object({
+    currency: currencyCodeSchema.optional(),
+    apyTimeline: z.array(cashTimelineEntrySchema).default([]),
+  })
+  .transform((value) => ({
+    currency: value.currency ?? "USD",
+    apyTimeline: [...value.apyTimeline].sort((left, right) => left.from.localeCompare(right.from)),
+  }))
+  .default({ currency: "USD", apyTimeline: [] });
+
 export const portfolioPayloadSchema = z
   .object({
     transactions: z
@@ -157,11 +198,13 @@ export const portfolioPayloadSchema = z
       .default([]),
     signals: signalsSchema.optional().default({}),
     settings: settingsSchema.optional().default({ autoClip: false }),
+    cash: cashPolicySchema.optional().default({ currency: "USD", apyTimeline: [] }),
   })
   .transform((value) => ({
     transactions: value.transactions,
     signals: value.signals,
     settings: value.settings,
+    cash: value.cash,
   }));
 
 export function validateAndNormalizePortfolioPayload(payload) {
@@ -176,4 +219,3 @@ export function validateAndNormalizePortfolioPayload(payload) {
   }
   return result.data;
 }
-

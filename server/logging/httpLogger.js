@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 export const SENSITIVE_HEADER_PATHS = [
   'req.headers["x-portfolio-key"]',
   'req.headers["x-portfolio-key-new"]',
+  'req.headers["x-session-token"]',
 ];
 
 export const HTTP_LOG_REDACT_CONFIG = {

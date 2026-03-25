@@ -6,17 +6,16 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import request from 'supertest';
 
-import { createApp } from '../app.js';
 import { computeDailyStates, projectStateUntil } from '../finance/portfolio.js';
+import { createSessionTestApp, withSession } from './sessionTestUtils.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
 
 function withTempApp(run) {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-edge-'));
-  const app = createApp({
+  const app = createSessionTestApp({
     dataDir,
     logger: noopLogger,
-    config: { featureFlags: { cashBenchmarks: true }, cors: { allowedOrigins: [] } },
   });
   return run({ app, dataDir }).finally(() => {
     rmSync(dataDir, { recursive: true, force: true });
@@ -45,31 +44,31 @@ test('computeDailyStates handles same-day ordering without negative cash', () =>
 test('oversell prevention rejects sales beyond available shares', async () => {
   await withTempApp(async ({ app }) => {
     const portfolioId = 'edge-oversell-' + randomUUID();
-    const apiKey = 'ValidKeyEdge1!';
-    const response = await request(app)
-      .post('/api/portfolio/' + portfolioId)
-      .set('X-Portfolio-Key', apiKey)
-      .send({
-        transactions: [
-          {
-            date: '2024-01-01',
-            type: 'BUY',
-            ticker: 'TSLA',
-            amount: -1000,
-            price: 100,
-            shares: 10,
-          },
-          {
-            date: '2024-01-02',
-            type: 'SELL',
-            ticker: 'TSLA',
-            amount: 1500,
-            price: 150,
-            shares: 15,
-          },
-        ],
-        settings: { autoClip: false },
-      });
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/' + portfolioId)
+        .send({
+          transactions: [
+            {
+              date: '2024-01-01',
+              type: 'BUY',
+              ticker: 'TSLA',
+              amount: -1000,
+              price: 100,
+              shares: 10,
+            },
+            {
+              date: '2024-01-02',
+              type: 'SELL',
+              ticker: 'TSLA',
+              amount: 1500,
+              price: 150,
+              shares: 15,
+            },
+          ],
+          settings: { autoClip: false },
+        }),
+    );
     assert.equal(response.status, 400);
     assert.equal(response.body.error, 'E_OVERSELL');
     assert.equal(response.body.details?.ticker, 'TSLA');
@@ -80,17 +79,17 @@ test('oversell prevention rejects sales beyond available shares', async () => {
 test('rejects withdrawals that exceed available cash', async () => {
   await withTempApp(async ({ app }) => {
     const portfolioId = 'edge-cash-' + randomUUID();
-    const apiKey = 'ValidKeyEdge3!';
-    const response = await request(app)
-      .post('/api/portfolio/' + portfolioId)
-      .set('X-Portfolio-Key', apiKey)
-      .send({
-        transactions: [
-          { date: '2025-10-09', type: 'DEPOSIT', amount: 500 },
-          { date: '2025-10-09', type: 'WITHDRAWAL', amount: 501 },
-        ],
-        settings: { autoClip: false },
-      });
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/' + portfolioId)
+        .send({
+          transactions: [
+            { date: '2025-10-09', type: 'DEPOSIT', amount: 500 },
+            { date: '2025-10-09', type: 'WITHDRAWAL', amount: 501 },
+          ],
+          settings: { autoClip: false },
+        }),
+    );
 
     assert.equal(response.status, 400);
     assert.equal(response.body.error, 'E_CASH_OVERDRAW');
@@ -132,22 +131,22 @@ test('projectStateUntil handles large transaction volumes deterministically', ()
 test('validation rejects negative prices before persistence', async () => {
   await withTempApp(async ({ app }) => {
     const portfolioId = 'edge-validate-' + randomUUID();
-    const apiKey = 'ValidKeyEdge2!';
-    const response = await request(app)
-      .post('/api/portfolio/' + portfolioId)
-      .set('X-Portfolio-Key', apiKey)
-      .send({
-        transactions: [
-          {
-            date: '2024-03-01',
-            type: 'BUY',
-            ticker: 'MSFT',
-            amount: -1000,
-            price: -10,
-            shares: 10,
-          },
-        ],
-      });
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/' + portfolioId)
+        .send({
+          transactions: [
+            {
+              date: '2024-03-01',
+              type: 'BUY',
+              ticker: 'MSFT',
+              amount: -1000,
+              price: -10,
+              shares: 10,
+            },
+          ],
+        }),
+    );
     assert.equal(response.status, 400);
     assert.equal(response.body.error, 'VALIDATION_ERROR');
     const details = Array.isArray(response.body.details) ? response.body.details : [];
