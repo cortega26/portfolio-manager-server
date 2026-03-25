@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 import {
   loadRuntimeConfig,
   getRuntimeConfigSync,
+  mergeRuntimeConfig,
   setRuntimeConfigForTesting,
 } from '../lib/runtimeConfig.js';
 import {
@@ -33,18 +34,35 @@ describe('runtime configuration loader', () => {
   it('prefers inline window.__APP_CONFIG__ when present', async () => {
     (window as typeof window & { __APP_CONFIG__?: unknown }).__APP_CONFIG__ = {
       API_BASE_URL: 'https://inline.example',
+      API_SESSION_TOKEN: 'desktop-inline-token',
+      ACTIVE_PORTFOLIO_ID: 'desktop',
       REQUEST_TIMEOUT_MS: 1234,
+      SESSION_AUTH_HEADER: 'X-Desktop-Auth',
     };
+
+    expect(getRuntimeConfigSync()).toMatchObject({
+      API_BASE_URL: 'https://inline.example',
+      API_SESSION_TOKEN: 'desktop-inline-token',
+      ACTIVE_PORTFOLIO_ID: 'desktop',
+      REQUEST_TIMEOUT_MS: 1234,
+      SESSION_AUTH_HEADER: 'X-Desktop-Auth',
+    });
 
     const config = await loadRuntimeConfig();
 
     expect(config).toMatchObject({
       API_BASE_URL: 'https://inline.example',
+      API_SESSION_TOKEN: 'desktop-inline-token',
+      ACTIVE_PORTFOLIO_ID: 'desktop',
       REQUEST_TIMEOUT_MS: 1234,
+      SESSION_AUTH_HEADER: 'X-Desktop-Auth',
     });
     expect(getRuntimeConfigSync()).toMatchObject({
       API_BASE_URL: 'https://inline.example',
+      API_SESSION_TOKEN: 'desktop-inline-token',
+      ACTIVE_PORTFOLIO_ID: 'desktop',
       REQUEST_TIMEOUT_MS: 1234,
+      SESSION_AUTH_HEADER: 'X-Desktop-Auth',
     });
   });
 
@@ -74,5 +92,30 @@ describe('runtime configuration loader', () => {
     const baseUrl = await resolveApiBaseUrl();
 
     expect(baseUrl).toBe('https://runtime.example');
+  });
+
+  it('merges desktop unlock config into the active runtime state', () => {
+    (window as typeof window & { __APP_CONFIG__?: unknown }).__APP_CONFIG__ = {
+      API_BASE_URL: 'https://desktop.example',
+      SESSION_AUTH_HEADER: 'X-Desktop-Auth',
+    };
+
+    const merged = mergeRuntimeConfig({
+      API_SESSION_TOKEN: 'desktop-session-token',
+      ACTIVE_PORTFOLIO_ID: 'desktop',
+    });
+
+    expect(merged).toMatchObject({
+      API_BASE_URL: 'https://desktop.example',
+      API_SESSION_TOKEN: 'desktop-session-token',
+      ACTIVE_PORTFOLIO_ID: 'desktop',
+      SESSION_AUTH_HEADER: 'X-Desktop-Auth',
+    });
+    expect(getRuntimeConfigSync()).toMatchObject({
+      API_BASE_URL: 'https://desktop.example',
+      API_SESSION_TOKEN: 'desktop-session-token',
+      ACTIVE_PORTFOLIO_ID: 'desktop',
+      SESSION_AUTH_HEADER: 'X-Desktop-Auth',
+    });
   });
 });

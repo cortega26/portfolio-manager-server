@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 
 import App from "../App.jsx";
 import { renderWithProviders } from "./test-utils";
@@ -11,10 +11,13 @@ vi.mock("../components/AdminTab.jsx", () => ({
 
 describe("admin routing", () => {
   afterEach(() => {
+    cleanup();
     vi.unstubAllEnvs();
   });
 
   test("blocks access when invite tokens are missing", async () => {
+    vi.stubEnv("VITE_ADMIN_ACCESS_TOKENS", "");
+
     renderWithProviders(<App />, { route: "/admin" });
 
     expect(await screen.findByText(/Admin access not configured/i)).toBeInTheDocument();

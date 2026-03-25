@@ -1,6 +1,11 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { buildRoiSeries, mergeReturnSeries } from "../utils/roi.js";
+import {
+  buildBenchmarkOverlaySeries,
+  buildRoiSeries,
+  mergeBenchmarkOverlaySeries,
+  mergeReturnSeries,
+} from "../utils/roi.js";
 
 const transactions = [
   { date: "2024-01-01", type: "DEPOSIT", amount: 500 },
@@ -71,6 +76,26 @@ describe("ROI utilities", () => {
         exCash: 0,
         cash: 0,
       },
+    ]);
+  });
+
+  it("builds and merges a Nasdaq benchmark overlay from price history", () => {
+    const roiData = [
+      { date: "2024-01-01", portfolio: 0, spy: 0 },
+      { date: "2024-01-02", portfolio: 6, spy: 5 },
+      { date: "2024-01-03", portfolio: 14, spy: 10 },
+    ];
+    const overlay = buildBenchmarkOverlaySeries(roiData, [
+      { date: "2024-01-01", close: 300 },
+      { date: "2024-01-02", close: 315 },
+      { date: "2024-01-03", close: 330 },
+    ]);
+    const merged = mergeBenchmarkOverlaySeries(roiData, overlay, "qqq");
+
+    assert.deepEqual(merged, [
+      { date: "2024-01-01", portfolio: 0, spy: 0, qqq: 0 },
+      { date: "2024-01-02", portfolio: 6, spy: 5, qqq: 5 },
+      { date: "2024-01-03", portfolio: 14, spy: 10, qqq: 10 },
     ]);
   });
 

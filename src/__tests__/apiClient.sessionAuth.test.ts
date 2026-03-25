@@ -1,0 +1,68 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { requestApi, invalidateApiBaseUrlCache } from "../lib/apiClient.js";
+import { setRuntimeConfigForTesting } from "../lib/runtimeConfig.js";
+
+const originalFetch = global.fetch;
+
+describe("apiClient session auth", () => {
+  beforeEach(() => {
+    setRuntimeConfigForTesting(null);
+    invalidateApiBaseUrlCache();
+    global.fetch = originalFetch;
+  });
+
+  afterEach(() => {
+    setRuntimeConfigForTesting(null);
+    invalidateApiBaseUrlCache();
+    global.fetch = originalFetch;
+  });
+
+  it("adds the default desktop session header from runtime config", async () => {
+    setRuntimeConfigForTesting({
+      API_BASE_URL: "https://runtime.example",
+      API_SESSION_TOKEN: "desktop-session-token",
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    global.fetch = fetchMock as unknown as typeof global.fetch;
+
+    await requestApi("/monitoring");
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://runtime.example/api/v1/monitoring");
+    const headers = new Headers(init?.headers);
+    expect(headers.get("X-Session-Token")).toBe("desktop-session-token");
+  });
+
+  it("respects a custom session auth header and does not override explicit headers", async () => {
+    setRuntimeConfigForTesting({
+      API_BASE_URL: "https://runtime.example",
+      API_SESSION_TOKEN: "desktop-session-token",
+      SESSION_AUTH_HEADER: "X-Desktop-Auth",
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    global.fetch = fetchMock as unknown as typeof global.fetch;
+
+    await requestApi("/monitoring", {
+      headers: {
+        "X-Desktop-Auth": "caller-supplied-token",
+      },
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = new Headers(init?.headers);
+    expect(headers.get("X-Desktop-Auth")).toBe("caller-supplied-token");
+    expect(headers.get("X-Session-Token")).toBeNull();
+  });
+});

@@ -1,7 +1,14 @@
 import clsx from "clsx";
 
 import { useI18n } from "../i18n/I18nProvider.jsx";
-import { deriveHoldingStats, deriveSignalRow } from "../utils/holdings.js";
+import { formatCurrency } from "../utils/format.js";
+import {
+  deriveHoldingStats,
+  deriveLastOperationReference,
+  deriveSignalRow,
+  resolveSignalWindow,
+} from "../utils/holdings.js";
+import { SIGNAL_STATUS } from "../../shared/signals.js";
 
 function HoldingsTable({
   holdings,
@@ -76,13 +83,13 @@ function HoldingsTable({
                 if (Number.isFinite(parsedShares) && typeof formatNumber === "function") {
                   return formatNumber(parsedShares, {
                     minimumFractionDigits: 0,
-                    maximumFractionDigits: 6,
+                    maximumFractionDigits: 9,
                   });
                 }
                 if (Number.isFinite(parsedShares)) {
                   return parsedShares.toLocaleString(undefined, {
                     minimumFractionDigits: 0,
-                    maximumFractionDigits: 6,
+                    maximumFractionDigits: 9,
                   });
                 }
                 return typeof holding.shares === "string" && holding.shares.trim()
@@ -118,34 +125,54 @@ const SIGNAL_LABEL_KEYS = {
   "NO DATA": "holdings.signals.status.noData",
 };
 
-function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t, compact = false }) {
-  function resolvePctWindow(ticker) {
-    if (!signals || !ticker) {
-      return 3;
-    }
+function formatSignalStatus(status) {
+  if (status === SIGNAL_STATUS.BUY_ZONE) {
+    return "BUY zone";
+  }
+  if (status === SIGNAL_STATUS.TRIM_ZONE) {
+    return "TRIM zone";
+  }
+  if (status === SIGNAL_STATUS.HOLD) {
+    return "HOLD";
+  }
+  return "NO DATA";
+}
 
-    const normalizedTicker = ticker.toUpperCase();
-    const candidate =
-      signals[ticker] ??
-      signals[normalizedTicker] ??
-      signals[normalizedTicker.toLowerCase?.() ?? ""] ??
-      null;
-
-    const value =
-      candidate && typeof candidate === "object"
-        ? candidate.pct ?? candidate.percent ?? candidate.windowPct ?? candidate.window
-        : candidate;
-
-    const parsed =
-      typeof value === "number"
-        ? value
-        : typeof value === "string"
-          ? Number.parseFloat(value)
-          : Number.NaN;
-
-    return Number.isFinite(parsed) ? parsed : 3;
+function getDisplaySignalRow({ holding, transactions, currentPrices, signals, signalRowsByTicker }) {
+  const precomputedRow = signalRowsByTicker.get(holding.ticker);
+  if (precomputedRow) {
+    return {
+      price: Number.isFinite(precomputedRow.currentPrice) ? formatCurrency(precomputedRow.currentPrice) : "—",
+      lower: Number.isFinite(precomputedRow.lowerBound) ? formatCurrency(precomputedRow.lowerBound) : "—",
+      upper: Number.isFinite(precomputedRow.upperBound) ? formatCurrency(precomputedRow.upperBound) : "—",
+      signal: formatSignalStatus(precomputedRow.status),
+      status: precomputedRow.status,
+    };
   }
 
+  const pctWindow = resolveSignalWindow(signals, holding.ticker);
+  const reference = deriveLastOperationReference(
+    transactions,
+    holding.ticker,
+  );
+  return deriveSignalRow(
+    holding,
+    currentPrices[holding.ticker],
+    pctWindow,
+    reference,
+  );
+}
+
+function SignalsTable({
+  holdings,
+  transactions,
+  currentPrices,
+  signals,
+  signalRows,
+  onSignalChange,
+  t,
+  compact = false,
+}) {
   if (holdings.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -179,62 +206,73 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t, com
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-          {holdings.map((holding) => {
-            const pctWindow = resolvePctWindow(holding.ticker);
-            const row = deriveSignalRow(
-              holding,
-              currentPrices[holding.ticker],
-              pctWindow,
+          {(() => {
+            const signalRowsByTicker = new Map(
+              Array.isArray(signalRows)
+                ? signalRows
+                    .filter((row) => typeof row?.ticker === "string" && row.ticker.length > 0)
+                    .map((row) => [row.ticker, row])
+                : [],
             );
-            return (
-              <tr key={holding.ticker} className="bg-white dark:bg-slate-900">
-                <td className={clsx("px-3 font-semibold", compact ? "py-1.5" : "py-2")}>{holding.ticker}</td>
-                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    className={clsx(
-                      "w-20 rounded-md border border-slate-300 px-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
-                      compact ? "py-0.5 text-xs" : "py-1 text-sm",
-                    )}
-                    value={pctWindow}
-                    onChange={(event) =>
-                      onSignalChange(holding.ticker, event.target.value)
-                    }
-                    aria-label={t("holdings.signals.windowAria", { ticker: holding.ticker })}
-                    title={t("holdings.signals.windowAria", { ticker: holding.ticker })}
-                  />
-                </td>
-                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.price}</td>
-                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.lower}</td>
-                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.upper}</td>
-                <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
-                  {(() => {
-                    const translationKey = SIGNAL_LABEL_KEYS[row.signal];
-                    const signalLabel = translationKey ? t(translationKey) : row.signal;
-                    return (
-                  <span
-                    className={clsx(
-                      "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide",
-                      row.signal === "BUY zone" &&
-                        "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
-                      row.signal === "TRIM zone" &&
-                        "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
-                      row.signal === "HOLD" &&
-                        "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
-                      row.signal === "NO DATA" &&
-                        "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-                    )}
-                  >
-                      {signalLabel}
-                  </span>
-                    );
-                  })()}
-                </td>
-              </tr>
-            );
-          })}
+            return holdings.map((holding) => {
+              const pctWindow = resolveSignalWindow(signals, holding.ticker);
+              const row = getDisplaySignalRow({
+                holding,
+                transactions,
+                currentPrices,
+                signals,
+                signalRowsByTicker,
+              });
+              return (
+                <tr key={holding.ticker} className="bg-white dark:bg-slate-900">
+                  <td className={clsx("px-3 font-semibold", compact ? "py-1.5" : "py-2")}>{holding.ticker}</td>
+                  <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      className={clsx(
+                        "w-20 rounded-md border border-slate-300 px-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+                        compact ? "py-0.5 text-xs" : "py-1 text-sm",
+                      )}
+                      value={pctWindow}
+                      onChange={(event) =>
+                        onSignalChange(holding.ticker, event.target.value)
+                      }
+                      aria-label={t("holdings.signals.windowAria", { ticker: holding.ticker })}
+                      title={t("holdings.signals.windowAria", { ticker: holding.ticker })}
+                    />
+                  </td>
+                  <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.price}</td>
+                  <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.lower}</td>
+                  <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>{row.upper}</td>
+                  <td className={clsx("px-3", compact ? "py-1.5" : "py-2")}>
+                    {(() => {
+                      const translationKey = SIGNAL_LABEL_KEYS[row.signal];
+                      const signalLabel = translationKey ? t(translationKey) : row.signal;
+                      return (
+                        <span
+                          className={clsx(
+                            "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide",
+                            row.signal === "BUY zone" &&
+                              "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+                            row.signal === "TRIM zone" &&
+                              "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+                            row.signal === "HOLD" &&
+                              "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+                            row.signal === "NO DATA" &&
+                              "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+                          )}
+                        >
+                          {signalLabel}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              );
+            });
+          })()}
         </tbody>
       </table>
     </div>
@@ -243,8 +281,10 @@ function SignalsTable({ holdings, currentPrices, signals, onSignalChange, t, com
 
 export default function HoldingsTab({
   holdings,
+  transactions = [],
   currentPrices,
   signals,
+  signalRows,
   onSignalChange,
   compact = false,
 }) {
@@ -292,8 +332,10 @@ export default function HoldingsTab({
         <div className="mt-4">
           <SignalsTable
             holdings={holdings}
+            transactions={transactions}
             currentPrices={currentPrices}
             signals={signals}
+            signalRows={signalRows}
             onSignalChange={onSignalChange}
             t={t}
             compact={compact}

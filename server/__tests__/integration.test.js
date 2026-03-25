@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import request from 'supertest';
 
-import { createApp } from '../app.js';
+import JsonTableStorage from '../data/storage.js';
+import { readPortfolioState } from '../data/portfolioState.js';
+import { createSessionTestApp, withSession } from './sessionTestUtils.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
 const API_BASES = ['/api', '/api/v1'];
@@ -44,7 +46,7 @@ beforeEach(() => {
         },
       },
     };
-    return createApp({
+    return createSessionTestApp({
       dataDir,
       logger: noopLogger,
       config: mergedConfig,
@@ -58,18 +60,17 @@ afterEach(() => {
 });
 
 for (const basePath of API_BASES) {
-  test(`portfolio lifecycle persists transactions, signals, and key rotation (${basePath})`, async () => {
+  test(`portfolio lifecycle persists transactions and signals with session auth (${basePath})`, async () => {
     const app = buildApp();
     const portfolioId = 'life-' + randomUUID();
-    const apiKey = 'ValidKey123!';
-    const rotatedKey = 'ValidKey321!';
     const withBase = (suffix) => `${basePath}${suffix}`;
 
-    const bootstrap = await request(app)
-      .post(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey)
-      .set('X-Request-ID', ' inbound-trace ')
-      .send({ transactions: [], signals: {} });
+    const bootstrap = await withSession(
+      request(app)
+        .post(withBase('/portfolio/' + portfolioId))
+        .set('X-Request-ID', ' inbound-trace ')
+        .send({ transactions: [], signals: {} }),
+    );
     assert.equal(bootstrap.status, 200);
     assert.deepEqual(bootstrap.body, { status: 'ok' });
     assert.equal(bootstrap.headers['x-request-id'], 'inbound-trace');
@@ -87,43 +88,25 @@ for (const basePath of API_BASES) {
       settings: { autoClip: false },
     };
 
-    const update = await request(app)
-      .post(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey)
-      .send(updatePayload);
+    const update = await withSession(
+      request(app)
+        .post(withBase('/portfolio/' + portfolioId))
+        .send(updatePayload),
+    );
     assert.equal(update.status, 200);
     assert.deepEqual(update.body, { status: 'ok' });
 
-    const fetched = await request(app)
-      .get(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey);
+    const fetched = await withSession(
+      request(app).get(withBase('/portfolio/' + portfolioId)),
+    );
     assert.equal(fetched.status, 200);
     assert.equal(fetched.body.transactions.length, 2);
     const tickers = fetched.body.transactions.map((tx) => tx.ticker).filter(Boolean);
     assert.ok(tickers.every((ticker) => ticker === ticker.toUpperCase()));
     assert.deepEqual(fetched.body.signals, { SPY: { pct: 42 } });
 
-    const rotate = await request(app)
-      .post(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey)
-      .set('X-Portfolio-Key-New', rotatedKey)
-      .send(updatePayload);
-    assert.equal(rotate.status, 200);
-    assert.deepEqual(rotate.body, { status: 'ok' });
-
-    const legacyKeyRead = await request(app)
-      .get(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey);
-    assert.equal(legacyKeyRead.status, 403);
-    assert.equal(legacyKeyRead.body.error, 'INVALID_KEY');
-
-    const rotatedKeyRead = await request(app)
-      .get(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', rotatedKey);
-    assert.equal(rotatedKeyRead.status, 200);
-
-    const storedPath = path.join(dataDir, 'portfolio_' + portfolioId + '.json');
-    const persisted = JSON.parse(readFileSync(storedPath, 'utf8'));
+    const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+    const persisted = await readPortfolioState(storage, portfolioId);
     assert.equal(persisted.transactions.length, 2);
     assert.ok(persisted.transactions.every((tx) => typeof tx.uid === 'string' && tx.uid.length > 0));
   });
@@ -133,13 +116,13 @@ for (const basePath of API_BASES) {
   test(`concurrent portfolio modifications remain consistent (${basePath})`, async () => {
     const app = buildApp();
     const portfolioId = 'con-' + randomUUID();
-    const apiKey = 'ValidKeyABC1!';
     const withBase = (suffix) => `${basePath}${suffix}`;
 
-    await request(app)
-      .post(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey)
-      .send({ transactions: [], signals: {} });
+    await withSession(
+      request(app)
+        .post(withBase('/portfolio/' + portfolioId))
+        .send({ transactions: [], signals: {} }),
+    );
 
     const payloadA = {
       transactions: [
@@ -157,22 +140,24 @@ for (const basePath of API_BASES) {
     };
 
     const [responseA, responseB] = await Promise.all([
-      request(app)
-        .post(withBase('/portfolio/' + portfolioId))
-        .set('X-Portfolio-Key', apiKey)
-        .send(payloadA),
-      request(app)
-        .post(withBase('/portfolio/' + portfolioId))
-        .set('X-Portfolio-Key', apiKey)
-        .send(payloadB),
+      withSession(
+        request(app)
+          .post(withBase('/portfolio/' + portfolioId))
+          .send(payloadA),
+      ),
+      withSession(
+        request(app)
+          .post(withBase('/portfolio/' + portfolioId))
+          .send(payloadB),
+      ),
     ]);
 
     assert.equal(responseA.status, 200);
     assert.equal(responseB.status, 200);
 
-    const final = await request(app)
-      .get(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey);
+    const final = await withSession(
+      request(app).get(withBase('/portfolio/' + portfolioId)),
+    );
     assert.equal(final.status, 200);
     assert.ok(
       final.body.transactions.length === payloadA.transactions.length
@@ -191,42 +176,98 @@ for (const basePath of API_BASES) {
 }
 
 for (const basePath of API_BASES) {
-  test(`brute-force guard blocks repeated invalid key attempts and allows recovery (${basePath})`, async () => {
+  test(`session auth rejects missing and invalid desktop tokens (${basePath})`, async () => {
     const app = buildApp();
-    const portfolioId = 'bf-' + randomUUID();
-    const apiKey = 'ValidKeyLock1!';
     const withBase = (suffix) => `${basePath}${suffix}`;
 
-    await request(app)
-      .post(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey)
-      .send({ transactions: [], signals: {} });
+    const missing = await request(app).get(withBase('/portfolio/' + randomUUID()));
+    assert.equal(missing.status, 401);
+    assert.equal(missing.body.error, 'NO_SESSION_TOKEN');
 
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      const invalid = await request(app)
-        .get(withBase('/portfolio/' + portfolioId))
-        .set('X-Portfolio-Key', 'invalid-' + attempt);
-      assert.equal(invalid.status, 403);
-      assert.equal(invalid.body.error, 'INVALID_KEY');
-    }
+    const invalid = await withSession(
+      request(app).get(withBase('/portfolio/' + randomUUID())),
+      'invalid-session-token',
+    );
+    assert.equal(invalid.status, 403);
+    assert.equal(invalid.body.error, 'INVALID_SESSION_TOKEN');
+  });
+}
 
-    const blocked = await request(app)
-      .get(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', 'invalid-final');
-    assert.equal(blocked.status, 429);
-    assert.equal(blocked.body.error, 'TOO_MANY_KEY_ATTEMPTS');
-    assert.ok(Number.isFinite(Number.parseInt(blocked.headers['retry-after'] ?? '0', 10)));
+for (const basePath of API_BASES) {
+  test(`signal preview evaluates rows without persisting portfolio state (${basePath})`, async () => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const todayKey = today.toISOString().slice(0, 10);
+    const yesterdayKey = yesterday.toISOString().slice(0, 10);
+    const app = buildApp({
+      priceProvider: {
+        async getDailyAdjustedClose(symbol) {
+          return [
+            { date: yesterdayKey, adjClose: symbol === "MSFT" ? 118 : 100 },
+            { date: todayKey, adjClose: symbol === "MSFT" ? 121 : 105 },
+          ];
+        },
+      },
+      config: {
+        freshness: { maxStaleTradingDays: 30 },
+      },
+    });
 
-    const retryAfterSeconds = Number.parseInt(blocked.headers['retry-after'] ?? '0', 10);
-    if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-      await new Promise((resolve) => setTimeout(resolve, retryAfterSeconds * 1000 + 100));
-    }
+    const response = await withSession(
+      request(app)
+        .post(`${basePath}/signals`)
+        .send({
+          transactions: [
+            { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
+            { date: "2024-01-02", type: "BUY", ticker: "msft", amount: -500, price: 100, shares: 5 },
+          ],
+          signals: {
+            msft: { pct: 5 },
+          },
+        }),
+    );
 
-    const recovery = await request(app)
-      .get(withBase('/portfolio/' + portfolioId))
-      .set('X-Portfolio-Key', apiKey);
-    assert.equal(recovery.status, 200);
-    assert.deepEqual(recovery.body.transactions, []);
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.prices, { MSFT: 121 });
+    assert.equal(response.body.rows.length, 1);
+    assert.deepEqual(response.body.rows[0], {
+      ticker: "MSFT",
+      pctWindow: 5,
+      status: "TRIM_ZONE",
+      currentPrice: 121,
+      currentPriceAsOf: todayKey,
+      lowerBound: 95,
+      upperBound: 105,
+      referencePrice: 100,
+      referenceDate: "2024-01-02",
+      referenceType: "BUY",
+      sanityRejected: false,
+    });
+
+    const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+    const persisted = await readPortfolioState(storage, "signals-preview");
+    assert.equal(persisted, null);
+  });
+}
+
+for (const basePath of API_BASES) {
+  test(`signal preview rejects invalid draft payloads (${basePath})`, async () => {
+    const app = buildApp();
+
+    const response = await withSession(
+      request(app)
+        .post(`${basePath}/signals`)
+        .send({
+          transactions: [
+            { date: "2024-01-02", type: "BUY", ticker: "AAPL", amount: -100, price: -10, shares: 1 },
+          ],
+          signals: {},
+        }),
+    );
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, "VALIDATION_ERROR");
   });
 }
 

@@ -1,6 +1,6 @@
 import React from 'react';
-import { fireEvent, screen, within } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import HoldingsTab from '../components/HoldingsTab.jsx';
 import { renderWithProviders } from './test-utils';
@@ -12,17 +12,22 @@ const defaultHoldings = [
 ];
 
 describe('HoldingsTab', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   test('renders holdings and derived metrics with currency formatting', () => {
     renderWithProviders(
       <HoldingsTab
         holdings={defaultHoldings}
+        transactions={[]}
         currentPrices={{ AAPL: 150, MSFT: 160 }}
         signals={{}}
         onSignalChange={vi.fn()}
       />,
     );
 
-    const holdingsTable = screen.getByRole('table', { name: /holdings/i });
+    const holdingsTable = screen.getAllByRole('table', { name: /holdings/i })[0];
     expect(holdingsTable).toBeInTheDocument();
 
     const body = within(holdingsTable).getByTestId('holdings-tbody');
@@ -56,6 +61,7 @@ describe('HoldingsTab', () => {
     renderWithProviders(
       <HoldingsTab
         holdings={defaultHoldings}
+        transactions={[]}
         currentPrices={{ AAPL: 150, MSFT: 160 }}
         signals={{ AAPL: { pct: 8 } }}
         onSignalChange={onSignalChange}
@@ -109,6 +115,7 @@ describe('HoldingsTab', () => {
             { ticker: 'IWM', shares: 1, cost: 90, realised: 0 },
             { ticker: 'GLD', shares: 1, cost: 100, realised: 0 },
           ]}
+          transactions={[]}
           currentPrices={{ SPY: 40, IWM: 230 }}
           signals={{ spy: { percent: '5.5' }, IWM: 2 }}
           onSignalChange={vi.fn()}
@@ -139,6 +146,7 @@ describe('HoldingsTab', () => {
     renderWithProviders(
       <HoldingsTab
         holdings={[]}
+        transactions={[]}
         currentPrices={{}}
         signals={{}}
         onSignalChange={vi.fn()}
@@ -147,5 +155,101 @@ describe('HoldingsTab', () => {
 
     expect(screen.getByText(/no holdings yet/i)).toBeVisible();
     expect(screen.getByText(/add transactions to configure signals/i)).toBeVisible();
+  });
+
+  test('shows unavailable market values when no live price exists yet', () => {
+    const view = renderWithProviders(
+      <HoldingsTab
+        holdings={[{ ticker: 'AAPL', shares: '3.392359240', cost: 1000, realised: 0 }]}
+        transactions={[]}
+        currentPrices={{}}
+        signals={{}}
+        onSignalChange={vi.fn()}
+      />,
+    );
+
+    const holdingsTable = view.getAllByRole('table', { name: /holdings/i })[0];
+    const body = within(holdingsTable).getByTestId('holdings-tbody');
+    const row = within(body).getByText('AAPL').closest('tr');
+    expect(row).toBeTruthy();
+    const cells = within(row).getAllByRole('cell');
+
+    expect(cells[1]).toHaveTextContent('3.39235924');
+    expect(cells[3]).toHaveTextContent('—');
+    expect(cells[4]).toHaveTextContent('—');
+    expect(cells[5]).toHaveTextContent('—');
+  });
+
+  test('uses the latest BUY or SELL as the signal reference price', () => {
+    renderWithProviders(
+      <HoldingsTab
+        holdings={[{ ticker: 'AAPL', shares: 10, cost: 1000, realised: 0 }]}
+        transactions={[
+          { ticker: 'AAPL', type: 'BUY', shares: 10, amount: -1000, price: 100, date: '2024-01-01' },
+          { ticker: 'AAPL', type: 'SELL', shares: 2, amount: 230, price: 115, date: '2024-01-05' },
+        ]}
+        currentPrices={{ AAPL: 121 }}
+        signals={{ AAPL: { pct: 5 } }}
+        onSignalChange={vi.fn()}
+      />,
+    );
+
+    const tables = screen.getAllByRole('table', { name: /signals/i });
+    const signalsTable = tables.at(-1);
+    const rows = within(signalsTable).getAllByRole('row');
+    const aaplRow = within(rows[1]);
+
+    expect(aaplRow.getByText('$121.00')).toBeVisible();
+    expect(aaplRow.getByText('$109.25')).toBeVisible();
+    expect(aaplRow.getByText('$120.75')).toBeVisible();
+    expect(aaplRow.getByText('TRIM zone')).toBeVisible();
+  });
+
+  test('suppresses signals when the live price fails the sanity guard', () => {
+    renderWithProviders(
+      <HoldingsTab
+        holdings={[{ ticker: 'NVDA', shares: 1, cost: 100, realised: 0 }]}
+        transactions={[
+          { ticker: 'NVDA', type: 'BUY', shares: 1, amount: -100, price: 100, date: '2024-01-01' },
+        ]}
+        currentPrices={{ NVDA: 140 }}
+        signals={{ NVDA: { pct: 5 } }}
+        onSignalChange={vi.fn()}
+      />,
+    );
+
+    const tables = screen.getAllByRole('table', { name: /signals/i });
+    const signalsTable = tables.at(-1);
+    const rows = within(signalsTable).getAllByRole('row');
+    const nvdaRow = within(rows[1]);
+
+    expect(nvdaRow.getByText('$140.00')).toBeVisible();
+    expect(nvdaRow.getAllByText('—')).not.toHaveLength(0);
+    expect(nvdaRow.getByText('NO DATA')).toBeVisible();
+  });
+
+  test('renders the corrected NVDA holding after the pre-split sell adjustment', () => {
+    renderWithProviders(
+      <HoldingsTab
+        holdings={[{ ticker: 'NVDA', shares: '0.815097910', cost: 147.90260276740557, realised: 62.89260276740556 }]}
+        transactions={[]}
+        currentPrices={{ NVDA: 180.36 }}
+        signals={{}}
+        onSignalChange={vi.fn()}
+      />,
+    );
+
+    const holdingsTable = screen.getAllByRole('table', { name: /holdings/i })[0];
+    const body = within(holdingsTable).getByTestId('holdings-tbody');
+    const row = within(body).getByText('NVDA').closest('tr');
+    expect(row).toBeTruthy();
+    const cells = within(row).getAllByRole('cell');
+
+    expect(cells[1]).toHaveTextContent('0.81509791');
+    expect(cells[2]).toHaveTextContent('$181.45');
+    expect(cells[3]).toHaveTextContent('$180.36');
+    expect(cells[4]).toHaveTextContent('$147.01');
+    expect(cells[5]).toHaveTextContent('-$0.89');
+    expect(cells[6]).toHaveTextContent('$62.89');
   });
 });

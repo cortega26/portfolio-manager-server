@@ -9,7 +9,7 @@ import pino from 'pino';
 import pinoHttp from 'pino-http';
 import request from 'supertest';
 
-import { createApp } from '../app.js';
+import { createSessionTestApp, withSession } from './sessionTestUtils.js';
 
 const noopLogger = {
   info() {},
@@ -30,7 +30,7 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-test('HTTP logs redact API key headers', async () => {
+test('HTTP logs redact API key and session token headers', async () => {
   const captured = [];
   const httpLoggerFactory = (options) => {
     const stream = new Writable({
@@ -49,16 +49,19 @@ test('HTTP logs redact API key headers', async () => {
     return pinoHttp({ ...options, logger });
   };
 
-  const app = createApp({
+  const app = createSessionTestApp({
     dataDir,
     logger: noopLogger,
     httpLoggerFactory,
   });
 
-  const response = await request(app)
-    .get('/api/returns/daily')
-    .set('X-Portfolio-Key', 'SecretKey123!')
-    .set('X-Portfolio-Key-New', 'NextKey456!');
+  const response = await withSession(
+    request(app)
+      .get('/api/returns/daily')
+      .set('X-Portfolio-Key', 'SecretKey123!')
+      .set('X-Portfolio-Key-New', 'NextKey456!'),
+    'DesktopSecret789!',
+  );
 
   assert.equal(response.status, 200);
 
@@ -67,4 +70,5 @@ test('HTTP logs redact API key headers', async () => {
   const parsed = JSON.parse(logLine);
   assert.equal(parsed.req.headers['x-portfolio-key'], '[REDACTED]');
   assert.equal(parsed.req.headers['x-portfolio-key-new'], '[REDACTED]');
+  assert.equal(parsed.req.headers['x-session-token'], '[REDACTED]');
 });

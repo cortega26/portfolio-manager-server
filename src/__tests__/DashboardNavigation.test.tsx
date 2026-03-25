@@ -33,6 +33,21 @@ vi.mock('../components/AdminTab.jsx', () => ({
 }));
 
 vi.mock('../utils/api.js', () => ({
+  evaluateSignals: vi.fn(async () => ({
+    data: {
+      rows: [],
+      prices: {},
+      errors: {},
+      market: {
+        isOpen: true,
+        isBeforeOpen: false,
+        lastTradingDate: '2024-01-02',
+        nextTradingDate: '2024-01-02',
+      },
+    },
+    requestId: 'signals-none',
+  })),
+  fetchBenchmarkCatalog: vi.fn(async () => ({ data: {} })),
   fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
   fetchDailyReturns: vi.fn(async () => ({ data: { series: [] } })),
   fetchPrices: vi.fn(async () => ({ data: [] })),

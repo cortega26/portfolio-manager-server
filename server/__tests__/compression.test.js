@@ -94,7 +94,9 @@ test('compression can be skipped with x-no-compression header', async () => {
 test('small responses remain uncompressed', async () => {
   const app = buildApp();
 
-  const response = await request(app).get('/api/security/stats');
+  // /api/monitoring returns a small JSON object — ideal for testing that
+  // compression is not applied to small payloads.
+  const response = await request(app).get('/api/monitoring');
 
   assert.equal(response.status, 200);
   assert.equal(response.headers['content-encoding'], undefined);

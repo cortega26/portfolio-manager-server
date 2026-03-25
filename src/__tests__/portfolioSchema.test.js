@@ -41,6 +41,7 @@ describe("portfolio payload validation", () => {
     assert.equal(result.transactions[1].ticker, undefined);
     assert.deepEqual(result.signals, { SPY: { pct: 5 } });
     assert.deepEqual(result.settings, { autoClip: true });
+    assert.deepEqual(result.cash, { currency: "USD", apyTimeline: [] });
   });
 
   it("throws with helpful error details when validation fails", () => {

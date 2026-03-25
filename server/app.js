@@ -1,12 +1,11 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import fetch from "node-fetch";
 import NodeCache from "node-cache";
 import { promises as fs } from "fs";
 import path from "path";
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import pino from "pino";
 import compression from "compression";
 import {
@@ -16,25 +15,14 @@ import {
   DEFAULT_PRICE_CACHE_TTL_SECONDS,
   DEFAULT_PRICE_CACHE_CHECK_PERIOD_SECONDS,
   DEFAULT_MAX_STALE_TRADING_DAYS,
-  RATE_LIMIT_DEFAULTS,
-  MIN_RATE_LIMIT_WINDOW_MS,
-  MIN_RATE_LIMIT_MAX,
-  SECURITY_AUDIT_DEFAULT_MAX_EVENTS,
-  PORTFOLIO_SCHEMA_VERSION,
-  CASH_POLICY_SCHEMA_VERSION,
 } from "../shared/constants.js";
-import {
-  registerRateLimitConfig,
-  recordRateLimitHit,
-  getRateLimitMetrics,
-} from "./metrics/rateLimitMetrics.js";
 import { getPerformanceMetrics } from "./metrics/performanceMetrics.js";
 import { runMigrations } from "./migrations/index.js";
 import {
   computeMoneyWeightedReturn,
   summarizeReturns,
 } from "./finance/returns.js";
-import { sortTransactions, weightsFromState } from "./finance/portfolio.js";
+import { projectStateUntil, sortTransactions, weightsFromState } from "./finance/portfolio.js";
 import { toDateKey } from "./finance/cash.js";
 import {
   d,
@@ -49,34 +37,26 @@ import {
   YahooPriceProvider,
   StooqPriceProvider,
 } from "./data/prices.js";
+import { createConfiguredPriceProvider } from "./data/priceProviderFactory.js";
+import { createConfiguredLatestQuoteProvider } from "./data/priceProviderFactory.js";
+import { readPortfolioState, writePortfolioState } from "./data/portfolioState.js";
 import {
-  API_KEY_REQUIREMENTS,
-  apiKeySchema,
   validateCashRateBody,
   validatePortfolioBody,
   validatePortfolioIdParam,
   validateRangeQuery,
   validateReturnsQuery,
-  validateSecurityEventsQuery,
 } from "./middleware/validation.js";
-import { createSecurityAuditLogger } from "./middleware/auditLog.js";
-import { createSecurityEventStore } from "./security/eventsStore.js";
-import { atomicWriteFile } from "./utils/atomicStore.js";
-import { withLock } from "./utils/locks.js";
+import { createSessionAuth, DEFAULT_SESSION_AUTH_HEADER } from "./middleware/sessionAuth.js";
 import { computeTradingDayAge } from "./utils/calendar.js";
+import { withLock } from "./utils/locks.js";
 import {
   configurePriceCache,
+  generateETag,
   getCacheStats,
   getCachedPrice,
   setCachedPrice,
 } from "./cache/priceCache.js";
-import {
-  configureBruteForce,
-  registerAuthFailure,
-  clearAuthFailures,
-  checkBruteForceLockout,
-  getBruteForceStats,
-} from "./middleware/bruteForce.js";
 import {
   createHttpLogger,
   buildHttpLoggerOptions,
@@ -86,6 +66,14 @@ import {
   ensureApiVersionHeader,
   rewriteLegacyApiPrefix,
 } from "./middleware/requestContext.js";
+import { normalizeBenchmarkConfig } from "../shared/benchmarks.js";
+import {
+  deriveLastSignalReference,
+  evaluateSignalRow,
+  isOpenSignalHolding,
+  resolveSignalWindow,
+} from "../shared/signals.js";
+import { getMarketClock } from "../src/utils/marketHours.js";
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? "./data");
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.PRICE_FETCH_TIMEOUT_MS ?? "5000",
@@ -221,6 +209,18 @@ function paginateRows(rows, { page = 1, perPage = 100 } = {}) {
 function computeEtag(serializedBody) {
   return createHash("sha256").update(serializedBody).digest("base64url");
 }
+
+function isSameOriginRequest(req, origin) {
+  if (!origin) {
+    return true;
+  }
+  const host = req.get("host");
+  if (!host) {
+    return false;
+  }
+  return origin === `${req.protocol}://${host}`;
+}
+
 function sendJsonWithEtag(req, res, payload, { cacheControl } = {}) {
   const serialized = JSON.stringify(payload);
   const etag = computeEtag(serialized);
@@ -244,24 +244,30 @@ export function createApp({
   priceProvider = null,
   auditSink = null,
   httpLoggerFactory = null,
+  staticDir = null,
+  spaFallback = false,
 } = {}) {
   const baseLogger = adaptLogger(logger) ?? DEFAULT_LOGGER;
   const log =
     typeof baseLogger.child === "function"
       ? baseLogger.child({ module: "app" })
       : baseLogger;
-  const securityEventStore = createSecurityEventStore({
-    maxEvents:
-      config?.security?.auditLog?.maxEvents ??
-      SECURITY_AUDIT_DEFAULT_MAX_EVENTS,
-  });
   const handleSecurityEvent = (event) => {
-    const stored = securityEventStore.record(event);
     if (typeof auditSink === "function") {
-      auditSink(stored ?? event);
+      auditSink(event);
     }
   };
   const featureFlags = config?.featureFlags ?? { cashBenchmarks: true };
+  const benchmarkConfig = normalizeBenchmarkConfig(config?.benchmarks ?? {});
+  const sessionAuthHeaderName =
+    typeof config?.security?.auth?.headerName === "string" &&
+    config.security.auth.headerName.trim().length > 0
+      ? config.security.auth.headerName
+      : DEFAULT_SESSION_AUTH_HEADER;
+  const sessionAuthToken =
+    typeof config?.security?.auth?.sessionToken === "string"
+      ? config.security.auth.sessionToken
+      : process.env.PORTFOLIO_SESSION_TOKEN ?? "";
   const allowedOrigins = config?.cors?.allowedOrigins ?? [];
   const cacheTtlSeconds = (() => {
     const override = config?.cache?.ttlSeconds;
@@ -295,6 +301,13 @@ export function createApp({
     return DEFAULT_MAX_STALE_TRADING_DAYS;
   })();
   const dataDirectory = path.resolve(dataDir);
+  const resolvedStaticDir =
+    typeof staticDir === "string" && staticDir.trim().length > 0
+      ? path.resolve(staticDir)
+      : null;
+  const spaIndexFile = resolvedStaticDir
+    ? path.join(resolvedStaticDir, "index.html")
+    : null;
   fs.mkdir(dataDirectory, { recursive: true }).catch((error) => {
     log.error("failed_to_ensure_data_directory", {
       error: error.message,
@@ -346,434 +359,27 @@ export function createApp({
     fallback: stooqProvider,
     logger: priceLogger,
   });
-  const priceProviderInstance = priceProvider ?? compositePriceProvider;
-  const portfolioKeyCache = new Map();
-  const bruteForceConfig = config?.security?.bruteForce ?? {};
-  configureBruteForce(bruteForceConfig);
-  function resolveRemoteAddress(req) {
-    const forwarded = req.headers?.["x-forwarded-for"];
-    if (typeof forwarded === "string" && forwarded.trim()) {
-      return forwarded.split(",")[0].trim();
-    }
-    if (Array.isArray(forwarded) && forwarded.length > 0) {
-      const value = forwarded[0];
-      if (typeof value === "string" && value.trim()) {
-        return value.trim();
-      }
-    }
-    return (
-      req.ip ??
-      req.socket?.remoteAddress ??
-      req.connection?.remoteAddress ??
-      "unknown"
-    );
-  }
-  const securityLogger =
-    typeof log.child === "function" ? log.child({ module: "security" }) : log;
-  function logSecurity(level, event, details = {}) {
-    const logger =
-      typeof securityLogger?.[level] === "function"
-        ? securityLogger[level].bind(securityLogger)
-        : typeof securityLogger?.info === "function"
-          ? securityLogger.info.bind(securityLogger)
-          : null;
-    if (logger) {
-      logger({ event, ...details });
-    }
-  }
-  function resolveFailureContext(portfolioId, req) {
-    const remoteAddress = resolveRemoteAddress(req);
-    const normalizedId =
-      typeof portfolioId === "string" && portfolioId ? portfolioId : "unknown";
-    return { key: `${normalizedId}::${remoteAddress}`, remoteAddress };
-  }
-  function validateKeyStrength(rawKey, { action }) {
-    const result = apiKeySchema.safeParse(rawKey);
-    if (result.success) {
-      return { ok: true, issues: [] };
-    }
-    const issues = result.error?.issues?.map((issue) => issue.message) ?? [];
-    logSecurity("warn", "portfolio_key_weak", { action, issues });
-    return { ok: false, issues };
-  }
-  function createWeakKeyError() {
-    return createHttpError({
-      status: 400,
-      code: "WEAK_KEY",
-      message: "API key does not meet strength requirements",
-      expose: true,
-      requirements: API_KEY_REQUIREMENTS,
-    });
-  }
-  const KEY_SALT_BYTES = 16;
-  function generateKeySalt() {
-    return randomBytes(KEY_SALT_BYTES);
-  }
-  function digestPortfolioKey(rawKey, saltBuffer = null) {
-    const hash = createHash("sha256");
-    if (saltBuffer && saltBuffer.length > 0) {
-      hash.update(saltBuffer);
-    }
-    hash.update(rawKey);
-    return hash.digest();
-  }
-  function hashPortfolioKey(rawKey, saltHex = null) {
-    let saltBuffer =
-      typeof saltHex === "string" && saltHex.length > 0
-        ? Buffer.from(saltHex, "hex")
-        : null;
-    if (!saltBuffer || saltBuffer.length === 0) {
-      saltBuffer = generateKeySalt();
-    }
-    const digest = digestPortfolioKey(rawKey, saltBuffer);
-    return {
-      hash: digest.toString("hex"),
-      salt: saltBuffer.toString("hex"),
-    };
-  }
-  function normalizeKey(value) {
-    if (typeof value !== "string") {
-      return "";
-    }
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : "";
-  }
-  async function readPortfolioKeyHash(portfolioId) {
-    if (portfolioKeyCache.has(portfolioId)) {
-      return portfolioKeyCache.get(portfolioId);
-    }
-    const storage = await getStorage();
-    const rows = await storage.readTable("portfolio_keys");
-    const record = rows.find((row) => row.id === portfolioId);
-    const hash = typeof record?.hash === "string" ? record.hash : null;
-    if (!hash) {
-      portfolioKeyCache.set(portfolioId, null);
-      return null;
-    }
-    const salt =
-      typeof record?.salt === "string" && record.salt.length > 0
-        ? record.salt
-        : null;
-    const normalized = { hash, salt };
-    portfolioKeyCache.set(portfolioId, normalized);
-    return normalized;
-  }
-  async function writePortfolioKeyHash(portfolioId, keyRecord) {
-    await withLock(`portfolio-key:${portfolioId}`, async () => {
-      const storage = await getStorage();
-      if (keyRecord && keyRecord.hash) {
-        await storage.upsertRow(
-          "portfolio_keys",
-          {
-            id: portfolioId,
-            hash: keyRecord.hash,
-            salt: keyRecord.salt ?? null,
-            updated_at: new Date().toISOString(),
-          },
-          ["id"],
-        );
-      } else {
-        await storage.deleteWhere(
-          "portfolio_keys",
-          (row) => row.id === portfolioId,
-        );
-      }
-    });
-    portfolioKeyCache.set(portfolioId, keyRecord ?? null);
-  }
-  function createPortfolioKeyVerifier({
-    allowBootstrap = false,
-    allowRotation = false,
-  } = {}) {
-    return async (req, res, next) => {
-      const { id: portfolioId } = req.params ?? {};
-      const providedKey = normalizeKey(req.get("x-portfolio-key"));
-      const rotationKey = normalizeKey(req.get("x-portfolio-key-new"));
-      const { remoteAddress } = resolveFailureContext(portfolioId, req);
-      const now = Date.now();
-      const lockoutStatus = checkBruteForceLockout(
-        portfolioId,
-        remoteAddress,
-        now,
-      );
-      if (lockoutStatus.blocked) {
-        if (lockoutStatus.retryAfterSeconds) {
-          res.set("Retry-After", String(lockoutStatus.retryAfterSeconds));
-        }
-        logSecurity("warn", "portfolio_key_lockout", {
-          id: portfolioId,
-          remote_address: remoteAddress,
-          retry_after_seconds: lockoutStatus.retryAfterSeconds ?? null,
-          lockout_count: lockoutStatus.lockoutCount ?? null,
-        });
-        if (typeof req.auditLog === "function") {
-          req.auditLog("auth_failed", {
-            portfolio_id: portfolioId,
-            reason: "lockout_active",
-            retry_after_seconds: lockoutStatus.retryAfterSeconds ?? null,
-            lockout_count: lockoutStatus.lockoutCount ?? null,
-          });
-        }
-        next(
-          createHttpError({
-            status: 429,
-            code: "TOO_MANY_KEY_ATTEMPTS",
-            message:
-              "Too many invalid portfolio key attempts. Try again later.",
-            expose: true,
-          }),
-        );
-        return;
-      }
-      try {
-        let storedKeyRecord = await readPortfolioKeyHash(portfolioId);
-        if (!storedKeyRecord) {
-          if (!providedKey) {
-            next(
-              createHttpError({
-                status: 401,
-                code: "NO_KEY",
-                message: "Portfolio key required.",
-                expose: true,
-              }),
-            );
-            return;
-          }
-          if (!allowBootstrap) {
-            next(
-              createHttpError({
-                status: 404,
-                code: "PORTFOLIO_NOT_FOUND",
-                message: "Portfolio not provisioned.",
-              }),
-            );
-            return;
-          }
-          const { ok: bootstrapKeyOk, issues: bootstrapIssues } =
-            validateKeyStrength(providedKey, { action: "bootstrap" });
-          if (!bootstrapKeyOk) {
-            if (typeof req.auditLog === "function") {
-              req.auditLog("weak_key_rejected", {
-                portfolio_id: portfolioId,
-                action: "bootstrap",
-                issues: bootstrapIssues,
-              });
-            }
-            next(createWeakKeyError());
-            return;
-          }
-          const hashedRecord = hashPortfolioKey(providedKey);
-          await writePortfolioKeyHash(portfolioId, hashedRecord);
-          clearAuthFailures(portfolioId, remoteAddress);
-          if (!req.portfolioAuth) {
-            req.portfolioAuth = {};
-          }
-          req.portfolioAuth.bootstrapped = true;
-          logSecurity("info", "portfolio_key_bootstrapped", {
-            id: portfolioId,
-          });
-          if (typeof req.auditLog === "function") {
-            req.auditLog("auth_success", {
-              portfolio_id: portfolioId,
-              mode: "bootstrap",
-            });
-          }
-          next();
-          return;
-        }
-        if (!providedKey) {
-          const failureResult = registerAuthFailure(
-            portfolioId,
-            remoteAddress,
-            now,
-          );
-          if (failureResult.retryAfterSeconds) {
-            res.set("Retry-After", String(failureResult.retryAfterSeconds));
-          }
-          logSecurity("warn", "portfolio_key_missing", {
-            id: portfolioId,
-            remote_address: remoteAddress,
-            blocked: failureResult.blocked,
-            remaining_attempts: failureResult.remainingAttempts ?? null,
-          });
-          if (typeof req.auditLog === "function") {
-            req.auditLog("auth_failed", {
-              portfolio_id: portfolioId,
-              reason: "missing_key",
-              blocked: failureResult.blocked,
-              remaining_attempts: failureResult.remainingAttempts ?? null,
-            });
-          }
-          const error = createHttpError({
-            status: failureResult.blocked ? 429 : 401,
-            code: failureResult.blocked ? "TOO_MANY_KEY_ATTEMPTS" : "NO_KEY",
-            message: failureResult.blocked
-              ? "Too many missing or invalid portfolio key attempts. Try again later."
-              : "Portfolio key required.",
-            expose: true,
-          });
-          if (
-            !failureResult.blocked &&
-            Number.isFinite(failureResult.remainingAttempts)
-          ) {
-            error.details = {
-              remaining_attempts: failureResult.remainingAttempts,
-            };
-          }
-          next(error);
-          return;
-        }
-        const storedBuffer = Buffer.from(storedKeyRecord.hash, "hex");
-        const saltBuffer =
-          storedKeyRecord.salt && storedKeyRecord.salt.length > 0
-            ? Buffer.from(storedKeyRecord.salt, "hex")
-            : null;
-        const providedDigest = digestPortfolioKey(providedKey, saltBuffer);
-        if (
-          storedBuffer.length !== providedDigest.length ||
-          !timingSafeEqual(storedBuffer, providedDigest)
-        ) {
-          const failureResult = registerAuthFailure(
-            portfolioId,
-            remoteAddress,
-            now,
-          );
-          if (failureResult.retryAfterSeconds) {
-            res.set("Retry-After", String(failureResult.retryAfterSeconds));
-          }
-          const attemptTotal =
-            failureResult.failures ?? failureResult.attempts ?? null;
-          logSecurity("warn", "portfolio_key_invalid", {
-            id: portfolioId,
-            remote_address: remoteAddress,
-            blocked: failureResult.blocked,
-            attempts: attemptTotal,
-          });
-          if (failureResult.blocked) {
-            logSecurity("warn", "portfolio_key_blocked", {
-              id: portfolioId,
-              remote_address: remoteAddress,
-              retry_after_seconds: failureResult.retryAfterSeconds ?? null,
-              lockout_count: failureResult.lockoutCount ?? null,
-            });
-          }
-          if (typeof req.auditLog === "function") {
-            req.auditLog("auth_failed", {
-              portfolio_id: portfolioId,
-              reason: "invalid_key",
-              blocked: failureResult.blocked,
-              attempts: attemptTotal,
-              remaining_attempts: failureResult.remainingAttempts ?? null,
-              retry_after_seconds: failureResult.retryAfterSeconds ?? null,
-            });
-          }
-          const error = createHttpError({
-            status: failureResult.blocked ? 429 : 403,
-            code: failureResult.blocked
-              ? "TOO_MANY_KEY_ATTEMPTS"
-              : "INVALID_KEY",
-            message: failureResult.blocked
-              ? "Too many invalid portfolio key attempts. Try again later."
-              : "Invalid portfolio key.",
-            expose: true,
-          });
-          if (
-            !failureResult.blocked &&
-            Number.isFinite(failureResult.remainingAttempts)
-          ) {
-            error.details = {
-              remaining_attempts: failureResult.remainingAttempts,
-            };
-          }
-          next(error);
-          return;
-        }
-        clearAuthFailures(portfolioId, remoteAddress);
-        if (!storedKeyRecord.salt) {
-          const upgradedRecord = hashPortfolioKey(providedKey);
-          await writePortfolioKeyHash(portfolioId, upgradedRecord);
-          storedKeyRecord = upgradedRecord;
-          logSecurity("info", "portfolio_key_salt_upgraded", {
-            id: portfolioId,
-          });
-        }
-        if (allowRotation && rotationKey) {
-          const { ok: rotationKeyOk, issues: rotationIssues } =
-            validateKeyStrength(rotationKey, { action: "rotate" });
-          if (!rotationKeyOk) {
-            if (typeof req.auditLog === "function") {
-              req.auditLog("weak_key_rejected", {
-                portfolio_id: portfolioId,
-                action: "rotate",
-                issues: rotationIssues,
-              });
-            }
-            next(createWeakKeyError());
-            return;
-          }
-          const newRecord = hashPortfolioKey(rotationKey);
-          if (
-            newRecord.hash !== storedKeyRecord.hash ||
-            newRecord.salt !== storedKeyRecord.salt
-          ) {
-            await writePortfolioKeyHash(portfolioId, newRecord);
-            storedKeyRecord = newRecord;
-            clearAuthFailures(portfolioId, remoteAddress);
-            if (!req.portfolioAuth) {
-              req.portfolioAuth = {};
-            }
-            req.portfolioAuth.rotated = true;
-            logSecurity("info", "portfolio_key_rotated", { id: portfolioId });
-            if (typeof req.auditLog === "function") {
-              req.auditLog("key_rotated", { portfolio_id: portfolioId });
-            }
-          }
-        }
-        if (typeof req.auditLog === "function") {
-          req.auditLog("auth_success", {
-            portfolio_id: portfolioId,
-            mode: "access",
-          });
-        }
-        next();
-      } catch (error) {
-        logSecurity("error", "portfolio_key_verification_failed", {
-          id: portfolioId,
-          error: error.message,
-        });
-        if (typeof req.auditLog === "function") {
-          req.auditLog("auth_failed", {
-            portfolio_id: portfolioId,
-            reason: "verification_error",
-          });
-        }
-        next(
-          createHttpError({
-            status: 500,
-            code: "KEY_VERIFICATION_FAILED",
-            message: "Failed to verify portfolio key.",
-            expose: false,
-          }),
-        );
-      }
-    };
-  }
-  function resolvePortfolioFilePath(portfolioId) {
-    const candidate = path.resolve(
-      dataDirectory,
-      `portfolio_${portfolioId}.json`,
-    );
-    const relative = path.relative(dataDirectory, candidate);
-    if (relative.startsWith("..") || path.isAbsolute(relative)) {
-      throw createHttpError({
-        status: 400,
-        code: "INVALID_PORTFOLIO_ID",
-        message: "Invalid portfolio identifier.",
-        expose: true,
-      });
-    }
-    return candidate;
-  }
+  const priceProviderInstance =
+    priceProvider
+    ?? createConfiguredPriceProvider({
+      config,
+      fetchImpl,
+      timeoutMs: fetchTimeoutMs,
+      logger: priceLogger,
+    })
+    ?? compositePriceProvider;
+  const latestQuoteProviderInstance = createConfiguredLatestQuoteProvider({
+    config,
+    fetchImpl,
+    timeoutMs: fetchTimeoutMs,
+    logger: priceLogger,
+  });
+  const benchmarkCatalogPayload = {
+    available: benchmarkConfig.available,
+    derived: benchmarkConfig.derived,
+    defaults: benchmarkConfig.defaultSelection,
+    priceSymbols: benchmarkConfig.priceSymbols,
+  };
   function ensureTransactionUids(transactions, portfolioId) {
     const seen = new Set();
     const deduplicated = [];
@@ -1053,7 +659,6 @@ export function createApp({
     return storagePromise;
   };
   const app = express();
-  app.locals.securityEventStore = securityEventStore;
   app.disable("x-powered-by");
   const compressionMiddleware = compression({
     threshold: 1024,
@@ -1075,9 +680,6 @@ export function createApp({
   app.use(rewriteLegacyApiPrefix);
   app.use("/api", ensureApiVersionHeader);
   app.use(
-    createSecurityAuditLogger({ logger: log, sink: handleSecurityEvent }),
-  );
-  app.use(
     helmet({
       contentSecurityPolicy: {
         useDefaults: true,
@@ -1096,162 +698,30 @@ export function createApp({
   );
   const allowedOriginSet = new Set(allowedOrigins);
   app.use(
-    cors({
-      origin(origin, callback) {
-        if (!origin) {
-          callback(null, true);
-          return;
-        }
-        if (allowedOriginSet.has(origin)) {
-          callback(null, true);
-          return;
-        }
-        callback(
-          createHttpError({
-            status: 403,
-            code: "CORS_NOT_ALLOWED",
-            message: "Origin not allowed by CORS policy",
-          }),
-        );
-      },
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      credentials: false,
+    cors((req, callback) => {
+      const origin = req.get("origin");
+      if (
+        !origin ||
+        allowedOriginSet.has(origin) ||
+        isSameOriginRequest(req, origin)
+      ) {
+        callback(null, {
+          origin: true,
+          methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+          credentials: false,
+        });
+        return;
+      }
+      callback(
+        createHttpError({
+          status: 403,
+          code: "CORS_NOT_ALLOWED",
+          message: "Origin not allowed by CORS policy",
+        }),
+      );
     }),
   );
   app.use(express.json({ limit: "10mb" }));
-  const rateLimitConfig = config?.rateLimit ?? {};
-  const { handler: generalLimitHandler, ...generalLimitConfig } =
-    rateLimitConfig.general ?? {};
-  const { handler: portfolioLimitHandler, ...portfolioLimitConfig } =
-    rateLimitConfig.portfolio ?? {};
-  const { handler: priceLimitHandler, ...priceLimitConfig } =
-    rateLimitConfig.prices ?? {};
-  const generalWindowMs = Number.isFinite(generalLimitConfig.windowMs)
-    ? Math.max(
-        MIN_RATE_LIMIT_WINDOW_MS,
-        Math.round(generalLimitConfig.windowMs),
-      )
-    : RATE_LIMIT_DEFAULTS.general.windowMs;
-  const generalMax = Number.isFinite(generalLimitConfig.max)
-    ? Math.max(MIN_RATE_LIMIT_MAX, Math.round(generalLimitConfig.max))
-    : RATE_LIMIT_DEFAULTS.general.max;
-  const portfolioWindowMs = Number.isFinite(portfolioLimitConfig.windowMs)
-    ? Math.max(
-        MIN_RATE_LIMIT_WINDOW_MS,
-        Math.round(portfolioLimitConfig.windowMs),
-      )
-    : RATE_LIMIT_DEFAULTS.portfolio.windowMs;
-  const portfolioMax = Number.isFinite(portfolioLimitConfig.max)
-    ? Math.max(MIN_RATE_LIMIT_MAX, Math.round(portfolioLimitConfig.max))
-    : RATE_LIMIT_DEFAULTS.portfolio.max;
-  const priceWindowMs = Number.isFinite(priceLimitConfig.windowMs)
-    ? Math.max(MIN_RATE_LIMIT_WINDOW_MS, Math.round(priceLimitConfig.windowMs))
-    : RATE_LIMIT_DEFAULTS.prices.windowMs;
-  const priceMax = Number.isFinite(priceLimitConfig.max)
-    ? Math.max(MIN_RATE_LIMIT_MAX, Math.round(priceLimitConfig.max))
-    : RATE_LIMIT_DEFAULTS.prices.max;
-  registerRateLimitConfig("general", {
-    limit: generalMax,
-    windowMs: generalWindowMs,
-  });
-  registerRateLimitConfig("portfolio", {
-    limit: portfolioMax,
-    windowMs: portfolioWindowMs,
-  });
-  registerRateLimitConfig("prices", {
-    limit: priceMax,
-    windowMs: priceWindowMs,
-  });
-  const resolveRateLimitIp = (req) => {
-    const forwarded = req?.headers?.["x-forwarded-for"];
-    if (typeof forwarded === "string" && forwarded.trim().length > 0) {
-      const [first] = forwarded.split(",");
-      if (first) {
-        return first.trim();
-      }
-    }
-    if (typeof req?.ip === "string" && req.ip) {
-      return req.ip;
-    }
-    if (req?.connection?.remoteAddress) {
-      return req.connection.remoteAddress;
-    }
-    if (req?.socket?.remoteAddress) {
-      return req.socket.remoteAddress;
-    }
-    return undefined;
-  };
-  const createLimitHandler =
-    ({ scope, limit, windowMs, customHandler }) =>
-    async (req, res, next, optionsUsed) => {
-      recordRateLimitHit({
-        scope,
-        limit,
-        windowMs,
-        ip: resolveRateLimitIp(req),
-      });
-      if (typeof req.auditLog === "function") {
-        req.auditLog("rate_limit_exceeded", {
-          scope,
-          route: req.originalUrl,
-          limit,
-          window_ms: windowMs,
-        });
-      }
-      if (typeof customHandler === "function") {
-        return customHandler(req, res, next, optionsUsed);
-      }
-      res.status(optionsUsed.statusCode);
-      const message =
-        typeof optionsUsed.message === "function"
-          ? await optionsUsed.message(req, res)
-          : optionsUsed.message;
-      if (!res.writableEnded) {
-        res.send(message);
-      }
-    };
-  const generalLimiter = rateLimit({
-    ...generalLimitConfig,
-    windowMs: generalWindowMs,
-    max: generalMax,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: createLimitHandler({
-      scope: "general",
-      limit: generalMax,
-      windowMs: generalWindowMs,
-      customHandler: generalLimitHandler,
-    }),
-  });
-  const portfolioLimiter = rateLimit({
-    ...portfolioLimitConfig,
-    windowMs: portfolioWindowMs,
-    max: portfolioMax,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: createLimitHandler({
-      scope: "portfolio",
-      limit: portfolioMax,
-      windowMs: portfolioWindowMs,
-      customHandler: portfolioLimitHandler,
-    }),
-  });
-  app.use("/api", generalLimiter);
-  app.use(["/api/portfolio", "/api/returns", "/api/nav"], portfolioLimiter);
-  const priceLimiter = rateLimit({
-    ...priceLimitConfig,
-    windowMs: priceWindowMs,
-    max: priceMax,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: createLimitHandler({
-      scope: "prices",
-      limit: priceMax,
-      windowMs: priceWindowMs,
-      customHandler: priceLimitHandler,
-    }),
-  });
-  app.use("/api/prices", priceLimiter);
   async function fetchHistoricalPrices(symbol, range = "1y", { latestOnly = false } = {}) {
     if (!SYMBOL_PATTERN.test(symbol)) {
       throw createHttpError({
@@ -1277,6 +747,23 @@ export function createApp({
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       fromDate = toDateKey(oneYearAgo);
     }
+    if (latestOnly && latestQuoteProviderInstance?.getLatestQuote) {
+      try {
+        const latestQuote = await latestQuoteProviderInstance.getLatestQuote(normalizedSymbol);
+        const latestPrices = latestQuote ? [{ date: latestQuote.date, close: Number(latestQuote.adjClose) }] : [];
+        return {
+          prices: latestPrices,
+          etag: generateETag(latestPrices),
+          cacheHit: false,
+        };
+      } catch (error) {
+        log.warn("latest_quote_fetch_failed", {
+          symbol: normalizedSymbol,
+          provider: latestQuoteProviderInstance.constructor?.name ?? "latest_quote_provider",
+          error: error.message,
+        });
+      }
+    }
     try {
       const fetched = await priceProviderInstance.getDailyAdjustedClose(
         normalizedSymbol,
@@ -1298,6 +785,22 @@ export function createApp({
       }
       return { prices: sorted, etag, cacheHit: false };
     } catch (error) {
+      if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
+        const cachedPrices = latestOnly
+          ? [cached.data[cached.data.length - 1]].filter(Boolean)
+          : cached.data;
+        log.warn("price_fetch_serving_cached_fallback", {
+          symbol: normalizedSymbol,
+          range: normalizedRange,
+          latest_only: latestOnly,
+          error: error.message,
+        });
+        return {
+          prices: cachedPrices,
+          etag: cached.etag,
+          cacheHit: true,
+        };
+      }
       if (error.name === "AbortError") {
         const timeoutError = createHttpError({
           status: 504,
@@ -1319,11 +822,113 @@ export function createApp({
       });
     }
   }
-  const requirePortfolioKeyRead = createPortfolioKeyVerifier();
-  const requirePortfolioKeyWrite = createPortfolioKeyVerifier({
-    allowBootstrap: true,
-    allowRotation: true,
+  async function fetchLatestSignalPrices(symbols) {
+    const prices = {};
+    const asOf = {};
+    const errors = {};
+
+    const results = await Promise.all(
+      symbols.map(async (symbol) => {
+        try {
+          const result = await fetchHistoricalPrices(symbol, "1y", { latestOnly: true });
+          return { symbol, status: "fulfilled", result };
+        } catch (error) {
+          return { symbol, status: "rejected", error };
+        }
+      }),
+    );
+
+    for (const entry of results) {
+      if (entry.status === "rejected") {
+        const { symbol, error } = entry;
+        errors[symbol] = {
+          code: error?.code ?? "PRICE_FETCH_FAILED",
+          status: error?.status ?? error?.statusCode ?? 502,
+          message: error?.message ?? "Failed to fetch historical prices.",
+        };
+        continue;
+      }
+
+      const { symbol, result } = entry;
+      const latest = Array.isArray(result.prices) ? result.prices[result.prices.length - 1] : null;
+      const latestDate = latest?.date ?? null;
+      const tradingDayAge = computeTradingDayAge(latestDate);
+      if (!latestDate || tradingDayAge > maxStaleTradingDays) {
+        errors[symbol] = {
+          code: "STALE_DATA",
+          status: 503,
+          message: "Historical prices are stale for this symbol.",
+        };
+        continue;
+      }
+
+      const rawClose =
+        Number.isFinite(latest?.close)
+          ? latest.close
+          : Number.isFinite(latest?.adjClose)
+            ? latest.adjClose
+            : null;
+      if (!Number.isFinite(rawClose)) {
+        errors[symbol] = {
+          code: "PRICE_FETCH_FAILED",
+          status: 502,
+          message: "Failed to fetch historical prices.",
+        };
+        continue;
+      }
+
+      prices[symbol] = rawClose;
+      asOf[symbol] = latestDate;
+    }
+
+    return { prices, asOf, errors };
+  }
+
+  async function evaluateSignalPreview({ transactions = [], signals = {} } = {}) {
+    const sortedTransactions = sortTransactions(transactions);
+    const lastTransactionDate =
+      sortedTransactions.length > 0 ? sortedTransactions[sortedTransactions.length - 1].date : null;
+    const projectedState = lastTransactionDate
+      ? projectStateUntil(sortedTransactions, lastTransactionDate)
+      : { holdings: new Map() };
+    const openTickers = Array.from(projectedState.holdings.entries())
+      .filter(([, quantity]) => isOpenSignalHolding(quantity))
+      .map(([ticker]) => ticker)
+      .sort((left, right) => left.localeCompare(right));
+    const latestSignalPrices =
+      openTickers.length > 0
+        ? await fetchLatestSignalPrices(openTickers)
+        : { prices: {}, asOf: {}, errors: {} };
+
+    const rows = openTickers.map((ticker) =>
+      evaluateSignalRow({
+        ticker,
+        pctWindow: resolveSignalWindow(signals, ticker),
+        currentPrice: latestSignalPrices.prices[ticker] ?? null,
+        currentPriceAsOf: latestSignalPrices.asOf[ticker] ?? null,
+        reference: deriveLastSignalReference(sortedTransactions, ticker),
+      }),
+    );
+
+    const market = getMarketClock();
+    return {
+      rows,
+      prices: latestSignalPrices.prices,
+      errors: latestSignalPrices.errors,
+      market: {
+        isOpen: market.isOpen,
+        isBeforeOpen: market.isBeforeOpen,
+        lastTradingDate: market.lastTradingDate,
+        nextTradingDate: market.nextTradingDate,
+      },
+    };
+  }
+  const sessionAuth = createSessionAuth({
+    sessionToken: sessionAuthToken,
+    headerName: sessionAuthHeaderName,
+    logger: log,
   });
+  const requirePortfolioAccess = sessionAuth;
   const validatePortfolioId = (req, res, next) => {
     validatePortfolioIdParam(req, res, (error) => {
       if (error) {
@@ -1337,6 +942,10 @@ export function createApp({
   app.get("/api/prices/:symbol", async (req, res, next) => {
     const { symbol } = req.params;
     const { range } = req.query;
+    if (typeof symbol === "string" && symbol.toLowerCase() === "bulk") {
+      next();
+      return;
+    }
     try {
       const { prices, etag, cacheHit } = await fetchHistoricalPrices(
         symbol,
@@ -1421,7 +1030,6 @@ export function createApp({
       const errors = {};
       const cacheMeta = {};
       const etagMeta = {};
-      const staleSymbols = [];
       let allHits = true;
       for (const entry of results) {
         if (entry.status === "fulfilled") {
@@ -1431,7 +1039,19 @@ export function createApp({
             prices.length > 0 ? prices[prices.length - 1].date : null;
           const tradingDayAge = computeTradingDayAge(latestDate);
           if (!latestDate || tradingDayAge > maxStaleTradingDays) {
-            staleSymbols.push(symbol);
+            errors[symbol] = {
+              code: "STALE_DATA",
+              status: 503,
+              message: "Historical prices are stale for this symbol.",
+            };
+            series[symbol] = [];
+            cacheMeta[symbol] = cacheHit ? "HIT" : "MISS";
+            if (etag) {
+              etagMeta[symbol] = etag;
+            }
+            if (!cacheHit) {
+              allHits = false;
+            }
             continue;
           }
           series[symbol] = prices;
@@ -1448,10 +1068,6 @@ export function createApp({
             message: error?.message ?? "Failed to fetch historical prices.",
           };
         }
-      }
-      if (staleSymbols.length > 0) {
-        res.status(503).json({ error: "STALE_DATA", symbols: staleSymbols });
-        return;
       }
       for (const symbol of normalizedSymbols) {
         if (!series[symbol]) {
@@ -1485,43 +1101,82 @@ export function createApp({
       );
     }
   });
+  app.get("/api/benchmarks", ensureCashFeature, (req, res) => {
+    sendJsonWithEtag(req, res, benchmarkCatalogPayload, {
+      cacheControl: cacheControlHeader,
+    });
+  });
   app.get("/api/cache/stats", (_req, res) => {
     res.json(getCacheStats());
-  });
-  app.get("/api/security/events", validateSecurityEventsQuery, (req, res) => {
-    const { limit } = req.query;
-    res.json({ events: securityEventStore.list({ limit }) });
-  });
-  app.get("/api/security/stats", (_req, res) => {
-    res.json({
-      bruteForce: getBruteForceStats(),
-      rateLimit: getRateLimitMetrics(),
-    });
   });
   app.get("/api/monitoring", (_req, res) => {
     res.json(getPerformanceMetrics());
   });
-  app.get(
-    "/api/portfolio/:id",
-    validatePortfolioId,
-    requirePortfolioKeyRead,
+  app.post(
+    "/api/signals",
+    sessionAuth,
+    validatePortfolioBody,
     async (req, res, next) => {
-      const { id } = req.params;
-      let filePath;
+      const payload = req.body;
+      let normalizedTransactions;
       try {
-        filePath = resolvePortfolioFilePath(id);
+        normalizedTransactions = ensureTransactionUids(
+          payload.transactions ?? [],
+          "signals-preview",
+        );
       } catch (error) {
         next(error);
         return;
       }
+
       try {
-        const data = await fs.readFile(filePath, "utf8");
-        res.json(JSON.parse(data));
+        enforceOversellPolicy(normalizedTransactions, {
+          portfolioId: "signals-preview",
+          autoClip: Boolean(payload.settings?.autoClip),
+        });
+        enforceNonNegativeCash(normalizedTransactions, {
+          portfolioId: "signals-preview",
+          logger: log,
+        });
       } catch (error) {
-        if (error.code === "ENOENT") {
+        next(error);
+        return;
+      }
+
+      try {
+        const response = await evaluateSignalPreview({
+          transactions: normalizedTransactions,
+          signals: payload.signals ?? {},
+        });
+        res.json(response);
+      } catch (error) {
+        log.error("signals_preview_failed", { error: error.message });
+        next(
+          createHttpError({
+            status: 500,
+            code: "SIGNALS_PREVIEW_FAILED",
+            message: "Failed to evaluate signals.",
+            expose: false,
+          }),
+        );
+      }
+    },
+  );
+  app.get(
+    "/api/portfolio/:id",
+    validatePortfolioId,
+    requirePortfolioAccess,
+    async (req, res, next) => {
+      const { id } = req.params;
+      try {
+        const storage = await getStorage();
+        const portfolio = await readPortfolioState(storage, id);
+        if (!portfolio) {
           res.json({});
           return;
         }
+        res.json(portfolio);
+      } catch (error) {
         log.error("portfolio_read_failed", { id, error: error.message });
         next(
           createHttpError({
@@ -1537,17 +1192,10 @@ export function createApp({
   app.post(
     "/api/portfolio/:id",
     validatePortfolioId,
-    requirePortfolioKeyWrite,
+    requirePortfolioAccess,
     validatePortfolioBody,
     async (req, res, next) => {
       const { id } = req.params;
-      let filePath;
-      try {
-        filePath = resolvePortfolioFilePath(id);
-      } catch (error) {
-        next(error);
-        return;
-      }
       const payload = req.body;
       const autoClip = Boolean(payload.settings?.autoClip);
       let normalizedTransactions;
@@ -1572,33 +1220,28 @@ export function createApp({
           }))
         : [];
       try {
-        enforceNonNegativeCash(normalizedTransactions, {
-          portfolioId: id,
-          logger: log,
-        });
         enforceOversellPolicy(normalizedTransactions, {
           portfolioId: id,
           autoClip,
+        });
+        enforceNonNegativeCash(normalizedTransactions, {
+          portfolioId: id,
+          logger: log,
         });
       } catch (error) {
         next(error);
         return;
       }
       const normalizedPayload = {
-        schemaVersion: PORTFOLIO_SCHEMA_VERSION,
         transactions: normalizedTransactions,
         signals: payload.signals ?? {},
         settings: { autoClip },
-        cash: {
-          currency: cashCurrency,
-          apyTimeline: cashTimeline,
-          version: CASH_POLICY_SCHEMA_VERSION,
-        },
+        cash: { currency: cashCurrency, apyTimeline: cashTimeline },
       };
-      const serialized = `${JSON.stringify(normalizedPayload, null, 2)}\n`;
       try {
         await withLock(`portfolio:${id}`, async () => {
-          await atomicWriteFile(filePath, serialized);
+          const storage = await getStorage();
+          await writePortfolioState(storage, id, normalizedPayload);
         });
         invalidateResponseCache("portfolio_save");
         res.json({ status: "ok" });
@@ -1872,6 +1515,33 @@ export function createApp({
       }
     },
   );
+  if (resolvedStaticDir) {
+    app.use(express.static(resolvedStaticDir));
+    if (spaFallback && spaIndexFile) {
+      app.get(/^(?!\/api(?:\/|$)).*/u, (req, res, next) => {
+        if (path.extname(req.path ?? "")) {
+          next();
+          return;
+        }
+        const accept = typeof req.headers.accept === "string"
+          ? req.headers.accept
+          : "";
+        if (
+          accept &&
+          !accept.includes("text/html") &&
+          !accept.includes("*/*")
+        ) {
+          next();
+          return;
+        }
+        res.sendFile(spaIndexFile, (error) => {
+          if (error) {
+            next(error);
+          }
+        });
+      });
+    }
+  }
   app.use((error, req, res, next) => {
     if (res.headersSent) {
       next(error);

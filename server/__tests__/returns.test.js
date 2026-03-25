@@ -11,7 +11,7 @@ import {
 } from '../finance/returns.js';
 import { d, roundDecimal } from '../finance/decimal.js';
 import { computeDailyStates } from '../finance/portfolio.js';
-import { toDateKey } from '../finance/cash.js';
+import { dailyRateFromApy, toDateKey } from '../finance/cash.js';
 
 test('computeReturnStep handles flows correctly', () => {
   const result = computeReturnStep(1000, 1100, 50);
@@ -61,9 +61,9 @@ test('cash policy timeline normalizes overlapping entries', () => {
   assert.ok(jan14);
   assert.ok(jan15);
   assert.ok(feb01);
-  assert.ok(Math.abs(jan14.r_cash - 0.02 / 365) < 1e-6);
-  assert.ok(Math.abs(jan15.r_cash - 0.04 / 365) < 1e-6);
-  assert.ok(Math.abs(feb01.r_cash - 0.05 / 365) < 1e-6);
+  assert.ok(Math.abs(jan14.r_cash - dailyRateFromApy(0.02).toNumber()) < 1e-6);
+  assert.ok(Math.abs(jan15.r_cash - dailyRateFromApy(0.04).toNumber()) < 1e-6);
+  assert.ok(Math.abs(feb01.r_cash - dailyRateFromApy(0.05).toNumber()) < 1e-6);
 });
 
 test('daily returns align with blended expectation for 50% cash', () => {

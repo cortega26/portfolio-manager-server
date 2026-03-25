@@ -76,8 +76,12 @@ flowchart LR
 | `CORS_ALLOWED_ORIGINS` | CSV string | `http://localhost:5173` | No | Frontends allowed to reach the API.【F:.env.example†L15-L80】|
 | `API_CACHE_TTL_SECONDS` | number | `30` | No | TTL for cached portfolio responses before re-computation.【F:.env.example†L29-L80】|
 | `PRICE_CACHE_TTL_SECONDS` | number | `900` | No | Maximum age of price quotes kept in memory cache.【F:.env.example†L33-L80】|
+| `PRICE_PROVIDER_LATEST` | string | `none` | No | Backend-side latest quote provider used for after-hours quotes (`twelvedata` or `none`).【F:.env.example†L54-L66】|
+| `TWELVE_DATA_API_KEY` | string | empty | No | Backend-side API key for Twelve Data latest quotes; restart the local server/Electron shell after changes.【F:.env.example†L54-L66】|
 | `BRUTE_FORCE_MAX_ATTEMPTS` | number | `5` | No | Failed auth attempts before progressive lockout begins.【F:.env.example†L45-L80】|
 | `VITE_API_BASE` | URL | `http://localhost:3000` | No | Override API origin consumed by the SPA.【F:.env.example†L67-L80】|
+
+Server-side variables such as `PRICE_PROVIDER_LATEST` and `TWELVE_DATA_API_KEY` are loaded from the repo root `.env` when the local Node/Electron entrypoints start. `VITE_*` variables remain renderer-only, and changing `.env` requires restarting `npm run server`, `npm run electron`, or `npm run electron:dev`.
 
 ## Quality & Tests
 - **Smoke + coverage (matches CI):**

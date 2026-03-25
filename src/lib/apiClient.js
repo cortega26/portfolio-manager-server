@@ -14,18 +14,12 @@ import {
  * @property {HeadersInit} [headers]
  * @property {BodyInit | null} [body]
  * @property {AbortSignal} [signal]
- * @property {boolean} [allowLegacyFallback]
  * @property {boolean} [allowEmptyObject]
  * @property {(meta: { requestId: string | undefined; version: string }) => void} [onRequestMetadata]
  * @property {number} [timeoutMs]
  */
 
-const LEGACY_FALLBACK_STATUS = new Set([404, 410]);
-
-export const API_VERSION_ROUTES = [
-  { id: "v1", prefix: "/api/v1" },
-  { id: "legacy", prefix: "/api" },
-];
+export const API_VERSION_ROUTES = [{ id: "v1", prefix: "/api/v1" }];
 
 let cachedBaseUrl = null;
 let resolvingBaseUrlPromise = null;
@@ -91,6 +85,25 @@ function createHeaders(headers) {
     next.set("Accept", "application/json");
   }
   return next;
+}
+
+function applySessionAuthHeader(headers, runtimeConfig) {
+  const token =
+    typeof runtimeConfig?.API_SESSION_TOKEN === "string"
+      ? runtimeConfig.API_SESSION_TOKEN.trim()
+      : "";
+  if (!token) {
+    return headers;
+  }
+  const headerName =
+    typeof runtimeConfig?.SESSION_AUTH_HEADER === "string"
+      && runtimeConfig.SESSION_AUTH_HEADER.trim().length > 0
+      ? runtimeConfig.SESSION_AUTH_HEADER.trim()
+      : "X-Session-Token";
+  if (!headers.has(headerName)) {
+    headers.set(headerName, token);
+  }
+  return headers;
 }
 
 function extractRequestId(response) {
@@ -231,15 +244,11 @@ export async function requestApi(path, options = {}) {
     headers,
     body,
     signal,
-    allowLegacyFallback = true,
     timeoutMs,
   } = options;
   const normalizedPath = normalizePath(path);
   const baseUrl = trimTrailingSlash(await resolveApiBaseUrl());
-  const versions = allowLegacyFallback
-    ? API_VERSION_ROUTES
-    : API_VERSION_ROUTES.slice(0, 1);
-  let lastError;
+  const versions = API_VERSION_ROUTES;
 
   const runtimeConfig = getRuntimeConfigSync();
   const resolvedTimeout = computeTimeout(runtimeConfig, timeoutMs);
@@ -253,7 +262,7 @@ export async function requestApi(path, options = {}) {
       const url = `${baseUrl}${prefix}${normalizedPath}`;
       const response = await fetch(url, {
         method,
-        headers: createHeaders(headers),
+        headers: applySessionAuthHeader(createHeaders(headers), runtimeConfig),
         body,
         signal: requestSignal,
       });
@@ -269,10 +278,6 @@ export async function requestApi(path, options = {}) {
         url,
         path: normalizedPath,
       });
-      if (id === "v1" && allowLegacyFallback && LEGACY_FALLBACK_STATUS.has(response.status)) {
-        lastError = error;
-        continue;
-      }
       throw error;
     }
   } catch (error) {
@@ -282,10 +287,6 @@ export async function requestApi(path, options = {}) {
     throw error;
   } finally {
     cleanup();
-  }
-
-  if (lastError) {
-    throw lastError;
   }
   throw new Error(`No API versions responded for ${normalizedPath}`);
 }

@@ -147,6 +147,30 @@ for (const basePath of API_PREFIXES) {
 }
 
 for (const basePath of API_PREFIXES) {
+  test(`GET ${basePath}/benchmarks matches the OpenAPI contract`, async () => {
+    const app = buildApp({
+      config: {
+        featureFlags: { cashBenchmarks: true },
+        cors: { allowedOrigins: [] },
+        benchmarks: {
+          tickers: ["QQQ"],
+          defaultSelection: ["qqq"],
+        },
+      },
+    });
+
+    const response = await request(app).get(`${basePath}/benchmarks`);
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.available[0].id, "qqq");
+    assert.equal(response.body.available[0].ticker, "QQQ");
+    assert.ok(response.body.derived.some((entry) => entry.id === "blended"));
+    const validator = getValidator(`${basePath}/benchmarks`);
+    expectValidResponse(validator, response.body);
+  });
+}
+
+for (const basePath of API_PREFIXES) {
   test(`GET ${basePath}/nav/daily matches the OpenAPI contract`, async () => {
     await storage.writeTable('nav_snapshots', [
       {
@@ -257,6 +281,55 @@ for (const basePath of API_PREFIXES) {
 
     assert.equal(response.status, 200);
     const validator = getValidator(`${basePath}/prices/{symbol}`);
+    expectValidResponse(validator, response.body);
+  });
+}
+
+for (const basePath of API_PREFIXES) {
+  test(`POST ${basePath}/signals matches the OpenAPI contract`, async () => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const todayKey = today.toISOString().slice(0, 10);
+    const yesterdayKey = yesterday.toISOString().slice(0, 10);
+    const priceProvider = {
+      async getDailyAdjustedClose() {
+        return [
+          { date: yesterdayKey, adjClose: 100 },
+          { date: todayKey, adjClose: 105 },
+        ];
+      },
+    };
+
+    const app = buildApp({
+      priceProvider,
+      config: {
+        featureFlags: { cashBenchmarks: true },
+        cors: { allowedOrigins: [] },
+        freshness: { maxStaleTradingDays: 30 },
+        security: {
+          auth: {
+            sessionToken: 'test-session-token',
+          },
+        },
+      },
+    });
+
+    const response = await request(app)
+      .post(`${basePath}/signals`)
+      .set('X-Session-Token', 'test-session-token')
+      .send({
+        transactions: [
+          { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+          { date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5 },
+        ],
+        signals: {
+          AAPL: { pct: 5 },
+        },
+      });
+
+    assert.equal(response.status, 200);
+    const validator = getValidator(`${basePath}/signals`, 'post');
     expectValidResponse(validator, response.body);
   });
 }

@@ -1,7 +1,10 @@
 /**
  * @typedef {Object} RuntimeConfig
  * @property {string=} API_BASE_URL Absolute or relative base URL used for API requests.
+ * @property {string=} API_SESSION_TOKEN In-memory desktop session token propagated to API requests.
+ * @property {string=} ACTIVE_PORTFOLIO_ID Default portfolio identifier injected by the desktop shell.
  * @property {number=} REQUEST_TIMEOUT_MS Optional request timeout override in milliseconds.
+ * @property {string=} SESSION_AUTH_HEADER Optional header name for desktop session auth.
  */
 
 const DEFAULT_RUNTIME_CONFIG = Object.freeze({});
@@ -47,11 +50,36 @@ function normalizeRuntimeConfig(input) {
       next.API_BASE_URL = trimmed;
     }
   }
+  if (typeof input.API_SESSION_TOKEN === "string") {
+    const trimmed = input.API_SESSION_TOKEN.trim();
+    if (trimmed.length > 0) {
+      next.API_SESSION_TOKEN = trimmed;
+    }
+  }
+  if (typeof input.ACTIVE_PORTFOLIO_ID === "string") {
+    const trimmed = input.ACTIVE_PORTFOLIO_ID.trim();
+    if (trimmed.length > 0) {
+      next.ACTIVE_PORTFOLIO_ID = trimmed;
+    }
+  }
   const timeout = coerceNumber(input.REQUEST_TIMEOUT_MS);
   if (typeof timeout === "number" && timeout > 0) {
     next.REQUEST_TIMEOUT_MS = timeout;
   }
+  if (typeof input.SESSION_AUTH_HEADER === "string") {
+    const trimmed = input.SESSION_AUTH_HEADER.trim();
+    if (trimmed.length > 0) {
+      next.SESSION_AUTH_HEADER = trimmed;
+    }
+  }
   return Object.keys(next).length > 0 ? next : DEFAULT_RUNTIME_CONFIG;
+}
+
+function toPlainConfig(config) {
+  if (!config || config === DEFAULT_RUNTIME_CONFIG) {
+    return {};
+  }
+  return { ...config };
 }
 
 function logRuntimeConfigWarning(message, error) {
@@ -116,7 +144,15 @@ export async function loadRuntimeConfig() {
  * @returns {RuntimeConfig}
  */
 export function getRuntimeConfigSync() {
-  return cachedConfig ?? DEFAULT_RUNTIME_CONFIG;
+  if (cachedConfig) {
+    return cachedConfig;
+  }
+  const inlineConfig = readInlineRuntimeConfig();
+  if (inlineConfig && inlineConfig !== DEFAULT_RUNTIME_CONFIG) {
+    cachedConfig = inlineConfig;
+    return cachedConfig;
+  }
+  return DEFAULT_RUNTIME_CONFIG;
 }
 
 /**
@@ -130,6 +166,22 @@ export function setRuntimeConfigForTesting(nextConfig) {
     cachedConfig = normalizeRuntimeConfig(nextConfig);
   }
   loadingPromise = null;
+}
+
+/**
+ * Merges new runtime configuration values into the active config.
+ * Intended for Electron desktop login flows that unlock the API token at runtime.
+ * @param {Partial<RuntimeConfig>} nextConfig
+ * @returns {RuntimeConfig}
+ */
+export function mergeRuntimeConfig(nextConfig) {
+  const baseConfig = cachedConfig ?? readInlineRuntimeConfig() ?? DEFAULT_RUNTIME_CONFIG;
+  cachedConfig = normalizeRuntimeConfig({
+    ...toPlainConfig(baseConfig),
+    ...toPlainConfig(nextConfig),
+  });
+  loadingPromise = Promise.resolve(cachedConfig);
+  return cachedConfig;
 }
 
 export const RUNTIME_CONFIG_DEFAULTS = Object.freeze({

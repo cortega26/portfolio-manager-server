@@ -113,7 +113,7 @@ const transactionSchema = z
     shares: numeric('Shares must be a finite number').optional(),
     note: sanitizeString(z.string().max(1024)).optional(),
     currency: currencyCodeSchema.optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.object({}).catchall(z.unknown()).optional(),
     internal: z.boolean().optional(),
   })
   .transform((value) => {

@@ -9,6 +9,7 @@ test('buildPerformanceCsv includes benchmark series columns in the header and ro
       date: '2024-01-02',
       portfolio: 0.01234,
       spy: 0.01001,
+      qqq: 0.01521,
       blended: 0.0095,
       exCash: 0.01111,
       cash: 0.0005,
@@ -18,11 +19,11 @@ test('buildPerformanceCsv includes benchmark series columns in the header and ro
   const lines = csv.trim().split('\n');
   assert.equal(
     lines[0],
-    'date,portfolio_roi,spy_roi,blended_roi,ex_cash_roi,cash_roi,spy_spread',
+    'date,portfolio_roi,spy_roi,qqq_roi,blended_roi,ex_cash_roi,cash_roi,spy_spread,qqq_spread',
   );
   assert.equal(
     lines[1],
-    '2024-01-02,0.012%,0.010%,0.009%,0.011%,0.001%,0.002%',
+    "2024-01-02,0.012%,0.010%,0.015%,0.010%,0.011%,0.001%,0.002%,'-0.003%",
   );
 });
 

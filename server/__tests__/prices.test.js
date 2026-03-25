@@ -4,11 +4,18 @@ import { test as baseTest } from 'node:test';
 import {
   YahooPriceProvider,
   StooqPriceProvider,
+  TwelveDataQuoteProvider,
   DualPriceProvider,
 } from '../data/prices.js';
 
 const yahooCsv = `Date,Open,High,Low,Close,Adj Close,Volume\n2024-01-01,1,1,1,10,9.5,100`;
 const stooqCsv = `Date,Open,High,Low,Close,Volume\n2024-01-01,1,1,1,11,100`;
+const twelveDataQuote = {
+  symbol: 'MSFT',
+  price: '251.75',
+  datetime: '2024-02-03 10:15:00',
+  is_market_open: false,
+};
 
 function createMockLogger(bindings = {}, entries = []) {
   const logger = {
@@ -78,15 +85,60 @@ test('YahooPriceProvider surfaces upstream failures', async () => {
   );
 });
 
-test('StooqPriceProvider normalizes close values into adjusted series', async () => {
-  const fetchImpl = async () => ({ ok: true, text: async () => stooqCsv });
+test('StooqPriceProvider normalizes US symbols into adjusted series', async () => {
+  const requests = [];
+  const fetchImpl = async (url) => {
+    requests.push(String(url));
+    return { ok: true, text: async () => stooqCsv };
+  };
   const logger = createMockLogger();
   const provider = new StooqPriceProvider({ fetchImpl, timeoutMs: 1000, logger });
-  const rows = await provider.getDailyAdjustedClose('SPY', '2024-01-01', '2024-01-10');
+  const rows = await provider.getDailyAdjustedClose('NVDA', '2024-01-01', '2024-01-10');
   assert.deepEqual(rows, [{ date: '2024-01-01', adjClose: 11 }]);
+  assert.equal(requests[0], 'https://stooq.com/q/d/l/?s=nvda.us&i=d');
   assert.ok(
     logger.entries.some(
       (entry) => entry.event === 'price_provider_latency' && entry.meta.provider === 'stooq',
+    ),
+  );
+});
+
+test('StooqPriceProvider treats "No data" as an upstream error', async () => {
+  const fetchImpl = async () => ({ ok: true, text: async () => 'No data' });
+  const logger = createMockLogger();
+  const provider = new StooqPriceProvider({ fetchImpl, timeoutMs: 1000, logger });
+  await assert.rejects(
+    () => provider.getDailyAdjustedClose('NVDA', '2024-01-01', '2024-01-10'),
+    (error) => error.code === 'PRICE_NOT_FOUND' && error.status === 404,
+  );
+  assert.ok(
+    logger.entries.some(
+      (entry) => entry.level === 'error' && entry.event === 'price_provider_failed',
+    ),
+  );
+});
+
+test('TwelveDataQuoteProvider parses latest quote payloads and logs latency', async () => {
+  const requests = [];
+  const fetchImpl = async (url) => {
+    requests.push(String(url));
+    return { ok: true, json: async () => twelveDataQuote };
+  };
+  const logger = createMockLogger();
+  const provider = new TwelveDataQuoteProvider({
+    fetchImpl,
+    timeoutMs: 1000,
+    logger,
+    apiKey: 'test-key',
+  });
+  const row = await provider.getLatestQuote('MSFT');
+  assert.deepEqual(row, { date: '2024-02-03', adjClose: 251.75 });
+  assert.ok(requests[0].includes('https://api.twelvedata.com/quote'));
+  assert.ok(requests[0].includes('symbol=MSFT'));
+  assert.ok(requests[0].includes('prepost=true'));
+  assert.ok(
+    logger.entries.some(
+      (entry) => entry.event === 'latest_quote_provider_latency' && entry.meta.provider === 'twelvedata',
     ),
   );
 });

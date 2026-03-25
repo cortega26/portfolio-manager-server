@@ -92,8 +92,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": [
     "Content-Type",
     "Authorization",
-    "X-Portfolio-Key",
-    "X-Portfolio-Key-New",
+    "X-Session-Token",
   ].join(", "),
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 } as const;
@@ -157,7 +156,6 @@ test.describe("dashboard smoke flows", () => {
     await page.goto("/");
 
     await page.getByLabel("Portfolio ID").fill("demo-e2e");
-    await page.getByLabel("API Key").fill("Supers3cure!1");
     await page.getByRole("button", { name: "Load Portfolio" }).click();
 
     await expect(page.getByText("Operation completed successfully.")).toBeVisible();

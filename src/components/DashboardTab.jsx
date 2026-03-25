@@ -14,9 +14,7 @@ import {
 import { useI18n } from "../i18n/I18nProvider.jsx";
 import { usePersistentBenchmarkSelection } from "../hooks/usePersistentBenchmarkSelection.js";
 import { usePortfolioMetrics } from "../hooks/usePortfolioMetrics.js";
-import { BENCHMARK_SERIES_META } from "../utils/roi.js";
-
-const DEFAULT_BENCHMARK_SELECTION = ["spy", "blended"];
+import { buildBenchmarkSeriesMeta } from "../utils/roi.js";
 const PORTFOLIO_COLOR = "#10b981";
 
 function MetricCard({ label, value, description, title }) {
@@ -38,6 +36,14 @@ function MetricCard({ label, value, description, title }) {
       )}
     </div>
   );
+}
+
+function formatNullableCurrency(formatCurrency, value) {
+  return Number.isFinite(Number(value)) ? formatCurrency(Number(value)) : "—";
+}
+
+function formatNullablePercent(formatSignedPercent, value, fractionDigits = 1) {
+  return Number.isFinite(Number(value)) ? formatSignedPercent(Number(value), fractionDigits) : "—";
 }
 
 function QuickActions({ onRefresh, roiSource, t }) {
@@ -93,6 +99,106 @@ function QuickActions({ onRefresh, roiSource, t }) {
         </a>
       </div>
     </div>
+  );
+}
+
+function ContextCard({ label, value, detail, tone = "default" }) {
+  return (
+    <div
+      className={clsx(
+        "rounded-lg border p-4",
+        tone === "positive" && "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20",
+        tone === "negative" && "border-rose-200 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/20",
+        tone === "default" && "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+      )}
+    >
+      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">{value}</p>
+      {detail ? (
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{detail}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function PerformanceContext({
+  latest,
+  cashAllocationPct,
+  cashDragPct,
+  spyDeltaPct,
+  qqqDeltaPct,
+  t,
+  formatPercent,
+  formatSignedPercent,
+}) {
+  const cards = [
+    {
+      label: t("dashboard.context.portfolio.label"),
+      value: formatNullablePercent(formatSignedPercent, latest?.portfolio, 2),
+      detail: t("dashboard.context.portfolio.detail"),
+      tone: "default",
+    },
+    {
+      label: t("dashboard.context.spyGap.label"),
+      value: formatNullablePercent(formatSignedPercent, spyDeltaPct, 2),
+      detail: t("dashboard.context.spyGap.detail", {
+        benchmark: formatNullablePercent(formatSignedPercent, latest?.spy, 2),
+      }),
+      tone:
+        Number.isFinite(Number(spyDeltaPct)) && Number(spyDeltaPct) >= 0
+          ? "positive"
+          : "negative",
+    },
+    {
+      label: t("dashboard.context.qqqGap.label"),
+      value: formatNullablePercent(formatSignedPercent, qqqDeltaPct, 2),
+      detail: t("dashboard.context.qqqGap.detail", {
+        benchmark: formatNullablePercent(formatSignedPercent, latest?.qqq, 2),
+      }),
+      tone:
+        Number.isFinite(Number(qqqDeltaPct)) && Number(qqqDeltaPct) >= 0
+          ? "positive"
+          : "negative",
+    },
+    {
+      label: t("dashboard.context.cashDrag.label"),
+      value: formatNullablePercent(formatSignedPercent, cashDragPct, 2),
+      detail: t("dashboard.context.cashDrag.detail"),
+      tone:
+        Number.isFinite(Number(cashDragPct)) && Number(cashDragPct) <= 0
+          ? "positive"
+          : "default",
+    },
+    {
+      label: t("dashboard.context.cashAllocation.label"),
+      value: formatNullablePercent(formatPercent, cashAllocationPct, 1),
+      detail: t("dashboard.context.cashAllocation.detail"),
+      tone: "default",
+    },
+  ];
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          {t("dashboard.context.title")}
+        </h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {t("dashboard.context.subtitle")}
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {cards.map((card) => (
+          <ContextCard
+            key={card.label}
+            label={card.label}
+            value={card.value}
+            detail={card.detail}
+            tone={card.tone}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -264,58 +370,80 @@ export default function DashboardTab({
   loadingRoi,
   onRefreshRoi,
   roiSource = "api",
+  benchmarkCatalog,
 }) {
   const { t, formatCurrency, formatPercent, formatSignedPercent } = useI18n();
   const portfolioMetrics = usePortfolioMetrics({ metrics, transactions, roiData });
   const {
     totals: {
       totalValue,
-      totalCost,
+      netContributions,
+      netStockPurchases,
+      netIncome,
+      grossBuys,
+      grossSells,
       totalRealised,
       totalUnrealised,
+      historicalChange,
       totalReturn,
       totalNav,
+      totalRoiPct,
       cashBalance,
       holdingsCount,
+      unpricedHoldingsCount,
+      pricingComplete,
     },
     percentages: {
-      returnPct,
       cashAllocationPct,
       cashDragPct,
       spyDeltaPct,
-      blendedDeltaPct,
+      qqqDeltaPct,
     },
+    latest,
   } = portfolioMetrics;
 
   const benchmarkOptions = useMemo(() => {
-    if (!Array.isArray(roiData) || roiData.length === 0) {
-      return [];
-    }
-    return BENCHMARK_SERIES_META.filter((option) =>
-      roiData.some((point) => Number.isFinite(Number(point?.[option.dataKey]))),
+    const safeRoiData = Array.isArray(roiData) ? roiData : [];
+    const catalogMeta = buildBenchmarkSeriesMeta(benchmarkCatalog);
+    return catalogMeta.filter((option) =>
+      safeRoiData.some((point) => Number.isFinite(Number(point?.[option.dataKey]))),
     ).map((option) => ({
       ...option,
-      label: t(`dashboard.benchmarks.series.${option.id}.label`),
-      description: t(`dashboard.benchmarks.series.${option.id}.description`),
+      label: (() => {
+        const key = `dashboard.benchmarks.series.${option.id}.label`;
+        const translated = t(key);
+        return translated === key ? option.label : translated;
+      })(),
+      description: (() => {
+        const key = `dashboard.benchmarks.series.${option.id}.description`;
+        const translated = t(key);
+        return translated === key ? option.description : translated;
+      })(),
     }));
-  }, [roiData, t]);
+  }, [benchmarkCatalog, roiData, t]);
   const benchmarkOptionIds = useMemo(
     () => benchmarkOptions.map((option) => option.id),
     [benchmarkOptions],
   );
+  const defaultBenchmarkSelection = useMemo(() => {
+    const configuredDefaults = Array.isArray(benchmarkCatalog?.defaults)
+      ? benchmarkCatalog.defaults.map((entry) => String(entry))
+      : [];
+    return configuredDefaults.length > 0 ? configuredDefaults : ["spy", "qqq"];
+  }, [benchmarkCatalog]);
   const [selectedBenchmarks, setSelectedBenchmarks] =
-    usePersistentBenchmarkSelection(benchmarkOptionIds, DEFAULT_BENCHMARK_SELECTION);
+    usePersistentBenchmarkSelection(benchmarkOptionIds, defaultBenchmarkSelection);
   const normalizedDefaultSelection = useMemo(() => {
     if (benchmarkOptionIds.length === 0) {
       return [];
     }
     const availableSet = new Set(benchmarkOptionIds);
-    const preferred = DEFAULT_BENCHMARK_SELECTION.filter((value) => availableSet.has(value));
+    const preferred = defaultBenchmarkSelection.filter((value) => availableSet.has(value));
     if (preferred.length > 0) {
       return preferred;
     }
     return [benchmarkOptionIds[0]];
-  }, [benchmarkOptionIds]);
+  }, [benchmarkOptionIds, defaultBenchmarkSelection]);
   const handleBenchmarkToggle = useCallback(
     (id) => {
       setSelectedBenchmarks((prev) =>
@@ -337,51 +465,62 @@ export default function DashboardTab({
 
   const metricCards = [
     {
-      label: t("dashboard.metrics.nav"),
-      value: formatCurrency(totalNav),
-      description: t("dashboard.metrics.nav.description", {
-        value: formatCurrency(cashBalance),
+      label: t("dashboard.metrics.equityBalance"),
+      value: formatNullableCurrency(formatCurrency, totalValue),
+      description: pricingComplete
+        ? t("dashboard.metrics.equityBalance.description", {
+            count: holdingsCount,
+          })
+        : t("dashboard.metrics.equityBalance.unavailable", {
+            count: unpricedHoldingsCount,
+          }),
+      title: t("dashboard.metrics.equityBalance.title"),
+    },
+    {
+      label: t("dashboard.metrics.netStockPurchases"),
+      value: formatCurrency(netStockPurchases),
+      description: t("dashboard.metrics.netStockPurchases.description", {
+        buys: formatCurrency(grossBuys),
+        sells: formatCurrency(grossSells),
       }),
+    },
+    {
+      label: t("dashboard.metrics.historicalChange"),
+      value: formatNullableCurrency(formatCurrency, historicalChange),
+      description: pricingComplete
+        ? t("dashboard.metrics.historicalChange.description")
+        : t("dashboard.metrics.historicalChange.unavailable"),
+    },
+    {
+      label: t("dashboard.metrics.nav"),
+      value: formatNullableCurrency(formatCurrency, totalNav),
+      description: pricingComplete
+        ? t("dashboard.metrics.nav.description", {
+            value: formatCurrency(cashBalance),
+          })
+        : t("dashboard.metrics.nav.unavailable", {
+            value: formatCurrency(cashBalance),
+          }),
       title: t("dashboard.metrics.nav.title"),
     },
     {
+      label: t("dashboard.metrics.externalContributions"),
+      value: formatCurrency(netContributions),
+      description: t("dashboard.metrics.externalContributions.description", {
+        value: formatCurrency(netIncome),
+      }),
+    },
+    {
       label: t("dashboard.metrics.return"),
-      value: formatCurrency(totalReturn),
-      description: t("dashboard.metrics.return.description", {
-        realised: formatCurrency(totalRealised),
-        unrealised: formatCurrency(totalUnrealised),
-        roi: formatSignedPercent(returnPct, 1),
-      }),
-    },
-    {
-      label: t("dashboard.metrics.cost"),
-      value: formatCurrency(totalCost),
-      description: t("dashboard.metrics.cost.description", {
-        count: holdingsCount,
-        value: formatCurrency(totalValue),
-      }),
-    },
-    {
-      label: t("dashboard.metrics.cashAllocation"),
-      value: formatPercent(cashAllocationPct, 1),
-      description: t("dashboard.metrics.cashAllocation.description"),
-      title: t("dashboard.metrics.cashAllocation.title"),
-    },
-    {
-      label: t("dashboard.metrics.cashDrag"),
-      value: formatSignedPercent(cashDragPct, 2),
-      description: t("dashboard.metrics.cashDrag.description"),
-      title: t("dashboard.metrics.cashDrag.title"),
-    },
-    {
-      label: t("dashboard.metrics.delta"),
-      value: t("dashboard.metrics.delta.value", {
-        value: formatSignedPercent(spyDeltaPct, 2),
-      }),
-      description: t("dashboard.metrics.delta.description", {
-        value: formatSignedPercent(blendedDeltaPct, 2),
-      }),
-      title: t("dashboard.metrics.delta.title"),
+      value: formatNullableCurrency(formatCurrency, totalReturn),
+      description: pricingComplete
+        ? t("dashboard.metrics.return.description", {
+            realised: formatCurrency(totalRealised),
+            unrealised: formatCurrency(totalUnrealised),
+            income: formatCurrency(netIncome),
+            roi: formatNullablePercent(formatSignedPercent, totalRoiPct, 2),
+          })
+        : t("dashboard.metrics.return.unavailable"),
     },
   ];
 
@@ -399,6 +538,16 @@ export default function DashboardTab({
         ))}
       </div>
       <QuickActions onRefresh={onRefreshRoi} roiSource={roiSource} t={t} />
+      <PerformanceContext
+        latest={latest}
+        cashAllocationPct={cashAllocationPct}
+        cashDragPct={cashDragPct}
+        spyDeltaPct={spyDeltaPct}
+        qqqDeltaPct={qqqDeltaPct}
+        t={t}
+        formatPercent={formatPercent}
+        formatSignedPercent={formatSignedPercent}
+      />
       <RoiChart
         data={roiData}
         loading={loadingRoi}

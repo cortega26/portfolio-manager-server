@@ -156,6 +156,10 @@ test('API endpoints expose computed series', async () => {
       { date: '2024-01-01', adjClose: 100 },
       { date: '2024-01-02', adjClose: 101 },
     ],
+    QQQ: [
+      { date: '2024-01-01', adjClose: 200 },
+      { date: '2024-01-02', adjClose: 202 },
+    ],
   });
   await runDailyClose({
     dataDir,
@@ -232,4 +236,40 @@ test('stale prices set flag when latest close missing', async () => {
   const target = navSnapshots.find((row) => row.date === '2024-01-02');
   assert.ok(target);
   assert.equal(target.stale_price, true);
+});
+
+test('runDailyClose persists configured benchmark prices even without holdings', async () => {
+  await storage.upsertRow(
+    'transactions',
+    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
+    ['id'],
+  );
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-01', adjClose: 100 },
+      { date: '2024-01-02', adjClose: 101 },
+    ],
+    QQQ: [
+      { date: '2024-01-01', adjClose: 200 },
+      { date: '2024-01-02', adjClose: 202 },
+    ],
+  });
+
+  await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-02T00:00:00Z'),
+    priceProvider: provider,
+    config: {
+      benchmarks: {
+        tickers: ['QQQ'],
+        defaultSelection: ['qqq'],
+      },
+    },
+  });
+
+  const prices = await storage.readTable('prices');
+  assert.ok(prices.find((row) => row.ticker === 'QQQ' && row.date === '2024-01-02'));
+  assert.ok(prices.find((row) => row.ticker === 'SPY' && row.date === '2024-01-02'));
 });
