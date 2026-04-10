@@ -9,6 +9,8 @@ import { loadProjectEnv } from "../runtime/loadProjectEnv.js";
 
 const ENV_KEYS = [
   "PRICE_PROVIDER_LATEST",
+  "ALPACA_API_KEY",
+  "ALPACA_API_SECRET",
   "TWELVE_DATA_API_KEY",
   "TWELVE_DATA_PREPOST",
 ];
@@ -39,7 +41,9 @@ test("loadProjectEnv loads pricing configuration from a valid env file", async (
     await writeFile(
       envFilePath,
       [
-        "PRICE_PROVIDER_LATEST=twelvedata",
+        "PRICE_PROVIDER_LATEST=alpaca",
+        "ALPACA_API_KEY=test-key",
+        "ALPACA_API_SECRET=test-secret",
         "TWELVE_DATA_API_KEY=test-key",
         "TWELVE_DATA_PREPOST=false",
         "",
@@ -56,8 +60,9 @@ test("loadProjectEnv loads pricing configuration from a valid env file", async (
       reason: "loaded",
     });
     assert.deepEqual(config.prices.latest, {
-      provider: "twelvedata",
+      provider: "alpaca",
       apiKey: "test-key",
+      apiSecret: "test-secret",
       prepost: false,
     });
   } finally {
@@ -84,13 +89,17 @@ test("loadProjectEnv preserves variables already exported in the shell", async (
 
   try {
     process.env.PRICE_PROVIDER_LATEST = "none";
+    process.env.ALPACA_API_KEY = "shell-key";
+    process.env.ALPACA_API_SECRET = "shell-secret";
     process.env.TWELVE_DATA_API_KEY = "shell-key";
     delete process.env.TWELVE_DATA_PREPOST;
     await writeFile(
       envFilePath,
       [
-        "PRICE_PROVIDER_LATEST=twelvedata",
-        "TWELVE_DATA_API_KEY=file-key",
+        "PRICE_PROVIDER_LATEST=alpaca",
+        "ALPACA_API_KEY=file-key",
+        "ALPACA_API_SECRET=file-secret",
+        "TWELVE_DATA_API_KEY=file-legacy-key",
         "TWELVE_DATA_PREPOST=false",
         "",
       ].join("\n"),
@@ -107,7 +116,8 @@ test("loadProjectEnv preserves variables already exported in the shell", async (
     });
     assert.deepEqual(config.prices.latest, {
       provider: "none",
-      apiKey: "shell-key",
+      apiKey: "",
+      apiSecret: "",
       prepost: false,
     });
   } finally {

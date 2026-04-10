@@ -5,19 +5,19 @@ const KNOWN_MARKET_BENCHMARKS = Object.freeze({
   SPY: Object.freeze({
     id: "spy",
     ticker: "SPY",
-    label: "100% SPY benchmark",
+    label: "S&P 500",
   }),
   QQQ: Object.freeze({
     id: "qqq",
     ticker: "QQQ",
-    label: "Nasdaq-100 (QQQ)",
+    label: "Nasdaq-100",
   }),
 });
 
 const DERIVED_BENCHMARKS = Object.freeze([
   Object.freeze({
     id: "blended",
-    label: "Blended benchmark",
+    label: "Cash-Matched S&P 500",
     kind: "derived",
   }),
 ]);

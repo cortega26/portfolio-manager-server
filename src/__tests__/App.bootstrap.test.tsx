@@ -8,7 +8,7 @@ import { renderWithProviders } from './test-utils';
 
 const {
   evaluateSignalsMock,
-  fetchDailyReturnsMock,
+  fetchDailyRoiMock,
   fetchBenchmarkCatalogMock,
   fetchBulkPricesMock,
   fetchPricesMock,
@@ -18,7 +18,7 @@ const {
   listPortfoliosMock,
 } = vi.hoisted(() => ({
   evaluateSignalsMock: vi.fn(),
-  fetchDailyReturnsMock: vi.fn(),
+  fetchDailyRoiMock: vi.fn(),
   fetchBenchmarkCatalogMock: vi.fn(),
   fetchBulkPricesMock: vi.fn(),
   fetchPricesMock: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock('../utils/api.js', async (importOriginal) => {
     evaluateSignals: evaluateSignalsMock,
     fetchBenchmarkCatalog: fetchBenchmarkCatalogMock,
     fetchBulkPrices: fetchBulkPricesMock,
-    fetchDailyReturns: fetchDailyReturnsMock,
+    fetchDailyRoi: fetchDailyRoiMock,
     fetchPrices: fetchPricesMock,
     persistPortfolio: vi.fn(async () => ({ requestId: 'persist-001' })),
     retrievePortfolio: retrievePortfolioMock,
@@ -70,14 +70,16 @@ describe('App desktop bootstrap', () => {
       requestId: 'signals-none',
     });
     fetchPricesMock.mockResolvedValue({ data: [], requestId: 'price-none' });
-    fetchDailyReturnsMock.mockResolvedValue({
-      data: { series: { port: [], spy: [] } },
-      requestId: 'returns-none',
+    fetchDailyRoiMock.mockResolvedValue({
+      data: { series: { portfolio: [], portfolioTwr: [], spy: [], bench: [], exCash: [], cash: [] } },
+      requestId: 'roi-none',
     });
     retrievePortfolioMock.mockResolvedValue({
       data: {
         transactions: [
           {
+            id: 'desktop-bootstrap-1',
+            uid: 'desktop-bootstrap-1',
             date: '2024-01-02',
             ticker: 'NVDA',
             type: 'BUY',
@@ -85,9 +87,19 @@ describe('App desktop bootstrap', () => {
             shares: 1,
             quantity: 1,
             price: 200,
-            uid: 'desktop-bootstrap-1',
             seq: 1,
             createdAt: 1,
+            currency: 'USD',
+            metadata: {
+              system: {
+                import: {
+                  source: 'csv-bootstrap',
+                  original: {
+                    line: 1,
+                  },
+                },
+              },
+            },
           },
         ],
         signals: {},
@@ -129,7 +141,11 @@ describe('App desktop bootstrap', () => {
     await waitFor(() => {
       expect(retrievePortfolioMock).toHaveBeenCalledWith('desktop');
     });
+    await waitFor(() => {
+      expect(evaluateSignalsMock).toHaveBeenCalled();
+    });
     expect(screen.getByLabelText(/portfolio id/i)).toHaveValue('desktop');
+    expect(screen.queryByText(/error al actualizar precios/i)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('tab', { name: /holdings/i }));
     expect((await screen.findAllByText('NVDA')).length).toBeGreaterThan(0);

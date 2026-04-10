@@ -12,6 +12,14 @@ vi.mock('../components/HoldingsTab.jsx', () => ({
   __esModule: true,
   default: () => <div data-testid="stub-holdings" />
 }));
+vi.mock('../components/PricesTab.jsx', () => ({
+  __esModule: true,
+  default: () => <div data-testid="stub-prices" />
+}));
+vi.mock('../components/SignalsTab.jsx', () => ({
+  __esModule: true,
+  default: () => <div data-testid="stub-signals" />
+}));
 vi.mock('../components/TransactionsTab.jsx', () => ({
   __esModule: true,
   default: () => <div data-testid="stub-transactions" />
@@ -28,9 +36,7 @@ vi.mock('../components/ReportsTab.jsx', () => ({
 vi.mock('../components/SettingsTab.jsx', () => ({
   default: () => <div data-testid="stub-settings" />
 }));
-vi.mock('../components/AdminTab.jsx', () => ({
-  default: () => <div data-testid="stub-admin" />
-}));
+
 
 vi.mock('../utils/api.js', () => ({
   evaluateSignals: vi.fn(async () => ({
@@ -49,6 +55,7 @@ vi.mock('../utils/api.js', () => ({
   })),
   fetchBenchmarkCatalog: vi.fn(async () => ({ data: {} })),
   fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
+  fetchDailyRoi: vi.fn(async () => ({ data: { series: { portfolio: [] } } })),
   fetchDailyReturns: vi.fn(async () => ({ data: { series: [] } })),
   fetchPrices: vi.fn(async () => ({ data: [] })),
   persistPortfolio: vi.fn(),
@@ -59,8 +66,7 @@ vi.mock('../utils/roi.js', async (original) => {
   const mod = await original();
   return {
     ...mod,
-    buildRoiSeries: vi.fn(async () => []),
-    mergeReturnSeries: vi.fn(() => [])
+    mergeDailyRoiSeries: vi.fn(() => [])
   };
 });
 
@@ -73,6 +79,14 @@ test('switches tabs and shows expected panels', async () => {
   await userEvent.click(screen.getByRole('tab', { name: /holdings/i }));
   const holdingsPanel = await screen.findByTestId('panel-holdings');
   expect(holdingsPanel).toBeVisible();
+
+  await userEvent.click(screen.getByRole('tab', { name: /prices/i }));
+  const pricesPanel = await screen.findByTestId('panel-prices');
+  expect(pricesPanel).toBeVisible();
+
+  await userEvent.click(screen.getByRole('tab', { name: /signals/i }));
+  const signalsPanel = await screen.findByTestId('panel-signals');
+  expect(signalsPanel).toBeVisible();
 
   await userEvent.click(screen.getByRole('tab', { name: /transactions/i }));
   const transactionsPanel = await screen.findByTestId('panel-transactions');

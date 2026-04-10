@@ -183,6 +183,68 @@ paths:
               description: Strong validator for conditional requests
             X-Request-ID:
               $ref: '#/components/headers/XRequestId'
+  /api/prices/bulk:
+    get:
+      summary: Historical or latest-close prices for multiple symbols
+      parameters:
+      - in: query
+        name: symbols
+        required: true
+        schema:
+          type: string
+        description: Comma-separated list of symbols.
+      - in: query
+        name: range
+        schema:
+          type: string
+          enum:
+          - 1y
+      - in: query
+        name: latest
+        schema:
+          type: string
+          enum:
+          - '1'
+          - 'true'
+        description: When set, returns only the latest resolved close per symbol.
+      responses:
+        '200':
+          description: Multi-symbol pricing payload with per-symbol health metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceBulkResponse'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/roi/daily:
+    get:
+      summary: Canonical ROI series and benchmark health
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: portfolioId
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Canonical ROI and benchmark series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoiDailyResponse'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
   /api/benchmarks/summary:
     get:
       summary: Cumulative returns and drag metrics
@@ -197,6 +259,10 @@ paths:
         schema:
           type: string
           format: date
+      - in: query
+        name: portfolioId
+        schema:
+          type: string
       responses:
         '200':
           description: Summary totals
@@ -215,25 +281,7 @@ paths:
                       allocation:
                         type: number
                   money_weighted:
-                    type: object
-                    properties:
-                      portfolio:
-                        type: number
-                      start_date:
-                        type: string
-                        format: date
-                        nullable: true
-                      end_date:
-                        type: string
-                        format: date
-                        nullable: true
-                      method:
-                        type: string
-                        enum:
-                        - xirr
-                    required:
-                    - portfolio
-                    - method
+                    $ref: '#/components/schemas/MoneyWeightedSummary'
           headers:
             X-Request-ID:
               $ref: '#/components/headers/XRequestId'
@@ -674,6 +722,68 @@ paths:
               description: Strong validator for conditional requests
             X-Request-ID:
               $ref: '#/components/headers/XRequestId'
+  /api/v1/prices/bulk:
+    get:
+      summary: Historical or latest-close prices for multiple symbols
+      parameters:
+      - in: query
+        name: symbols
+        required: true
+        schema:
+          type: string
+        description: Comma-separated list of symbols.
+      - in: query
+        name: range
+        schema:
+          type: string
+          enum:
+          - 1y
+      - in: query
+        name: latest
+        schema:
+          type: string
+          enum:
+          - '1'
+          - 'true'
+        description: When set, returns only the latest resolved close per symbol.
+      responses:
+        '200':
+          description: Multi-symbol pricing payload with per-symbol health metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceBulkResponse'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
+  /api/v1/roi/daily:
+    get:
+      summary: Canonical ROI series and benchmark health
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: portfolioId
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Canonical ROI and benchmark series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoiDailyResponse'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/XRequestId'
   /api/v1/benchmarks/summary:
     get:
       summary: Cumulative returns and drag metrics
@@ -688,6 +798,10 @@ paths:
         schema:
           type: string
           format: date
+      - in: query
+        name: portfolioId
+        schema:
+          type: string
       responses:
         '200':
           description: Summary totals
@@ -706,25 +820,7 @@ paths:
                       allocation:
                         type: number
                   money_weighted:
-                    type: object
-                    properties:
-                      portfolio:
-                        type: number
-                      start_date:
-                        type: string
-                        format: date
-                        nullable: true
-                      end_date:
-                        type: string
-                        format: date
-                        nullable: true
-                      method:
-                        type: string
-                        enum:
-                        - xirr
-                    required:
-                    - portfolio
-                    - method
+                    $ref: '#/components/schemas/MoneyWeightedSummary'
           headers:
             X-Request-ID:
               $ref: '#/components/headers/XRequestId'
@@ -1050,8 +1146,53 @@ components:
           type: number
         r_spy_100:
           type: number
+        r_qqq_100:
+          type: number
         r_cash:
           type: number
+    MoneyWeightedBenchmarks:
+      type: object
+      required:
+      - spy
+      - qqq
+      properties:
+        spy:
+          type: number
+          nullable: true
+        qqq:
+          type: number
+          nullable: true
+    MoneyWeightedSummary:
+      type: object
+      required:
+      - portfolio
+      - benchmarks
+      - method
+      - basis
+      - partial
+      properties:
+        portfolio:
+          type: number
+        benchmarks:
+          $ref: '#/components/schemas/MoneyWeightedBenchmarks'
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        method:
+          type: string
+          enum:
+          - xirr
+        basis:
+          type: string
+          enum:
+          - matched_external_flows
+        partial:
+          type: boolean
     PortfolioTransaction:
       type: object
       properties:
@@ -1184,12 +1325,87 @@ components:
           type: integer
         message:
           type: string
+    PricingStatusSummary:
+      type: object
+      required:
+      - status
+      - liveSymbols
+      - eodSymbols
+      - cacheSymbols
+      - degradedSymbols
+      - unavailableSymbols
+      properties:
+        status:
+          type: string
+          enum:
+          - live
+          - eod_fresh
+          - cache_fresh
+          - degraded
+          - unavailable
+        liveSymbols:
+          type: array
+          items:
+            type: string
+        eodSymbols:
+          type: array
+          items:
+            type: string
+        cacheSymbols:
+          type: array
+          items:
+            type: string
+        degradedSymbols:
+          type: array
+          items:
+            type: string
+        unavailableSymbols:
+          type: array
+          items:
+            type: string
+    PricingSymbolMeta:
+      type: object
+      required:
+      - status
+      - source
+      - provider
+      - warnings
+      - asOf
+      properties:
+        status:
+          type: string
+          enum:
+          - live
+          - eod_fresh
+          - cache_fresh
+          - degraded
+          - unavailable
+        source:
+          type: string
+        provider:
+          type: string
+          nullable: true
+          description: Upstream provider used to resolve the symbol (for example `alpaca`, `stooq`, or `cache`).
+        warnings:
+          type: array
+          items:
+            type: string
+        asOf:
+          type: string
+          format: date
+          nullable: true
+        cacheHit:
+          type: boolean
+        latestQuoteAttempted:
+          type: boolean
+          description: Whether a live quote provider was attempted for this symbol in the current request.
     SignalPreviewResponse:
       type: object
       required:
       - rows
       - prices
       - errors
+      - pricing
       - market
       properties:
         rows:
@@ -1204,6 +1420,18 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/SignalPreviewPriceError'
+        pricing:
+          type: object
+          required:
+          - symbols
+          - summary
+          properties:
+            symbols:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/PricingSymbolMeta'
+            summary:
+              $ref: '#/components/schemas/PricingStatusSummary'
         market:
           type: object
           required:
@@ -1222,6 +1450,118 @@ components:
             nextTradingDate:
               type: string
               format: date
+    PriceBulkResponse:
+      type: object
+      required:
+      - series
+      - errors
+      - metadata
+      properties:
+        series:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              required:
+              - date
+              - close
+              properties:
+                date:
+                  type: string
+                  format: date
+                close:
+                  type: number
+        errors:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/SignalPreviewPriceError'
+        metadata:
+          type: object
+          properties:
+            cache:
+              type: object
+              additionalProperties:
+                type: string
+            etags:
+              type: object
+              additionalProperties:
+                type: string
+            symbols:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/PricingSymbolMeta'
+            summary:
+              $ref: '#/components/schemas/PricingStatusSummary'
+    RoiBenchmarkState:
+      type: object
+      required:
+      - available
+      - source
+      properties:
+        available:
+          type: boolean
+        source:
+          type: string
+    RoiBenchmarkHealth:
+      type: object
+      properties:
+        spy:
+          $ref: '#/components/schemas/RoiBenchmarkState'
+        blended:
+          $ref: '#/components/schemas/RoiBenchmarkState'
+        unavailable:
+          type: array
+          items:
+            type: string
+    RoiDailyResponse:
+      type: object
+      required:
+      - series
+      - meta
+      properties:
+        series:
+          type: object
+          properties:
+            portfolio:
+              $ref: '#/components/schemas/DateValueSeries'
+            portfolioTwr:
+              $ref: '#/components/schemas/DateValueSeries'
+            spy:
+              $ref: '#/components/schemas/DateValueSeries'
+            bench:
+              $ref: '#/components/schemas/DateValueSeries'
+            exCash:
+              $ref: '#/components/schemas/DateValueSeries'
+            cash:
+              $ref: '#/components/schemas/DateValueSeries'
+        meta:
+          type: object
+          properties:
+            primaryMetric:
+              type: string
+            secondaryMetric:
+              type: string
+            portfolioId:
+              type: string
+              nullable: true
+            from:
+              type: string
+              format: date
+              nullable: true
+            to:
+              type: string
+              format: date
+              nullable: true
+            sourceSummary:
+              type: object
+              additionalProperties:
+                type: integer
+            importedR2:
+              type: object
+              additionalProperties: true
+            benchmarkHealth:
+              $ref: '#/components/schemas/RoiBenchmarkHealth'
     ErrorResponse:
       type: object
       required:

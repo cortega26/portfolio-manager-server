@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { MAX_TRANSACTIONS_PER_PORTFOLIO } from "../../shared/constants.js";
+import { normalizeSettings } from "../../shared/settings.js";
 
 const ISO_DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/u;
 const TICKER_REGEX = /^[A-Za-z0-9._-]{1,32}$/u;
@@ -71,6 +72,30 @@ const transactionSchema = z
   .object({
     id: sanitizeString(z.string().min(1).max(128)).optional(),
     uid: sanitizeString(z.string().min(1).max(128)).optional(),
+    createdAt: z
+      .preprocess((value) => {
+        if (typeof value === "string" && value.trim() !== "") {
+          const parsed = Number.parseInt(value, 10);
+          return Number.isNaN(parsed) ? value : parsed;
+        }
+        return value;
+      }, z
+        .number({ invalid_type_error: "createdAt must be a number" })
+        .int("createdAt must be an integer")
+        .nonnegative("createdAt must be non-negative"))
+      .optional(),
+    seq: z
+      .preprocess((value) => {
+        if (typeof value === "string" && value.trim() !== "") {
+          const parsed = Number.parseInt(value, 10);
+          return Number.isNaN(parsed) ? value : parsed;
+        }
+        return value;
+      }, z
+        .number({ invalid_type_error: "seq must be a number" })
+        .int("seq must be an integer")
+        .min(0, "seq must be non-negative"))
+      .optional(),
     date: isoDateSchema,
     ticker: tickerSchema.optional(),
     type: inputTransactionTypeSchema,
@@ -79,7 +104,9 @@ const transactionSchema = z
     quantity: optionalNumeric("Quantity must be a finite number"),
     shares: optionalNumeric("Shares must be a finite number"),
     note: sanitizeString(z.string().max(1024)).optional(),
-    metadata: z.record(z.unknown()).optional(),
+    currency: currencyCodeSchema.optional(),
+    metadata: z.object({}).catchall(z.unknown()).optional(),
+    internal: z.boolean().optional(),
   })
   .transform((value) => {
     const ticker = value.ticker ?? undefined;
@@ -152,11 +179,9 @@ const signalsSchema = z
   });
 
 const settingsSchema = z
-  .object({
-    autoClip: z.boolean().optional(),
-  })
-  .catchall(z.unknown())
-  .transform((value) => ({ autoClip: Boolean(value.autoClip) }));
+  .unknown()
+  .optional()
+  .transform((value) => normalizeSettings(value));
 
 const cashTimelineEntrySchema = z
   .object({
@@ -197,7 +222,7 @@ export const portfolioPayloadSchema = z
       .max(MAX_TRANSACTIONS_PER_PORTFOLIO)
       .default([]),
     signals: signalsSchema.optional().default({}),
-    settings: settingsSchema.optional().default({ autoClip: false }),
+    settings: settingsSchema,
     cash: cashPolicySchema.optional().default({ currency: "USD", apyTimeline: [] }),
   })
   .transform((value) => ({

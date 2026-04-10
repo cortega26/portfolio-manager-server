@@ -55,6 +55,8 @@ export const translations = {
     "nav.aria": "Dashboard navigation",
     "nav.dashboard": "Dashboard",
     "nav.holdings": "Holdings",
+    "nav.prices": "Prices",
+    "nav.signals": "Signals",
     "nav.transactions": "Transactions",
     "nav.history": "History",
     "nav.metrics": "Metrics",
@@ -73,6 +75,7 @@ export const translations = {
     "dashboard.quickActions.tips": "Portfolio Tips",
     "dashboard.quickActions.status.live": "Live ROI",
     "dashboard.quickActions.status.fallback": "Fallback ROI",
+    "dashboard.quickActions.status.stale": "Stale ROI",
     "dashboard.quickActions.status.unavailable": "ROI unavailable",
     "dashboard.benchmarks.controls": "Benchmark comparison controls",
     "dashboard.benchmarks.legend": "Benchmarks",
@@ -80,13 +83,14 @@ export const translations = {
     "dashboard.benchmarks.reset": "Reset benchmarks",
     "dashboard.benchmarks.reset.aria": "Reset benchmark visibility to defaults",
     "dashboard.benchmarks.reset.title": "Restore the default benchmark combination",
-    "dashboard.benchmarks.series.spy.label": "100% SPY benchmark",
-    "dashboard.benchmarks.series.spy.description": "Opportunity cost if fully invested in SPY",
-    "dashboard.benchmarks.series.qqq.label": "Nasdaq-100 (QQQ)",
+    "dashboard.benchmarks.series.spy.label": "S&P 500",
+    "dashboard.benchmarks.series.spy.description":
+      "Cumulative benchmark return for the S&P 500 over the loaded timeline",
+    "dashboard.benchmarks.series.qqq.label": "Nasdaq-100",
     "dashboard.benchmarks.series.qqq.description":
-      "Technology-heavy reference using QQQ as the Nasdaq-100 proxy",
-    "dashboard.benchmarks.series.blended.label": "Blended benchmark",
-    "dashboard.benchmarks.series.blended.description": "Risk-matched mix using start-of-day cash weights",
+      "Cumulative benchmark return for the Nasdaq-100 over the loaded timeline",
+    "dashboard.benchmarks.series.blended.label": "Cash-Matched S&P 500",
+    "dashboard.benchmarks.series.blended.description": "S&P 500 return adjusted for your portfolio's cash allocation on each day.",
     "dashboard.benchmarks.series.exCash.label": "Risk sleeve (ex-cash)",
     "dashboard.benchmarks.series.exCash.description": "Portfolio performance excluding the cash sleeve",
     "dashboard.benchmarks.series.cash.label": "Cash yield",
@@ -94,23 +98,53 @@ export const translations = {
     "dashboard.roi.loading": "Loading ROI data…",
     "dashboard.roi.empty":
       "ROI data becomes available after fetching benchmark series and holdings pricing.",
-    "dashboard.roi.title": "ROI vs Benchmarks",
+    "dashboard.roi.title": "TWR vs Benchmarks",
     "dashboard.roi.chartEmpty": "Add transactions to see comparative performance.",
-    "dashboard.roi.chartAria": "Portfolio performance chart",
+    "dashboard.roi.chartAria": "Portfolio TWR comparison chart",
+    "dashboard.roi.benchmarkNotice":
+      "Canonical benchmark data is still being rebuilt for: {benchmarks}. Missing series stay hidden until the backend repair completes.",
+    "dashboard.roi.approximate": "\u2248 Approximate",
+    "dashboard.roi.approximate.tooltip":
+      "Using client-side approximation. Values may differ from the canonical server calculation by a few basis points.",
     "dashboard.series.portfolio": "Portfolio ROI",
+    "dashboard.series.portfolioTwr": "Portfolio TWR",
     "dashboard.context.title": "Performance context",
     "dashboard.context.subtitle":
-      "Read current portfolio ROI against the benchmarks that matter before digging into the chart.",
+      "Use ROI for total gain on contributed capital, then compare TWR against benchmarks in the chart.",
     "dashboard.context.portfolio.label": "Portfolio ROI",
-    "dashboard.context.portfolio.detail": "Cumulative return for the loaded timeline.",
+    "dashboard.context.portfolio.detail": "Simple return on net contributed capital. Unlike TWR, it is affected by deposit/withdrawal timing.",
+    "dashboard.context.portfolioTwr.label": "Portfolio TWR",
+    "dashboard.context.portfolioTwr.detail":
+      "Time-weighted return used for benchmark comparison in the chart.",
+    "dashboard.context.portfolioTwr.detailAnnualized":
+      "Time-weighted return with annualized equivalent for portfolios spanning more than one year.",
+    "dashboard.context.portfolioTwr.annSuffix": "ann.",
+    "dashboard.context.portfolioTwr.annTooltip":
+      "Annualized return: the equivalent constant annual rate that would produce the same cumulative return over this period.",
     "dashboard.context.spyGap.label": "Gap vs S&P 500",
     "dashboard.context.spyGap.detail": "S&P 500 benchmark at {benchmark}",
     "dashboard.context.qqqGap.label": "Gap vs Nasdaq-100",
     "dashboard.context.qqqGap.detail": "Nasdaq-100 proxy at {benchmark}",
-    "dashboard.context.cashDrag.label": "Cash drag",
-    "dashboard.context.cashDrag.detail": "Difference between SPY and the blended benchmark.",
+    "dashboard.context.investorMwr.label": "Investor MWR",
+    "dashboard.context.investorMwr.valueFull": "MWR 1Y {value}",
+    "dashboard.context.investorMwr.detail":
+      "SPY {spy} · QQQ {qqq} with your same flows",
+    "dashboard.context.investorMwr.detailPartial":
+      "SPY {spy} · QQQ {qqq} with your same flows · Partial window since {startDate}",
+    "dashboard.context.investorMwr.title":
+      "Money-weighted return for your real investor experience versus SPY and QQQ using the same external cash flows.",
     "dashboard.context.cashAllocation.label": "Cash allocation",
     "dashboard.context.cashAllocation.detail": "Share of current NAV sitting in cash.",
+    "dashboard.context.maxDrawdown.label": "Max Drawdown",
+    "dashboard.context.maxDrawdown.detail": "{peakDate} – {troughDate}",
+    "dashboard.context.maxDrawdown.title":
+      "Largest peak-to-trough decline in portfolio value. A measure of downside risk.",
+    "dashboard.context.maxDrawdown.insufficient": "Insufficient data",
+    "dashboard.navChart.title": "NAV Growth",
+    "dashboard.navChart.empty": "NAV data becomes available after loading daily snapshots.",
+    "dashboard.navChart.aria": "Portfolio NAV growth chart",
+    "dashboard.navChart.contributions": "Net Contributions",
+    "dashboard.navChart.marketGain": "Market Gain",
     "dashboard.metrics.equityBalance": "Equity Balance",
     "dashboard.metrics.equityBalance.description": "{count} open holdings priced",
     "dashboard.metrics.equityBalance.unavailable": "Pricing unavailable for {count} open holdings",
@@ -119,24 +153,38 @@ export const translations = {
     "dashboard.metrics.netStockPurchases": "Net Stock Purchases",
     "dashboard.metrics.netStockPurchases.description":
       "Gross buys {buys} minus sells {sells}",
-    "dashboard.metrics.historicalChange": "Historical Change",
+    "dashboard.metrics.historicalChange": "Equity Price Gain",
     "dashboard.metrics.historicalChange.description":
-      "Equity balance minus net stock purchases",
+      "Current market value of open equity positions minus their total purchase cost.",
     "dashboard.metrics.historicalChange.unavailable":
       "Waiting for current market prices to calculate the change",
+    "dashboard.metrics.historicalChange.title":
+      "Current market value of open equity positions minus their total purchase cost. Does not include dividends, interest, or realised gains.",
     "dashboard.metrics.nav": "Total NAV",
-    "dashboard.metrics.nav.description": "Cash balance {value}",
-    "dashboard.metrics.nav.unavailable": "Cash balance {value} · awaiting market prices",
+    "dashboard.metrics.nav.description": "Equities {equity} · Cash {cash} ({cashPct})",
+    "dashboard.metrics.nav.unavailable": "Cash balance {cash} · awaiting market prices",
     "dashboard.metrics.nav.title":
       "NAV equals risk assets plus cash. Cash definitions follow docs/guides/cash-benchmarks.md.",
-    "dashboard.metrics.externalContributions": "Net External Contributions",
+    "dashboard.metrics.externalContributions": "Net Contributions",
     "dashboard.metrics.externalContributions.description":
-      "Funding flows only · net income {value}",
+      "Gross buys {buys} · Gross sells {sells} · Net income {income}",
     "dashboard.metrics.return": "Total Return",
     "dashboard.metrics.return.description":
-      "Realised {realised} · Unrealised {unrealised} · Net income {income} · ROI {roi}",
+      "Realised {realised} · Unrealised {unrealised} · Net income {income} · Simple ROI {roi}",
+    "dashboard.metrics.return.title":
+      "Simple return on net contributed capital. Does not weight for timing of deposits/withdrawals. See TWR and MWR for time-adjusted and cash-flow-adjusted returns.",
     "dashboard.metrics.return.unavailable":
       "Waiting for current market prices before computing return and ROI",
+    "dashboard.allocation.title": "Asset Allocation",
+    "dashboard.allocation.empty": "Add holdings and prices to see the allocation chart.",
+    "dashboard.allocation.aria": "Portfolio asset allocation donut chart",
+    "dashboard.contribution.title": "Return Contribution by Asset",
+    "dashboard.contribution.subtitle": "Weight × individual return. Sorted by contribution (descending).",
+    "dashboard.contribution.empty": "Prices needed to compute return contributions.",
+    "dashboard.contribution.col.ticker": "Ticker",
+    "dashboard.contribution.col.weight": "Weight (%)",
+    "dashboard.contribution.col.individualReturn": "Return",
+    "dashboard.contribution.col.contribution": "Contribution (pp)",
     "history.contribution.title": "Contribution Trends",
     "history.contribution.subtitle":
       "Track deposits, withdrawals, and realised cash flow by calendar month.",
@@ -316,12 +364,52 @@ export const translations = {
     "alerts.price.refreshFailed.detail":
       "Unable to update prices for {tickers}. Showing last known values until the next successful refresh.",
     "alerts.price.refreshFailed.detailFallback": "selected holdings",
+    "alerts.price.degraded.title": "Live quotes temporarily unavailable",
+    "alerts.price.degraded.detail":
+      "Showing the latest official close for {tickers} while the live pricing provider recovers.",
     "alerts.price.marketClosed.title": "Market is closed — using last close from {date}",
     "alerts.price.marketClosed.detail":
       "Values for {tickers} will refresh on {next}.",
     "alerts.price.marketClosed.detailToday": "later today when trading resumes",
     "alerts.price.marketClosed.nextSession": "the next trading session",
     "alerts.price.marketClosed.allHoldings": "all tracked holdings",
+    "prices.title": "Tracked prices",
+    "prices.subtitle":
+      "Review the latest prices for open holdings and monitored benchmarks from the same backend pricing layer.",
+    "prices.meta.tracked": "Symbols",
+    "prices.meta.lastUpdated": "Last updated",
+    "prices.meta.requestId": "Request ID",
+    "prices.meta.version": "API version",
+    "prices.summary.totalCost": "Total cost",
+    "prices.summary.realised": "Realised P/L",
+    "prices.summary.unrealised": "Unrealised P/L",
+    "prices.summary.totalNav": "Total NAV",
+    "prices.refresh.action": "Refresh prices",
+    "prices.refresh.loading": "Refreshing prices…",
+    "prices.empty": "No tracked symbols yet. Add holdings or configure benchmarks to load prices.",
+    "prices.table.aria": "Tracked prices table",
+    "prices.table.symbol": "Symbol",
+    "prices.table.scope": "Scope",
+    "prices.table.lastPrice": "Last price",
+    "prices.table.asOf": "As of",
+    "prices.table.shares": "Shares",
+    "prices.table.avgCost": "Avg. cost",
+    "prices.table.totalCost": "Total cost",
+    "prices.table.marketValue": "Market value",
+    "prices.table.unrealised": "Unrealised P/L",
+    "prices.table.realised": "Realised P/L",
+    "prices.table.returnPct": "Return",
+    "prices.table.status": "Status",
+    "prices.scope.holding": "Holding",
+    "prices.scope.holdingDetail": "Open portfolio position",
+    "prices.scope.benchmark": "Benchmark",
+    "prices.status.live": "Live",
+    "prices.status.eod_fresh": "Official close",
+    "prices.status.cache_fresh": "Cached close",
+    "prices.status.degraded": "Degraded",
+    "prices.status.cached": "Cached",
+    "prices.status.error": "Error",
+    "prices.status.unavailable": "Unavailable",
     "alerts.signal.buyZone.title": "{ticker} entered BUY zone",
     "alerts.signal.trimZone.title": "{ticker} entered TRIM zone",
     "alerts.signal.message":
@@ -332,6 +420,13 @@ export const translations = {
       "ROI service failed. Displaying locally computed fallback data.",
     "alerts.roi.unavailable":
       "ROI service and fallback computation failed. Try again after reloading the page.",
+    "alerts.roi.stale":
+      "The ROI service is temporarily unavailable. Showing the latest valid ROI snapshot.",
+    "alerts.roi.partialHistory":
+      "Fallback ROI is unavailable because historical prices are missing for: {tickers}.",
+    "alerts.roi.benchmarkUnavailable.title": "Benchmark data is rebuilding",
+    "alerts.roi.benchmarkUnavailable.detail":
+      "Canonical backend benchmark series are not available yet for: {benchmarks}.",
     "transactions.depositor.title": "Add depositor",
     "transactions.depositor.close": "Close add depositor",
     "transactions.depositor.name": "Depositor name",
@@ -365,6 +460,12 @@ export const translations = {
     "holdings.signals.status.trimZone": "TRIM zone",
     "holdings.signals.status.hold": "HOLD",
     "holdings.signals.status.noData": "NO DATA",
+    "signals.title": "Signals workspace",
+    "signals.subtitle":
+      "Review backend-calculated signal bands, tune the percent window, and keep the live trigger surface separate from holdings valuation.",
+    "signals.matrix.title": "Signal matrix",
+    "signals.matrix.subtitle":
+      "Each row tracks the latest price against the most recent BUY or SELL reference for that ticker.",
     "reports.summary.empty": "Summaries populate once transactions and holdings are available.",
     "reports.section.snapshot.title": "Reporting Snapshot",
     "reports.section.snapshot.subtitle": "Generate CSV exports for bookkeeping and compliance workflows.",
@@ -401,12 +502,38 @@ export const translations = {
     "settings.notifications.email.helper": "Email summaries will be delivered once background notifications launch. For now the app records your preference only.",
     "settings.notifications.push.label": "Push notifications",
     "settings.notifications.push.description": "Show in-app toast alerts for portfolio events and warnings.",
+    "settings.notifications.signalTransitions.label": "Signal transition toasts",
+    "settings.notifications.signalTransitions.description":
+      "Show a toast when a holding enters a BUY or TRIM zone after prices move.",
     "settings.alerts.rebalance.label": "Monthly rebalance reminders",
     "settings.alerts.rebalance.description":
       "Get a reminder when allocations drift beyond their target bands.",
+    "settings.alerts.marketStatus.label": "Market status banners",
+    "settings.alerts.marketStatus.description":
+      "Show guidance when pricing is using the latest market close instead of a live session.",
+    "settings.alerts.roiFallback.label": "ROI fallback banners",
+    "settings.alerts.roiFallback.description":
+      "Show informational banners when ROI falls back to local calculations.",
     "settings.alerts.drawdown.label": "Drawdown alert (%)",
     "settings.alerts.drawdown.description":
       "Trigger a notification if ROI falls by this percentage from the latest peak.",
+    "settings.sections.scheduler.title": "Scheduler",
+    "settings.sections.scheduler.description":
+      "Review the runtime nightly pricing posture exposed by the local desktop shell.",
+    "settings.scheduler.runtime.label": "Nightly close runtime",
+    "settings.scheduler.runtime.active": "Nightly close jobs are active in this runtime.",
+    "settings.scheduler.runtime.inactive":
+      "Nightly close jobs are currently disabled in this runtime.",
+    "settings.scheduler.runtime.unknown":
+      "Nightly close status is not available in the current runtime config.",
+    "settings.scheduler.state.active": "Active",
+    "settings.scheduler.state.inactive": "Inactive",
+    "settings.scheduler.state.unknown": "Unknown",
+    "settings.scheduler.hour.label": "Configured UTC hour",
+    "settings.scheduler.hour.value": "{hour}:00 UTC",
+    "settings.scheduler.hour.unavailable": "Scheduler hour unavailable",
+    "settings.scheduler.hour.description":
+      "This reflects the configured nightly close hour when the runtime exposes it.",
     "settings.display.currency.label": "Display currency",
     "settings.display.currency.description": "Used for reports and holdings valuation.",
     "settings.display.refresh.label": "Auto-refresh (minutes)",
@@ -550,6 +677,8 @@ export const translations = {
     "nav.aria": "Navegación del tablero",
     "nav.dashboard": "Tablero",
     "nav.holdings": "Posiciones",
+    "nav.prices": "Precios",
+    "nav.signals": "Señales",
     "nav.transactions": "Transacciones",
     "nav.history": "Historial",
     "nav.metrics": "Métricas",
@@ -568,6 +697,7 @@ export const translations = {
     "dashboard.quickActions.tips": "Consejos de portafolio",
     "dashboard.quickActions.status.live": "ROI en tiempo real",
     "dashboard.quickActions.status.fallback": "ROI alternativo",
+    "dashboard.quickActions.status.stale": "ROI en caché válida",
     "dashboard.quickActions.status.unavailable": "ROI no disponible",
     "dashboard.benchmarks.controls": "Controles de comparación de referencias",
     "dashboard.benchmarks.legend": "Referencias",
@@ -575,14 +705,15 @@ export const translations = {
     "dashboard.benchmarks.reset": "Restablecer referencias",
     "dashboard.benchmarks.reset.aria": "Restablecer referencias a los valores predeterminados",
     "dashboard.benchmarks.reset.title": "Restaurar la combinación de referencias predeterminada",
-    "dashboard.benchmarks.series.spy.label": "Referencia 100% SPY",
-    "dashboard.benchmarks.series.spy.description": "Costo de oportunidad si estuvieras totalmente invertido en SPY",
-    "dashboard.benchmarks.series.qqq.label": "Nasdaq-100 (QQQ)",
+    "dashboard.benchmarks.series.spy.label": "S&P 500",
+    "dashboard.benchmarks.series.spy.description":
+      "Retorno acumulado de referencia del S&P 500 durante el período cargado",
+    "dashboard.benchmarks.series.qqq.label": "Nasdaq-100",
     "dashboard.benchmarks.series.qqq.description":
-      "Referencia tecnológica usando QQQ como proxy del Nasdaq-100",
-    "dashboard.benchmarks.series.blended.label": "Referencia combinada",
+      "Retorno acumulado de referencia del Nasdaq-100 durante el período cargado",
+    "dashboard.benchmarks.series.blended.label": "S&P 500 ajustado a efectivo",
     "dashboard.benchmarks.series.blended.description":
-      "Mezcla ajustada al riesgo usando los pesos de efectivo al inicio del día",
+      "Retorno del S&P 500 ajustado por la asignación de efectivo de tu portafolio cada día.",
     "dashboard.benchmarks.series.exCash.label": "Tramo de riesgo (sin efectivo)",
     "dashboard.benchmarks.series.exCash.description":
       "Rendimiento del portafolio excluyendo la franja de efectivo",
@@ -592,23 +723,53 @@ export const translations = {
     "dashboard.roi.loading": "Cargando datos de ROI…",
     "dashboard.roi.empty":
       "Los datos de ROI aparecen después de obtener precios de posiciones y referencias.",
-    "dashboard.roi.title": "ROI vs Referencias",
+    "dashboard.roi.title": "TWR vs Referencias",
     "dashboard.roi.chartEmpty": "Agrega transacciones para ver el rendimiento comparativo.",
-    "dashboard.roi.chartAria": "Gráfico de rendimiento del portafolio",
+    "dashboard.roi.chartAria": "Gráfico comparativo del TWR del portafolio",
+    "dashboard.roi.benchmarkNotice":
+      "Los datos canónicos de benchmark todavía se están reconstruyendo para: {benchmarks}. Las series faltantes permanecen ocultas hasta que termine la reparación del backend.",
+    "dashboard.roi.approximate": "\u2248 Aproximado",
+    "dashboard.roi.approximate.tooltip":
+      "Usando aproximación del lado del cliente. Los valores pueden diferir del cálculo canónico del servidor por algunos puntos base.",
     "dashboard.series.portfolio": "ROI del portafolio",
+    "dashboard.series.portfolioTwr": "TWR del portafolio",
     "dashboard.context.title": "Contexto de rendimiento",
     "dashboard.context.subtitle":
-      "Lee primero el ROI del portafolio contra sus referencias clave antes de entrar al gráfico.",
+      "Usa el ROI para la ganancia total sobre capital aportado y compara el TWR contra referencias en el gráfico.",
     "dashboard.context.portfolio.label": "ROI del portafolio",
-    "dashboard.context.portfolio.detail": "Retorno acumulado para el período cargado.",
+    "dashboard.context.portfolio.detail": "Retorno simple sobre el capital neto aportado. A diferencia del TWR, se ve afectado por el momento de depósitos/retiros.",
+    "dashboard.context.portfolioTwr.label": "TWR del portafolio",
+    "dashboard.context.portfolioTwr.detail":
+      "Retorno ponderado por tiempo usado para comparar contra referencias en el gráfico.",
+    "dashboard.context.portfolioTwr.detailAnnualized":
+      "Retorno ponderado por tiempo con equivalente anualizado para portafolios de más de un año.",
+    "dashboard.context.portfolioTwr.annSuffix": "anual.",
+    "dashboard.context.portfolioTwr.annTooltip":
+      "Retorno anualizado: la tasa anual constante equivalente que produciría el mismo retorno acumulado en este período.",
     "dashboard.context.spyGap.label": "Brecha vs S&P 500",
     "dashboard.context.spyGap.detail": "Referencia S&P 500 en {benchmark}",
     "dashboard.context.qqqGap.label": "Brecha vs Nasdaq-100",
     "dashboard.context.qqqGap.detail": "Proxy Nasdaq-100 en {benchmark}",
-    "dashboard.context.cashDrag.label": "Arrastre por caja",
-    "dashboard.context.cashDrag.detail": "Diferencia entre SPY y la referencia combinada.",
+    "dashboard.context.investorMwr.label": "MWR inversionista",
+    "dashboard.context.investorMwr.valueFull": "MWR 1A {value}",
+    "dashboard.context.investorMwr.detail":
+      "SPY {spy} · QQQ {qqq} con tus mismos flujos",
+    "dashboard.context.investorMwr.detailPartial":
+      "SPY {spy} · QQQ {qqq} con tus mismos flujos · Ventana parcial desde {startDate}",
+    "dashboard.context.investorMwr.title":
+      "Retorno ponderado por dinero de tu experiencia real como inversionista versus SPY y QQQ usando los mismos flujos externos.",
     "dashboard.context.cashAllocation.label": "Asignación a caja",
     "dashboard.context.cashAllocation.detail": "Parte del NAV actual que sigue en efectivo.",
+    "dashboard.context.maxDrawdown.label": "Drawdown máximo",
+    "dashboard.context.maxDrawdown.detail": "{peakDate} – {troughDate}",
+    "dashboard.context.maxDrawdown.title":
+      "Mayor caída de pico a valle en el valor del portafolio. Una medida de riesgo a la baja.",
+    "dashboard.context.maxDrawdown.insufficient": "Datos insuficientes",
+    "dashboard.navChart.title": "Crecimiento NAV",
+    "dashboard.navChart.empty": "Los datos NAV estarán disponibles después de cargar los snapshots diarios.",
+    "dashboard.navChart.aria": "Gráfico de crecimiento del NAV del portafolio",
+    "dashboard.navChart.contributions": "Aportes netos",
+    "dashboard.navChart.marketGain": "Ganancia de mercado",
     "dashboard.metrics.equityBalance": "Balance acciones",
     "dashboard.metrics.equityBalance.description": "{count} posiciones abiertas con precio",
     "dashboard.metrics.equityBalance.unavailable":
@@ -618,25 +779,39 @@ export const translations = {
     "dashboard.metrics.netStockPurchases": "Compras netas",
     "dashboard.metrics.netStockPurchases.description":
       "Compras brutas {buys} menos ventas {sells}",
-    "dashboard.metrics.historicalChange": "Variación histórica",
+    "dashboard.metrics.historicalChange": "Ganancia de precio en acciones",
     "dashboard.metrics.historicalChange.description":
-      "Balance acciones menos compras netas",
+      "Valor de mercado actual de posiciones abiertas menos su costo total de compra.",
     "dashboard.metrics.historicalChange.unavailable":
       "Esperando precios de mercado para calcular la variación",
+    "dashboard.metrics.historicalChange.title":
+      "Valor de mercado actual de posiciones abiertas menos su costo total de compra. No incluye dividendos, intereses ni ganancias realizadas.",
     "dashboard.metrics.nav": "NAV total",
-    "dashboard.metrics.nav.description": "Saldo en efectivo {value}",
+    "dashboard.metrics.nav.description": "Acciones {equity} · Efectivo {cash} ({cashPct})",
     "dashboard.metrics.nav.unavailable":
-      "Saldo en efectivo {value} · esperando precios de mercado",
+      "Saldo en efectivo {cash} · esperando precios de mercado",
     "dashboard.metrics.nav.title":
       "El NAV equivale a activos de riesgo más efectivo. Las definiciones de efectivo siguen docs/guides/cash-benchmarks.md.",
-    "dashboard.metrics.externalContributions": "Aportes netos externos",
+    "dashboard.metrics.externalContributions": "Aportes netos",
     "dashboard.metrics.externalContributions.description":
-      "Solo flujos de fondeo · ingresos netos {value}",
+      "Compras brutas {buys} · Ventas brutas {sells} · Ingresos netos {income}",
     "dashboard.metrics.return": "Rendimiento total",
     "dashboard.metrics.return.description":
-      "Realizado {realised} · No realizado {unrealised} · Ingresos netos {income} · ROI {roi}",
+      "Realizado {realised} · No realizado {unrealised} · Ingresos netos {income} · ROI Simple {roi}",
+    "dashboard.metrics.return.title":
+      "Retorno simple sobre el capital neto aportado. No pondera el momento de depósitos/retiros. Ver TWR y MWR para retornos ajustados por tiempo y flujos.",
     "dashboard.metrics.return.unavailable":
       "Esperando precios de mercado antes de calcular rendimiento y ROI",
+    "dashboard.allocation.title": "Asignación de activos",
+    "dashboard.allocation.empty": "Agrega posiciones y precios para ver el gráfico de asignación.",
+    "dashboard.allocation.aria": "Gráfico de dona de asignación de activos del portafolio",
+    "dashboard.contribution.title": "Contribución al retorno por activo",
+    "dashboard.contribution.subtitle": "Peso × retorno individual. Ordenado por contribución (descendente).",
+    "dashboard.contribution.empty": "Se necesitan precios para calcular las contribuciones al retorno.",
+    "dashboard.contribution.col.ticker": "Ticker",
+    "dashboard.contribution.col.weight": "Peso (%)",
+    "dashboard.contribution.col.individualReturn": "Retorno",
+    "dashboard.contribution.col.contribution": "Contribución (pp)",
     "history.contribution.title": "Tendencias de aportaciones",
     "history.contribution.subtitle":
       "Sigue depósitos, retiros y flujo de caja realizado por mes calendario.",
@@ -817,12 +992,52 @@ export const translations = {
     "alerts.price.refreshFailed.detail":
       "No se pudieron actualizar los precios de {tickers}. Se mostrarán los últimos valores conocidos hasta la próxima actualización exitosa.",
     "alerts.price.refreshFailed.detailFallback": "las posiciones seleccionadas",
+    "alerts.price.degraded.title": "Cotizaciones en vivo temporalmente no disponibles",
+    "alerts.price.degraded.detail":
+      "Mostrando el último cierre oficial para {tickers} mientras se recupera el proveedor de precios en vivo.",
     "alerts.price.marketClosed.title": "El mercado está cerrado — usando el último cierre del {date}",
     "alerts.price.marketClosed.detail":
       "Los valores de {tickers} se actualizarán en {next}.",
     "alerts.price.marketClosed.detailToday": "más tarde hoy cuando se reanude la sesión",
     "alerts.price.marketClosed.nextSession": "la próxima sesión bursátil",
     "alerts.price.marketClosed.allHoldings": "todas las posiciones rastreadas",
+    "prices.title": "Precios monitoreados",
+    "prices.subtitle":
+      "Revisa los últimos precios de las posiciones abiertas y de los benchmarks monitoreados usando la misma capa backend de pricing.",
+    "prices.meta.tracked": "Símbolos",
+    "prices.meta.lastUpdated": "Última actualización",
+    "prices.meta.requestId": "ID de solicitud",
+    "prices.meta.version": "Versión API",
+    "prices.summary.totalCost": "Costo total",
+    "prices.summary.realised": "P/L realizada",
+    "prices.summary.unrealised": "P/L no realizada",
+    "prices.summary.totalNav": "NAV total",
+    "prices.refresh.action": "Actualizar precios",
+    "prices.refresh.loading": "Actualizando precios…",
+    "prices.empty": "Todavía no hay símbolos monitoreados. Agrega posiciones o configura benchmarks para cargar precios.",
+    "prices.table.aria": "Tabla de precios monitoreados",
+    "prices.table.symbol": "Símbolo",
+    "prices.table.scope": "Cobertura",
+    "prices.table.lastPrice": "Último precio",
+    "prices.table.asOf": "Fecha",
+    "prices.table.shares": "Acciones",
+    "prices.table.avgCost": "Costo prom.",
+    "prices.table.totalCost": "Costo total",
+    "prices.table.marketValue": "Valor de mercado",
+    "prices.table.unrealised": "P/L no realizada",
+    "prices.table.realised": "P/L realizada",
+    "prices.table.returnPct": "Retorno",
+    "prices.table.status": "Estado",
+    "prices.scope.holding": "Posición",
+    "prices.scope.holdingDetail": "Posición abierta del portafolio",
+    "prices.scope.benchmark": "Benchmark",
+    "prices.status.live": "En vivo",
+    "prices.status.eod_fresh": "Cierre oficial",
+    "prices.status.cache_fresh": "Cierre en caché",
+    "prices.status.degraded": "Degradado",
+    "prices.status.cached": "Cacheado",
+    "prices.status.error": "Error",
+    "prices.status.unavailable": "No disponible",
     "alerts.signal.buyZone.title": "{ticker} entró en zona de COMPRA",
     "alerts.signal.trimZone.title": "{ticker} entró en zona de VENTA",
     "alerts.signal.message":
@@ -833,6 +1048,13 @@ export const translations = {
       "El servicio de ROI falló. Mostrando datos de respaldo calculados localmente.",
     "alerts.roi.unavailable":
       "El servicio de ROI y el cálculo de respaldo fallaron. Intenta nuevamente después de recargar la página.",
+    "alerts.roi.stale":
+      "El servicio de ROI está temporalmente no disponible. Se muestra la última serie válida.",
+    "alerts.roi.partialHistory":
+      "El ROI de respaldo no está disponible porque faltan precios históricos para: {tickers}.",
+    "alerts.roi.benchmarkUnavailable.title": "Los benchmarks se están reconstruyendo",
+    "alerts.roi.benchmarkUnavailable.detail":
+      "Las series canónicas de benchmark del backend todavía no están disponibles para: {benchmarks}.",
     "transactions.depositor.title": "Agregar depositante",
     "transactions.depositor.close": "Cerrar agregar depositante",
     "transactions.depositor.name": "Nombre del depositante",
@@ -866,6 +1088,12 @@ export const translations = {
     "holdings.signals.status.trimZone": "Zona de VENTA",
     "holdings.signals.status.hold": "MANTENER",
     "holdings.signals.status.noData": "SIN DATOS",
+    "signals.title": "Espacio de señales",
+    "signals.subtitle":
+      "Revisa bandas calculadas por backend, ajusta el rango porcentual y separa la superficie de señales de la valuación de posiciones.",
+    "signals.matrix.title": "Matriz de señales",
+    "signals.matrix.subtitle":
+      "Cada fila compara el último precio con la referencia BUY o SELL más reciente para ese ticker.",
     "reports.summary.empty": "Los resúmenes se generan cuando haya transacciones y posiciones disponibles.",
     "reports.section.snapshot.title": "Instantánea de reportes",
     "reports.section.snapshot.subtitle":
@@ -911,12 +1139,38 @@ export const translations = {
     "settings.notifications.email.helper": "Los resúmenes por correo estarán disponibles cuando lancemos las notificaciones automáticas. Por ahora solo guardamos tu preferencia.",
     "settings.notifications.push.label": "Notificaciones push",
     "settings.notifications.push.description": "Mostrar avisos emergentes en la aplicación para eventos y advertencias del portafolio.",
+    "settings.notifications.signalTransitions.label": "Toasts de cambios de señal",
+    "settings.notifications.signalTransitions.description":
+      "Mostrar un aviso cuando una posición entre en zona de COMPRA o VENTA tras un movimiento de precio.",
     "settings.alerts.rebalance.label": "Recordatorios de rebalanceo mensual",
     "settings.alerts.rebalance.description":
       "Obtén un recordatorio cuando las asignaciones se desvíen de sus bandas objetivo.",
+    "settings.alerts.marketStatus.label": "Banners de estado de mercado",
+    "settings.alerts.marketStatus.description":
+      "Mostrar contexto cuando los precios usan el último cierre del mercado en vez de una sesión en vivo.",
+    "settings.alerts.roiFallback.label": "Banners de respaldo ROI",
+    "settings.alerts.roiFallback.description":
+      "Mostrar banners informativos cuando ROI vuelve al cálculo local.",
     "settings.alerts.drawdown.label": "Alerta de drawdown (%)",
     "settings.alerts.drawdown.description":
       "Dispara una notificación si el ROI cae este porcentaje desde el último pico.",
+    "settings.sections.scheduler.title": "Scheduler",
+    "settings.sections.scheduler.description":
+      "Revisa el estado runtime del cierre nocturno expuesto por el shell desktop local.",
+    "settings.scheduler.runtime.label": "Runtime del cierre nocturno",
+    "settings.scheduler.runtime.active": "Los jobs de cierre nocturno están activos en este runtime.",
+    "settings.scheduler.runtime.inactive":
+      "Los jobs de cierre nocturno están deshabilitados en este runtime.",
+    "settings.scheduler.runtime.unknown":
+      "El estado del cierre nocturno no está disponible en la configuración runtime actual.",
+    "settings.scheduler.state.active": "Activo",
+    "settings.scheduler.state.inactive": "Inactivo",
+    "settings.scheduler.state.unknown": "Desconocido",
+    "settings.scheduler.hour.label": "Hora UTC configurada",
+    "settings.scheduler.hour.value": "{hour}:00 UTC",
+    "settings.scheduler.hour.unavailable": "Hora del scheduler no disponible",
+    "settings.scheduler.hour.description":
+      "Esto refleja la hora configurada para el cierre nocturno cuando el runtime la expone.",
     "settings.display.currency.label": "Moneda de visualización",
     "settings.display.currency.description": "Usada para reportes y valoración de posiciones.",
     "settings.display.refresh.label": "Autoactualización (minutos)",

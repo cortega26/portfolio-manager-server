@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { requestApi, invalidateApiBaseUrlCache } from "../lib/apiClient.js";
-import { setRuntimeConfigForTesting } from "../lib/runtimeConfig.js";
+import {
+  getApiBaseUrlSync,
+  requestApi,
+  invalidateApiBaseUrlCache,
+} from "../lib/apiClient.js";
+import {
+  mergeRuntimeConfig,
+  setRuntimeConfigForTesting,
+} from "../lib/runtimeConfig.js";
 
 const originalFetch = global.fetch;
 
@@ -64,5 +71,36 @@ describe("apiClient session auth", () => {
     const headers = new Headers(init?.headers);
     expect(headers.get("X-Desktop-Auth")).toBe("caller-supplied-token");
     expect(headers.get("X-Session-Token")).toBeNull();
+  });
+
+  it("refreshes the cached API base URL when runtime config changes after bootstrap", async () => {
+    setRuntimeConfigForTesting({
+      API_BASE_URL: "https://bootstrap.example",
+      SESSION_AUTH_HEADER: "X-Desktop-Auth",
+    });
+
+    expect(getApiBaseUrlSync()).toBe("https://bootstrap.example");
+
+    mergeRuntimeConfig({
+      API_BASE_URL: "https://unlocked.example",
+      API_SESSION_TOKEN: "desktop-session-token",
+      ACTIVE_PORTFOLIO_ID: "desktop",
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("{}", {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    global.fetch = fetchMock as unknown as typeof global.fetch;
+
+    await requestApi("/portfolio/desktop");
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://unlocked.example/api/v1/portfolio/desktop");
+    const headers = new Headers(init?.headers);
+    expect(headers.get("X-Desktop-Auth")).toBe("desktop-session-token");
   });
 });

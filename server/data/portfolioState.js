@@ -2,6 +2,7 @@ import {
   CASH_POLICY_SCHEMA_VERSION,
   PORTFOLIO_SCHEMA_VERSION,
 } from "../../shared/constants.js";
+import { normalizeSettings } from "../../shared/settings.js";
 
 const PORTFOLIO_STATE_TABLE = "portfolio_states";
 const TRANSACTIONS_TABLE = "transactions";
@@ -44,10 +45,7 @@ function normalizePortfolioRecord(record, portfolioId) {
       record?.signals && typeof record.signals === "object"
         ? cloneValue(record.signals)
         : {},
-    settings:
-      record?.settings && typeof record.settings === "object"
-        ? cloneValue(record.settings)
-        : { autoClip: false },
+    settings: normalizeSettings(cloneValue(record?.settings)),
     cash: normalizeCashPolicy(record?.cash),
   };
 }
@@ -56,7 +54,8 @@ function stripPortfolioId(row) {
   if (!row || typeof row !== "object") {
     return row;
   }
-  const { portfolio_id: _portfolioId, ...rest } = row;
+  const { portfolio_id: portfolioId, ...rest } = row;
+  void portfolioId;
   return rest;
 }
 
@@ -119,4 +118,3 @@ export async function listPortfolioStates(storage) {
 }
 
 export const PORTFOLIO_STATE_TABLE_NAME = PORTFOLIO_STATE_TABLE;
-

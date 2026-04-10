@@ -9,7 +9,7 @@ import request from 'supertest';
 import { isValidPortfolioId } from '../app.js';
 import { readPortfolioState } from '../data/portfolioState.js';
 import JsonTableStorage from '../data/storage.js';
-import { sortTransactions } from '../finance/portfolio.js';
+import { sortTransactions, sortTransactionsForCashAudit } from '../finance/portfolio.js';
 import { createSessionTestApp, withSession } from './sessionTestUtils.js';
 
 const noopLogger = {
@@ -108,7 +108,28 @@ test('POST /api/portfolio/:id persists validated portfolio payloads', async () =
     quantity: 1.5,
   });
   assert.deepEqual(saved.signals, { AAPL: { pct: 3 } });
-  assert.deepEqual(saved.settings, { autoClip: false });
+  assert.deepEqual(saved.settings, {
+    notifications: {
+      email: false,
+      push: true,
+      signalTransitions: true,
+    },
+    alerts: {
+      rebalance: true,
+      drawdownThreshold: 15,
+      marketStatus: true,
+      roiFallback: true,
+    },
+    privacy: {
+      hideBalances: false,
+    },
+    display: {
+      currency: 'USD',
+      refreshInterval: 15,
+      compactTables: false,
+    },
+    autoClip: false,
+  });
 });
 
 test('GET /api/portfolio/:id rejects invalid session tokens after provisioning', async () => {
@@ -471,6 +492,58 @@ test('same-day transactions honor createdAt and seq tie-breakers', () => {
     'uid-5',
     'uid-3',
   ]);
+});
+
+test('cash audit sorting respects actual chronology for manual same-day transactions', () => {
+  const base = 1_700_000_000_000;
+  const transactions = [
+    {
+      id: 'buy',
+      date: '2024-01-01',
+      type: 'BUY',
+      amount: -100,
+      createdAt: base + 20,
+      seq: 2,
+    },
+    {
+      id: 'sell',
+      date: '2024-01-01',
+      type: 'SELL',
+      amount: 100,
+      createdAt: base + 10,
+      seq: 1,
+    },
+  ];
+
+  const sorted = sortTransactionsForCashAudit(transactions);
+  assert.deepEqual(sorted.map((tx) => tx.id), ['sell', 'buy']);
+});
+
+test('cash audit sorting nets imported broker days before debits', () => {
+  const base = 1_700_000_000_000;
+  const imported = (id, type, createdAt) => ({
+    id,
+    date: '2024-01-01',
+    type,
+    amount: type === 'BUY' ? -100 : 100,
+    createdAt,
+    seq: createdAt - base,
+    metadata: {
+      system: {
+        import: {
+          source: 'csv-bootstrap',
+        },
+      },
+    },
+  });
+
+  const transactions = [
+    imported('buy', 'BUY', base + 20),
+    imported('sell', 'SELL', base + 10),
+  ];
+
+  const sorted = sortTransactionsForCashAudit(transactions);
+  assert.deepEqual(sorted.map((tx) => tx.id), ['sell', 'buy']);
 });
 
 test('different dates are sorted chronologically first', () => {

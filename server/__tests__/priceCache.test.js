@@ -57,3 +57,14 @@ test('expires cached entries after TTL', async () => {
 
   assert.equal(getCachedPrice('GOOG', '1y'), undefined);
 });
+
+test('honours maxAge guards for live cache reads', async () => {
+  setCachedPrice('SPY', 'latest:open', [{ date: '2024-01-01', close: 120 }], {
+    ttlSeconds: 60,
+  });
+  assert.ok(getCachedPrice('SPY', 'latest:open', { maxAgeMs: 50 }));
+
+  await new Promise((resolve) => setTimeout(resolve, 75));
+
+  assert.equal(getCachedPrice('SPY', 'latest:open', { maxAgeMs: 50 }), undefined);
+});

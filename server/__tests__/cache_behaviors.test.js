@@ -67,7 +67,7 @@ test('GET /api/prices/:symbol caches responses for warm hits and exposes TTL hea
   assert.equal(second.headers['x-cache'], 'HIT');
 });
 
-test('GET /api/prices/bulk serves cached latest prices when the upstream later fails', async () => {
+test('GET /api/prices/bulk reuses warmed cache for latest-only responses', async () => {
   const today = new Date().toISOString().slice(0, 10);
   const csv = `Date,Open,High,Low,Close,Adj Close,Volume\n${today},1,1,1,200.12,200.12,1000`;
   let fetchCount = 0;
@@ -97,27 +97,28 @@ test('GET /api/prices/bulk serves cached latest prices when the upstream later f
 
   const fallback = await request(app).get('/api/prices/bulk?symbols=MSFT&latest=1');
   assert.equal(fallback.status, 200);
-  assert.equal(fetchCount, 3);
+  assert.equal(fetchCount, 1, 'warmed cache should avoid an additional upstream fetch');
   assert.equal(fallback.headers['x-cache'], 'HIT');
   assert.deepEqual(fallback.body.errors, {});
   assert.equal(fallback.body.series.MSFT.length, 1);
   assert.equal(fallback.body.series.MSFT[0].close, 200.12);
 });
 
-test('GET /api/prices/bulk uses the configured latest quote provider for latest-only requests', async () => {
+test('GET /api/prices/bulk uses the configured alpaca latest quote provider for latest-only requests', async () => {
   const today = new Date().toISOString().slice(0, 10);
   const app = createSessionTestApp({
     dataDir,
     logger: noopLogger,
     fetchImpl: async (url) => {
       const value = String(url);
-      if (value.startsWith('https://api.twelvedata.com/quote')) {
+      if (value.startsWith('https://data.alpaca.markets/v2/stocks/MSFT/snapshot')) {
         return {
           ok: true,
           json: async () => ({
-            symbol: 'MSFT',
-            price: '251.75',
-            datetime: `${today} 10:15:00`,
+            latestTrade: {
+              p: 251.75,
+              t: `${today}T15:15:00Z`,
+            },
           }),
         };
       }
@@ -126,13 +127,23 @@ test('GET /api/prices/bulk uses the configured latest quote provider for latest-
     config: {
       prices: {
         latest: {
-          provider: 'twelvedata',
+          provider: 'alpaca',
           apiKey: 'test-key',
-          prepost: true,
+          apiSecret: 'test-secret',
         },
       },
       freshness: { maxStaleTradingDays: 3 },
     },
+    marketClock: () => ({
+      isOpen: true,
+      isBeforeOpen: false,
+      isAfterClose: false,
+      isTradingDay: true,
+      isHoliday: false,
+      isWeekend: false,
+      lastTradingDate: today,
+      nextTradingDate: today,
+    }),
   });
 
   const response = await request(app).get('/api/prices/bulk?symbols=MSFT&latest=1');
@@ -142,6 +153,8 @@ test('GET /api/prices/bulk uses the configured latest quote provider for latest-
   assert.equal(response.body.series.MSFT.length, 1);
   assert.equal(response.body.series.MSFT[0].close, 251.75);
   assert.equal(response.body.series.MSFT[0].date, today);
+  assert.equal(response.body.metadata.symbols.MSFT.provider, 'alpaca');
+  assert.equal(response.body.metadata.symbols.MSFT.status, 'live');
 });
 
 test('GET /api/returns/daily serves cached payloads even when storage mutates', async () => {

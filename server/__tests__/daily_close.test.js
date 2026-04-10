@@ -33,6 +33,8 @@ beforeEach(async () => {
   await storage.ensureTable('prices', []);
   await storage.ensureTable('returns_daily', []);
   await storage.ensureTable('nav_snapshots', []);
+  await storage.ensureTable('roi_daily', []);
+  await storage.ensureTable('roi_sync_state', []);
   await storage.ensureTable('jobs_state', []);
   await storage.ensureTable('cash_interest_accruals', []);
 });
@@ -180,6 +182,16 @@ test('API endpoints expose computed series', async () => {
   assert.ok(Array.isArray(returnsResponse.body.series.r_port));
   assert.ok(returnsResponse.body.meta);
 
+  const roiResponse = await request(app).get(
+    '/api/roi/daily?from=2024-01-01&to=2024-01-02',
+  );
+  assert.equal(roiResponse.status, 200);
+  assert.ok(Array.isArray(roiResponse.body.series.portfolio));
+  assert.ok(Array.isArray(roiResponse.body.series.portfolioTwr));
+  assert.equal(roiResponse.body.series.portfolioTwr[0]?.value ?? null, 0);
+  assert.equal(roiResponse.body.meta.primaryMetric, 'portfolio');
+  assert.equal(roiResponse.body.meta.secondaryMetric, 'portfolioTwr');
+
   const navResponse = await request(app).get(
     '/api/nav/daily?from=2024-01-02&to=2024-01-02',
   );
@@ -199,6 +211,365 @@ test('API endpoints expose computed series', async () => {
     .post('/api/admin/cash-rate')
     .send({ effective_date: '2024-01-15', apy: 0.04 });
   assert.equal(postRate.status, 200);
+});
+
+test('returns endpoint auto-repairs historical rows when returns tables are empty', async () => {
+  await storage.upsertRow(
+    'cash_rates',
+    { effective_date: '2023-12-01', apy: 0.0365 },
+    ['effective_date'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
+    ['id'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    { id: 'b1', type: 'BUY', ticker: 'QQQ', date: '2024-01-02', quantity: 2, amount: 400 },
+    ['id'],
+  );
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-01', adjClose: 100 },
+      { date: '2024-01-02', adjClose: 101 },
+      { date: '2024-01-03', adjClose: 102 },
+    ],
+    QQQ: [
+      { date: '2024-01-01', adjClose: 200 },
+      { date: '2024-01-02', adjClose: 205 },
+      { date: '2024-01-03', adjClose: 210 },
+    ],
+  });
+
+  const app = createApp({
+    dataDir,
+    logger: noopLogger,
+    priceProvider: provider,
+    config: { featureFlags: { cashBenchmarks: true } },
+  });
+
+  const response = await request(app).get(
+    '/api/returns/daily?from=2024-01-01&to=2024-01-03&views=port,spy,bench',
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(response.body.series.r_port));
+  assert.ok(response.body.series.r_port.length > 0);
+
+  const returns = await storage.readTable('returns_daily');
+  const navSnapshots = await storage.readTable('nav_snapshots');
+  assert.ok(returns.length > 0);
+  assert.ok(navSnapshots.length > 0);
+});
+
+test('roi endpoint repairs missing canonical benchmark returns even when imported roi rows already exist', async () => {
+  await storage.upsertRow(
+    'transactions',
+    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000, portfolio_id: 'desktop' },
+    ['id'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    { id: 'b1', type: 'BUY', ticker: 'QQQ', date: '2024-01-02', quantity: 2, amount: 400, portfolio_id: 'desktop' },
+    ['id'],
+  );
+  await storage.writeTable('roi_daily', [
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-01',
+      portfolio_nav: 1000,
+      net_contributions: 1000,
+      roi_portfolio_pct: 0,
+      roi_sp500_pct: null,
+      roi_ndx_pct: null,
+      source: 'r2_import',
+      updated_at: '2024-01-03T00:00:00.000Z',
+    },
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-02',
+      portfolio_nav: 1010,
+      net_contributions: 1000,
+      roi_portfolio_pct: 1,
+      roi_sp500_pct: null,
+      roi_ndx_pct: null,
+      source: 'r2_import',
+      updated_at: '2024-01-03T00:00:00.000Z',
+    },
+  ]);
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-01', adjClose: 100 },
+      { date: '2024-01-02', adjClose: 101 },
+      { date: '2024-01-03', adjClose: 102 },
+    ],
+    QQQ: [
+      { date: '2024-01-01', adjClose: 200 },
+      { date: '2024-01-02', adjClose: 205 },
+      { date: '2024-01-03', adjClose: 210 },
+    ],
+  });
+
+  const app = createApp({
+    dataDir,
+    logger: noopLogger,
+    priceProvider: provider,
+    config: { featureFlags: { cashBenchmarks: true } },
+  });
+
+  const response = await request(app).get(
+    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-03',
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.series.spy.length > 0);
+  assert.ok(response.body.series.qqq.length > 0);
+  assert.ok(response.body.series.bench.length > 0);
+  assert.ok(response.body.series.spy.some((point) => point.value !== 0));
+  assert.ok(response.body.series.qqq.some((point) => point.value !== 0));
+  assert.equal(response.body.meta.benchmarkHealth.spy.available, true);
+  assert.equal(response.body.meta.benchmarkHealth.qqq.available, true);
+  assert.equal(response.body.meta.benchmarkHealth.blended.available, true);
+
+  const repairedReturns = await storage.readTable('returns_daily');
+  const desktopReturns = repairedReturns.filter((row) => row.portfolio_id === 'desktop');
+  assert.ok(desktopReturns.length > 0);
+  assert.ok(desktopReturns.every((row) => Number.isFinite(row.r_spy_100)));
+  assert.ok(desktopReturns.every((row) => Number.isFinite(row.r_qqq_100)));
+  assert.ok(desktopReturns.every((row) => Number.isFinite(row.r_bench_blended)));
+});
+
+test('roi endpoint repairs legacy flat-zero qqq benchmark rows when QQQ price history moved', async () => {
+  await storage.upsertRow(
+    'transactions',
+    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000, portfolio_id: 'desktop' },
+    ['id'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    { id: 'b1', type: 'BUY', ticker: 'QQQ', date: '2024-01-02', quantity: 2, amount: 400, portfolio_id: 'desktop' },
+    ['id'],
+  );
+  await storage.writeTable('roi_daily', [
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-01',
+      portfolio_nav: 1000,
+      net_contributions: 1000,
+      roi_portfolio_pct: 0,
+      roi_sp500_pct: null,
+      roi_ndx_pct: null,
+      source: 'r2_import',
+      updated_at: '2024-01-03T00:00:00.000Z',
+    },
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-02',
+      portfolio_nav: 1010,
+      net_contributions: 1000,
+      roi_portfolio_pct: 1,
+      roi_sp500_pct: null,
+      roi_ndx_pct: null,
+      source: 'r2_import',
+      updated_at: '2024-01-03T00:00:00.000Z',
+    },
+  ]);
+  await storage.writeTable('returns_daily', [
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-01',
+      r_port: 0,
+      r_ex_cash: 0,
+      r_bench_blended: 0,
+      r_spy_100: 0,
+      r_qqq_100: 0,
+      r_cash: 0,
+      updated_at: '2024-01-03T00:00:00.000Z',
+    },
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-02',
+      r_port: 0.01,
+      r_ex_cash: 0.01,
+      r_bench_blended: 0.01,
+      r_spy_100: 0.01,
+      r_qqq_100: 0,
+      r_cash: 0,
+      updated_at: '2024-01-03T00:00:00.000Z',
+    },
+  ]);
+  await storage.writeTable('prices', [
+    { ticker: 'SPY', date: '2024-01-01', adj_close: 100, updated_at: '2024-01-03T00:00:00.000Z' },
+    { ticker: 'SPY', date: '2024-01-02', adj_close: 101, updated_at: '2024-01-03T00:00:00.000Z' },
+    { ticker: 'QQQ', date: '2024-01-01', adj_close: 200, updated_at: '2024-01-03T00:00:00.000Z' },
+    { ticker: 'QQQ', date: '2024-01-02', adj_close: 205, updated_at: '2024-01-03T00:00:00.000Z' },
+  ]);
+
+  const app = createApp({
+    dataDir,
+    logger: noopLogger,
+    config: { featureFlags: { cashBenchmarks: true } },
+  });
+
+  const response = await request(app).get(
+    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-02',
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.series.qqq.some((point) => point.value !== 0));
+
+  const repairedReturns = await storage.readTable('returns_daily');
+  const desktopReturns = repairedReturns.filter((row) => row.portfolio_id === 'desktop');
+  assert.ok(desktopReturns.some((row) => Math.abs(Number(row.r_qqq_100)) > 1e-8));
+});
+
+test('roi endpoint repairs legacy inception returns that still start below zero on day zero', async () => {
+  await storage.upsertRow(
+    'transactions',
+    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000, portfolio_id: 'desktop' },
+    ['id'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    {
+      id: 'b1',
+      type: 'BUY',
+      ticker: 'SPY',
+      date: '2024-01-01',
+      quantity: 1,
+      amount: 1000,
+      portfolio_id: 'desktop',
+    },
+    ['id'],
+  );
+  await storage.writeTable('roi_daily', [
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-01',
+      portfolio_nav: 980,
+      net_contributions: 1000,
+      roi_portfolio_pct: -2,
+      roi_sp500_pct: null,
+      roi_ndx_pct: null,
+      source: 'r2_import',
+      updated_at: '2024-01-02T00:00:00.000Z',
+    },
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-02',
+      portfolio_nav: 990,
+      net_contributions: 1000,
+      roi_portfolio_pct: -1,
+      roi_sp500_pct: null,
+      roi_ndx_pct: null,
+      source: 'r2_import',
+      updated_at: '2024-01-02T00:00:00.000Z',
+    },
+  ]);
+  await storage.writeTable('returns_daily', [
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-01',
+      r_port: -0.02,
+      r_ex_cash: 0.98,
+      r_bench_blended: 0,
+      r_spy_100: 0,
+      r_cash: 0,
+      updated_at: '2024-01-02T00:00:00.000Z',
+    },
+    {
+      portfolio_id: 'desktop',
+      date: '2024-01-02',
+      r_port: 0.01,
+      r_ex_cash: 0.01,
+      r_bench_blended: 0.01,
+      r_spy_100: 0.01,
+      r_cash: 0,
+      updated_at: '2024-01-02T00:00:00.000Z',
+    },
+  ]);
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-01', adjClose: 980 },
+      { date: '2024-01-02', adjClose: 990 },
+      { date: '2024-01-03', adjClose: 995 },
+    ],
+  });
+
+  const app = createApp({
+    dataDir,
+    logger: noopLogger,
+    priceProvider: provider,
+    config: { featureFlags: { cashBenchmarks: true } },
+  });
+
+  const response = await request(app).get(
+    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-02',
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.series.portfolio[0]?.value ?? null, 0);
+  assert.equal(response.body.series.portfolioTwr[0]?.value ?? null, 0);
+  assert.equal(response.body.series.exCash[0]?.value ?? null, 0);
+
+  const repairedReturns = await storage.readTable('returns_daily');
+  const firstReturn = repairedReturns.find(
+    (row) => row.portfolio_id === 'desktop' && row.date === '2024-01-01',
+  );
+  assert.equal(firstReturn?.r_port ?? null, 0);
+  assert.equal(firstReturn?.r_ex_cash ?? null, 0);
+});
+
+test('historical repair keeps portfolio dates even when SPY history ends earlier', async () => {
+  await storage.upsertRow(
+    'transactions',
+    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
+    ['id'],
+  );
+  await storage.upsertRow(
+    'transactions',
+    { id: 'b1', type: 'BUY', ticker: 'QQQ', date: '2024-01-02', quantity: 2, amount: 400 },
+    ['id'],
+  );
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-01', adjClose: 100 },
+      { date: '2024-01-02', adjClose: 101 },
+    ],
+    QQQ: [
+      { date: '2024-01-01', adjClose: 200 },
+      { date: '2024-01-02', adjClose: 205 },
+      { date: '2024-01-03', adjClose: 210 },
+    ],
+  });
+
+  const app = createApp({
+    dataDir,
+    logger: noopLogger,
+    priceProvider: provider,
+    config: { featureFlags: { cashBenchmarks: true } },
+  });
+
+  const roiResponse = await request(app).get(
+    '/api/roi/daily?from=2024-01-01&to=2024-01-03',
+  );
+  assert.equal(roiResponse.status, 200);
+  assert.equal(roiResponse.body.series.portfolio.at(-1)?.date, '2024-01-03');
+
+  const returnsResponse = await request(app).get(
+    '/api/returns/daily?from=2024-01-01&to=2024-01-03&views=port,spy,bench',
+  );
+  assert.equal(returnsResponse.status, 200);
+  assert.equal(returnsResponse.body.series.r_port.at(-1)?.date, '2024-01-03');
+
+  const navSnapshots = await storage.readTable('nav_snapshots');
+  const repairedDates = navSnapshots.map((row) => row.date).sort();
+  assert.ok(repairedDates.includes('2024-01-03'));
 });
 
 test('stale prices set flag when latest close missing', async () => {

@@ -93,7 +93,73 @@ function NumberField({ id, label, description, value, min, max, step, onChange }
   );
 }
 
-export default function SettingsTab({ settings, onSettingChange, onReset }) {
+function SchedulerStatusCard({ schedulerStatus }) {
+  const { t } = useI18n();
+  const active =
+    typeof schedulerStatus?.active === "boolean" ? schedulerStatus.active : null;
+  const hourUtc =
+    Number.isInteger(schedulerStatus?.hourUtc) ? schedulerStatus.hourUtc : null;
+  const toneClasses =
+    active === true
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200"
+      : active === false
+        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+        : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
+  const stateLabel =
+    active === true
+      ? t("settings.scheduler.state.active")
+      : active === false
+        ? t("settings.scheduler.state.inactive")
+        : t("settings.scheduler.state.unknown");
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
+      <header>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          {t("settings.sections.scheduler.title")}
+        </h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {t("settings.sections.scheduler.description")}
+        </p>
+      </header>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className={`rounded-lg border px-4 py-3 ${toneClasses}`}>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em]">
+            {t("settings.scheduler.runtime.label")}
+          </p>
+          <p className="mt-2 text-sm font-semibold">{stateLabel}</p>
+          <p className="mt-1 text-xs opacity-80">
+            {active === true
+              ? t("settings.scheduler.runtime.active")
+              : active === false
+                ? t("settings.scheduler.runtime.inactive")
+                : t("settings.scheduler.runtime.unknown")}
+          </p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+            {t("settings.scheduler.hour.label")}
+          </p>
+          <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+            {hourUtc === null
+              ? t("settings.scheduler.hour.unavailable")
+              : t("settings.scheduler.hour.value", { hour: hourUtc })}
+          </p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {t("settings.scheduler.hour.description")}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function SettingsTab({
+  settings,
+  schedulerStatus,
+  onSettingChange,
+  onReset,
+}) {
   const { t } = useI18n();
   const autoClipEnabled = Boolean(settings?.autoClip);
   return (
@@ -127,14 +193,37 @@ export default function SettingsTab({ settings, onSettingChange, onReset }) {
             onChange={(value) => onSettingChange("notifications.push", value)}
           />
           <ToggleField
+            id="setting-signal-transition-alerts"
+            label={t("settings.notifications.signalTransitions.label")}
+            description={t("settings.notifications.signalTransitions.description")}
+            checked={settings.notifications.signalTransitions !== false}
+            onChange={(value) => onSettingChange("notifications.signalTransitions", value)}
+          />
+          <ToggleField
             id="setting-rebalance-reminder"
             label={t("settings.alerts.rebalance.label")}
             description={t("settings.alerts.rebalance.description")}
             checked={settings.alerts.rebalance}
             onChange={(value) => onSettingChange("alerts.rebalance", value)}
           />
+          <ToggleField
+            id="setting-market-status-alerts"
+            label={t("settings.alerts.marketStatus.label")}
+            description={t("settings.alerts.marketStatus.description")}
+            checked={settings.alerts.marketStatus !== false}
+            onChange={(value) => onSettingChange("alerts.marketStatus", value)}
+          />
+          <ToggleField
+            id="setting-roi-fallback-alerts"
+            label={t("settings.alerts.roiFallback.label")}
+            description={t("settings.alerts.roiFallback.description")}
+            checked={settings.alerts.roiFallback !== false}
+            onChange={(value) => onSettingChange("alerts.roiFallback", value)}
+          />
         </div>
       </section>
+
+      <SchedulerStatusCard schedulerStatus={schedulerStatus} />
 
       <section className="grid gap-4 lg:grid-cols-3">
         <NumberField

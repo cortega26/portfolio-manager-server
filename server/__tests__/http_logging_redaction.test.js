@@ -57,9 +57,7 @@ test('HTTP logs redact API key and session token headers', async () => {
 
   const response = await withSession(
     request(app)
-      .get('/api/returns/daily')
-      .set('X-Portfolio-Key', 'SecretKey123!')
-      .set('X-Portfolio-Key-New', 'NextKey456!'),
+      .get('/api/returns/daily'),
     'DesktopSecret789!',
   );
 
@@ -68,7 +66,5 @@ test('HTTP logs redact API key and session token headers', async () => {
   const logLine = captured.find((line) => line.includes('"msg":"request_complete"'));
   assert.ok(logLine, 'expected request_complete log line');
   const parsed = JSON.parse(logLine);
-  assert.equal(parsed.req.headers['x-portfolio-key'], '[REDACTED]');
-  assert.equal(parsed.req.headers['x-portfolio-key-new'], '[REDACTED]');
   assert.equal(parsed.req.headers['x-session-token'], '[REDACTED]');
 });

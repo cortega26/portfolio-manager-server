@@ -15,13 +15,16 @@ import TabBar from "./components/TabBar.jsx";
 import {
   evaluateSignals,
   fetchBenchmarkCatalog,
+  fetchBenchmarkSummary,
   fetchBulkPrices,
-  fetchDailyReturns,
+  fetchDailyRoi,
+  fetchNavDaily,
   persistPortfolio,
   retrievePortfolio,
 } from "./utils/api.js";
 import {
   computeDashboardMetrics,
+  deriveHoldingStats,
   filterOpenHoldings,
 } from "./utils/holdings.js";
 import { groupTransactionsByMonth, buildTransactionTimeline } from "./utils/history.js";
@@ -40,10 +43,7 @@ import {
 import {
   getFallbackBenchmarkCatalog,
   normalizeBenchmarkCatalogResponse,
-  buildBenchmarkOverlaySeries,
-  buildRoiSeries,
-  mergeBenchmarkOverlaySeries,
-  mergeReturnSeries,
+  mergeDailyRoiSeries,
 } from "./utils/roi.js";
 import {
   createDefaultSettings,
@@ -54,6 +54,7 @@ import {
   updateSetting,
 } from "./utils/settings.js";
 import useDebouncedValue from "./hooks/useDebouncedValue.js";
+import { usePortfolioMetrics } from "./hooks/usePortfolioMetrics.js";
 import {
   createInitialLedgerState,
   ledgerReducer,
@@ -71,8 +72,10 @@ const DashboardTab = lazy(() => import("./components/DashboardTab.jsx"));
 const HoldingsTab = lazy(() => import("./components/HoldingsTab.jsx"));
 const HistoryTab = lazy(() => import("./components/HistoryTab.jsx"));
 const MetricsTab = lazy(() => import("./components/MetricsTab.jsx"));
+const PricesTab = lazy(() => import("./components/PricesTab.jsx"));
 const ReportsTab = lazy(() => import("./components/ReportsTab.jsx"));
 const SettingsTab = lazy(() => import("./components/SettingsTab.jsx"));
+const SignalsTab = lazy(() => import("./components/SignalsTab.jsx"));
 const TransactionsTab = lazy(() => import("./components/TransactionsTab.jsx"));
 
 export function LoadingFallback() {
@@ -145,110 +148,186 @@ function normalizeTickerSymbol(symbol) {
   return trimmed.length > 0 ? trimmed.toUpperCase() : "";
 }
 
-function createRoiPriceFetcher({ fetcher, onErrors } = {}) {
-  const cache = new Map();
-  let inflight = null;
-
-  const loadSymbols = async (symbols) => {
-    const unique = Array.from(
-      new Set(
-        symbols
-          .map((symbol) => normalizeTickerSymbol(symbol))
-          .filter((symbol) => symbol.length > 0 && !cache.has(symbol)),
-      ),
-    );
-    if (unique.length === 0) {
-      return;
-    }
-    const result = await fetcher(unique);
-    for (const [symbol, entries] of result.series.entries()) {
-      cache.set(symbol, Array.isArray(entries) ? entries : []);
-    }
-    for (const symbol of unique) {
-      if (!cache.has(symbol)) {
-        cache.set(symbol, []);
-      }
-    }
-    if (typeof onErrors === "function" && result.errors) {
-      const errorKeys = Object.keys(result.errors);
-      if (errorKeys.length > 0) {
-        onErrors(result.errors);
-      }
-    }
-  };
-
-  const loader = async (symbol) => {
-    const normalized = normalizeTickerSymbol(symbol);
-    if (!normalized) {
-      return [];
-    }
-    if (cache.has(normalized)) {
-      return cache.get(normalized);
-    }
-    if (inflight) {
-      try {
-        await inflight;
-      } catch (error) {
-        console.error(error);
-      }
-      if (cache.has(normalized)) {
-        return cache.get(normalized);
-      }
-    }
-    await loadSymbols([normalized]);
-    return cache.get(normalized) ?? [];
-  };
-
-  loader.prefetch = async (symbols) => {
-    inflight = loadSymbols(symbols);
-    try {
-      await inflight;
-    } finally {
-      inflight = null;
-    }
-  };
-
-  return loader;
+function shiftDateKey(dateKey, deltaDays) {
+  if (typeof dateKey !== "string" || dateKey.trim().length === 0) {
+    return null;
+  }
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  date.setUTCDate(date.getUTCDate() + deltaDays);
+  return date.toISOString().slice(0, 10);
 }
 
-async function augmentRoiDataWithBenchmarks(roiData, priceFetcher, benchmarks = []) {
-  if (!Array.isArray(roiData) || roiData.length === 0 || typeof priceFetcher !== "function") {
-    return Array.isArray(roiData) ? roiData : [];
+function deriveBenchmarkSummaryWindow(roiData = []) {
+  const dates = Array.from(
+    new Set(
+      (Array.isArray(roiData) ? roiData : [])
+        .map((entry) => (typeof entry?.date === "string" ? entry.date.trim() : ""))
+        .filter((date) => date.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+  if (dates.length === 0) {
+    return null;
   }
+  const firstDate = dates[0];
+  const lastDate = dates[dates.length - 1];
+  const trailingFrom = shiftDateKey(lastDate, -365);
+  if (!trailingFrom) {
+    return null;
+  }
+  return {
+    from: trailingFrom > firstDate ? trailingFrom : firstDate,
+    to: lastDate,
+  };
+}
 
-  let nextData = roiData.map((point) => ({ ...point }));
-  for (const benchmark of benchmarks) {
-    const symbol =
-      typeof benchmark?.symbol === "string" ? benchmark.symbol.trim().toUpperCase() : "";
-    const dataKey =
-      typeof benchmark?.dataKey === "string" ? benchmark.dataKey.trim() : "";
-    if (!symbol || !dataKey) {
+function extractLatestQuote(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return null;
+  }
+  const lastEntry = entries.at(-1);
+  const price = Number(lastEntry?.close ?? lastEntry?.price ?? lastEntry?.value);
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+  return {
+    price,
+    asOf:
+      typeof lastEntry?.date === "string" && lastEntry.date.trim().length > 0
+        ? lastEntry.date.trim()
+        : null,
+  };
+}
+
+function extractQuotesState(series, trackedSymbols = []) {
+  const nextQuotes = {};
+  for (const symbol of trackedSymbols) {
+    const normalizedSymbol = normalizeTickerSymbol(symbol);
+    if (!normalizedSymbol) {
       continue;
     }
-    try {
-      const response = await priceFetcher(symbol);
-      const rawSeries = Array.isArray(response)
-        ? response
-        : Array.isArray(response?.data)
-        ? response.data
-        : [];
-      const overlaySeries = buildBenchmarkOverlaySeries(nextData, rawSeries);
-      nextData = mergeBenchmarkOverlaySeries(nextData, overlaySeries, dataKey);
-    } catch (error) {
-      console.error(`Failed to load benchmark overlay for ${symbol}`, error);
+    const latestQuote = extractLatestQuote(series.get(normalizedSymbol));
+    if (latestQuote) {
+      nextQuotes[normalizedSymbol] = latestQuote;
     }
   }
-  return nextData;
+  return nextQuotes;
 }
 
-function buildOverlayBenchmarkTargets(catalog) {
-  const normalizedCatalog = normalizeBenchmarkCatalogResponse(catalog);
-  return normalizedCatalog.available
-    .filter((entry) => entry.id !== "spy")
-    .map((entry) => ({
-      symbol: entry.ticker,
-      dataKey: entry.id,
-    }));
+function buildPriceBoardRows({
+  holdings,
+  benchmarkCatalog,
+  latestQuotes,
+  latestErrors,
+  latestMeta,
+  fallbackPrices,
+  fallbackAsOf,
+  translate,
+}) {
+  const holdingTickers = new Set();
+  const rows = [];
+
+  for (const holding of holdings) {
+    const symbol = normalizeTickerSymbol(holding?.ticker);
+    if (!symbol) {
+      continue;
+    }
+    holdingTickers.add(symbol);
+    const latestQuote = latestQuotes[symbol] ?? null;
+    const latestError = latestErrors[symbol] ?? null;
+    const latestResolution = latestMeta?.[symbol] ?? null;
+    const fallbackPrice = Number(fallbackPrices?.[symbol]);
+    const hasFallbackPrice = Number.isFinite(fallbackPrice) && fallbackPrice > 0;
+    const shares = Number(holding?.shares);
+    const price = latestQuote?.price ?? (hasFallbackPrice ? fallbackPrice : null);
+    const marketValue = Number.isFinite(price) && Number.isFinite(shares) ? shares * price : null;
+    const holdingStats = deriveHoldingStats(holding, price);
+    const totalReturn =
+      Number.isFinite(holdingStats?.realised) && Number.isFinite(holdingStats?.unrealised)
+        ? holdingStats.realised + holdingStats.unrealised
+        : null;
+    const totalReturnPct =
+      Number.isFinite(totalReturn) && Number.isFinite(holdingStats?.cost) && holdingStats.cost > 0
+        ? (totalReturn / holdingStats.cost) * 100
+        : null;
+    const status =
+      typeof latestResolution?.status === "string" && latestResolution.status.length > 0
+        ? latestResolution.status
+        : latestQuote
+          ? "live"
+          : hasFallbackPrice
+            ? "cache_fresh"
+            : latestError
+              ? "error"
+              : "unavailable";
+
+    rows.push({
+      symbol,
+      scope: "holding",
+      scopeLabel: translate("prices.scope.holding"),
+      description: translate("prices.scope.holdingDetail"),
+      price,
+      asOf: latestQuote?.asOf ?? fallbackAsOf?.[symbol] ?? null,
+      shares: Number.isFinite(shares) ? shares : null,
+      marketValue,
+      avgCost: Number.isFinite(holdingStats?.avgCost) ? holdingStats.avgCost : null,
+      totalCost: Number.isFinite(holdingStats?.cost) ? holdingStats.cost : null,
+      unrealised: Number.isFinite(holdingStats?.unrealised) ? holdingStats.unrealised : null,
+      realised: Number.isFinite(holdingStats?.realised) ? holdingStats.realised : null,
+      totalReturnPct,
+      status,
+      statusLabel: translate(`prices.status.${status}`),
+      errorMessage:
+        typeof latestError?.message === "string" && latestError.message.trim().length > 0
+          ? latestError.message.trim()
+          : null,
+    });
+  }
+
+  const normalizedCatalog = normalizeBenchmarkCatalogResponse(benchmarkCatalog);
+  for (const entry of normalizedCatalog.available) {
+    const symbol = normalizeTickerSymbol(entry?.ticker);
+    if (!symbol || holdingTickers.has(symbol)) {
+      continue;
+    }
+    const latestQuote = latestQuotes[symbol] ?? null;
+    const latestError = latestErrors[symbol] ?? null;
+    const latestResolution = latestMeta?.[symbol] ?? null;
+    const status =
+      typeof latestResolution?.status === "string" && latestResolution.status.length > 0
+        ? latestResolution.status
+        : latestQuote
+          ? "live"
+          : latestError
+            ? "error"
+            : "unavailable";
+
+    rows.push({
+      symbol,
+      scope: "benchmark",
+      scopeLabel: translate("prices.scope.benchmark"),
+      description: entry?.label ?? "",
+      price: latestQuote?.price ?? null,
+      asOf: latestQuote?.asOf ?? null,
+      shares: null,
+      marketValue: null,
+      status,
+      statusLabel: translate(`prices.status.${status}`),
+      errorMessage:
+        typeof latestError?.message === "string" && latestError.message.trim().length > 0
+          ? latestError.message.trim()
+          : null,
+    });
+  }
+
+  return rows.sort((left, right) => {
+    if (left.scope !== right.scope) {
+      return left.scope === "holding" ? -1 : 1;
+    }
+    return left.symbol.localeCompare(right.symbol);
+  });
 }
 
 export default function PortfolioManagerApp() {
@@ -295,20 +374,48 @@ export default function PortfolioManagerApp() {
   const [signalRows, setSignalRows] = useState([]);
   const [currentPrices, setCurrentPrices] = useState({});
   const currentPricesRef = useRef({});
+  const lastGoodRoiDataRef = useRef([]);
+  const lastGoodBenchmarkSummaryRef = useRef(null);
   const [roiData, setRoiData] = useState([]);
+  const [roiMeta, setRoiMeta] = useState(null);
+  const [benchmarkSummary, setBenchmarkSummary] = useState(null);
+  const [returnsSummary, setReturnsSummary] = useState(null);
+  const [navDaily, setNavDaily] = useState([]);
   const [loadingRoi, setLoadingRoi] = useState(false);
   const [roiRefreshKey, setRoiRefreshKey] = useState(0);
   const [settings, setSettings] = useState(() => loadSettingsFromStorage());
   const [priceAlert, setPriceAlert] = useState(null);
   const [roiAlert, setRoiAlert] = useState(null);
   const [roiSource, setRoiSource] = useState("api");
-  const [roiServiceDisabled, setRoiServiceDisabled] = useState(false);
   const [benchmarkCatalog, setBenchmarkCatalog] = useState(() => getFallbackBenchmarkCatalog());
+  const [pricesTabState, setPricesTabState] = useState({
+    loading: false,
+    quotes: {},
+    errors: {},
+    metadata: {},
+    requestId: null,
+    version: null,
+    lastUpdatedAt: null,
+  });
 
   const pushAlertsEnabled = settings?.notifications?.push !== false;
+  const signalTransitionAlertsEnabled =
+    pushAlertsEnabled && settings?.notifications?.signalTransitions !== false;
+  const marketStatusAlertsEnabled = settings?.alerts?.marketStatus !== false;
+  const roiFallbackAlertsEnabled = settings?.alerts?.roiFallback !== false;
   const selectedCurrency = settings?.display?.currency ?? "";
   const refreshIntervalMinutes = Number(settings?.display?.refreshInterval ?? 0);
   const compactTables = Boolean(settings?.display?.compactTables);
+  const schedulerStatus = {
+    active:
+      typeof runtimeConfig?.JOB_NIGHTLY_ACTIVE === "boolean"
+        ? runtimeConfig.JOB_NIGHTLY_ACTIVE
+        : null,
+    hourUtc:
+      Number.isInteger(runtimeConfig?.JOB_NIGHTLY_HOUR_UTC)
+        ? runtimeConfig.JOB_NIGHTLY_HOUR_UTC
+        : null,
+  };
   const desktopSelectedPortfolio = useMemo(
     () => desktopPortfolios.find((entry) => entry.id === desktopSelectedPortfolioId) ?? null,
     [desktopPortfolios, desktopSelectedPortfolioId],
@@ -393,6 +500,47 @@ export default function PortfolioManagerApp() {
     () => buildMetricCards(metrics, { translate: t, formatCurrency, formatPercent }),
     [metrics, t, formatCurrency, formatPercent],
   );
+  const signalPriceAsOfByTicker = useMemo(
+    () =>
+      Object.fromEntries(
+        signalRows
+          .filter((row) => typeof row?.ticker === "string" && row.ticker.trim().length > 0)
+          .map((row) => [row.ticker.trim().toUpperCase(), row.currentPriceAsOf ?? null]),
+      ),
+    [signalRows],
+  );
+  const trackedPriceSymbols = useMemo(() => {
+    const holdingsSymbols = openHoldings
+      .map((holding) => normalizeTickerSymbol(holding?.ticker))
+      .filter(Boolean);
+    const benchmarkSymbols = normalizeBenchmarkCatalogResponse(benchmarkCatalog).priceSymbols
+      .map((symbol) => normalizeTickerSymbol(symbol))
+      .filter(Boolean);
+    return Array.from(new Set([...holdingsSymbols, ...benchmarkSymbols]));
+  }, [benchmarkCatalog, openHoldings]);
+  const priceBoardRows = useMemo(
+    () =>
+      buildPriceBoardRows({
+        holdings: openHoldings,
+        benchmarkCatalog,
+        latestQuotes: pricesTabState.quotes,
+        latestErrors: pricesTabState.errors,
+        latestMeta: pricesTabState.metadata?.symbols,
+        fallbackPrices: currentPrices,
+        fallbackAsOf: signalPriceAsOfByTicker,
+        translate: t,
+      }),
+    [
+      benchmarkCatalog,
+      currentPrices,
+      openHoldings,
+      pricesTabState.errors,
+      pricesTabState.metadata,
+      pricesTabState.quotes,
+      signalPriceAsOfByTicker,
+      t,
+    ],
+  );
   const allocationBreakdown = useMemo(
     () => calculateAllocationBreakdown(openHoldings, currentPrices),
     [openHoldings, currentPrices],
@@ -401,6 +549,11 @@ export default function PortfolioManagerApp() {
     () => derivePerformanceHighlights(roiData, { translate: t, formatPercent, formatDate }),
     [roiData, t, formatPercent, formatDate],
   );
+  const benchmarkSummaryWindow = useMemo(
+    () => deriveBenchmarkSummaryWindow(roiData),
+    [roiData],
+  );
+  const portfolioSummary = usePortfolioMetrics({ metrics, transactions, roiData });
   const reportSummaryCards = useMemo(
     () =>
       buildReportSummary(transactions, openHoldings, metrics, {
@@ -473,11 +626,12 @@ export default function PortfolioManagerApp() {
       return;
     }
 
-    setSignalRows([]);
-    setCurrentPrices({});
-    setPriceAlert(null);
-    signalRowsRef.current = new Map();
-    signalNotificationsReadyRef.current = false;
+        setSignalRows([]);
+        setCurrentPrices({});
+        setPriceAlert(null);
+        setRoiMeta(null);
+        signalRowsRef.current = new Map();
+        signalNotificationsReadyRef.current = false;
   }, [openHoldings.length]);
 
   useEffect(() => {
@@ -559,6 +713,10 @@ export default function PortfolioManagerApp() {
         responseData?.errors && typeof responseData.errors === "object"
           ? responseData.errors
           : {};
+      const pricingSummary =
+        responseData?.pricing?.summary && typeof responseData.pricing.summary === "object"
+          ? responseData.pricing.summary
+          : null;
       const market = responseData?.market ?? null;
       const fallbackMarket = getMarketClock();
       const effectiveMarket = market ?? fallbackMarket;
@@ -591,29 +749,33 @@ export default function PortfolioManagerApp() {
       const hasFallbackPrices = uniqueTickers.some((ticker) => Number.isFinite(nextPrices[ticker]));
 
       if (effectiveMarket && effectiveMarket.isOpen === false && (failures.length === 0 || hasFallbackPrices)) {
-        const lastCloseLabel = formatMarketDate(effectiveMarket.lastTradingDate);
-        const nextSessionLabel =
-          effectiveMarket.isBeforeOpen === true
-            ? t("alerts.price.marketClosed.detailToday")
-            : typeof effectiveMarket.nextTradingDate === "string"
-              ? formatMarketDate(effectiveMarket.nextTradingDate)
-              : t("alerts.price.marketClosed.nextSession");
-        const summary =
-          impactedList.length > 0
-            ? impactedList.join(", ")
-            : successfulTickers.length > 0
-              ? successfulTickers.join(", ")
-              : t("alerts.price.marketClosed.allHoldings");
-        setPriceAlert({
-          id: "market-closed",
-          type: failures.length > 0 ? "warning" : "info",
-          message: t("alerts.price.marketClosed.title", { date: lastCloseLabel }),
-          detail: t("alerts.price.marketClosed.detail", {
-            tickers: summary,
-            next: nextSessionLabel,
-          }),
-          requestIds,
-        });
+        if (marketStatusAlertsEnabled) {
+          const lastCloseLabel = formatMarketDate(effectiveMarket.lastTradingDate);
+          const nextSessionLabel =
+            effectiveMarket.isBeforeOpen === true
+              ? t("alerts.price.marketClosed.detailToday")
+              : typeof effectiveMarket.nextTradingDate === "string"
+                ? formatMarketDate(effectiveMarket.nextTradingDate)
+                : t("alerts.price.marketClosed.nextSession");
+          const summary =
+            impactedList.length > 0
+              ? impactedList.join(", ")
+              : successfulTickers.length > 0
+                ? successfulTickers.join(", ")
+                : t("alerts.price.marketClosed.allHoldings");
+          setPriceAlert({
+            id: "market-closed",
+            type: failures.length > 0 ? "warning" : "info",
+            message: t("alerts.price.marketClosed.title", { date: lastCloseLabel }),
+            detail: t("alerts.price.marketClosed.detail", {
+              tickers: summary,
+              next: nextSessionLabel,
+            }),
+            requestIds,
+          });
+        } else {
+          setPriceAlert(null);
+        }
       } else if (failures.length > 0 || previewError) {
         setPriceAlert({
           id: "price-fetch",
@@ -624,6 +786,21 @@ export default function PortfolioManagerApp() {
               impactedList.length > 0
                 ? impactedList.join(", ")
                 : t("alerts.price.refreshFailed.detailFallback"),
+          }),
+          requestIds,
+        });
+      } else if (
+        pricingSummary?.status === "degraded"
+        && Array.isArray(pricingSummary.degradedSymbols)
+        && pricingSummary.degradedSymbols.length > 0
+      ) {
+        const degradedSymbols = pricingSummary.degradedSymbols.join(", ");
+        setPriceAlert({
+          id: "price-degraded",
+          type: "warning",
+          message: t("alerts.price.degraded.title"),
+          detail: t("alerts.price.degraded.detail", {
+            tickers: degradedSymbols,
           }),
           requestIds,
         });
@@ -656,7 +833,7 @@ export default function PortfolioManagerApp() {
         }
       }
 
-      if (signalNotificationsReadyRef.current) {
+      if (signalNotificationsReadyRef.current && signalTransitionAlertsEnabled) {
         for (const row of pendingNotifications) {
           const titleKey =
             row.status === SIGNAL_STATUS.BUY_ZONE
@@ -692,23 +869,14 @@ export default function PortfolioManagerApp() {
     debouncedSignalDraft,
     formatCurrency,
     formatDate,
+    marketStatusAlertsEnabled,
     pushToast,
+    signalTransitionAlertsEnabled,
     t,
   ]);
 
   useEffect(() => {
     let cancelled = false;
-
-    const fallbackMessages = {
-      disabled: {
-        type: "info",
-        message: t("alerts.roi.disabled"),
-      },
-      failure: {
-        type: "warning",
-        message: t("alerts.roi.fallback"),
-      },
-    };
 
     const resolveRequestId = (error) => {
       if (typeof error?.requestId === "string" && error.requestId.trim().length > 0) {
@@ -717,58 +885,11 @@ export default function PortfolioManagerApp() {
       return null;
     };
 
-    async function applyRoiFallback(reason, error) {
-      try {
-        const priceFetcher = createRoiPriceFetcher({
-          fetcher: async (symbols) => {
-            const { series, errors } = await fetchBulkPrices(symbols, { range: "max" });
-            return { series, errors };
-          },
-          onErrors: (errors) => {
-            console.warn("Bulk price fetch encountered errors", errors);
-          },
-        });
-        const fallbackSeries = await buildRoiSeries(transactions, priceFetcher);
-        const enhancedFallbackSeries = await augmentRoiDataWithBenchmarks(
-          fallbackSeries,
-          priceFetcher,
-          buildOverlayBenchmarkTargets(benchmarkCatalog),
-        );
-        if (cancelled) {
-          return;
-        }
-        setRoiData(enhancedFallbackSeries);
-        setRoiSource("fallback");
-        const meta = fallbackMessages[reason];
-        if (meta) {
-          setRoiAlert({
-            id: "roi-fallback",
-            type: meta.type,
-            message: meta.message,
-            requestId: resolveRequestId(error),
-          });
-        } else {
-          setRoiAlert(null);
-        }
-      } catch (fallbackError) {
-        console.error(fallbackError);
-        if (cancelled) {
-          return;
-        }
-        setRoiData([]);
-        setRoiSource("error");
-        setRoiAlert({
-          id: "roi-fallback",
-          type: "error",
-          message: t("alerts.roi.unavailable"),
-          requestId: resolveRequestId(error),
-        });
-      }
-    }
-
     async function loadRoi() {
       if (transactions.length === 0) {
         setRoiData([]);
+        lastGoodRoiDataRef.current = [];
+        setRoiMeta(null);
         setRoiAlert(null);
         setRoiSource("api");
         return;
@@ -780,6 +901,8 @@ export default function PortfolioManagerApp() {
         .sort((a, b) => a.localeCompare(b));
       if (orderedDates.length === 0) {
         setRoiData([]);
+        lastGoodRoiDataRef.current = [];
+        setRoiMeta(null);
         setRoiAlert(null);
         setRoiSource("api");
         return;
@@ -790,6 +913,8 @@ export default function PortfolioManagerApp() {
       );
       if (!hasSecurityTransactions) {
         setRoiData([]);
+        lastGoodRoiDataRef.current = [];
+        setRoiMeta(null);
         setRoiAlert(null);
         setRoiSource("cash-only");
         return;
@@ -797,30 +922,33 @@ export default function PortfolioManagerApp() {
 
       setLoadingRoi(true);
       try {
-        if (roiServiceDisabled) {
-          await applyRoiFallback("disabled");
-          return;
-        }
-
-        const { data, requestId } = await fetchDailyReturns({
+        const { data, requestId } = await fetchDailyRoi({
+          portfolioId,
           from: orderedDates[0],
-          to: orderedDates[orderedDates.length - 1],
-          views: ["port", "spy", "bench", "excash", "cash"],
+          to: new Date(),
         });
-        const mergedSeries = mergeReturnSeries(data?.series);
-        const benchmarkPriceFetcher = async (symbol) => {
-          const { series } = await fetchBulkPrices([symbol], { range: "max" });
-          return series.get(String(symbol).toUpperCase()) ?? [];
-        };
-        const enhancedSeries = await augmentRoiDataWithBenchmarks(
-          mergedSeries,
-          benchmarkPriceFetcher,
-          buildOverlayBenchmarkTargets(benchmarkCatalog),
-        );
+        const mergedSeries = mergeDailyRoiSeries(data?.series);
+        const nextRoiMeta = data?.meta ?? null;
         if (!cancelled) {
-          setRoiData(enhancedSeries);
+          setRoiData(mergedSeries);
+          setRoiMeta(nextRoiMeta);
+          lastGoodRoiDataRef.current = mergedSeries;
           setRoiSource("api");
-          setRoiAlert(null);
+          const unavailableBenchmarks = Array.isArray(nextRoiMeta?.benchmarkHealth?.unavailable)
+            ? nextRoiMeta.benchmarkHealth.unavailable
+            : [];
+          setRoiAlert(
+            unavailableBenchmarks.length > 0
+              ? {
+                  id: "roi-benchmark-health",
+                  type: "warning",
+                  message: t("alerts.roi.benchmarkUnavailable.title"),
+                  detail: t("alerts.roi.benchmarkUnavailable.detail", {
+                    benchmarks: unavailableBenchmarks.join(", "),
+                  }),
+                }
+              : null,
+          );
           if (requestId) {
             setRoiAlert((current) =>
               current && current.id === "roi-fallback"
@@ -830,17 +958,34 @@ export default function PortfolioManagerApp() {
           }
         }
       } catch (error) {
-        if (error?.body?.error === "CASH_BENCHMARKS_DISABLED") {
-          console.warn(error);
-          if (!cancelled) {
-            setRoiServiceDisabled(true);
-          }
-          await applyRoiFallback("disabled", error);
+        console.error(error);
+        if (cancelled) {
           return;
         }
-
-        console.error(error);
-        await applyRoiFallback("failure", error);
+        if (lastGoodRoiDataRef.current.length > 0) {
+          setRoiData(lastGoodRoiDataRef.current);
+          setRoiSource("stale");
+          setRoiAlert(
+            roiFallbackAlertsEnabled
+              ? {
+                  id: "roi-stale",
+                  type: "warning",
+                  message: t("alerts.roi.stale"),
+                  requestId: resolveRequestId(error),
+                }
+              : null,
+          );
+          return;
+        }
+        setRoiData([]);
+        setRoiMeta(null);
+        setRoiSource("error");
+        setRoiAlert({
+          id: "roi-unavailable",
+          type: "error",
+          message: t("alerts.roi.unavailable"),
+          requestId: resolveRequestId(error),
+        });
       } finally {
         if (!cancelled) {
           setLoadingRoi(false);
@@ -853,7 +998,222 @@ export default function PortfolioManagerApp() {
     return () => {
       cancelled = true;
     };
-  }, [benchmarkCatalog, transactions, roiRefreshKey, roiServiceDisabled, t]);
+  }, [portfolioId, roiFallbackAlertsEnabled, roiRefreshKey, t, transactions]);
+
+  useEffect(() => {
+    if (!benchmarkSummaryWindow?.from || !benchmarkSummaryWindow?.to) {
+      lastGoodBenchmarkSummaryRef.current = null;
+      setBenchmarkSummary(null);
+      setReturnsSummary(null);
+      setNavDaily([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function loadBenchmarkSummary() {
+      try {
+        const { data } = await fetchBenchmarkSummary({
+          portfolioId,
+          from: benchmarkSummaryWindow.from,
+          to: benchmarkSummaryWindow.to,
+          signal: controller.signal,
+        });
+        if (cancelled) {
+          return;
+        }
+        const moneyWeightedSummary =
+          data?.money_weighted && typeof data.money_weighted === "object"
+            ? data.money_weighted
+            : null;
+        setBenchmarkSummary(moneyWeightedSummary);
+        const summary = data?.summary && typeof data.summary === "object"
+          ? data.summary
+          : null;
+        const maxDrawdown = data?.max_drawdown && typeof data.max_drawdown === "object"
+          ? data.max_drawdown
+          : null;
+        setReturnsSummary(
+          summary ? { ...summary, max_drawdown: maxDrawdown } : null,
+        );
+        lastGoodBenchmarkSummaryRef.current = moneyWeightedSummary;
+      } catch (error) {
+        if (controller.signal.aborted || cancelled) {
+          return;
+        }
+        console.warn("Failed to load benchmark summary", error);
+        if (!lastGoodBenchmarkSummaryRef.current) {
+          setBenchmarkSummary(null);
+          setReturnsSummary(null);
+        }
+      }
+    }
+
+    async function loadNavDaily() {
+      try {
+        const { data } = await fetchNavDaily({
+          portfolioId,
+          from: benchmarkSummaryWindow.from,
+          to: benchmarkSummaryWindow.to,
+          signal: controller.signal,
+        });
+        if (!cancelled && Array.isArray(data)) {
+          setNavDaily(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setNavDaily([]);
+        }
+      }
+    }
+
+    void loadBenchmarkSummary();
+    void loadNavDaily();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [benchmarkSummaryWindow, portfolioId]);
+
+  const refreshTrackedPrices = useCallback(
+    async ({ signal } = {}) => {
+      if (trackedPriceSymbols.length === 0) {
+        setPricesTabState({
+          loading: false,
+          quotes: {},
+          errors: {},
+          metadata: {},
+          requestId: null,
+          version: null,
+          lastUpdatedAt: null,
+        });
+        return;
+      }
+
+      setPricesTabState((previous) => ({ ...previous, loading: true }));
+      try {
+        const { series, errors, metadata, requestId, version } = await fetchBulkPrices(
+          trackedPriceSymbols,
+          {
+          latestOnly: true,
+          signal,
+          },
+        );
+        const nextQuotes = extractQuotesState(series, trackedPriceSymbols);
+
+        setPricesTabState({
+          loading: false,
+          quotes: nextQuotes,
+          errors: errors ?? {},
+          metadata: metadata ?? {},
+          requestId: requestId ?? null,
+          version: version ?? null,
+          lastUpdatedAt: new Date().toISOString(),
+        });
+
+        setCurrentPrices((previous) => {
+          const next = { ...previous };
+          for (const holding of openHoldings) {
+            const symbol = normalizeTickerSymbol(holding?.ticker);
+            const latestQuote = nextQuotes[symbol];
+            if (symbol && latestQuote) {
+              next[symbol] = latestQuote.price;
+            }
+          }
+          return next;
+        });
+      } catch (error) {
+        if (signal?.aborted) {
+          return;
+        }
+        console.error("Failed to refresh tracked prices", error);
+        setPricesTabState((previous) => ({
+          ...previous,
+          loading: false,
+          requestId:
+            typeof error?.requestId === "string" && error.requestId.trim().length > 0
+              ? error.requestId.trim()
+              : previous.requestId,
+          version:
+            typeof error?.version === "string" && error.version.trim().length > 0
+              ? error.version.trim()
+              : previous.version,
+        }));
+      }
+    },
+    [openHoldings, trackedPriceSymbols],
+  );
+
+  useEffect(() => {
+    const market = getMarketClock();
+    if (market.isOpen || trackedPriceSymbols.length === 0) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function preloadAfterHoursQuotes() {
+      try {
+        const { series, errors, metadata, requestId, version } = await fetchBulkPrices(
+          trackedPriceSymbols,
+          {
+          latestOnly: true,
+          signal: controller.signal,
+          },
+        );
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const nextQuotes = extractQuotesState(series, trackedPriceSymbols);
+
+        setPricesTabState((previous) => ({
+          ...previous,
+          quotes: Object.keys(nextQuotes).length > 0 ? nextQuotes : previous.quotes,
+          errors: errors ?? previous.errors,
+          metadata: metadata ?? previous.metadata,
+          requestId: requestId ?? previous.requestId,
+          version: version ?? previous.version,
+          lastUpdatedAt: new Date().toISOString(),
+        }));
+
+        setCurrentPrices((previous) => {
+          const next = { ...previous };
+          for (const holding of openHoldings) {
+            const symbol = normalizeTickerSymbol(holding?.ticker);
+            const latestQuote = nextQuotes[symbol];
+            if (symbol && latestQuote) {
+              next[symbol] = latestQuote.price;
+            }
+          }
+          return next;
+        });
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("Failed to preload after-hours tracked prices", error);
+        }
+      }
+    }
+
+    void preloadAfterHoursQuotes();
+
+    return () => {
+      controller.abort();
+    };
+  }, [openHoldings, trackedPriceSymbols]);
+
+  useEffect(() => {
+    if (activeTab !== "Prices") {
+      return undefined;
+    }
+    const controller = new AbortController();
+    void refreshTrackedPrices({ signal: controller.signal });
+    return () => {
+      controller.abort();
+    };
+  }, [activeTab, refreshTrackedPrices]);
 
   useEffect(() => {
     persistSettingsToStorage(settings);
@@ -1214,11 +1574,17 @@ export default function PortfolioManagerApp() {
                 <DashboardTab
                   metrics={metrics}
                   roiData={roiData}
+                  benchmarkSummary={benchmarkSummary}
+                  returnsSummary={returnsSummary}
+                  navDaily={navDaily}
                   transactions={transactions}
                   loadingRoi={loadingRoi}
                   roiSource={roiSource}
+                  roiMeta={roiMeta}
                   benchmarkCatalog={benchmarkCatalog}
                   onRefreshRoi={handleRefreshRoi}
+                  openHoldings={openHoldings}
+                  currentPrices={currentPrices}
                 />
               </section>
             )}
@@ -1231,6 +1597,44 @@ export default function PortfolioManagerApp() {
                 data-testid="panel-holdings"
               >
                 <HoldingsTab
+                  holdings={openHoldings}
+                  transactions={transactions}
+                  currentPrices={currentPrices}
+                  signals={signals}
+                  signalRows={signalRows}
+                  onSignalChange={handleSignalChange}
+                  compact={compactTables}
+                />
+              </section>
+            )}
+
+            {activeTab === "Prices" && (
+              <section
+                role="tabpanel"
+                id="panel-prices"
+                aria-labelledby="tab-prices"
+                data-testid="panel-prices"
+              >
+                <PricesTab
+                  rows={priceBoardRows}
+                  summary={portfolioSummary}
+                  loading={pricesTabState.loading}
+                  onRefresh={() => refreshTrackedPrices()}
+                  lastUpdatedAt={pricesTabState.lastUpdatedAt}
+                  requestId={pricesTabState.requestId}
+                  version={pricesTabState.version}
+                />
+              </section>
+            )}
+
+            {activeTab === "Signals" && (
+              <section
+                role="tabpanel"
+                id="panel-signals"
+                aria-labelledby="tab-signals"
+                data-testid="panel-signals"
+              >
+                <SignalsTab
                   holdings={openHoldings}
                   transactions={transactions}
                   currentPrices={currentPrices}
@@ -1313,6 +1717,7 @@ export default function PortfolioManagerApp() {
               >
                 <SettingsTab
                   settings={settings}
+                  schedulerStatus={schedulerStatus}
                   onSettingChange={handleSettingChange}
                   onReset={handleResetSettings}
                 />

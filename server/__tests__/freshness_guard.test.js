@@ -6,6 +6,7 @@ import path from 'node:path';
 import request from 'supertest';
 
 import { createApp } from '../app.js';
+import { flushPriceCache } from '../cache/priceCache.js';
 import JsonTableStorage from '../data/storage.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
@@ -27,9 +28,11 @@ beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'stale-guard-'));
   storage = new JsonTableStorage({ dataDir, logger: noopLogger });
   await storage.ensureTable('returns_daily', []);
+  flushPriceCache();
 });
 
 afterEach(() => {
+  flushPriceCache();
   rmSync(dataDir, { recursive: true, force: true });
 });
 
@@ -38,6 +41,7 @@ test('prices endpoint returns 503 for stale data', async () => {
     { date: '2000-01-03', adjClose: 100 },
   ]);
   const app = createApp({
+    dataDir,
     logger: noopLogger,
     priceProvider: staleProvider,
     config: {
@@ -61,6 +65,7 @@ test('bulk prices endpoint returns partial success when some symbols are stale',
     },
   };
   const app = createApp({
+    dataDir,
     logger: noopLogger,
     priceProvider,
     config: {

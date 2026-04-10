@@ -100,6 +100,55 @@ export async function fetchBenchmarkCatalog({ signal, onRequestMetadata } = {}) 
   });
 }
 
+export async function fetchBenchmarkSummary({
+  from,
+  to,
+  portfolioId,
+  signal,
+  onRequestMetadata,
+} = {}) {
+  const params = new URLSearchParams();
+  const normalizedFrom = normalizeDateParam(from);
+  const normalizedTo = normalizeDateParam(to);
+  if (normalizedFrom) {
+    params.set("from", normalizedFrom);
+  }
+  if (normalizedTo) {
+    params.set("to", normalizedTo);
+  }
+  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
+    params.set("portfolioId", portfolioId.trim());
+  }
+  const query = params.toString();
+  return requestJson(`/benchmarks/summary${query ? `?${query}` : ""}`, {
+    signal,
+    onRequestMetadata,
+  });
+}
+
+export async function fetchNavDaily({
+  from,
+  to,
+  portfolioId,
+  signal,
+} = {}) {
+  const params = new URLSearchParams();
+  const normalizedFrom = normalizeDateParam(from);
+  const normalizedTo = normalizeDateParam(to);
+  if (normalizedFrom) {
+    params.set("from", normalizedFrom);
+  }
+  if (normalizedTo) {
+    params.set("to", normalizedTo);
+  }
+  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
+    params.set("portfolioId", portfolioId.trim());
+  }
+  params.set("perPage", "10000");
+  const query = params.toString();
+  return requestJson(`/nav/daily${query ? `?${query}` : ""}`, { signal });
+}
+
 const RETURN_VIEWS = new Set(["port", "excash", "spy", "bench", "cash"]);
 
 function normalizeDateParam(value) {
@@ -138,6 +187,7 @@ function buildReturnViewsParam(views) {
 export async function fetchDailyReturns({
   from,
   to,
+  portfolioId,
   views,
   signal,
   onRequestMetadata,
@@ -151,6 +201,9 @@ export async function fetchDailyReturns({
   if (normalizedTo) {
     params.set("to", normalizedTo);
   }
+  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
+    params.set("portfolioId", portfolioId.trim());
+  }
   params.set("views", buildReturnViewsParam(views));
   const query = params.toString();
   return requestJson(`/returns/daily${query ? `?${query}` : ""}`, {
@@ -159,9 +212,36 @@ export async function fetchDailyReturns({
   });
 }
 
+export async function fetchDailyRoi({
+  from,
+  to,
+  portfolioId,
+  signal,
+  onRequestMetadata,
+} = {}) {
+  const params = new URLSearchParams();
+  const normalizedFrom = normalizeDateParam(from);
+  const normalizedTo = normalizeDateParam(to);
+  if (normalizedFrom) {
+    params.set("from", normalizedFrom);
+  }
+  if (normalizedTo) {
+    params.set("to", normalizedTo);
+  }
+  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
+    params.set("portfolioId", portfolioId.trim());
+  }
+  const query = params.toString();
+  return requestJson(`/roi/daily${query ? `?${query}` : ""}`, {
+    signal,
+    onRequestMetadata,
+  });
+}
+
 export async function fetchNavSnapshots({
   from,
   to,
+  portfolioId,
   page,
   perPage,
   signal,
@@ -175,6 +255,9 @@ export async function fetchNavSnapshots({
   }
   if (normalizedTo) {
     params.set("to", normalizedTo);
+  }
+  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
+    params.set("portfolioId", portfolioId.trim());
   }
   if (Number.isFinite(page)) {
     const pageValue = Math.max(1, Math.floor(page));

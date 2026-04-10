@@ -10,6 +10,7 @@ import {
   deriveDashboardMetrics,
   summarizePortfolioFlows,
 } from "../hooks/usePortfolioMetrics.js";
+import { BENCHMARK_SERIES_META } from "../utils/roi.js";
 
 const TRANSACTION_FIXTURE = [
   { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
@@ -28,8 +29,8 @@ const METRICS_FIXTURE = {
 };
 
 const ROI_FIXTURE = [
-  { date: "2024-01-01", portfolio: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 },
-  { date: "2024-01-10", portfolio: 5.5, spy: 6, qqq: 8, blended: 4.5, exCash: 7.2, cash: 0.9 },
+  { date: "2024-01-01", portfolio: 0, portfolioTwr: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 },
+  { date: "2024-01-10", portfolio: 5.5, portfolioTwr: 5.5, spy: 6, qqq: 8, blended: 4.5, exCash: 7.2, cash: 0.9 },
 ];
 
 describe("DashboardTab metrics derivation", () => {
@@ -93,6 +94,63 @@ describe("DashboardTab metrics derivation", () => {
     assert.equal(derived.percentages.blendedDeltaPct, 1.0);
   });
 
+  it("sets gap deltas to null when portfolioTwr is unavailable (PM-AUD-007)", () => {
+    const roiWithoutTwr = [
+      { date: "2024-01-01", portfolio: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 },
+      { date: "2024-01-10", portfolio: 15, spy: 12, qqq: 8, blended: 10, exCash: 7, cash: 0.5 },
+    ];
+    const derived = deriveDashboardMetrics({
+      metrics: METRICS_FIXTURE,
+      transactions: TRANSACTION_FIXTURE,
+      roiData: roiWithoutTwr,
+    });
+    assert.strictEqual(derived.percentages.spyDeltaPct, null);
+    assert.strictEqual(derived.percentages.qqqDeltaPct, null);
+    assert.strictEqual(derived.percentages.blendedDeltaPct, null);
+  });
+
+  it("computes gap deltas from TWR when portfolioTwr is available (PM-AUD-007)", () => {
+    const derived = deriveDashboardMetrics({
+      metrics: METRICS_FIXTURE,
+      transactions: TRANSACTION_FIXTURE,
+      roiData: ROI_FIXTURE,
+    });
+    assert.strictEqual(derived.percentages.spyDeltaPct, -0.5);
+    assert.strictEqual(derived.percentages.qqqDeltaPct, -2.5);
+    assert.strictEqual(derived.percentages.blendedDeltaPct, 1.0);
+  });
+
+  // --- PM-AUD-019: Methodology-guard tests for gap cards ---
+
+  it("PM-AUD-019: portfolioTwr=null, portfolio=0.15, spy=0.12 → spyDeltaPct === null", () => {
+    const roiData = [
+      { date: "2024-01-01", portfolio: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 },
+      { date: "2024-06-30", portfolio: 0.15, spy: 0.12, qqq: 0.10, blended: 0.08, exCash: 0.14, cash: 0.01 },
+    ];
+    const derived = deriveDashboardMetrics({
+      metrics: METRICS_FIXTURE,
+      transactions: TRANSACTION_FIXTURE,
+      roiData,
+    });
+    assert.strictEqual(derived.percentages.spyDeltaPct, null);
+    assert.strictEqual(derived.percentages.qqqDeltaPct, null);
+    assert.strictEqual(derived.percentages.blendedDeltaPct, null);
+  });
+
+  it("PM-AUD-019: portfolioTwr=0.15, spy=0.12 → spyDeltaPct === 0.03", () => {
+    const roiData = [
+      { date: "2024-01-01", portfolio: 0, portfolioTwr: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 },
+      { date: "2024-06-30", portfolio: 0.15, portfolioTwr: 0.15, spy: 0.12, qqq: 0.10, blended: 0.08, exCash: 0.14, cash: 0.01 },
+    ];
+    const derived = deriveDashboardMetrics({
+      metrics: METRICS_FIXTURE,
+      transactions: TRANSACTION_FIXTURE,
+      roiData,
+    });
+    assert.ok(Math.abs(derived.percentages.spyDeltaPct - 0.03) < 1e-10);
+    assert.ok(Math.abs(derived.percentages.qqqDeltaPct - 0.05) < 1e-10);
+  });
+
   it("renders dashboard cards with derived KPI values", () => {
     render(
       <DashboardTab
@@ -112,7 +170,7 @@ describe("DashboardTab metrics derivation", () => {
     assert.ok(screen.getByText("Performance context"));
     assert.ok(screen.getByText("Gap vs Nasdaq-100"));
     assert.ok(screen.getByText("-2.50%"));
-    assert.ok(screen.getByText("Historical Change"));
+    assert.ok(screen.getByText("Equity Price Gain"));
     assert.ok(screen.getAllByText("$400.00").length >= 1);
     assert.ok(screen.getByText("Total NAV"));
     assert.ok(screen.getByText("Cash balance $745.00"));
@@ -123,8 +181,14 @@ describe("DashboardTab metrics derivation", () => {
     assert.ok(screen.getByText("$145.00"));
     assert.ok(
       screen.getByText(
-        "Realised $50.00 · Unrealised $100.00 · Net income -$5.00 · ROI +41.58%",
+        "Realised $50.00 · Unrealised $100.00 · Net income -$5.00 · Simple ROI +41.58%",
       ),
     );
+  });
+
+  it("all benchmark series have unique colors (PM-AUD-005)", () => {
+    const colors = BENCHMARK_SERIES_META.map((entry) => entry.color);
+    const uniqueColors = new Set(colors);
+    assert.strictEqual(uniqueColors.size, colors.length, `Duplicate colors found: ${colors.join(", ")}`);
   });
 });

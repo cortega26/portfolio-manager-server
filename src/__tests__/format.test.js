@@ -19,6 +19,7 @@ describe("format utilities", () => {
   it("formats percentage values with precision control", () => {
     assert.equal(formatPercent(12.3456), "12.35%");
     assert.equal(formatPercent(9.1, 1), "9.1%");
+    assert.equal(formatPercent(77.94444, 4), "77.9444%");
     assert.equal(formatPercent(undefined), "—");
   });
 

@@ -54,6 +54,19 @@ function computeBaseUrl(runtimeConfig) {
   return "http://localhost:3000";
 }
 
+function syncCachedBaseUrlFromRuntimeConfig() {
+  const runtimeConfig = getRuntimeConfigSync();
+  const runtimeCandidate = normalizeBaseUrlCandidate(runtimeConfig?.API_BASE_URL);
+  if (!runtimeCandidate) {
+    return null;
+  }
+  if (cachedBaseUrl !== runtimeCandidate) {
+    cachedBaseUrl = runtimeCandidate;
+    resolvingBaseUrlPromise = Promise.resolve(runtimeCandidate);
+  }
+  return runtimeCandidate;
+}
+
 function computeTimeout(runtimeConfig, optionsTimeout) {
   if (typeof optionsTimeout === "number" && optionsTimeout > 0) {
     return optionsTimeout;
@@ -169,6 +182,10 @@ export function trimTrailingSlash(value) {
 }
 
 export async function resolveApiBaseUrl() {
+  const runtimeBaseUrl = syncCachedBaseUrlFromRuntimeConfig();
+  if (runtimeBaseUrl) {
+    return runtimeBaseUrl;
+  }
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }
@@ -184,6 +201,10 @@ export async function resolveApiBaseUrl() {
 }
 
 export function getApiBaseUrlSync() {
+  const runtimeBaseUrl = syncCachedBaseUrlFromRuntimeConfig();
+  if (runtimeBaseUrl) {
+    return runtimeBaseUrl;
+  }
   if (cachedBaseUrl) {
     return cachedBaseUrl;
   }

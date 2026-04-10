@@ -1,6 +1,6 @@
 # Portfolio Manager Unified — Backlog operativo
 
-Fecha de actualización: 2026-03-20
+Fecha de actualización: 2026-04-10
 
 ## Estado actual
 
@@ -9,14 +9,20 @@ Fecha de actualización: 2026-03-20
 | Baseline R1 + Node 20.19.0 | ✅ PASS |
 | Storage SQLite-only | ✅ PASS — sin JSON legacy |
 | Shell Electron | ✅ PASS |
-| Seguridad HTTP pública (bruteForce, auditLog, rateLimit) | ✅ REMOVIDA |
+| Seguridad HTTP pública (bruteForce, auditLog, rateLimit) | ✅ REMOVIDA + archivos zombi eliminados |
+| Limpieza código muerto (Phase A) | ✅ PASS — 16 archivos, 13 ediciones, express-rate-limit removido |
 | Importador CSV (4 archivos) | ✅ PASS — 990 tx, reconciliación exacta |
 | Auth multi-portafolio con PIN | ✅ PASS — PIN local por portafolio integrado en Electron |
-| Señales y notificaciones UI | 🔶 PARTIAL |
+| Señales y notificaciones UI | 🔶 PARTIAL — motor + tabs OK, canal persistente pendiente |
 | Precios en tiempo real + scheduler | ✅ PASS — configuración externa y scheduler unificados |
 | Benchmarks históricos | ✅ PASS — catálogo `/api/benchmarks` y ROI conectado |
+| UI: tab Prices | ✅ PASS — vista dedicada conectada a latest-only pricing |
+| UI: tab Signals | ✅ PASS — vista dedicada conectada al preview backend |
+| UI: Settings de alertas + estado scheduler | ✅ PASS — persistencia real y estado runtime visible |
+| AdminTab (R1 público) | ✅ REMOVIDO — componente + rutas + tests eliminados |
+| README + .env.example | ✅ ACTUALIZADO para desktop |
+| CI pipeline | ✅ SIMPLIFICADO — sin Playwright admin, sin deploy.yml |
 | Email notifications | ⏳ PENDIENTE |
-| UI: tabs Prices + Signals | ⏳ PENDIENTE |
 | Packaging electron-builder | ⏳ PENDIENTE |
 
 ---
@@ -83,15 +89,37 @@ Decisiones cerradas en esta fase:
 * El contrato histórico de series sigue apoyado en `/api/prices/:symbol` y `/api/prices/bulk`.
 * `blended` permanece como benchmark derivado disponible siempre.
 
-### 3. Fase 5C — Completar señales
+### 3. Phase A — Limpieza de código muerto
+
+Estado: `PASS`
+
+Cerrado 2026-04-10:
+
+* 16 archivos zombi eliminados (bruteForce, auditLog, eventsStore, rateLimitMetrics, apiKey, AdminTab, CNAME, backlog.csv, etc.)
+* 13 archivos fuente/test editados para remover imports y mocks de módulos eliminados.
+* `express-rate-limit` removido de dependencias.
+* Package renombrado a `portfolio-manager-unified`.
+* CI simplificado: removido Playwright admin fallback check y deploy.yml.
+* Tests: node:test 325 pass, Vitest 79 pass, coverage 56.19%.
+
+### 4. Fase 5C — Completar señales
 
 Estado: `PARTIAL`
 
 Tareas:
 
-* Crear endpoint `/api/signals` en Express que compute señales desde posiciones + precio.
-* Decidir si la configuración de señales (bandas BUY/TRIM) migra a backend/SQLite.
-* Revisar si las notificaciones de señales deben moverse al scheduler (backend) en lugar de solo el renderer.
+Ya implementado en código real:
+
+* `POST /api/signals` en Express para preview backend.
+* Motor compartido en `shared/signals.js`.
+* Holdings consume el preview backend y dispara toasts según transición de estado.
+* La configuración de señales persiste dentro del payload del portafolio.
+* Nueva tab `Signals` dedicada conectada al mismo preview backend y reutilizando la matriz de señales compartida.
+
+Pendiente:
+
+* Revisar si las notificaciones de señales deben moverse al scheduler (backend) o a otro canal persistente.
+* Definir el canal persistente final para alertas recurrentes ahora que las preferencias de usuario ya quedan guardadas en el payload real del portafolio.
 
 ### 4. Fase 6 — Dividendos, benchmarks y email
 
@@ -103,25 +131,27 @@ Tareas:
 * Revisar si faltan alertas o resúmenes asociados a dividendos neto/bruto para reporting desktop.
 * Definir alcance final de notificaciones por email sin degradar el modelo desktop-first.
 
-### 5. Fase 7 — UI completa
+### 6. Fase 7 — UI completa
 
-Estado: `PARTIAL`
+Estado: `PASS`
 
-Tareas:
+Ya implementado:
 
-* Tab `Prices` con precios en tiempo real consumiendo la capa ya cerrada en Fase 5B.
-* Tab `Signals` conectado al backend (depende de Fase 5C).
-* Settings con configuración de scheduler y alertas.
+* Tab `Prices` con precios en tiempo real consumiendo la capa cerrada en Fase 5B.
+* Tab `Signals` conectada al preview backend con superficie dedicada y reutilización de la tabla de señales en `Holdings`.
+* `Settings` con persistencia real de alertas y visibilidad del scheduler runtime.
+* AdminTab removido — la UI es 100% desktop-first sin artefactos públicos.
 
-### 6. Fase 8 — Packaging y CI
+### 7. Fase 8 — Packaging y CI
 
 Estado: `PENDIENTE`
 
 Tareas:
 
-* Configurar `electron-builder` para distribución.
-* Script de build de producción completo.
-* CI pipeline.
+* Configurar `electron-builder` para distribución (AppImage/deb, dmg, nsis).
+* Scripts de build de producción (`dist:linux`, `dist:mac`, `dist:win`).
+* Release workflow en GitHub Actions (tag → build → upload).
+* Electron smoke test en CI.
 
 ---
 
@@ -149,4 +179,4 @@ Si se retoma en una conversación nueva, el agente debe:
    * `docs/reference/portfolio-manager-unified-status.md`
    * `docs/backlog/portfolio-manager-unified-next-steps.md`
 4. El CSV ya está importado en `./data/storage.sqlite` — no reimportar salvo que el usuario lo indique.
-5. Continuar desde `Fase 5C` (señales) o desde el siguiente bloque que el usuario priorice.
+5. Continuar desde cierre del alcance backend/persistente de alertas de `Fase 5C` o desde settings de scheduler/alertas si el usuario prioriza esa rama.

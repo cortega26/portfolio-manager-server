@@ -2,9 +2,7 @@ import os from 'node:os';
 import process from 'node:process';
 
 import { getCacheStats } from '../cache/priceCache.js';
-import { getBruteForceStats } from '../middleware/bruteForce.js';
 import { getLockMetrics } from '../utils/locks.js';
-import { getRateLimitMetrics } from './rateLimitMetrics.js';
 
 function formatLoadAverage(values) {
   return values.map((value) => Number.isFinite(value) ? Number(value.toFixed(2)) : 0);
@@ -36,8 +34,6 @@ export function getPerformanceMetrics({ now = Date.now() } = {}) {
     },
     cache: getCacheStats(),
     locks: getLockMetrics(),
-    bruteForce: getBruteForceStats(),
-    rateLimit: getRateLimitMetrics({ now }),
   };
 }
 

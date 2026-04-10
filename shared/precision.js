@@ -1,0 +1,3 @@
+export const ROI_PRIMARY_PERCENT_DIGITS = 2;
+export const ROI_DETAIL_PERCENT_DIGITS = 4;
+export const ROI_CANONICAL_PERCENT_DIGITS = 6;

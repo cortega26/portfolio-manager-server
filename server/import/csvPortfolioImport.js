@@ -9,6 +9,32 @@ import { d, roundDecimal } from '../finance/decimal.js';
 import { sortTransactions } from '../finance/portfolio.js';
 import { runMigrations } from '../migrations/index.js';
 
+// Corporate actions are loaded once from the config file at the path below.
+// Format: [{ ticker, date, type: "split", ratio, applies_to: "ALL"|"BUY"|"SELL", rule }]
+// See server/data/corporateActions.json for the authoritative list.
+const CORPORATE_ACTIONS_PATH = new URL('../data/corporateActions.json', import.meta.url);
+
+/** @type {Array<{ticker:string, date:string, type:string, ratio:number, applies_to:string, rule:string}>} */
+let _corporateActionsCache = null;
+
+export async function loadCorporateActions(filePath = CORPORATE_ACTIONS_PATH) {
+  if (_corporateActionsCache !== null) {
+    return _corporateActionsCache;
+  }
+  const raw = await fs.readFile(filePath instanceof URL ? filePath : new URL(filePath), 'utf8');
+  _corporateActionsCache = JSON.parse(raw);
+  return _corporateActionsCache;
+}
+
+// Allow tests to inject a custom action list without touching the cache.
+export function _setCorporateActionsForTest(actions) {
+  _corporateActionsCache = actions;
+}
+
+export function _resetCorporateActionsCache() {
+  _corporateActionsCache = null;
+}
+
 export const CSV_IMPORT_FILE_NAMES = {
   buys: '32996_asset_market_buys.csv',
   sells: '32996_asset_market_sells.csv',
@@ -30,6 +56,7 @@ export const CSV_IMPORT_EXPECTED_RECONCILIATION = {
 const CASH_CURRENCY = 'USD';
 
 const IMPORT_SOURCE_TAG = 'csv-bootstrap';
+const IMPORT_CASH_CHRONOLOGY = 'day-netted';
 const SYNTHETIC_GIFT_CARD_ID = 'synthetic:gift-card-usd-1';
 const SYNTHETIC_GIFT_CARD_DATE = '2023-11-27';
 const SYNTHETIC_GIFT_CARD_AMOUNT = '1.00';
@@ -46,8 +73,6 @@ const SYNTHETIC_HYCA_INTEREST_POSTINGS = [
   { date: '2026-01-30', amount: '0.04' },
   { date: '2026-02-27', amount: '0.05' },
 ];
-const NVDA_ADJUSTMENT_RULE = 'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES';
-const LRCX_ADJUSTMENT_RULE = 'LRCX_10_FOR_1_DATASET_RECONCILIATION_PRE_2024_10_03_BUY_ONLY';
 
 function buildImportMetadata({
   fileName,
@@ -59,6 +84,7 @@ function buildImportMetadata({
     system: {
       import: {
         source: IMPORT_SOURCE_TAG,
+        cashChronology: IMPORT_CASH_CHRONOLOGY,
         file: fileName,
         line: lineNumber,
         original,
@@ -210,22 +236,30 @@ function withBaseTransactionFields({
   };
 }
 
-function maybeApplyDatasetQuantityAdjustment({ ticker, date, type, quantity }) {
-  if ((type === 'BUY' || type === 'SELL') && ticker === 'NVDA' && date < '2024-06-10') {
+/**
+ * Applies a split adjustment from corporateActions config to a transaction.
+ *
+ * @param {{ ticker: string, date: string, type: string, quantity: Decimal }} params
+ * @param {Array} corporateActions - loaded from server/data/corporateActions.json
+ * @returns {{ quantity: Decimal, adjustment: object|null }}
+ */
+function maybeApplyDatasetQuantityAdjustment({ ticker, date, type, quantity }, corporateActions = []) {
+  for (const action of corporateActions) {
+    if (action.type !== 'split') continue;
+    if (action.ticker !== ticker) continue;
+    if (date >= action.date) continue;
+
+    const appliesToTransaction =
+      action.applies_to === 'ALL' ||
+      action.applies_to === type;
+
+    if (!appliesToTransaction) continue;
+
     return {
-      quantity: quantity.times(10),
+      quantity: quantity.times(action.ratio),
       adjustment: {
-        rule: NVDA_ADJUSTMENT_RULE,
-        factor: '10',
-      },
-    };
-  }
-  if (type === 'BUY' && ticker === 'LRCX' && date < '2024-10-03') {
-    return {
-      quantity: quantity.times(10),
-      adjustment: {
-        rule: LRCX_ADJUSTMENT_RULE,
-        factor: '10',
+        rule: action.rule,
+        factor: String(action.ratio),
       },
     };
   }
@@ -243,6 +277,7 @@ function buildBuyOrSellTransaction({
   amount,
   quantity,
   type,
+  corporateActions = [],
 }) {
   const normalizedDate = parseIsoDate(date);
   const normalizedAmount = normalizeImportedNumericInput(amount);
@@ -253,7 +288,7 @@ function buildBuyOrSellTransaction({
     date: normalizedDate,
     type,
     quantity: d(normalizedQuantity).abs(),
-  });
+  }, corporateActions);
   const signedQuantity = type === 'SELL'
     ? quantityAdjustment.quantity.neg()
     : quantityAdjustment.quantity;
@@ -358,6 +393,7 @@ function buildSyntheticGiftCardDeposit({ seq }) {
         system: {
           import: {
             source: IMPORT_SOURCE_TAG,
+            cashChronology: IMPORT_CASH_CHRONOLOGY,
             file: 'synthetic-adjustments',
             line: 0,
             original: {
@@ -397,6 +433,7 @@ function buildSyntheticHycaInterestTransaction({ seq, index, date, amount }) {
         system: {
           import: {
             source: IMPORT_SOURCE_TAG,
+            cashChronology: IMPORT_CASH_CHRONOLOGY,
             file: 'synthetic-adjustments',
             line: index + 1,
             original: {
@@ -598,6 +635,7 @@ export function assertExpectedCsvImportReconciliation(summary) {
 
 export async function buildCsvPortfolioImport({ sourceDir, sourceFiles } = {}) {
   const resolvedFiles = resolveSourceFiles({ sourceDir, sourceFiles });
+  const corporateActions = await loadCorporateActions();
   const transactions = [];
   let seq = 0;
 
@@ -631,6 +669,7 @@ export async function buildCsvPortfolioImport({ sourceDir, sourceFiles } = {}) {
         amount,
         quantity,
         type: 'BUY',
+        corporateActions,
       }),
     );
   }
@@ -653,6 +692,7 @@ export async function buildCsvPortfolioImport({ sourceDir, sourceFiles } = {}) {
         amount,
         quantity,
         type: 'SELL',
+        corporateActions,
       }),
     );
   }

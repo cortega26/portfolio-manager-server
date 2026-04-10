@@ -21,3 +21,6 @@ npm-debug.log*
 *.tap
 .stryker-tmp/
 .tools/
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

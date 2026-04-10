@@ -71,21 +71,7 @@ const priceSeries = [
   { date: "2024-01-03", close: 405 },
 ];
 
-const monitoringSnapshot = {
-  data: {
-    cache: { hits: 0, misses: 0 },
-    rateLimit: { totalRequests: 0 },
-    bruteForce: { activeLocks: 0 },
-  },
-};
 
-const securityStats = {
-  data: { authFailures: 0, rotations: 0 },
-};
-
-const securityEvents = {
-  data: [],
-};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,17 +125,6 @@ test.describe("dashboard smoke flows", () => {
       await route.fulfill(jsonResponse(priceSeries));
     });
 
-    await page.route("**/monitoring**", async (route) => {
-      await route.fulfill(jsonResponse(monitoringSnapshot));
-    });
-
-    await page.route("**/security/stats**", async (route) => {
-      await route.fulfill(jsonResponse(securityStats));
-    });
-
-    await page.route("**/security/events**", async (route) => {
-      await route.fulfill(jsonResponse(securityEvents));
-    });
   });
 
   test("authenticates and renders KPI + benchmark controls", async ({ page }) => {

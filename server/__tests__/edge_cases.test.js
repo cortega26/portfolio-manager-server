@@ -109,6 +109,15 @@ test('projectStateUntil preserves fractional precision', () => {
   assert.ok(Math.abs(state.holdings.get('GOOG') - 9.9997) < 1e-6);
 });
 
+test('projectStateUntil normalizes bounded micro-share dust back to zero', () => {
+  const transactions = [
+    { date: '2024-01-01', type: 'BUY', ticker: 'META', amount: -10, quantity: 0.0220064 },
+    { date: '2024-01-02', type: 'SELL', ticker: 'META', amount: 10, quantity: -0.0220104 },
+  ];
+  const state = projectStateUntil(transactions, '2024-01-02');
+  assert.equal(state.holdings.has('META'), false);
+});
+
 test('projectStateUntil handles large transaction volumes deterministically', () => {
   const transactions = [];
   let expectedCash = 0;
@@ -126,6 +135,239 @@ test('projectStateUntil handles large transaction volumes deterministically', ()
   }
   const state = projectStateUntil(transactions, '2025-12-31');
   assert.equal(Number(state.cash.toFixed(2)), Number(expectedCash.toFixed(2)));
+});
+
+test('signal preview tolerates bounded oversell drift from imported fractional shares', async () => {
+  await withTempApp(async ({ app }) => {
+    const response = await withSession(
+      request(app)
+        .post('/api/signals')
+        .send({
+          transactions: [
+            { date: '2024-01-01', type: 'DEPOSIT', amount: 100 },
+            { date: '2024-01-02', type: 'BUY', ticker: 'META', amount: -10, quantity: 0.0220064 },
+            { date: '2024-01-03', type: 'SELL', ticker: 'META', amount: 10, quantity: -0.0220104 },
+          ],
+          signals: {
+            META: { pct: 5 },
+          },
+          settings: { autoClip: false },
+        }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.rows, []);
+    assert.equal(response.body.errors?.META, undefined);
+  });
+});
+
+test('signal preview ignores historical cash overdrafts from imported same-day rebalances', async () => {
+  await withTempApp(async ({ app }) => {
+    const response = await withSession(
+      request(app)
+        .post('/api/signals')
+        .send({
+          transactions: [
+            { date: '2024-01-22', type: 'DEPOSIT', amount: 2 },
+            { date: '2024-01-22', type: 'BUY', ticker: 'SPY', amount: -1.06, quantity: 0.002197377 },
+            { date: '2024-01-23', type: 'BUY', ticker: 'NVDA', amount: -1.06, quantity: 0.01783046 },
+            { date: '2024-01-23', type: 'SELL', ticker: 'SPY', amount: 1.06, quantity: -0.002197377 },
+          ],
+          signals: {
+            NVDA: { pct: 5 },
+          },
+          settings: { autoClip: false },
+        }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.ok(Array.isArray(response.body.rows));
+  });
+});
+
+test('portfolio save tolerates bounded oversell drift from imported fractional shares', async () => {
+  await withTempApp(async ({ app }) => {
+    const portfolioId = 'edge-oversell-dust-' + randomUUID();
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/' + portfolioId)
+        .send({
+          transactions: [
+            { date: '2024-01-01', type: 'DEPOSIT', amount: 100 },
+            { date: '2024-01-02', type: 'BUY', ticker: 'META', amount: -10, quantity: 0.0220064 },
+            { date: '2024-01-03', type: 'SELL', ticker: 'META', amount: 10, quantity: -0.0220104 },
+          ],
+          settings: { autoClip: false },
+        }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.status, 'ok');
+  });
+});
+
+test('portfolio save still rejects oversells beyond the dust tolerance', async () => {
+  await withTempApp(async ({ app }) => {
+    const portfolioId = 'edge-oversell-beyond-dust-' + randomUUID();
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/' + portfolioId)
+        .send({
+          transactions: [
+            { date: '2024-01-01', type: 'DEPOSIT', amount: 100 },
+            { date: '2024-01-02', type: 'BUY', ticker: 'META', amount: -10, quantity: 0.0220064 },
+            { date: '2024-01-03', type: 'SELL', ticker: 'META', amount: 10, quantity: -0.0220124 },
+          ],
+          settings: { autoClip: false },
+        }),
+    );
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'E_OVERSELL');
+  });
+});
+
+test('portfolio save accepts imported same-day rebalances that net cash by end of day', async () => {
+  await withTempApp(async ({ app }) => {
+    const portfolioId = 'edge-imported-rebalance-' + randomUUID();
+    const importedMetadata = {
+      system: {
+        import: {
+          source: 'csv-bootstrap',
+          cashChronology: 'day-netted',
+        },
+      },
+    };
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/' + portfolioId)
+        .send({
+          transactions: [
+            { date: '2024-01-22', type: 'DEPOSIT', amount: 2, metadata: importedMetadata },
+            {
+              date: '2024-01-22',
+              type: 'BUY',
+              ticker: 'SPY',
+              amount: -1.06,
+              quantity: 0.002197377,
+              metadata: importedMetadata,
+            },
+            {
+              date: '2024-01-23',
+              type: 'BUY',
+              ticker: 'NVDA',
+              amount: -1.06,
+              quantity: 0.01783046,
+              metadata: importedMetadata,
+            },
+            {
+              date: '2024-01-23',
+              type: 'SELL',
+              ticker: 'SPY',
+              amount: 1.06,
+              quantity: -0.002197377,
+              metadata: importedMetadata,
+            },
+          ],
+          settings: { autoClip: false },
+        }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.status, 'ok');
+  });
+});
+
+test('portfolio save rejects manual same-day buy before later sell when cash would overdraw', async () => {
+  await withTempApp(async ({ app }) => {
+    const portfolioId = 'edge-manual-cash-overdraw-' + randomUUID();
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/' + portfolioId)
+        .send({
+          transactions: [
+            { date: '2024-01-22', type: 'DEPOSIT', amount: 2, createdAt: 1000, seq: 1 },
+            {
+              date: '2024-01-22',
+              type: 'BUY',
+              ticker: 'SPY',
+              amount: -1.06,
+              quantity: 0.002197377,
+              createdAt: 1500,
+              seq: 2,
+            },
+            {
+              date: '2024-01-23',
+              type: 'BUY',
+              ticker: 'NVDA',
+              amount: -1.06,
+              quantity: 0.01783046,
+              createdAt: 2500,
+              seq: 3,
+            },
+            {
+              date: '2024-01-23',
+              type: 'SELL',
+              ticker: 'SPY',
+              amount: 1.06,
+              quantity: -0.002197377,
+              createdAt: 3500,
+              seq: 4,
+            },
+          ],
+          settings: { autoClip: false },
+        }),
+    );
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'E_CASH_OVERDRAW');
+  });
+});
+
+test('portfolio save accepts manual same-day sell before buy when chronology funds the purchase', async () => {
+  await withTempApp(async ({ app }) => {
+    const portfolioId = 'edge-manual-cash-chronology-' + randomUUID();
+    const response = await withSession(
+      request(app)
+        .post('/api/portfolio/' + portfolioId)
+        .send({
+          transactions: [
+            { date: '2024-01-22', type: 'DEPOSIT', amount: 2, createdAt: 1000, seq: 1 },
+            {
+              date: '2024-01-22',
+              type: 'BUY',
+              ticker: 'SPY',
+              amount: -1.06,
+              quantity: 0.002197377,
+              createdAt: 1500,
+              seq: 2,
+            },
+            {
+              date: '2024-01-23',
+              type: 'SELL',
+              ticker: 'SPY',
+              amount: 1.06,
+              quantity: -0.002197377,
+              createdAt: 2500,
+              seq: 3,
+            },
+            {
+              date: '2024-01-23',
+              type: 'BUY',
+              ticker: 'NVDA',
+              amount: -1.06,
+              quantity: 0.01783046,
+              createdAt: 3500,
+              seq: 4,
+            },
+          ],
+          settings: { autoClip: false },
+        }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.status, 'ok');
+  });
 });
 
 test('validation rejects negative prices before persistence', async () => {

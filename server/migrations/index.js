@@ -132,6 +132,14 @@ const MIGRATIONS = [
       await storage.ensureTable('portfolio_pins', []);
     },
   },
+  {
+    id: '007_roi_history',
+    description: 'Initialize canonical ROI history tables',
+    async up({ storage }) {
+      await storage.ensureTable('roi_daily', []);
+      await storage.ensureTable('roi_sync_state', []);
+    },
+  },
 ];
 
 async function readStateFile(filePath) {

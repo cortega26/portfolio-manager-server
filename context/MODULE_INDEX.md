@@ -73,7 +73,7 @@ No reemplaza la inspección del código real.
 ### Renderer y shell de aplicación
 
 - `src/App.jsx`
-  - bootstrap/root del frontend
+  - bootstrap/root del frontend (rutas simplificadas, sin admin)
 - `src/PortfolioManagerApp.jsx`
   - shell principal de la app
 - `src/lib/apiClient.js`
@@ -83,8 +83,13 @@ No reemplaza la inspección del código real.
 - `src/components/DesktopSessionGate.jsx`
   - boundary de unlock/bootstrap desktop
 - `src/components/DashboardTab.jsx`
+- `src/components/HoldingsTab.jsx`
 - `src/components/TransactionsTab.jsx`
+- `src/components/PricesTab.jsx`
+- `src/components/SignalsTab.jsx`
 - `src/components/SettingsTab.jsx`
+- `src/components/SignalTableCard.jsx`
+  - componente compartido de matriz de señales
 
 ## Tests guía por área
 

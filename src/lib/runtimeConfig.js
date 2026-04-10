@@ -5,6 +5,8 @@
  * @property {string=} ACTIVE_PORTFOLIO_ID Default portfolio identifier injected by the desktop shell.
  * @property {number=} REQUEST_TIMEOUT_MS Optional request timeout override in milliseconds.
  * @property {string=} SESSION_AUTH_HEADER Optional header name for desktop session auth.
+ * @property {boolean=} JOB_NIGHTLY_ACTIVE Whether the embedded runtime is actively scheduling nightly close jobs.
+ * @property {number=} JOB_NIGHTLY_HOUR_UTC Hour in UTC configured for nightly close jobs when available.
  */
 
 const DEFAULT_RUNTIME_CONFIG = Object.freeze({});
@@ -39,6 +41,10 @@ function coerceNumber(value) {
   return Number.isFinite(numeric) ? numeric : undefined;
 }
 
+function coerceBoolean(value) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
 function normalizeRuntimeConfig(input) {
   if (!input || typeof input !== "object") {
     return DEFAULT_RUNTIME_CONFIG;
@@ -71,6 +77,19 @@ function normalizeRuntimeConfig(input) {
     if (trimmed.length > 0) {
       next.SESSION_AUTH_HEADER = trimmed;
     }
+  }
+  const nightlyActive = coerceBoolean(input.JOB_NIGHTLY_ACTIVE);
+  if (nightlyActive !== undefined) {
+    next.JOB_NIGHTLY_ACTIVE = nightlyActive;
+  }
+  const nightlyHour = coerceNumber(input.JOB_NIGHTLY_HOUR_UTC);
+  if (
+    typeof nightlyHour === "number"
+    && Number.isInteger(nightlyHour)
+    && nightlyHour >= 0
+    && nightlyHour <= 23
+  ) {
+    next.JOB_NIGHTLY_HOUR_UTC = nightlyHour;
   }
   return Object.keys(next).length > 0 ? next : DEFAULT_RUNTIME_CONFIG;
 }

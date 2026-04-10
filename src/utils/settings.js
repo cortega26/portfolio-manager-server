@@ -1,94 +1,35 @@
+import {
+  createDefaultSettings,
+  normalizeSettings,
+} from "../../shared/settings.js";
+
 const STORAGE_KEY = "portfolio-manager-settings";
 
-export function createDefaultSettings() {
-  return {
-    notifications: {
-      email: false,
-      push: true,
-    },
-    alerts: {
-      rebalance: true,
-      drawdownThreshold: 15,
-    },
-    privacy: {
-      hideBalances: false,
-    },
-    display: {
-      currency: "USD",
-      refreshInterval: 15,
-      compactTables: false,
-    },
-    autoClip: false,
-  };
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function deepMerge(target, source) {
-  if (!isPlainObject(target)) {
-    return target;
-  }
-
-  const result = {};
-  const keys = new Set([
-    ...Object.keys(target ?? {}),
-    ...(isPlainObject(source) ? Object.keys(source) : []),
-  ]);
-
-  for (const key of keys) {
-    const targetValue = target?.[key];
-    const sourceValue = source?.[key];
-    if (isPlainObject(targetValue)) {
-      result[key] = deepMerge(targetValue, sourceValue);
-    } else if (sourceValue !== undefined) {
-      result[key] = sourceValue;
-    } else {
-      result[key] = targetValue;
-    }
-  }
-
-  return result;
-}
-
-function coerceNumber(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
-
-export function normalizeSettings(rawSettings) {
-  const defaults = createDefaultSettings();
-  if (!isPlainObject(rawSettings)) {
-    return defaults;
-  }
-
-  const merged = deepMerge(defaults, rawSettings);
-  if (!isPlainObject(merged.notifications)) {
-    merged.notifications = { ...defaults.notifications };
-  }
-  if (typeof merged.notifications.email !== "boolean") {
-    merged.notifications.email = Boolean(merged.notifications.email);
-  }
-  if (typeof merged.notifications.push !== "boolean") {
-    merged.notifications.push = true;
-  }
-  merged.alerts.drawdownThreshold = coerceNumber(
-    merged.alerts.drawdownThreshold,
-    defaults.alerts.drawdownThreshold,
-  );
-  merged.display.refreshInterval = coerceNumber(
-    merged.display.refreshInterval,
-    defaults.display.refreshInterval,
-  );
-  merged.autoClip = Boolean(merged.autoClip);
-  return merged;
-}
+export { createDefaultSettings, normalizeSettings };
 
 export function mergeSettings(current, incoming) {
   const normalizedCurrent = normalizeSettings(current);
   const normalizedIncoming = normalizeSettings(incoming);
-  return deepMerge(normalizedCurrent, normalizedIncoming);
+  return normalizeSettings({
+    ...normalizedCurrent,
+    ...normalizedIncoming,
+    notifications: {
+      ...normalizedCurrent.notifications,
+      ...normalizedIncoming.notifications,
+    },
+    alerts: {
+      ...normalizedCurrent.alerts,
+      ...normalizedIncoming.alerts,
+    },
+    privacy: {
+      ...normalizedCurrent.privacy,
+      ...normalizedIncoming.privacy,
+    },
+    display: {
+      ...normalizedCurrent.display,
+      ...normalizedIncoming.display,
+    },
+  });
 }
 
 export function loadSettingsFromStorage(storage = null) {

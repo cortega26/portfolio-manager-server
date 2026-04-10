@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test as baseTest } from 'node:test';
 
 import {
+  AlpacaLatestQuoteProvider,
   YahooPriceProvider,
   StooqPriceProvider,
   TwelveDataQuoteProvider,
@@ -15,6 +16,16 @@ const twelveDataQuote = {
   price: '251.75',
   datetime: '2024-02-03 10:15:00',
   is_market_open: false,
+};
+const alpacaSnapshot = {
+  latestTrade: {
+    p: 417.62,
+    t: '2024-02-05T15:45:12Z',
+  },
+  minuteBar: {
+    c: 417.5,
+    t: '2024-02-05T15:45:00Z',
+  },
 };
 
 function createMockLogger(bindings = {}, entries = []) {
@@ -140,6 +151,55 @@ test('TwelveDataQuoteProvider parses latest quote payloads and logs latency', as
     logger.entries.some(
       (entry) => entry.event === 'latest_quote_provider_latency' && entry.meta.provider === 'twelvedata',
     ),
+  );
+});
+
+test('AlpacaLatestQuoteProvider parses snapshot payloads and logs latency', async () => {
+  const requests = [];
+  const fetchImpl = async (url, options = {}) => {
+    requests.push({
+      url: String(url),
+      headers: options.headers,
+    });
+    return { ok: true, json: async () => alpacaSnapshot };
+  };
+  const logger = createMockLogger();
+  const provider = new AlpacaLatestQuoteProvider({
+    fetchImpl,
+    timeoutMs: 1000,
+    logger,
+    apiKey: 'alpaca-key',
+    apiSecret: 'alpaca-secret',
+  });
+  const row = await provider.getLatestQuote('SPY');
+  assert.deepEqual(row, { date: '2024-02-05', adjClose: 417.62 });
+  assert.equal(requests[0].url, 'https://data.alpaca.markets/v2/stocks/SPY/snapshot');
+  assert.equal(requests[0].headers['APCA-API-KEY-ID'], 'alpaca-key');
+  assert.equal(requests[0].headers['APCA-API-SECRET-KEY'], 'alpaca-secret');
+  assert.ok(
+    logger.entries.some(
+      (entry) => entry.event === 'latest_quote_provider_latency' && entry.meta.provider === 'alpaca',
+    ),
+  );
+});
+
+test('AlpacaLatestQuoteProvider treats 404 as symbol-level no data', async () => {
+  const fetchImpl = async () => ({
+    ok: false,
+    status: 404,
+    json: async () => ({}),
+  });
+  const logger = createMockLogger();
+  const provider = new AlpacaLatestQuoteProvider({
+    fetchImpl,
+    timeoutMs: 1000,
+    logger,
+    apiKey: 'alpaca-key',
+    apiSecret: 'alpaca-secret',
+  });
+  await assert.rejects(
+    () => provider.getLatestQuote('INVALID'),
+    (error) => error.code === 'PRICE_NOT_FOUND' && error.status === 404,
   );
 });
 

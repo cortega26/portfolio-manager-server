@@ -1,131 +1,157 @@
 <!-- markdownlint-disable -->
-# Portfolio Manager (Server Edition)
-> Operates a production-hardened portfolio tracker where investors manage trades, ROI, and operational telemetry from one audited stack.
+# Portfolio Manager Unified
+> A desktop-first portfolio tracker built on Electron + React + Express + SQLite.
 
-[![CI](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml/badge.svg)](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml) [![Website](https://img.shields.io/website?url=https%3A%2F%2Fwww.tooltician.com&label=live%20demo)](https://www.tooltician.com) ![Node 20.19](https://img.shields.io/badge/node-20.19.x-339933?logo=node.js) ![Last commit](https://img.shields.io/github/last-commit/cortega26/portfolio-manager-server)
-
-## Snapshot
-
-![Dashboard overview](docs/dashboard-overview.svg "Stylised view of ROI charts, KPI cards, and admin monitoring panels")
+[![CI](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml/badge.svg)](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml) ![Node 20.19](https://img.shields.io/badge/node-20.19.x-339933?logo=node.js) ![Electron](https://img.shields.io/badge/electron-shell-47848F?logo=electron)
 
 ## Features
-- Enforces hashed API keys, progressive brute-force lockouts, and scoped rate limits for each portfolio tenant.【F:server/middleware/bruteForce.js†L1-L120】【F:server/middleware/validation.js†L1-L160】
-- Computes holdings and ROI against SPY, blended benchmarks, and cash drag with deterministic Decimal.js math and property tests.【F:server/finance/returns.js†L1-L200】【F:server/__tests__/ledger.property.test.js†L1-L160】
-- Serves React dashboards with `react-window` virtualisation and benchmark toggles that keep accessibility-first table semantics.【F:src/components/TransactionsTab.jsx†L1-L200】【F:src/components/AdminTab.jsx†L1-L200】
-- Exposes `/api/monitoring` plus an admin tab that streams lockout, rate-limit, and cache stats in near real time.【F:server/metrics/performanceMetrics.js†L1-L160】【F:src/components/AdminTab.jsx†L1-L200】
-- Caches upstream price data with TTL invalidation and surfacing metrics, preventing redundant HTTP calls while staying observable.【F:server/cache/priceCache.js†L1-L200】【F:server/__tests__/priceCache.test.js†L1-L120】
-- Bundles deterministic CI gates (lint → typecheck → build → smoke → coverage → Playwright) so deploys only happen after proof.【F:.github/workflows/ci.yml†L1-L76】
-- Deploys the static frontend to GitHub Pages behind a CSP-enforced static host with SPA fallbacks validated post-release.【F:.github/workflows/deploy.yml†L1-L64】【F:public/404.html†L1-L120】
 
-> Guardrail excerpt
->
-> ```ts
-> // Progressive lockouts escalate on every failure without starving legitimate traffic.
-> const durationSeconds = Math.min(
->   config.maxLockoutSeconds,
->   config.baseLockoutSeconds * Math.pow(config.progressiveMultiplier, priorCount),
-> );
-> ```
-> — [`server/middleware/bruteForce.js`](server/middleware/bruteForce.js)
+- **Desktop-first**: runs as a self-contained Electron app — no cloud, no public API
+- **Session-secured**: process-scoped token generated per launch, enforced via middleware
+- **PIN-locked portfolios**: local PIN hashing with bcrypt per portfolio
+- **SQLite storage**: all data in a single portable `.sqlite` file
+- **Real-time signal engine**: BUY/SELL threshold alerts with configurable per-ticker percentages
+- **Multi-provider pricing**: Stooq → Yahoo fallback for historical closes, Alpaca/TwelveData for intraday
+- **Benchmark tracking**: SPY, QQQ, and blended benchmarks with ROI comparison charts
+- **Deterministic finances**: all math via `decimal.js` — no floating-point drift
+- **Nightly scheduler**: automated price refresh, benchmark backfill, and NAV recomputation
+- **Comprehensive testing**: 325+ node:test assertions, 79+ Vitest tests, property-based tests with fast-check
 
-## Tech Stack
-- **Frontend:** React 18, Vite 7, TailwindCSS, react-window, Recharts.【F:package.json†L27-L70】
-- **Backend:** Express 4, Pino logging, Zod validation, node-cache, node-fetch.【F:package.json†L31-L70】
-- **Testing & Tooling:** Vitest, @testing-library, Playwright, fast-check, Stryker, ESLint, TypeScript.【F:package.json†L71-L118】
-- **CI/CD:** GitHub Actions smoke + coverage workflow chained into GitHub Pages deploy.【F:.github/workflows/ci.yml†L1-L76】【F:.github/workflows/deploy.yml†L1-L64】
+## Architecture
 
-## Architecture at a Glance
 ```mermaid
 flowchart LR
-  user((Investor)) --> ui[React SPA]
-  ui[REST /api/v1] --> api[Express API]
-  api --> auth["API key + rate limit guards"]
-  api --> cache["Price cache (TTL + metrics)"]
-  cache --> providers[External price sources]
-  api --> ledger[Portfolio & ROI engine]
-  ledger --> store[Data directory JSON snapshots]
-  api --> monitor[/Monitoring endpoint/]
-  monitor --> admin[Admin dashboard]
+  user((User)) --> electron[Electron Shell]
+  electron --> renderer[React Renderer]
+  electron --> express[Express API<br/>127.0.0.1:random]
+  express --> session["Session Auth<br/>(per-process token)"]
+  express --> cache["Price Cache<br/>(TTL + metrics)"]
+  cache --> providers["Price Providers<br/>(Stooq / Yahoo / Alpaca)"]
+  express --> engine["Portfolio Engine<br/>(decimal.js)"]
+  engine --> sqlite[(SQLite)]
+  express --> scheduler["Nightly Scheduler<br/>(daily close + backfill)"]
 ```
 
+### Process Boundary
+
+| Layer | Runs in | Access |
+|---|---|---|
+| React UI (renderer) | Chromium process | Cannot access SQLite directly |
+| Express API | Node.js (main) | Session token required for every request |
+| Electron shell | Node.js (main) | Generates session token, starts Express on loopback |
+| SQLite | Filesystem | Only accessed via Express storage layer |
+
+## Tech Stack
+
+- **Shell**: Electron (contextIsolation, no nodeIntegration)
+- **Frontend**: React 18, Vite 7, TailwindCSS, Recharts, react-window
+- **Backend**: Express 4, Pino logging, Zod validation, node-cache
+- **Storage**: better-sqlite3 via `JsonTableStorage`
+- **Testing**: Vitest, @testing-library, fast-check, node:test
+- **CI**: GitHub Actions (lint → typecheck → test:coverage → gitleaks → npm audit)
+
 ## Quick Start
-1. **Use the project Node version**
-   ```bash
-   nvm use 20.19.0
-   ```
-2. **Install dependencies**
-   ```bash
-   npm ci --no-fund --no-audit
-   ```
-3. **Copy the environment template**
-   ```bash
-   cp .env.example .env
-   ```
-4. **Run backend and frontend in parallel**
-   ```bash
-   npm run server
-   npm run dev
-   ```
-5. Visit `http://localhost:5173` (frontend) and ensure the API responds at `http://localhost:3000`.
 
-### Configuration quick reference
-| Name | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| `PORT` | number | `3000` | No | Express API port for the backend server.【F:.env.example†L3-L80】|
-| `DATA_DIR` | path | `./data` | No | Directory for portfolio JSON snapshots; keep out of git.【F:.env.example†L9-L80】|
-| `CORS_ALLOWED_ORIGINS` | CSV string | `http://localhost:5173` | No | Frontends allowed to reach the API.【F:.env.example†L15-L80】|
-| `API_CACHE_TTL_SECONDS` | number | `30` | No | TTL for cached portfolio responses before re-computation.【F:.env.example†L29-L80】|
-| `PRICE_CACHE_TTL_SECONDS` | number | `900` | No | Maximum age of price quotes kept in memory cache.【F:.env.example†L33-L80】|
-| `PRICE_PROVIDER_LATEST` | string | `none` | No | Backend-side latest quote provider used for after-hours quotes (`twelvedata` or `none`).【F:.env.example†L54-L66】|
-| `TWELVE_DATA_API_KEY` | string | empty | No | Backend-side API key for Twelve Data latest quotes; restart the local server/Electron shell after changes.【F:.env.example†L54-L66】|
-| `BRUTE_FORCE_MAX_ATTEMPTS` | number | `5` | No | Failed auth attempts before progressive lockout begins.【F:.env.example†L45-L80】|
-| `VITE_API_BASE` | URL | `http://localhost:3000` | No | Override API origin consumed by the SPA.【F:.env.example†L67-L80】|
+### Prerequisites
 
-Server-side variables such as `PRICE_PROVIDER_LATEST` and `TWELVE_DATA_API_KEY` are loaded from the repo root `.env` when the local Node/Electron entrypoints start. `VITE_*` variables remain renderer-only, and changing `.env` requires restarting `npm run server`, `npm run electron`, or `npm run electron:dev`.
+- Node.js 20.19.x (use `.nvmrc` or the bundled `.tools/node-v20.19.0-linux-x64/`)
+- npm 10+
 
-## Quality & Tests
-- **Smoke + coverage (matches CI):**
-  ```bash
-  npm run verify:smoke
-  NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage
-  ```
-- **Component and property tests:**
-  ```bash
-  NO_NETWORK_TESTS=1 npm run test:fast
-  npm run test:node
-  ```
-- **Static analysis:**
-  ```bash
-  npm run lint
-  npm run verify:typecheck
-  ```
-- **End-to-end routing check:**
-  ```bash
-  npx playwright test e2e/admin-routing.spec.ts --config=playwright.admin-static.config.ts --project=chromium
-  ```
+### Development
 
-CI uploads the coverage artifact for every run; wire it to Codecov or Pages when you want a public badge.[^todo-coverage]
+```bash
+# Install dependencies
+npm ci --no-fund --no-audit
 
-## Performance & Accessibility
-- `server/cache/priceCache.js` keeps market data fresh without pounding providers while `/api/monitoring` surfaces cache health for dashboards.【F:server/cache/priceCache.js†L1-L200】【F:server/metrics/performanceMetrics.js†L1-L160】
-- GitHub Pages deploy enforces a restrictive CSP during build verification so regressions fail fast before publishing.【F:.github/workflows/deploy.yml†L21-L64】
-- `docs/POST_DEPLOY_CHECKLIST.md` includes Lighthouse + Linkinator steps for each release; capture the JSON report in `reports/` for audit trails.【F:docs/POST_DEPLOY_CHECKLIST.md†L1-L60】
+# Copy environment template
+cp .env.example .env
 
-## Roadmap
-- Promote coverage artifact to an automated badge exposed on the README once hosting is wired.[^todo-coverage]
-- Expand Playwright suite beyond admin fallback to cover ROI toggles and benchmark resets.
-- Automate Lighthouse runs and publish the summary under `docs/lighthouse.md` after each deploy.
-- Integrate Web Push or email notifications when nightly price freshness checks fail (extend `server/metrics` pipeline).
+# Run full stack (Electron + Express + Vite HMR)
+npm run electron:dev
 
-## Why It Matters
-- Demonstrates secure multi-tenant design: hashed keys, progressive lockouts, and request tracing show disciplined access control.【F:server/middleware/bruteForce.js†L1-L120】【F:server/app.js†L1-L200】
-- Highlights data integrity craft: ROI maths rely on Decimal.js plus property tests to avoid floating-point drift in financial reports.【F:server/finance/returns.js†L1-L200】【F:server/__tests__/ledger.property.test.js†L1-L160】
-- Proves operational maturity: CI enforces smoke + coverage, gitleaks, npm audit, and Playwright checks before deploys proceed.【F:.github/workflows/ci.yml†L1-L76】
-- Shows developer experience empathy: runtime config, API client centralisation, and environment templates minimise onboarding friction.【F:docs/FE_BE_CONTRACT_AUDIT.md†L1-L80】【F:.env.example†L3-L80】
-- Surfaces observability discipline: `/api/monitoring`, admin dashboards, and event stores keep security + performance data front and centre.【F:server/metrics/performanceMetrics.js†L1-L160】【F:src/components/AdminTab.jsx†L1-L200】
+# Or run backend + frontend separately
+npm run server   # Express on :3000
+npm run dev      # Vite on :5173
+```
+
+### Testing
+
+```bash
+# Full test suite (matches CI)
+npm test
+
+# Backend only (node:test)
+npm run test:node
+
+# Frontend only (Vitest)
+npx vitest run
+
+# With coverage
+npm run test:coverage
+```
+
+## Configuration
+
+All configuration lives in `.env`. Copy `.env.example` for defaults.
+
+### Core Settings
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3000` | Express API port (standalone mode) |
+| `DATA_DIR` | `./data` | SQLite database directory |
+| `LOG_LEVEL` | `info` | Pino log level |
+
+### Pricing & Benchmarks
+
+| Variable | Default | Description |
+|---|---|---|
+| `PRICE_PROVIDER_PRIMARY` | `stooq` | Historical price provider (`stooq`, `yahoo`, `none`) |
+| `PRICE_PROVIDER_FALLBACK` | `none` | Fallback provider if primary fails |
+| `PRICE_PROVIDER_LATEST` | `alpaca` | Intraday quote provider (`alpaca`, `twelvedata`, `none`) |
+| `ALPACA_API_KEY` | — | Alpaca Market Data API key |
+| `ALPACA_API_SECRET` | — | Alpaca Market Data API secret |
+| `BENCHMARK_TICKERS` | `SPY,QQQ` | Market benchmarks for ROI comparison |
+
+### Scheduler
+
+| Variable | Default | Description |
+|---|---|---|
+| `JOB_NIGHTLY_ENABLED` | `true` | Enable nightly close scheduler |
+| `JOB_NIGHTLY_HOUR` | `4` | UTC hour for nightly recomputation |
+
+### Cache & Performance
+
+| Variable | Default | Description |
+|---|---|---|
+| `PRICE_CACHE_TTL_SECONDS` | `600` | TTL for historical price cache |
+| `PRICE_CACHE_LIVE_OPEN_TTL_SECONDS` | `60` | TTL for intraday prices during market hours |
+| `PRICE_CACHE_LIVE_CLOSED_TTL_SECONDS` | `900` | TTL for prices outside market hours |
+
+## Project Structure
+
+```
+├── electron/           # Electron main process + preload
+│   ├── main.cjs        # Shell bootstrap, session token, IPC
+│   ├── preload.cjs     # Secure renderer bridge
+│   └── runtimeConfig.js
+├── server/             # Express backend
+│   ├── app.js          # Express composition
+│   ├── data/           # SQLite storage, price providers
+│   ├── finance/        # Portfolio engine, ROI, cash
+│   ├── jobs/           # Nightly scheduler, daily close
+│   ├── middleware/      # Session auth, validation
+│   └── migrations/     # SQLite schema migrations
+├── src/                # React frontend
+│   ├── App.jsx         # Router root
+│   ├── PortfolioManagerApp.jsx  # Main app shell
+│   ├── components/     # Tab UIs (Dashboard, Holdings, etc.)
+│   └── lib/            # API client, runtime config
+├── shared/             # Shared constants, settings, benchmarks
+└── context/            # Project documentation
+```
 
 ## Contributing / License
-- Open to thoughtful contributions—please open an issue describing the improvement before submitting a PR.
-- License not yet published; treat the codebase as all rights reserved unless granted explicit permission.
 
-[^todo-coverage]: TODO: Expose `coverage/lcov-report` via GitHub Pages or Codecov; see [docs/playbooks/testing-strategy.md](docs/playbooks/testing-strategy.md) for rollout steps.
+- Open to thoughtful contributions — please open an issue first.
+- License not yet published; treat as all rights reserved unless granted explicit permission.
