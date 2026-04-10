@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -40,6 +40,8 @@ describe('TransactionsTab interactions', () => {
   afterEach(() => {
     warnSpy.mockRestore();
     errorSpy.mockRestore();
+    window.localStorage.removeItem('portfolio-manager-language');
+    cleanup();
   });
 
   test('supports search, pagination, and deletion in the non-virtualized table', async () => {
@@ -96,8 +98,49 @@ describe('TransactionsTab interactions', () => {
     const virtualList = await screen.findByTestId('transactions-virtual-list');
     expect(virtualList).toBeInTheDocument();
 
+    const rowsPerPage = screen.getByLabelText(/rows per page/i);
+    expect(rowsPerPage).not.toBeDisabled();
+    await userEvent.selectOptions(rowsPerPage, '25');
+    expect(screen.getByText(/Showing 1-25 of 210 transactions/i)).toBeInTheDocument();
+
     const undoButtons = within(virtualList).getAllByRole('button', { name: /undo transaction/i });
     await userEvent.click(undoButtons[0]);
     expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  test('matches localized type labels when searching in Spanish', async () => {
+    window.localStorage.setItem('portfolio-manager-language', 'es');
+    const transactions = [
+      { date: '2024-02-01', ticker: 'CASH', type: 'DEPOSIT', amount: 1000, price: 0, shares: 0 },
+      { date: '2024-02-02', ticker: 'AAPL', type: 'BUY', amount: -500, price: 100, shares: 5 },
+      { date: '2024-02-03', ticker: 'MSFT', type: 'SELL', amount: 600, price: 120, shares: 5 },
+    ];
+
+    renderWithProviders(
+      <TransactionsTab
+        transactions={transactions}
+        onAddTransaction={vi.fn()}
+        onDeleteTransaction={vi.fn()}
+      />,
+    );
+
+    const searchInput = screen.getByLabelText(/buscar transacciones/i);
+
+    await userEvent.type(searchInput, 'Depósito');
+    await waitFor(() => {
+      expect(screen.getByText(/Mostrando 1-1 de 1 transacciones \(filtradas de 3\)/i)).toBeInTheDocument();
+    });
+
+    await userEvent.clear(searchInput);
+    await userEvent.type(searchInput, 'Compra');
+    await waitFor(() => {
+      expect(screen.getByText('AAPL')).toBeInTheDocument();
+    });
+
+    await userEvent.clear(searchInput);
+    await userEvent.type(searchInput, 'Venta');
+    await waitFor(() => {
+      expect(screen.getByText('MSFT')).toBeInTheDocument();
+    });
   });
 });

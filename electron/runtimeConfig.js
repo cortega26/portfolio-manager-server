@@ -20,17 +20,36 @@ function normalizeNumber(value) {
   return Math.round(parsed);
 }
 
+function normalizeBoolean(value) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function normalizeNightlyHour(value) {
+  const parsed = normalizeNumber(value);
+  if (parsed === undefined) {
+    return undefined;
+  }
+  if (parsed < 0 || parsed > 23) {
+    return undefined;
+  }
+  return parsed;
+}
+
 export function buildDesktopRuntimeConfig({
   apiBaseUrl,
   sessionToken,
   activePortfolioId,
   sessionAuthHeader,
   requestTimeoutMs,
+  jobNightlyActive,
+  jobNightlyHourUtc,
   API_BASE_URL,
   API_SESSION_TOKEN,
   ACTIVE_PORTFOLIO_ID,
   SESSION_AUTH_HEADER,
   REQUEST_TIMEOUT_MS,
+  JOB_NIGHTLY_ACTIVE,
+  JOB_NIGHTLY_HOUR_UTC,
 } = {}) {
   const config = {};
   const normalizedBaseUrl = normalizeString(apiBaseUrl ?? API_BASE_URL);
@@ -60,6 +79,18 @@ export function buildDesktopRuntimeConfig({
   );
   if (normalizedTimeout) {
     config.REQUEST_TIMEOUT_MS = normalizedTimeout;
+  }
+  const normalizedNightlyActive = normalizeBoolean(
+    jobNightlyActive ?? JOB_NIGHTLY_ACTIVE,
+  );
+  if (normalizedNightlyActive !== undefined) {
+    config.JOB_NIGHTLY_ACTIVE = normalizedNightlyActive;
+  }
+  const normalizedNightlyHour = normalizeNightlyHour(
+    jobNightlyHourUtc ?? JOB_NIGHTLY_HOUR_UTC,
+  );
+  if (normalizedNightlyHour !== undefined) {
+    config.JOB_NIGHTLY_HOUR_UTC = normalizedNightlyHour;
   }
   return Object.freeze(config);
 }

@@ -19,6 +19,18 @@ function safeNumber(value) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function readOptionalNumber(entry, key) {
+  if (!entry || typeof entry !== "object" || !Object.prototype.hasOwnProperty.call(entry, key)) {
+    return null;
+  }
+  const numeric = Number(entry[key]);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function differenceOrNull(left, right) {
+  return Number.isFinite(left) && Number.isFinite(right) ? left - right : null;
+}
+
 function toDecimal(value) {
   try {
     const decimal = new Decimal(value ?? 0);
@@ -102,17 +114,34 @@ export function resolveLatestRoiSnapshot(roiData = []) {
     if (!entry) {
       continue;
     }
-    const portfolio = safeNumber(entry.portfolio);
-    const spy = safeNumber(entry.spy);
-    const qqq = safeNumber(entry.qqq);
-    const blended = safeNumber(entry.blended);
-    const exCash = safeNumber(entry.exCash);
-    const cash = safeNumber(entry.cash);
-    if (portfolio || spy || qqq || blended || exCash || cash) {
-      return { portfolio, spy, qqq, blended, exCash, cash };
+    const portfolio = readOptionalNumber(entry, "portfolio");
+    const portfolioTwr = readOptionalNumber(entry, "portfolioTwr");
+    const spy = readOptionalNumber(entry, "spy");
+    const qqq = readOptionalNumber(entry, "qqq");
+    const blended = readOptionalNumber(entry, "blended");
+    const exCash = readOptionalNumber(entry, "exCash");
+    const cash = readOptionalNumber(entry, "cash");
+    if (
+      Number.isFinite(portfolio)
+      || Number.isFinite(portfolioTwr)
+      || Number.isFinite(spy)
+      || Number.isFinite(qqq)
+      || Number.isFinite(blended)
+      || Number.isFinite(exCash)
+      || Number.isFinite(cash)
+    ) {
+      return { portfolio, portfolioTwr, spy, qqq, blended, exCash, cash };
     }
   }
-  return { portfolio: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 };
+  return {
+    portfolio: null,
+    portfolioTwr: null,
+    spy: null,
+    qqq: null,
+    blended: null,
+    exCash: null,
+    cash: null,
+  };
 }
 
 export function deriveDashboardMetrics({ metrics, transactions, roiData } = {}) {
@@ -146,18 +175,20 @@ export function deriveDashboardMetrics({ metrics, transactions, roiData } = {}) 
     !pricingComplete || netContributions.isZero()
       ? null
       : new Decimal(totalReturn).div(netContributions).times(100).toNumber();
-  const totalRoiPct =
+  const latest = resolveLatestRoiSnapshot(roiData);
+  const totalRoiPctFallback =
     !pricingComplete || netContributions.isZero()
       ? null
       : new Decimal(totalNav).minus(netContributions).div(netContributions).times(100).toNumber();
-
-  const latest = resolveLatestRoiSnapshot(roiData);
+  const totalRoiPct = totalRoiPctFallback;
+  const hasTwr = Number.isFinite(latest.portfolioTwr);
+  const comparisonBasePct = hasTwr ? latest.portfolioTwr : null;
   const cashAllocationPct =
     pricingComplete && totalNav !== 0 ? (cashBalance / totalNav) * 100 : null;
-  const cashDragPct = latest.spy - latest.blended;
-  const spyDeltaPct = latest.portfolio - latest.spy;
-  const qqqDeltaPct = latest.portfolio - latest.qqq;
-  const blendedDeltaPct = latest.portfolio - latest.blended;
+  const cashDragPct = differenceOrNull(latest.spy, latest.blended);
+  const spyDeltaPct = hasTwr ? differenceOrNull(comparisonBasePct, latest.spy) : null;
+  const qqqDeltaPct = hasTwr ? differenceOrNull(comparisonBasePct, latest.qqq) : null;
+  const blendedDeltaPct = hasTwr ? differenceOrNull(comparisonBasePct, latest.blended) : null;
 
   return {
     totals: {

@@ -96,6 +96,14 @@ export function loadConfig(env = process.env) {
     env.PRICE_CACHE_TTL_SECONDS,
     DEFAULT_PRICE_CACHE_TTL_SECONDS,
   );
+  const priceCacheLiveOpenTtlSeconds = parseNumber(
+    env.PRICE_CACHE_LIVE_OPEN_TTL_SECONDS,
+    60,
+  );
+  const priceCacheLiveClosedTtlSeconds = parseNumber(
+    env.PRICE_CACHE_LIVE_CLOSED_TTL_SECONDS,
+    15 * 60,
+  );
   const priceCacheCheckPeriodSeconds = parseNumber(
     env.PRICE_CACHE_CHECK_PERIOD,
     DEFAULT_PRICE_CACHE_CHECK_PERIOD_SECONDS,
@@ -158,6 +166,10 @@ export function loadConfig(env = process.env) {
     env.RATE_LIMIT_PRICES_MAX,
     RATE_LIMIT_DEFAULTS.prices.max,
   );
+  const latestProvider = normalizeLatestQuoteProviderName(
+    env.PRICE_PROVIDER_LATEST,
+    "none",
+  );
 
   return {
     dataDir,
@@ -184,20 +196,30 @@ export function loadConfig(env = process.env) {
       ttlSeconds: apiCacheTtlSeconds,
       price: {
         ttlSeconds: priceCacheTtlSeconds,
+        liveOpenTtlSeconds: priceCacheLiveOpenTtlSeconds,
+        liveClosedTtlSeconds: priceCacheLiveClosedTtlSeconds,
         checkPeriodSeconds: priceCacheCheckPeriodSeconds,
       },
     },
     prices: {
       providers: {
-        primary: normalizePriceProviderName(env.PRICE_PROVIDER_PRIMARY, "yahoo"),
-        fallback: normalizePriceProviderName(env.PRICE_PROVIDER_FALLBACK, "stooq"),
+        primary: normalizePriceProviderName(env.PRICE_PROVIDER_PRIMARY, "stooq"),
+        fallback: normalizePriceProviderName(env.PRICE_PROVIDER_FALLBACK, "yahoo"),
       },
       latest: {
-        provider: normalizeLatestQuoteProviderName(
-          env.PRICE_PROVIDER_LATEST,
-          "none",
-        ),
-        apiKey: typeof env.TWELVE_DATA_API_KEY === "string" ? env.TWELVE_DATA_API_KEY.trim() : "",
+        provider: latestProvider,
+        apiKey:
+          latestProvider === "alpaca"
+            ? typeof env.ALPACA_API_KEY === "string"
+              ? env.ALPACA_API_KEY.trim()
+              : ""
+            : latestProvider === "twelvedata" && typeof env.TWELVE_DATA_API_KEY === "string"
+              ? env.TWELVE_DATA_API_KEY.trim()
+              : "",
+        apiSecret:
+          latestProvider === "alpaca" && typeof env.ALPACA_API_SECRET === "string"
+            ? env.ALPACA_API_SECRET.trim()
+            : "",
         prepost: parseBoolean(env.TWELVE_DATA_PREPOST, true),
       },
     },

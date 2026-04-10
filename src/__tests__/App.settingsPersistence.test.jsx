@@ -36,6 +36,10 @@ vi.mock("../utils/api.js", async (importOriginal) => {
     fetchBenchmarkCatalog: vi.fn(async () => ({ data: {} })),
     fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
     fetchPrices: vi.fn(async () => ({ data: [], requestId: "price-none" })),
+    fetchDailyRoi: vi.fn(async () => ({
+      data: { series: { portfolio: [], portfolioTwr: [], spy: [], bench: [], exCash: [], cash: [] } },
+      requestId: "roi-none",
+    })),
     fetchDailyReturns: vi.fn(async () => ({
       data: { series: { port: [], spy: [] } },
       requestId: "returns-none",
@@ -111,12 +115,18 @@ describe("App portfolio settings persistence", () => {
     const maskBalances = screen.getByLabelText(/Mask balances by default/i);
     const compactTables = screen.getByLabelText(/Compact table spacing/i);
     const rebalanceReminders = screen.getByLabelText(/Monthly rebalance reminders/i);
+    const signalTransitions = screen.getByLabelText(/Signal transition toasts/i);
+    const marketStatusBanners = screen.getByLabelText(/Market status banners/i);
+    const roiFallbackBanners = screen.getByLabelText(/ROI fallback banners/i);
     const currencySelect = screen.getByLabelText(/Display currency/i);
     const autoClipToggle = screen.getByLabelText(/Auto-clip oversell orders/i);
 
     await userEvent.click(maskBalances);
     await userEvent.click(compactTables);
     await userEvent.click(rebalanceReminders);
+    await userEvent.click(signalTransitions);
+    await userEvent.click(marketStatusBanners);
+    await userEvent.click(roiFallbackBanners);
     await userEvent.selectOptions(currencySelect, "EUR");
     await userEvent.click(autoClipToggle);
 
@@ -132,6 +142,9 @@ describe("App portfolio settings persistence", () => {
     assert.equal(payload.settings.display.compactTables, true);
     assert.equal(payload.settings.privacy.hideBalances, true);
     assert.equal(payload.settings.alerts.rebalance, false);
+    assert.equal(payload.settings.notifications.signalTransitions, false);
+    assert.equal(payload.settings.alerts.marketStatus, false);
+    assert.equal(payload.settings.alerts.roiFallback, false);
 
     __setRetrieveResponse({
       data: {
@@ -141,8 +154,13 @@ describe("App portfolio settings persistence", () => {
           autoClip: false,
           display: { currency: "GBP", compactTables: false, refreshInterval: 10 },
           privacy: { hideBalances: false },
-          alerts: { rebalance: true, drawdownThreshold: 12 },
-          notifications: { email: true, push: false },
+          alerts: {
+            rebalance: true,
+            drawdownThreshold: 12,
+            marketStatus: true,
+            roiFallback: true,
+          },
+          notifications: { email: true, push: false, signalTransitions: true },
         },
       },
       requestId: "retrieve-portfolio",
@@ -155,6 +173,9 @@ describe("App portfolio settings persistence", () => {
       assert.equal(maskBalances.checked, false);
       assert.equal(compactTables.checked, false);
       assert.equal(rebalanceReminders.checked, true);
+      assert.equal(signalTransitions.checked, true);
+      assert.equal(marketStatusBanners.checked, true);
+      assert.equal(roiFallbackBanners.checked, true);
       assert.equal(currencySelect.value, "GBP");
       assert.equal(autoClipToggle.checked, false);
     });

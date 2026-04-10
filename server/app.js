@@ -19,10 +19,19 @@ import {
 import { getPerformanceMetrics } from "./metrics/performanceMetrics.js";
 import { runMigrations } from "./migrations/index.js";
 import {
+  computeMatchedBenchmarkMoneyWeightedReturn,
+  computeMaxDrawdown,
   computeMoneyWeightedReturn,
   summarizeReturns,
 } from "./finance/returns.js";
-import { projectStateUntil, sortTransactions, weightsFromState } from "./finance/portfolio.js";
+import {
+  normalizeMicroShareBalance,
+  projectStateUntil,
+  setNormalizedHoldingMicro,
+  sortTransactions,
+  sortTransactionsForCashAudit,
+  weightsFromState,
+} from "./finance/portfolio.js";
 import { toDateKey } from "./finance/cash.js";
 import {
   d,
@@ -52,11 +61,9 @@ import { computeTradingDayAge } from "./utils/calendar.js";
 import { withLock } from "./utils/locks.js";
 import {
   configurePriceCache,
-  generateETag,
   getCacheStats,
-  getCachedPrice,
-  setCachedPrice,
 } from "./cache/priceCache.js";
+import { createProviderHealthMonitor } from "./data/providerHealth.js";
 import {
   createHttpLogger,
   buildHttpLoggerOptions,
@@ -74,6 +81,8 @@ import {
   resolveSignalWindow,
 } from "../shared/signals.js";
 import { getMarketClock } from "../src/utils/marketHours.js";
+import { createHistoricalPriceLoader } from "./services/historicalPriceLoader.js";
+import { createPerformanceHistoryService } from "./services/performanceHistory.js";
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? "./data");
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.PRICE_FETCH_TIMEOUT_MS ?? "5000",
@@ -96,6 +105,10 @@ const DEFAULT_CACHE_TTL_SECONDS = (() => {
 const PORTFOLIO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SYMBOL_PATTERN = /^[A-Za-z0-9._-]{1,32}$/;
 const MAX_BULK_PRICE_SYMBOLS = 64;
+const MATCHED_MWR_BENCHMARKS = [
+  { key: "spy", ticker: "SPY" },
+  { key: "qqq", ticker: "QQQ" },
+];
 function normalizeBulkPriceSymbols(input) {
   if (Array.isArray(input)) {
     return input;
@@ -206,6 +219,85 @@ function paginateRows(rows, { page = 1, perPage = 100 } = {}) {
     },
   };
 }
+
+function buildAdjustedPriceMap(rows, ticker, { from, to } = {}) {
+  const normalizedTicker =
+    typeof ticker === "string" ? ticker.trim().toUpperCase() : "";
+  const map = new Map();
+  for (const row of rows) {
+    const rowTicker =
+      typeof row?.ticker === "string" ? row.ticker.trim().toUpperCase() : "";
+    const date = typeof row?.date === "string" ? row.date.trim() : "";
+    const price = Number.parseFloat(
+      row?.adj_close ?? row?.adjClose ?? row?.close ?? row?.price,
+    );
+    if (
+      rowTicker !== normalizedTicker
+      || !date
+      || (from && date < from)
+      || (to && date > to)
+      || !Number.isFinite(price)
+      || price <= 0
+    ) {
+      continue;
+    }
+    map.set(date, price);
+  }
+  return new Map(Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0])));
+}
+
+function normalizePricingStatusSummary(symbolMeta = {}, errors = {}) {
+  const summary = {
+    status: "unavailable",
+    liveSymbols: [],
+    eodSymbols: [],
+    cacheSymbols: [],
+    degradedSymbols: [],
+    unavailableSymbols: [],
+  };
+
+  for (const [symbol, meta] of Object.entries(symbolMeta)) {
+    const status = typeof meta?.status === "string" ? meta.status : "unavailable";
+    if (status === "live") {
+      summary.liveSymbols.push(symbol);
+      continue;
+    }
+    if (status === "eod_fresh") {
+      summary.eodSymbols.push(symbol);
+      continue;
+    }
+    if (status === "cache_fresh") {
+      summary.cacheSymbols.push(symbol);
+      continue;
+    }
+    if (status === "degraded") {
+      summary.degradedSymbols.push(symbol);
+      continue;
+    }
+    summary.unavailableSymbols.push(symbol);
+  }
+
+  for (const symbol of Object.keys(errors)) {
+    if (!summary.unavailableSymbols.includes(symbol)) {
+      summary.unavailableSymbols.push(symbol);
+    }
+  }
+
+  if (summary.unavailableSymbols.length > 0) {
+    summary.status = "unavailable";
+  } else if (summary.degradedSymbols.length > 0) {
+    summary.status = "degraded";
+  } else if (summary.liveSymbols.length > 0) {
+    summary.status = "live";
+  } else if (summary.eodSymbols.length > 0) {
+    summary.status = "eod_fresh";
+  } else if (summary.cacheSymbols.length > 0) {
+    summary.status = "cache_fresh";
+  }
+
+  return summary;
+}
+
 function computeEtag(serializedBody) {
   return createHash("sha256").update(serializedBody).digest("base64url");
 }
@@ -242,21 +334,17 @@ export function createApp({
   fetchTimeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
   config = null,
   priceProvider = null,
-  auditSink = null,
+  auditSink: _auditSink = null,
   httpLoggerFactory = null,
   staticDir = null,
   spaFallback = false,
+  marketClock = getMarketClock,
 } = {}) {
   const baseLogger = adaptLogger(logger) ?? DEFAULT_LOGGER;
   const log =
     typeof baseLogger.child === "function"
       ? baseLogger.child({ module: "app" })
       : baseLogger;
-  const handleSecurityEvent = (event) => {
-    if (typeof auditSink === "function") {
-      auditSink(event);
-    }
-  };
   const featureFlags = config?.featureFlags ?? { cashBenchmarks: true };
   const benchmarkConfig = normalizeBenchmarkConfig(config?.benchmarks ?? {});
   const sessionAuthHeaderName =
@@ -288,6 +376,16 @@ export function createApp({
     priceCacheConfig.checkPeriodSeconds > 0
       ? Math.round(priceCacheConfig.checkPeriodSeconds)
       : DEFAULT_PRICE_CACHE_CHECK_PERIOD_SECONDS;
+  const priceCacheLiveOpenTtlSeconds =
+    Number.isFinite(priceCacheConfig.liveOpenTtlSeconds) &&
+    priceCacheConfig.liveOpenTtlSeconds > 0
+      ? Math.round(priceCacheConfig.liveOpenTtlSeconds)
+      : 60;
+  const priceCacheLiveClosedTtlSeconds =
+    Number.isFinite(priceCacheConfig.liveClosedTtlSeconds) &&
+    priceCacheConfig.liveClosedTtlSeconds > 0
+      ? Math.round(priceCacheConfig.liveClosedTtlSeconds)
+      : 15 * 60;
   configurePriceCache({
     ttlSeconds: priceCacheTtlSeconds,
     checkPeriodSeconds: priceCacheCheckPeriodSeconds,
@@ -344,6 +442,7 @@ export function createApp({
     typeof log.child === "function"
       ? log.child({ module: "price_provider" })
       : log;
+  const providerHealth = createProviderHealthMonitor({ logger: priceLogger });
   const yahooProvider = new YahooPriceProvider({
     fetchImpl,
     timeoutMs: fetchTimeoutMs,
@@ -358,6 +457,7 @@ export function createApp({
     primary: yahooProvider,
     fallback: stooqProvider,
     logger: priceLogger,
+    healthMonitor: providerHealth,
   });
   const priceProviderInstance =
     priceProvider
@@ -366,6 +466,7 @@ export function createApp({
       fetchImpl,
       timeoutMs: fetchTimeoutMs,
       logger: priceLogger,
+      healthMonitor: providerHealth,
     })
     ?? compositePriceProvider;
   const latestQuoteProviderInstance = createConfiguredLatestQuoteProvider({
@@ -373,6 +474,88 @@ export function createApp({
     fetchImpl,
     timeoutMs: fetchTimeoutMs,
     logger: priceLogger,
+    healthMonitor: providerHealth,
+  });
+  let storagePromise;
+  const getStorage = async () => {
+    if (!storagePromise) {
+      storagePromise = runMigrations({ dataDir, logger: log });
+    }
+    return storagePromise;
+  };
+  let persistedLatestCloseSnapshot = {
+    loadedAt: 0,
+    bySymbol: null,
+  };
+  const persistedLatestCloseSnapshotTtlMs = 30_000;
+  async function loadPersistedLatestCloseSnapshot() {
+    const now = Date.now();
+    if (
+      persistedLatestCloseSnapshot.bySymbol instanceof Map &&
+      now - persistedLatestCloseSnapshot.loadedAt < persistedLatestCloseSnapshotTtlMs
+    ) {
+      return persistedLatestCloseSnapshot.bySymbol;
+    }
+
+    const storage = await getStorage();
+    const records = await storage.readTable("prices");
+    const bySymbol = new Map();
+    for (const row of records) {
+      const symbol =
+        typeof row?.ticker === "string" ? row.ticker.trim().toUpperCase() : "";
+      const date = typeof row?.date === "string" ? row.date.trim() : "";
+      const close = Number.parseFloat(
+        row?.adj_close ?? row?.adjClose ?? row?.close ?? row?.price,
+      );
+      if (!symbol || !date || !Number.isFinite(close) || close <= 0) {
+        continue;
+      }
+
+      const current = bySymbol.get(symbol);
+      if (!current || date > current.date) {
+        bySymbol.set(symbol, {
+          ticker: symbol,
+          date,
+          adj_close: close,
+        });
+      }
+    }
+
+    persistedLatestCloseSnapshot = {
+      loadedAt: now,
+      bySymbol,
+    };
+    return bySymbol;
+  }
+  async function getPersistedLatestClose(symbol) {
+    const normalizedSymbol =
+      typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
+    if (!normalizedSymbol) {
+      return null;
+    }
+    const snapshot = await loadPersistedLatestCloseSnapshot();
+    const record = snapshot.get(normalizedSymbol);
+    return record ? { ...record } : null;
+  }
+  if (latestQuoteProviderInstance?.providerKey) {
+    const providerMeta = {
+      provider: latestQuoteProviderInstance.providerKey,
+    };
+    if (latestQuoteProviderInstance.providerKey === "twelvedata") {
+      providerMeta.prepost = config?.prices?.latest?.prepost !== false;
+    }
+    priceLogger.info?.("latest_quote_provider_configured", providerMeta);
+  }
+  const historicalPriceLoader = createHistoricalPriceLoader({
+    priceProvider: priceProviderInstance,
+    latestQuoteProvider: latestQuoteProviderInstance,
+    persistedLatestCloseLookup: getPersistedLatestClose,
+    logger: log,
+    marketClock,
+    cachePolicy: {
+      liveOpenTtlSeconds: priceCacheLiveOpenTtlSeconds,
+      liveClosedTtlSeconds: priceCacheLiveClosedTtlSeconds,
+    },
   });
   const benchmarkCatalogPayload = {
     available: benchmarkConfig.available,
@@ -465,7 +648,7 @@ export function createApp({
       const normalized = value.trim().toUpperCase();
       return /^[A-Z]{3}$/u.test(normalized) ? normalized : "USD";
     };
-    const sorted = sortTransactions(transactions);
+    const sorted = sortTransactionsForCashAudit(transactions);
     const cashByCurrency = new Map();
     for (const tx of sorted) {
       if (!tx || typeof tx !== "object") {
@@ -551,7 +734,7 @@ export function createApp({
           continue;
         }
         const current = holdingsMicro.get(ticker) ?? 0;
-        holdingsMicro.set(ticker, current + micro);
+        setNormalizedHoldingMicro(holdingsMicro, ticker, current + micro);
         continue;
       }
       if (tx.type !== "SELL") {
@@ -570,8 +753,20 @@ export function createApp({
         continue;
       }
       const availableMicro = holdingsMicro.get(ticker) ?? 0;
-      if (requestedMicro <= availableMicro) {
-        holdingsMicro.set(ticker, availableMicro - requestedMicro);
+      const remainingMicro = normalizeMicroShareBalance(
+        availableMicro - requestedMicro,
+      );
+      if (remainingMicro >= 0) {
+        if (requestedMicro > availableMicro) {
+          log.info("oversell_dust_absorbed", {
+            id: portfolioId,
+            ticker,
+            date: tx.date,
+            requested_micro: requestedMicro,
+            available_micro: availableMicro,
+          });
+        }
+        setNormalizedHoldingMicro(holdingsMicro, ticker, remainingMicro);
         continue;
       }
       const requestedShares = roundDecimal(
@@ -641,7 +836,7 @@ export function createApp({
       };
       metadata.system = systemMeta;
       tx.metadata = metadata;
-      holdingsMicro.set(ticker, 0);
+      setNormalizedHoldingMicro(holdingsMicro, ticker, 0);
       log.warn("oversell_clipped", {
         id: portfolioId,
         ticker,
@@ -651,13 +846,18 @@ export function createApp({
       });
     }
   }
-  let storagePromise;
-  const getStorage = async () => {
-    if (!storagePromise) {
-      storagePromise = runMigrations({ dataDir, logger: log });
-    }
-    return storagePromise;
-  };
+  const performanceHistory = createPerformanceHistoryService({
+    getStorage,
+    priceLoader: historicalPriceLoader,
+    logger: log,
+    config,
+    r2DbPath: config?.roi?.r2DbPath,
+  });
+  async function ensureHistoricalPerformanceRange({ from, to, portfolioId = null }) {
+    const result = await performanceHistory.getLegacyRows({ from, to, portfolioId });
+    invalidateResponseCache("historical_performance_repair");
+    return result;
+  }
   const app = express();
   app.disable("x-powered-by");
   const compressionMiddleware = compression({
@@ -730,77 +930,13 @@ export function createApp({
         message: "Invalid symbol.",
       });
     }
-    const normalizedRange =
-      typeof range === "string" && range.trim()
-        ? range.trim().toLowerCase()
-        : "1y";
     const normalizedSymbol = symbol.trim().toUpperCase();
-    const cached = getCachedPrice(normalizedSymbol, normalizedRange);
-    if (cached && !latestOnly) {
-      return { prices: cached.data, etag: cached.etag, cacheHit: true };
-    }
-    const today = new Date();
-    const toDate = toDateKey(today);
-    let fromDate = "1900-01-01";
-    if (normalizedRange === "1y") {
-      const oneYearAgo = new Date(today);
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      fromDate = toDateKey(oneYearAgo);
-    }
-    if (latestOnly && latestQuoteProviderInstance?.getLatestQuote) {
-      try {
-        const latestQuote = await latestQuoteProviderInstance.getLatestQuote(normalizedSymbol);
-        const latestPrices = latestQuote ? [{ date: latestQuote.date, close: Number(latestQuote.adjClose) }] : [];
-        return {
-          prices: latestPrices,
-          etag: generateETag(latestPrices),
-          cacheHit: false,
-        };
-      } catch (error) {
-        log.warn("latest_quote_fetch_failed", {
-          symbol: normalizedSymbol,
-          provider: latestQuoteProviderInstance.constructor?.name ?? "latest_quote_provider",
-          error: error.message,
-        });
-      }
-    }
     try {
-      const fetched = await priceProviderInstance.getDailyAdjustedClose(
-        normalizedSymbol,
-        fromDate,
-        toDate,
-      );
-      const sorted = [...fetched]
-        .filter((item) => item.date && Number.isFinite(Number(item.adjClose)))
-        .map((item) => ({ date: item.date, close: Number(item.adjClose) }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-      const etag = setCachedPrice(normalizedSymbol, normalizedRange, sorted);
-      if (latestOnly) {
-        const last = sorted.length > 0 ? sorted[sorted.length - 1] : null;
-        return {
-          prices: last ? [last] : [],
-          etag,
-          cacheHit: false,
-        };
-      }
-      return { prices: sorted, etag, cacheHit: false };
+      return await historicalPriceLoader.fetchSeries(normalizedSymbol, {
+        range,
+        latestOnly,
+      });
     } catch (error) {
-      if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
-        const cachedPrices = latestOnly
-          ? [cached.data[cached.data.length - 1]].filter(Boolean)
-          : cached.data;
-        log.warn("price_fetch_serving_cached_fallback", {
-          symbol: normalizedSymbol,
-          range: normalizedRange,
-          latest_only: latestOnly,
-          error: error.message,
-        });
-        return {
-          prices: cachedPrices,
-          etag: cached.etag,
-          cacheHit: true,
-        };
-      }
       if (error.name === "AbortError") {
         const timeoutError = createHttpError({
           status: 504,
@@ -826,6 +962,7 @@ export function createApp({
     const prices = {};
     const asOf = {};
     const errors = {};
+    const metadata = {};
 
     const results = await Promise.all(
       symbols.map(async (symbol) => {
@@ -841,6 +978,13 @@ export function createApp({
     for (const entry of results) {
       if (entry.status === "rejected") {
         const { symbol, error } = entry;
+        metadata[symbol] = {
+          status: "unavailable",
+          source: "none",
+          provider: null,
+          warnings: [],
+          asOf: null,
+        };
         errors[symbol] = {
           code: error?.code ?? "PRICE_FETCH_FAILED",
           status: error?.status ?? error?.statusCode ?? 502,
@@ -850,10 +994,22 @@ export function createApp({
       }
 
       const { symbol, result } = entry;
+      metadata[symbol] = result?.resolution ?? {
+        status: "unavailable",
+        source: "none",
+        provider: null,
+        warnings: [],
+        asOf: null,
+      };
       const latest = Array.isArray(result.prices) ? result.prices[result.prices.length - 1] : null;
       const latestDate = latest?.date ?? null;
       const tradingDayAge = computeTradingDayAge(latestDate);
       if (!latestDate || tradingDayAge > maxStaleTradingDays) {
+        metadata[symbol] = {
+          ...(metadata[symbol] ?? {}),
+          status: "unavailable",
+          asOf: latestDate,
+        };
         errors[symbol] = {
           code: "STALE_DATA",
           status: 503,
@@ -869,6 +1025,11 @@ export function createApp({
             ? latest.adjClose
             : null;
       if (!Number.isFinite(rawClose)) {
+        metadata[symbol] = {
+          ...(metadata[symbol] ?? {}),
+          status: "unavailable",
+          asOf: latestDate,
+        };
         errors[symbol] = {
           code: "PRICE_FETCH_FAILED",
           status: 502,
@@ -881,7 +1042,13 @@ export function createApp({
       asOf[symbol] = latestDate;
     }
 
-    return { prices, asOf, errors };
+    return {
+      prices,
+      asOf,
+      errors,
+      metadata,
+      summary: normalizePricingStatusSummary(metadata, errors),
+    };
   }
 
   async function evaluateSignalPreview({ transactions = [], signals = {} } = {}) {
@@ -910,11 +1077,15 @@ export function createApp({
       }),
     );
 
-    const market = getMarketClock();
+    const market = marketClock();
     return {
       rows,
       prices: latestSignalPrices.prices,
       errors: latestSignalPrices.errors,
+      pricing: {
+        symbols: latestSignalPrices.metadata,
+        summary: latestSignalPrices.summary,
+      },
       market: {
         isOpen: market.isOpen,
         isBeforeOpen: market.isBeforeOpen,
@@ -938,6 +1109,20 @@ export function createApp({
       }
       next();
     });
+  };
+  const normalizeScopedPortfolioId = (value) =>
+    typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+  const filterRowsByPortfolioScope = (rows, portfolioId) => {
+    const normalizedPortfolioId = normalizeScopedPortfolioId(portfolioId);
+    if (!normalizedPortfolioId) {
+      const unscoped = rows.filter(
+        (row) =>
+          typeof row?.portfolio_id !== "string"
+          || row.portfolio_id.trim().length === 0,
+      );
+      return unscoped.length > 0 ? unscoped : rows;
+    }
+    return rows.filter((row) => row?.portfolio_id === normalizedPortfolioId);
   };
   app.get("/api/prices/:symbol", async (req, res, next) => {
     const { symbol } = req.params;
@@ -997,6 +1182,7 @@ export function createApp({
   app.get("/api/prices/bulk", async (req, res, next) => {
     const { symbols: rawSymbols, range, latest } = req.query;
     try {
+      const latestOnly = latest === "1" || latest === "true";
       const normalizedSymbols = Array.from(
         new Set(
           normalizeBulkPriceSymbols(rawSymbols)
@@ -1018,7 +1204,7 @@ export function createApp({
         normalizedSymbols.map(async (symbol) => {
           try {
             const result = await fetchHistoricalPrices(symbol, range ?? "1y", {
-              latestOnly: latest === "1" || latest === "true",
+              latestOnly,
             });
             return { symbol, status: "fulfilled", result };
           } catch (error) {
@@ -1030,15 +1216,29 @@ export function createApp({
       const errors = {};
       const cacheMeta = {};
       const etagMeta = {};
+      const symbolMeta = {};
       let allHits = true;
       for (const entry of results) {
         if (entry.status === "fulfilled") {
           const { symbol, result } = entry;
           const { prices, etag, cacheHit } = result;
+          symbolMeta[symbol] = result?.resolution ?? {
+            status: cacheHit ? "cache_fresh" : "eod_fresh",
+            source: cacheHit ? "cache" : "historical",
+            provider: null,
+            warnings: [],
+            asOf: prices.length > 0 ? prices[prices.length - 1]?.date ?? null : null,
+            cacheHit,
+          };
           const latestDate =
             prices.length > 0 ? prices[prices.length - 1].date : null;
           const tradingDayAge = computeTradingDayAge(latestDate);
           if (!latestDate || tradingDayAge > maxStaleTradingDays) {
+            symbolMeta[symbol] = {
+              ...(symbolMeta[symbol] ?? {}),
+              status: "unavailable",
+              asOf: latestDate,
+            };
             errors[symbol] = {
               code: "STALE_DATA",
               status: 503,
@@ -1062,6 +1262,13 @@ export function createApp({
           }
         } else {
           const { symbol, error } = entry;
+          symbolMeta[symbol] = {
+            status: "unavailable",
+            source: "none",
+            provider: null,
+            warnings: [],
+            asOf: null,
+          };
           errors[symbol] = {
             code: error?.code ?? "PRICE_FETCH_FAILED",
             status: error?.status ?? error?.statusCode ?? 502,
@@ -1073,18 +1280,35 @@ export function createApp({
         if (!series[symbol]) {
           series[symbol] = [];
         }
+        if (!symbolMeta[symbol]) {
+          symbolMeta[symbol] = {
+            status: "unavailable",
+            source: "none",
+            provider: null,
+            warnings: [],
+            asOf: null,
+          };
+        }
         if (!cacheMeta[symbol]) {
           cacheMeta[symbol] = "MISS";
           allHits = false;
         }
       }
+      const effectivePriceCacheControlHeader = latestOnly
+        ? `private, max-age=${marketClock().isOpen ? priceCacheLiveOpenTtlSeconds : priceCacheLiveClosedTtlSeconds}`
+        : priceCacheControlHeader;
       res
-        .set("Cache-Control", priceCacheControlHeader)
+        .set("Cache-Control", effectivePriceCacheControlHeader)
         .set("X-Cache", allHits ? "HIT" : "MISS")
         .json({
           series,
           errors,
-          metadata: { cache: cacheMeta, etags: etagMeta },
+          metadata: {
+            cache: cacheMeta,
+            etags: etagMeta,
+            symbols: symbolMeta,
+            summary: normalizePricingStatusSummary(symbolMeta, errors),
+          },
         });
     } catch (error) {
       if (error?.status) {
@@ -1133,10 +1357,6 @@ export function createApp({
         enforceOversellPolicy(normalizedTransactions, {
           portfolioId: "signals-preview",
           autoClip: Boolean(payload.settings?.autoClip),
-        });
-        enforceNonNegativeCash(normalizedTransactions, {
-          portfolioId: "signals-preview",
-          logger: log,
         });
       } catch (error) {
         next(error);
@@ -1235,7 +1455,7 @@ export function createApp({
       const normalizedPayload = {
         transactions: normalizedTransactions,
         signals: payload.signals ?? {},
-        settings: { autoClip },
+        settings: payload.settings,
         cash: { currency: cashCurrency, apyTimeline: cashTimeline },
       };
       try {
@@ -1272,18 +1492,94 @@ export function createApp({
     next();
   }
   app.get(
+    "/api/roi/daily",
+    ensureCashFeature,
+    validateRangeQuery,
+    async (req, res, next) => {
+      try {
+        const { from, to, portfolioId } = req.query;
+        const cacheKey = [
+          "roi",
+          portfolioId ?? "",
+          from ?? "",
+          to ?? "",
+        ].join(":");
+        const cached = responseCache.get(cacheKey);
+        if (cached) {
+          sendJsonWithEtag(req, res, cached, {
+            cacheControl: cacheControlHeader,
+          });
+          return;
+        }
+        const payload = await performanceHistory.getRoiPayload({
+          from,
+          to,
+          portfolioId,
+        });
+        responseCache.set(cacheKey, payload);
+        sendJsonWithEtag(req, res, payload, {
+          cacheControl: cacheControlHeader,
+        });
+      } catch (error) {
+        if (error?.statusCode) {
+          next(error);
+          return;
+        }
+        next(
+          createHttpError({
+            status: 503,
+            code: error?.code ?? "ROI_FETCH_FAILED",
+            message: error?.message ?? "Failed to fetch ROI history.",
+            details: error?.details,
+            expose: true,
+          }),
+        );
+      }
+    },
+  );
+  app.get(
     "/api/returns/daily",
     ensureCashFeature,
     validateReturnsQuery,
     async (req, res, next) => {
       try {
-        const { from, to, views, page, perPage } = req.query;
-        const storage = await getStorage();
-        const rows = filterRowsByRange(
-          await storage.readTable("returns_daily"),
+        const { from, to, views, page, perPage, portfolioId } = req.query;
+        let storage = await getStorage();
+        let rows = filterRowsByRange(
+          filterRowsByPortfolioScope(await storage.readTable("returns_daily"), portfolioId),
           from,
           to,
         );
+        const needsRepair =
+          rows.length === 0 ||
+          (typeof from === "string" && from.trim().length > 0 && (!rows[0]?.date || rows[0].date > from)) ||
+          (typeof to === "string" && to.trim().length > 0 && (!rows[rows.length - 1]?.date || rows[rows.length - 1].date < to));
+        if (needsRepair) {
+          try {
+            const repair = await ensureHistoricalPerformanceRange({ from, to, portfolioId });
+            storage = await getStorage();
+            rows = filterRowsByRange(
+              filterRowsByPortfolioScope(await storage.readTable("returns_daily"), portfolioId),
+              from,
+              to,
+            );
+            if (rows.length === 0 && repair?.repaired) {
+              throw new Error("repair_produced_no_rows");
+            }
+          } catch (repairError) {
+            log.error("historical_performance_repair_failed", {
+              error: repairError.message,
+              from,
+              to,
+            });
+            throw createHttpError({
+              status: 503,
+              code: "RETURNS_REPAIR_FAILED",
+              message: "Historical returns could not be rebuilt from local transactions and prices.",
+              expose: true,
+            });
+          }
+        }
         const { items, meta } = paginateRows(rows, { page, perPage });
         const mapping = {
           port: "r_port",
@@ -1315,6 +1611,7 @@ export function createApp({
         const payload = { series, meta };
         const cacheKey = [
           "returns",
+          portfolioId ?? "",
           from ?? "",
           to ?? "",
           views.slice().sort().join(","),
@@ -1333,9 +1630,13 @@ export function createApp({
           cacheControl: cacheControlHeader,
         });
       } catch (error) {
+        if (error?.statusCode) {
+          next(error);
+          return;
+        }
         next(
           createHttpError({
-            status: error.statusCode ?? 500,
+            status: 500,
             code: "RETURNS_FETCH_FAILED",
             message: "Failed to fetch returns.",
             expose: false,
@@ -1350,13 +1651,22 @@ export function createApp({
     validateRangeQuery,
     async (req, res, next) => {
       try {
-        const { from, to, page, perPage } = req.query;
-        const storage = await getStorage();
-        const rows = filterRowsByRange(
-          await storage.readTable("nav_snapshots"),
+        const { from, to, page, perPage, portfolioId } = req.query;
+        let storage = await getStorage();
+        let rows = filterRowsByRange(
+          filterRowsByPortfolioScope(await storage.readTable("nav_snapshots"), portfolioId),
           from,
           to,
         );
+        if (rows.length === 0) {
+          await performanceHistory.getLegacyRows({ from, to, portfolioId });
+          storage = await getStorage();
+          rows = filterRowsByRange(
+            filterRowsByPortfolioScope(await storage.readTable("nav_snapshots"), portfolioId),
+            from,
+            to,
+          );
+        }
         const { items, meta } = paginateRows(rows, { page, perPage });
         const data = items.map((row) => {
           const weights = weightsFromState({
@@ -1375,7 +1685,7 @@ export function createApp({
           };
         });
         const payload = { data, meta };
-        const cacheKey = ["nav", from ?? "", to ?? "", page, perPage].join(":");
+        const cacheKey = ["nav", portfolioId ?? "", from ?? "", to ?? "", page, perPage].join(":");
         const cached = responseCache.get(cacheKey);
         if (cached) {
           sendJsonWithEtag(req, res, cached, {
@@ -1405,15 +1715,35 @@ export function createApp({
     validateRangeQuery,
     async (req, res, next) => {
       try {
-        const { from, to } = req.query;
-        const storage = await getStorage();
-        const cacheKey = ["benchmarks", from ?? "", to ?? ""].join(":");
-        const [returnsTable, navRows, transactions] = await Promise.all([
+        const { from, to, portfolioId } = req.query;
+        let storage = await getStorage();
+        const cacheKey = ["benchmarks", portfolioId ?? "", from ?? "", to ?? ""].join(":");
+        let [returnsTable, navRows, transactions, priceRows] = await Promise.all([
           storage.readTable("returns_daily"),
           storage.readTable("nav_snapshots"),
           storage.readTable("transactions"),
+          storage.readTable("prices"),
         ]);
-        const filteredRows = filterRowsByRange(returnsTable, from, to);
+        let filteredRows = filterRowsByRange(
+          filterRowsByPortfolioScope(returnsTable, portfolioId),
+          from,
+          to,
+        );
+        if (filteredRows.length === 0) {
+          await performanceHistory.getLegacyRows({ from, to, portfolioId });
+          storage = await getStorage();
+          [returnsTable, navRows, transactions, priceRows] = await Promise.all([
+            storage.readTable("returns_daily"),
+            storage.readTable("nav_snapshots"),
+            storage.readTable("transactions"),
+            storage.readTable("prices"),
+          ]);
+          filteredRows = filterRowsByRange(
+            filterRowsByPortfolioScope(returnsTable, portfolioId),
+            from,
+            to,
+          );
+        }
         const rows = filteredRows
           .slice()
           .sort((a, b) => a.date.localeCompare(b.date));
@@ -1445,18 +1775,50 @@ export function createApp({
         const summary = summarizeReturns(rows);
         let moneyWeighted = 0;
         let moneyWeightedPeriod = { start_date: null, end_date: null };
+        let moneyWeightedBenchmarks = { spy: null, qqq: null };
+        let moneyWeightedPartial = false;
         if (rows.length > 0) {
           const startKey = rows[0].date;
           const endKey = rows[rows.length - 1].date;
+          const scopedTransactions = filterRowsByPortfolioScope(transactions, portfolioId);
+          const scopedNavRows = filterRowsByPortfolioScope(navRows, portfolioId);
           const xirr = computeMoneyWeightedReturn({
-            transactions,
-            navRows,
+            transactions: scopedTransactions,
+            navRows: scopedNavRows,
             startDate: startKey,
             endDate: endKey,
           });
           moneyWeighted = roundDecimal(xirr, 8).toNumber();
           moneyWeightedPeriod = { start_date: startKey, end_date: endKey };
+          const elapsedDays = Math.round(
+            (
+              new Date(`${endKey}T00:00:00Z`).getTime()
+              - new Date(`${startKey}T00:00:00Z`).getTime()
+            ) / 86_400_000,
+          );
+          moneyWeightedPartial = elapsedDays < 365;
+          moneyWeightedBenchmarks = MATCHED_MWR_BENCHMARKS.reduce((acc, benchmark) => {
+            const benchmarkPriceMap = buildAdjustedPriceMap(priceRows, benchmark.ticker, {
+              from: startKey,
+              to: endKey,
+            });
+            const benchmarkMwr = computeMatchedBenchmarkMoneyWeightedReturn({
+              benchmarkPrices: benchmarkPriceMap,
+              transactions: scopedTransactions,
+              navRows: scopedNavRows,
+              startDate: startKey,
+              endDate: endKey,
+            });
+            acc[benchmark.key] = benchmarkMwr
+              ? roundDecimal(benchmarkMwr, 8).toNumber()
+              : null;
+            return acc;
+          }, { spy: null, qqq: null });
         }
+        const drawdownResult = computeMaxDrawdown(rows);
+        const maxDrawdown = drawdownResult
+          ? { value: drawdownResult.maxDrawdown, peak_date: drawdownResult.peakDate, trough_date: drawdownResult.troughDate }
+          : null;
         const dragVsSelf = Number(
           (summary.r_ex_cash - summary.r_port).toFixed(6),
         );
@@ -1465,11 +1827,15 @@ export function createApp({
         );
         const payload = {
           summary,
+          max_drawdown: maxDrawdown,
           drag: { vs_self: dragVsSelf, allocation: allocationDrag },
           money_weighted: {
             portfolio: moneyWeighted,
+            benchmarks: moneyWeightedBenchmarks,
             ...moneyWeightedPeriod,
             method: "xirr",
+            basis: "matched_external_flows",
+            partial: moneyWeightedPartial,
           },
         };
         responseCache.set(cacheKey, payload);

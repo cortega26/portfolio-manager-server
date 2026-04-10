@@ -64,6 +64,8 @@ beforeEach(async () => {
   await storage.ensureTable('cash_rates', []);
   await storage.ensureTable('returns_daily', []);
   await storage.ensureTable('nav_snapshots', []);
+  await storage.ensureTable('prices', []);
+  await storage.ensureTable('roi_daily', []);
   buildApp = (overrides = {}) =>
     createApp({
       dataDir,
@@ -138,11 +140,67 @@ for (const basePath of API_PREFIXES) {
     const response = await request(app).get(`${basePath}/prices/bulk?symbols=AAPL,MSFT&range=1y`);
 
     assert.equal(response.status, 200);
+    const validator = getValidator(`${basePath}/prices/bulk`);
+    expectValidResponse(validator, response.body);
     assert.ok(response.body?.series?.AAPL);
     assert.ok(response.body?.series?.MSFT);
     assert.equal(Array.isArray(response.body.series.AAPL), true);
     assert.equal(Array.isArray(response.body.series.MSFT), true);
     assert.equal((response.headers["x-cache"] ?? "MISS").toUpperCase(), "MISS");
+  });
+}
+
+for (const basePath of API_PREFIXES) {
+  test(`GET ${basePath}/roi/daily matches the OpenAPI contract`, async () => {
+    await storage.writeTable('roi_daily', [
+      {
+        date: '2024-01-01',
+        portfolio_nav: 1000,
+        net_contributions: 1000,
+        roi_portfolio_pct: 0,
+        roi_sp500_pct: 0,
+        roi_ndx_pct: 0,
+        source: 'reconstructed',
+        updated_at: '2024-01-02T00:00:00.000Z',
+      },
+      {
+        date: '2024-01-02',
+        portfolio_nav: 1010,
+        net_contributions: 1000,
+        roi_portfolio_pct: 1,
+        roi_sp500_pct: 0.5,
+        roi_ndx_pct: 0.75,
+        source: 'reconstructed',
+        updated_at: '2024-01-02T00:00:00.000Z',
+      },
+    ]);
+    await storage.writeTable('returns_daily', [
+      {
+        date: '2024-01-01',
+        r_port: 0,
+        r_ex_cash: 0,
+        r_spy_100: 0,
+        r_bench_blended: 0,
+        r_cash: 0,
+      },
+      {
+        date: '2024-01-02',
+        r_port: 0.01,
+        r_ex_cash: 0.011,
+        r_spy_100: 0.005,
+        r_bench_blended: 0.0075,
+        r_cash: 0.0001,
+      },
+    ]);
+
+    const app = buildApp();
+    const response = await request(app).get(
+      `${basePath}/roi/daily?from=2024-01-01&to=2024-01-02`,
+    );
+
+    assert.equal(response.status, 200);
+    const validator = getValidator(`${basePath}/roi/daily`);
+    expectValidResponse(validator, response.body);
   });
 }
 
@@ -208,6 +266,7 @@ for (const basePath of API_PREFIXES) {
         r_port: 0.01,
         r_ex_cash: 0.009,
         r_spy_100: 0.012,
+        r_qqq_100: 0.013,
         r_bench_blended: 0.011,
         r_cash: 0.0001,
       },
@@ -216,6 +275,7 @@ for (const basePath of API_PREFIXES) {
         r_port: 0.015,
         r_ex_cash: 0.014,
         r_spy_100: 0.017,
+        r_qqq_100: 0.018,
         r_bench_blended: 0.016,
         r_cash: 0.0002,
       },
@@ -240,6 +300,12 @@ for (const basePath of API_PREFIXES) {
     ]);
     await storage.writeTable('transactions', [
       { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+    ]);
+    await storage.writeTable('prices', [
+      { ticker: 'SPY', date: '2024-01-01', adj_close: 100 },
+      { ticker: 'SPY', date: '2024-01-02', adj_close: 101 },
+      { ticker: 'QQQ', date: '2024-01-01', adj_close: 200 },
+      { ticker: 'QQQ', date: '2024-01-02', adj_close: 204 },
     ]);
 
     const app = buildApp();

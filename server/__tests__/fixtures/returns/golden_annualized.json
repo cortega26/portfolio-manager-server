@@ -1,0 +1,85 @@
+{
+  "_comment": [
+    "Golden fixture for PM-AUD-018: annualized return verification.",
+    "",
+    "Portfolio scenario: 2-year period (730 days) with known cumulative return.",
+    "",
+    "Manual calculation:",
+    "  Cumulative return: 0.50 (50%)",
+    "  Period: 730 days",
+    "  Annualized = (1 + 0.50)^(365/730) - 1",
+    "           = 1.50^0.5 - 1",
+    "           = 1.2247448... - 1",
+    "           = 0.2247448... (~22.47%)",
+    "",
+    "Max drawdown scenario:",
+    "  NAV series: 1000 -> 1100 -> 770 -> 900 -> 1150 -> 1500",
+    "  Daily returns: 0%, +10%, -30%, +16.88%, +27.78%, +30.43%",
+    "  Peak: day 2 (cumulative = 1.10), Trough: day 3 (cumulative = 0.77)",
+    "  Max drawdown = (0.77 - 1.10) / 1.10 = -0.30 (-30%)",
+    "",
+    "weightsFromState negative NAV scenario:",
+    "  NAV = -100, cash = 50, riskValue = -150",
+    "  Expected: { cash: 0, risk: 0 } (guard against inverted weights)"
+  ],
+  "annualized": {
+    "cumulative_return": 0.50,
+    "days": 730,
+    "expected_annualized": 0.2247
+  },
+  "annualized_edge_cases": [
+    {
+      "label": "negative cumulative over 1 year (identity)",
+      "cumulative": -0.20,
+      "days": 365,
+      "expected": -0.20
+    },
+    {
+      "label": "short period returns null",
+      "cumulative": 0.10,
+      "days": 180,
+      "expected": null
+    },
+    {
+      "label": "zero cumulative returns zero",
+      "cumulative": 0,
+      "days": 730,
+      "expected": 0
+    },
+    {
+      "label": "total loss",
+      "cumulative": -1.0,
+      "days": 730,
+      "expected": -1.0
+    },
+    {
+      "label": "large gain over 3 years",
+      "cumulative": 2.0,
+      "days": 1095,
+      "expected_approx": 0.4422,
+      "_calc": "(1+2.0)^(365/1095)-1 = 3^(1/3)-1 = 0.44225..."
+    }
+  ],
+  "drawdown_series": [
+    { "date": "2024-01-01", "r_port": 0 },
+    { "date": "2024-01-02", "r_port": 0.10 },
+    { "date": "2024-01-03", "r_port": -0.30 },
+    { "date": "2024-01-04", "r_port": 0.1688 },
+    { "date": "2024-01-05", "r_port": 0.2778 },
+    { "date": "2024-01-06", "r_port": 0.3043 }
+  ],
+  "drawdown_expected": {
+    "maxDrawdown": -0.30,
+    "peakDate": "2024-01-02",
+    "troughDate": "2024-01-03"
+  },
+  "negative_nav_state": {
+    "nav": -100,
+    "cash": 50,
+    "riskValue": -150
+  },
+  "negative_nav_expected": {
+    "cash": 0,
+    "risk": 0
+  }
+}

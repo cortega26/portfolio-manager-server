@@ -192,21 +192,21 @@ test("virtualizes large transaction lists, supports scrolling, and cooperates wi
     );
 
     assert.ok(
-      screen.getByText(/Showing 1,200 of 1,200 transactions/i),
-      "summary reports full virtualized count",
+      screen.getByText(/Showing 1-50 of 1,200 transactions/i),
+      "summary reports the current paginated range",
     );
 
     const virtualList = screen.getByTestId("transactions-virtual-list");
     const visibleRows = within(virtualList).getAllByRole("row");
-    assert.ok(visibleRows.length < transactions.length, "rows are virtualized");
+    assert.ok(visibleRows.length < 50, "rows are virtualized within the current page");
 
     act(() => {
-      virtualList.scrollTop = 4000;
+      virtualList.scrollTop = 1200;
       fireEvent.scroll(virtualList);
     });
 
     assert.ok(
-      screen.getByText(/SYM400/i),
+      screen.getByText(/SYM20/i),
       "row near scroll offset becomes visible",
     );
 

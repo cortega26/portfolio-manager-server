@@ -47,6 +47,19 @@ function createNoDataError(symbol) {
   return error;
 }
 
+function attachProviderMeta(target, meta) {
+  if (!target || typeof target !== 'object' || !meta || typeof meta !== 'object') {
+    return target;
+  }
+  Object.defineProperty(target, 'providerMeta', {
+    value: { ...meta },
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+  return target;
+}
+
 function normalizeStooqSymbol(symbol) {
   const normalized = typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
   if (!normalized) {
@@ -71,6 +84,7 @@ export class YahooPriceProvider {
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.logger = normalizeLogger(logger, { provider: 'yahoo' });
+    this.providerKey = 'yahoo';
   }
 
   async getDailyAdjustedClose(symbol, from, to) {
@@ -115,7 +129,10 @@ export class YahooPriceProvider {
         duration_ms: durationMs,
         rows: result.length,
       });
-      return result;
+      return attachProviderMeta(result, {
+        provider: this.providerKey,
+        degraded: false,
+      });
     } catch (error) {
       this.logger?.error?.('price_provider_failed', {
         symbol,
@@ -135,6 +152,7 @@ export class StooqPriceProvider {
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.logger = normalizeLogger(logger, { provider: 'stooq' });
+    this.providerKey = 'stooq';
   }
 
   async getDailyAdjustedClose(symbol, from, to) {
@@ -186,7 +204,10 @@ export class StooqPriceProvider {
         duration_ms: durationMs,
         rows: result.length,
       });
-      return result;
+      return attachProviderMeta(result, {
+        provider: this.providerKey,
+        degraded: false,
+      });
     } catch (error) {
       this.logger?.error?.('price_provider_failed', {
         symbol,
@@ -203,10 +224,11 @@ export class StooqPriceProvider {
 }
 
 export class DualPriceProvider {
-  constructor({ primary, fallback, logger } = {}) {
+  constructor({ primary, fallback, logger, healthMonitor = null } = {}) {
     this.primary = primary;
     this.fallback = fallback;
     this.logger = normalizeLogger(logger, { provider: 'dual' });
+    this.healthMonitor = healthMonitor;
   }
 
   async getDailyAdjustedClose(symbol, from, to) {
@@ -224,7 +246,20 @@ export class DualPriceProvider {
 
     let lastError;
     for (const attempt of attempts) {
+      const providerKey =
+        typeof attempt.provider?.providerKey === 'string'
+          ? attempt.provider.providerKey
+          : String(attempt.provider?.constructor?.name ?? attempt.role).toLowerCase();
       const providerName = attempt.provider?.constructor?.name ?? attempt.role;
+      if (this.healthMonitor && !this.healthMonitor.isHealthy(providerKey)) {
+        this.healthMonitor.logSkip(providerKey, {
+          symbol,
+          from,
+          to,
+          role: attempt.role,
+        });
+        continue;
+      }
       const startedAt = Date.now();
       this.logger?.info?.('price_provider_attempt', {
         symbol,
@@ -235,6 +270,7 @@ export class DualPriceProvider {
       });
       try {
         const result = await attempt.provider.getDailyAdjustedClose(symbol, from, to);
+        this.healthMonitor?.recordSuccess(providerKey);
         const durationMs = Date.now() - startedAt;
         this.logger?.info?.('price_provider_success', {
           symbol,
@@ -245,9 +281,14 @@ export class DualPriceProvider {
           duration_ms: durationMs,
           rows: result.length,
         });
-        return result;
+        return attachProviderMeta(result, {
+          provider: providerKey,
+          degraded: attempt.role !== 'primary',
+          role: attempt.role,
+        });
       } catch (error) {
         lastError = error;
+        this.healthMonitor?.recordFailure(providerKey, error);
         const durationMs = Date.now() - startedAt;
         this.logger?.warn?.('price_provider_failure', {
           symbol,
@@ -321,6 +362,7 @@ export class TwelveDataQuoteProvider {
     this.logger = normalizeLogger(logger, { provider: 'twelvedata' });
     this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     this.prepost = prepost !== false;
+    this.providerKey = 'twelvedata';
   }
 
   async getLatestQuote(symbol) {
@@ -369,15 +411,121 @@ export class TwelveDataQuoteProvider {
         date,
         prepost: this.prepost,
       });
-      return {
+      return attachProviderMeta({
         date,
         adjClose: price,
-      };
+      }, {
+        provider: this.providerKey,
+        degraded: false,
+      });
     } catch (error) {
       this.logger?.error?.('latest_quote_provider_failed', {
         symbol,
         error: error.message,
         prepost: this.prepost,
+      });
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+function resolveQuotePriceFromCandidates(candidates) {
+  for (const candidate of candidates) {
+    const parsed = Number.parseFloat(candidate);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function resolveAlpacaSnapshotPrice(payload) {
+  return resolveQuotePriceFromCandidates([
+    payload?.latestTrade?.p,
+    payload?.minuteBar?.c,
+    payload?.dailyBar?.c,
+    payload?.prevDailyBar?.c,
+  ]);
+}
+
+function resolveAlpacaSnapshotDate(payload) {
+  return normalizeQuoteDate(
+    payload?.latestTrade?.t
+    ?? payload?.minuteBar?.t
+    ?? payload?.dailyBar?.t
+    ?? payload?.prevDailyBar?.t,
+  );
+}
+
+export class AlpacaLatestQuoteProvider {
+  constructor({
+    fetchImpl = fetch,
+    timeoutMs = 5000,
+    logger,
+    apiKey = '',
+    apiSecret = '',
+  } = {}) {
+    this.fetch = fetchImpl;
+    this.timeoutMs = timeoutMs;
+    this.logger = normalizeLogger(logger, { provider: 'alpaca' });
+    this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+    this.apiSecret = typeof apiSecret === 'string' ? apiSecret.trim() : '';
+    this.providerKey = 'alpaca';
+  }
+
+  async getLatestQuote(symbol) {
+    if (!this.apiKey || !this.apiSecret) {
+      const error = new Error('Alpaca API credentials are required');
+      error.code = 'PRICE_PROVIDER_MISCONFIGURED';
+      throw error;
+    }
+
+    const encodedSymbol = encodeURIComponent(symbol);
+    const url = `https://data.alpaca.markets/v2/stocks/${encodedSymbol}/snapshot`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const startedAt = Date.now();
+    try {
+      const response = await this.fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret,
+        },
+      });
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw createNoDataError(symbol);
+        }
+        const error = new Error(`Failed to fetch latest quote for ${symbol}`);
+        error.status = response.status;
+        throw error;
+      }
+      const payload = await response.json();
+      const price = resolveAlpacaSnapshotPrice(payload);
+      if (!Number.isFinite(price)) {
+        throw createNoDataError(symbol);
+      }
+      const date = resolveAlpacaSnapshotDate(payload);
+      const durationMs = Date.now() - startedAt;
+      this.logger?.info?.('latest_quote_provider_latency', {
+        symbol,
+        duration_ms: durationMs,
+        date,
+      });
+      return attachProviderMeta({
+        date,
+        adjClose: price,
+      }, {
+        provider: this.providerKey,
+        degraded: false,
+      });
+    } catch (error) {
+      this.logger?.error?.('latest_quote_provider_failed', {
+        symbol,
+        error: error.message,
       });
       throw error;
     } finally {

@@ -4,6 +4,8 @@ import { useI18n } from "../i18n/I18nProvider.jsx";
 const defaultTabs = [
   { id: "Dashboard", labelKey: "nav.dashboard" },
   { id: "Holdings", labelKey: "nav.holdings" },
+  { id: "Prices", labelKey: "nav.prices" },
+  { id: "Signals", labelKey: "nav.signals" },
   { id: "Transactions", labelKey: "nav.transactions" },
   { id: "History", labelKey: "nav.history" },
   { id: "Metrics", labelKey: "nav.metrics" },

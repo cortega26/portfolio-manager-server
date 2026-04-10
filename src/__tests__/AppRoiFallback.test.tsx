@@ -7,21 +7,19 @@ import App from '../App.jsx';
 
 const {
   evaluateSignalsMock,
-  fetchDailyReturnsMock,
+  fetchDailyRoiMock,
   fetchBenchmarkCatalogMock,
   fetchBulkPricesMock,
   fetchPricesMock,
-  buildRoiSeriesMock,
-  mergeReturnSeriesMock,
+  mergeDailyRoiSeriesMock,
   createInitialLedgerStateMock,
 } = vi.hoisted(() => ({
   evaluateSignalsMock: vi.fn(),
-  fetchDailyReturnsMock: vi.fn(),
+  fetchDailyRoiMock: vi.fn(),
   fetchBenchmarkCatalogMock: vi.fn(),
   fetchBulkPricesMock: vi.fn(),
   fetchPricesMock: vi.fn(),
-  buildRoiSeriesMock: vi.fn(),
-  mergeReturnSeriesMock: vi.fn(),
+  mergeDailyRoiSeriesMock: vi.fn(),
   createInitialLedgerStateMock: vi.fn(),
 }));
 
@@ -48,13 +46,11 @@ vi.mock('../components/ReportsTab.jsx', () => ({
 vi.mock('../components/SettingsTab.jsx', () => ({
   default: () => <div data-testid="stub-settings" />,
 }));
-vi.mock('../components/AdminTab.jsx', () => ({
-  default: () => <div data-testid="stub-admin" />,
-}));
+
 
 vi.mock('../utils/api.js', () => ({
   evaluateSignals: evaluateSignalsMock,
-  fetchDailyReturns: fetchDailyReturnsMock,
+  fetchDailyRoi: fetchDailyRoiMock,
   fetchBenchmarkCatalog: fetchBenchmarkCatalogMock,
   fetchBulkPrices: fetchBulkPricesMock,
   fetchPrices: fetchPricesMock,
@@ -66,8 +62,7 @@ vi.mock('../utils/roi.js', async (original) => {
   const mod = await original();
   return {
     ...mod,
-    buildRoiSeries: buildRoiSeriesMock,
-    mergeReturnSeries: mergeReturnSeriesMock,
+    mergeDailyRoiSeries: mergeDailyRoiSeriesMock,
   };
 });
 
@@ -79,7 +74,7 @@ vi.mock('../utils/holdingsLedger.js', async (original) => {
   };
 });
 
-describe('ROI fallback alerts', () => {
+describe('ROI availability alerts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     evaluateSignalsMock.mockResolvedValue({
@@ -99,10 +94,20 @@ describe('ROI fallback alerts', () => {
     fetchBenchmarkCatalogMock.mockResolvedValue({ data: {} });
     fetchPricesMock.mockResolvedValue({ data: [] });
     fetchBulkPricesMock.mockResolvedValue({ series: new Map(), errors: {} });
-    buildRoiSeriesMock.mockResolvedValue([
-      { date: '2024-01-02', value: 0 },
-    ]);
-    mergeReturnSeriesMock.mockReturnValue([]);
+    fetchDailyRoiMock.mockResolvedValue({
+      data: {
+        series: {
+          portfolio: [{ date: '2024-01-03', value: 5 }],
+          portfolioTwr: [{ date: '2024-01-03', value: 3 }],
+          spy: [],
+          bench: [],
+          exCash: [],
+          cash: [],
+        },
+      },
+      requestId: 'roi-ok-001',
+    });
+    mergeDailyRoiSeriesMock.mockReturnValue([{ date: '2024-01-03', portfolio: 5, portfolioTwr: 3 }]);
     createInitialLedgerStateMock.mockReturnValue({
       transactions: [
         { date: '2024-01-02', type: 'DEPOSIT', amount: 1000 },
@@ -120,21 +125,50 @@ describe('ROI fallback alerts', () => {
     });
   });
 
-  test('surfaces cash benchmark disablement as an informational alert', async () => {
-    const disabledError = new Error('cash benchmarks disabled');
-    disabledError.name = 'ApiError';
-    disabledError.body = { error: 'CASH_BENCHMARKS_DISABLED' };
-    disabledError.requestId = 'req-123';
-    fetchDailyReturnsMock.mockRejectedValueOnce(disabledError);
+  test('loads canonical ROI data without showing an alert when the API succeeds', async () => {
 
     renderWithProviders(<App />);
 
-    const alert = await screen.findByText(/cash benchmark service is disabled/i);
-    expect(alert).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchDailyRoiMock).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      screen.queryByText(/latest valid roi snapshot/i),
+    ).not.toBeInTheDocument();
+  });
+
+  test('shows ROI unavailable when the first ROI request fails', async () => {
+    fetchDailyRoiMock.mockRejectedValue(Object.assign(new Error('ROI service unavailable'), {
+      name: 'ApiError',
+      requestId: 'roi-fail-002',
+    }));
+
+    createInitialLedgerStateMock.mockReturnValue({
+      transactions: [
+        { date: '2024-01-02', type: 'DEPOSIT', amount: 1000 },
+        {
+          date: '2024-01-03',
+          type: 'BUY',
+          ticker: 'MSFT',
+          amount: -950,
+          shares: 5,
+        },
+      ],
+      holdingsMap: new Map(),
+      holdings: [],
+      history: [],
+    });
+
+    renderWithProviders(<App />);
+
+    expect(
+      await screen.findByText(
+        /roi service and fallback computation failed\. try again after reloading the page\./i,
+      ),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(fetchDailyReturnsMock).toHaveBeenCalledTimes(1);
+      expect(fetchDailyRoiMock.mock.calls.length).toBeGreaterThan(0);
     });
-    expect(buildRoiSeriesMock).toHaveBeenCalled();
   });
 });

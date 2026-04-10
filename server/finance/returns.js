@@ -108,6 +108,55 @@ function normalizeCashPolicy(input) {
 }
 
 
+export function annualizeReturn(cumulative, days) {
+  const dDays = d(days);
+  if (!dDays.isFinite() || dDays.lt(365)) {
+    return null;
+  }
+  if (d(cumulative).isZero()) {
+    return 0;
+  }
+  return roundDecimal(
+    d(1).plus(cumulative).pow(d(365).div(dDays)).minus(1),
+    8,
+  ).toNumber();
+}
+
+export function computeMaxDrawdown(dailyReturnRows) {
+  if (!Array.isArray(dailyReturnRows) || dailyReturnRows.length < 2) {
+    return null;
+  }
+  let cumulative = d(1);
+  let peak = cumulative;
+  let peakDate = dailyReturnRows[0].date;
+  let maxDrawdown = ZERO;
+  let troughDate = dailyReturnRows[0].date;
+  let currentPeakDate = peakDate;
+
+  for (let i = 0; i < dailyReturnRows.length; i += 1) {
+    const row = dailyReturnRows[i];
+    if (i > 0) {
+      cumulative = cumulative.times(d(1).plus(row.r_port));
+    }
+    if (cumulative.gte(peak)) {
+      peak = cumulative;
+      currentPeakDate = row.date;
+    }
+    const drawdown = peak.isZero() ? ZERO : cumulative.minus(peak).dividedBy(peak);
+    if (drawdown.lt(maxDrawdown)) {
+      maxDrawdown = drawdown;
+      peakDate = currentPeakDate;
+      troughDate = row.date;
+    }
+  }
+
+  return {
+    maxDrawdown: roundDecimal(maxDrawdown, 6).toNumber(),
+    peakDate,
+    troughDate,
+  };
+}
+
 export function computeReturnStep(prevNav, nav, flow) {
   const prev = d(prevNav);
   if (prev.lte(0)) {
@@ -116,8 +165,8 @@ export function computeReturnStep(prevNav, nav, flow) {
   return d(nav).minus(flow).dividedBy(prev).minus(1);
 }
 
-export function buildSpyReturnSeries({ spyPrices }) {
-  const entries = Array.from(spyPrices.entries()).sort((a, b) =>
+function buildIndexReturnSeries({ pricesByDate }) {
+  const entries = Array.from(pricesByDate.entries()).sort((a, b) =>
     a[0].localeCompare(b[0]),
   );
   const result = new Map();
@@ -136,6 +185,10 @@ export function buildSpyReturnSeries({ spyPrices }) {
     result.set(entries[0][0], ZERO);
   }
   return result;
+}
+
+export function buildSpyReturnSeries({ spyPrices }) {
+  return buildIndexReturnSeries({ pricesByDate: spyPrices });
 }
 
 export function buildCashReturnSeries({ policy, from, to }) {
@@ -184,7 +237,7 @@ function alignFlowsToDates({ flowsByDate, dates }) {
   return aligned;
 }
 
-function prepareReturnSeries({ states, policy, spyPrices, transactions }) {
+function prepareReturnSeries({ states, policy, spyPrices, qqqPrices, transactions }) {
   const dates = states.map((state) => state.date);
   const rawFlows = externalFlowsByDate(transactions);
   const flowsByDate = alignFlowsToDates({ flowsByDate: rawFlows, dates });
@@ -194,13 +247,26 @@ function prepareReturnSeries({ states, policy, spyPrices, transactions }) {
     to: dates[dates.length - 1],
   });
   const spyReturnSeries = buildSpyReturnSeries({ spyPrices });
+  const qqqReturnSeries = buildIndexReturnSeries({ pricesByDate: qqqPrices });
   const { returns: allSpyReturns } = computeAllSpySeries({
     dates,
     flowsByDate,
     spyPrices,
   });
+  const { returns: allQqqReturns } = computeAllIndexSeries({
+    dates,
+    flowsByDate,
+    pricesByDate: qqqPrices,
+  });
 
-  return { flowsByDate, cashReturns, spyReturnSeries, allSpyReturns };
+  return {
+    flowsByDate,
+    cashReturns,
+    spyReturnSeries,
+    qqqReturnSeries,
+    allSpyReturns,
+    allQqqReturns,
+  };
 }
 
 function buildReturnRow({
@@ -209,12 +275,16 @@ function buildReturnRow({
   flow,
   cashReturns,
   spyReturnSeries,
+  qqqReturnSeries,
   allSpyReturns,
+  allQqqReturns,
 }) {
   const { rPort, rExCash } = computeRollingReturns({ prevState, state, flow });
   const rCash = cashReturns.get(state.date) ?? ZERO;
   const rSpy = spyReturnSeries.get(state.date) ?? ZERO;
   const rSpy100 = allSpyReturns.get(state.date) ?? rSpy;
+  const rQqq = qqqReturnSeries.get(state.date) ?? ZERO;
+  const rQqq100 = allQqqReturns.get(state.date) ?? rQqq;
   const weightSource = resolveWeightSource(prevState, flow);
   const rBench = computeBenchmarkReturn({ weightSource, rCash, rSpy });
 
@@ -224,12 +294,17 @@ function buildReturnRow({
     r_ex_cash: roundDecimal(rExCash, 8).toNumber(),
     r_bench_blended: roundDecimal(rBench, 8).toNumber(),
     r_spy_100: roundDecimal(rSpy100, 8).toNumber(),
+    r_qqq_100: roundDecimal(rQqq100, 8).toNumber(),
     r_cash: roundDecimal(rCash, 8).toNumber(),
   };
 }
 
 export function computeAllSpySeries({ dates, flowsByDate, spyPrices }) {
-  const prices = Array.from(spyPrices.entries()).sort((a, b) =>
+  return computeAllIndexSeries({ dates, flowsByDate, pricesByDate: spyPrices });
+}
+
+function computeAllIndexSeries({ dates, flowsByDate, pricesByDate }) {
+  const prices = Array.from(pricesByDate.entries()).sort((a, b) =>
     a[0].localeCompare(b[0]),
   );
   const priceMap = new Map(prices);
@@ -277,21 +352,12 @@ export function computeAllSpySeries({ dates, flowsByDate, spyPrices }) {
 }
 
 function computeInceptionReturns({ flow, state }) {
-  if (!flow.gt(0) || state.nav <= 0) {
-    return { rPort: ZERO, rExCash: ZERO };
-  }
-
-  const inceptionCapital = flow;
-  const rPort = d(state.nav).minus(flow).dividedBy(inceptionCapital);
-
-  if (!(state.riskValue > 0)) {
-    return { rPort, rExCash: ZERO };
-  }
-
-  const rExCash = d(state.riskValue)
-    .minus(inceptionCapital.minus(flow))
-    .dividedBy(inceptionCapital);
-  return { rPort, rExCash };
+  void flow;
+  void state;
+  // The first plotted valuation is the baseline for cumulative return charts.
+  // Any same-day trade-to-close slippage remains visible in absolute ROI/NAV,
+  // but the comparable TWR series must start at 0% just like benchmarks do.
+  return { rPort: ZERO, rExCash: ZERO };
 }
 
 function computeRollingReturns({ prevState, state, flow }) {
@@ -328,6 +394,7 @@ export function computeDailyReturnRows({
   states,
   rates,
   spyPrices,
+  qqqPrices = new Map(),
   transactions,
   cashPolicy,
 }) {
@@ -340,6 +407,7 @@ export function computeDailyReturnRows({
     states,
     policy,
     spyPrices,
+    qqqPrices,
     transactions,
   });
 
@@ -352,7 +420,9 @@ export function computeDailyReturnRows({
       flow,
       cashReturns: context.cashReturns,
       spyReturnSeries: context.spyReturnSeries,
+      qqqReturnSeries: context.qqqReturnSeries,
       allSpyReturns: context.allSpyReturns,
+      allQqqReturns: context.allQqqReturns,
     });
   });
 }
@@ -363,6 +433,7 @@ export function summarizeReturns(rows) {
     r_ex_cash: d(1),
     r_bench_blended: d(1),
     r_spy_100: d(1),
+    r_qqq_100: d(1),
     r_cash: d(1),
   };
   for (const row of rows) {
@@ -372,15 +443,31 @@ export function summarizeReturns(rows) {
       d(1).plus(row.r_bench_blended),
     );
     summary.r_spy_100 = summary.r_spy_100.times(d(1).plus(row.r_spy_100));
+    summary.r_qqq_100 = summary.r_qqq_100.times(d(1).plus(row.r_qqq_100 ?? 0));
     summary.r_cash = summary.r_cash.times(d(1).plus(row.r_cash));
   }
-  return {
+  const cumulative = {
     r_port: roundDecimal(summary.r_port.minus(1), 6).toNumber(),
     r_ex_cash: roundDecimal(summary.r_ex_cash.minus(1), 6).toNumber(),
     r_bench_blended: roundDecimal(summary.r_bench_blended.minus(1), 6).toNumber(),
     r_spy_100: roundDecimal(summary.r_spy_100.minus(1), 6).toNumber(),
+    r_qqq_100: roundDecimal(summary.r_qqq_100.minus(1), 6).toNumber(),
     r_cash: roundDecimal(summary.r_cash.minus(1), 6).toNumber(),
   };
+  if (rows.length >= 2 && rows[0]?.date && rows[rows.length - 1]?.date) {
+    const startMs = new Date(`${rows[0].date}T00:00:00Z`).getTime();
+    const endMs = new Date(`${rows[rows.length - 1].date}T00:00:00Z`).getTime();
+    const days = Math.round((endMs - startMs) / MS_PER_DAY);
+    if (days >= 365) {
+      cumulative.annualized_r_port = annualizeReturn(cumulative.r_port, days);
+      cumulative.annualized_r_ex_cash = annualizeReturn(cumulative.r_ex_cash, days);
+      cumulative.annualized_r_bench_blended = annualizeReturn(cumulative.r_bench_blended, days);
+      cumulative.annualized_r_spy_100 = annualizeReturn(cumulative.r_spy_100, days);
+      cumulative.annualized_r_qqq_100 = annualizeReturn(cumulative.r_qqq_100, days);
+      cumulative.annualized_r_cash = annualizeReturn(cumulative.r_cash, days);
+    }
+  }
+  return cumulative;
 }
 
 function normalizeToUtcDate(value) {
@@ -497,6 +584,86 @@ function computeXirr(flows, { tolerance = 1e-7, maxIterations = 100 } = {}) {
   return roundDecimal(d(result), 12);
 }
 
+function addMoneyWeightedFlow(flows, dateKey, amount) {
+  const decimalAmount = d(amount ?? 0);
+  if (!dateKey || !decimalAmount.isFinite() || decimalAmount.isZero()) {
+    return;
+  }
+  const existing = flows.get(dateKey) ?? ZERO;
+  flows.set(dateKey, existing.plus(decimalAmount));
+}
+
+function buildMoneyWeightedFlowEntries({
+  startDate,
+  endDate,
+  initialCapital,
+  externalFlows,
+  terminalValue,
+}) {
+  const flows = new Map();
+  addMoneyWeightedFlow(flows, startDate, d(initialCapital ?? 0).neg());
+
+  for (const [dateKey, flow] of externalFlows.entries()) {
+    addMoneyWeightedFlow(flows, dateKey, d(flow ?? 0).neg());
+  }
+
+  const terminal = d(terminalValue ?? 0);
+  if (terminal.gt(0) || flows.has(endDate)) {
+    addMoneyWeightedFlow(flows, endDate, terminal);
+  }
+
+  return Array.from(flows.entries())
+    .map(([date, amount]) => ({ date, amount }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function canComputeXirr(flowEntries) {
+  if (!Array.isArray(flowEntries) || flowEntries.length < 2) {
+    return false;
+  }
+  const nonZeroEntries = flowEntries.filter((entry) => d(entry?.amount ?? 0).isZero() === false);
+  if (nonZeroEntries.length < 2) {
+    return false;
+  }
+  const hasPositive = nonZeroEntries.some((entry) => d(entry.amount).gt(0));
+  const hasNegative = nonZeroEntries.some((entry) => d(entry.amount).lt(0));
+  return hasPositive && hasNegative;
+}
+
+function filterExternalFlowsInRange(flowsByDate, { startKey, endKey, excludeStartDate = false } = {}) {
+  const filtered = new Map();
+  if (!(flowsByDate instanceof Map)) {
+    return filtered;
+  }
+  for (const [dateKey, flow] of flowsByDate.entries()) {
+    if (!dateKey || dateKey < startKey || dateKey > endKey) {
+      continue;
+    }
+    if (excludeStartDate && dateKey === startKey) {
+      continue;
+    }
+    addMoneyWeightedFlow(filtered, dateKey, flow);
+  }
+  return filtered;
+}
+
+function normalizeBenchmarkPriceMap(benchmarkPrices, { startKey, endKey }) {
+  if (!(benchmarkPrices instanceof Map)) {
+    return new Map();
+  }
+  const entries = Array.from(benchmarkPrices.entries())
+    .map(([dateKey, price]) => [dateKey, d(price ?? 0)])
+    .filter(([dateKey, price]) =>
+      typeof dateKey === 'string'
+      && dateKey >= startKey
+      && dateKey <= endKey
+      && price.isFinite()
+      && price.gt(0),
+    )
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  return new Map(entries);
+}
+
 export function computeMoneyWeightedReturn({ transactions, navRows, startDate, endDate }) {
   if (!Array.isArray(navRows) || navRows.length === 0 || !startDate || !endDate) {
     return ZERO;
@@ -511,40 +678,105 @@ export function computeMoneyWeightedReturn({ transactions, navRows, startDate, e
     navRows.map((row) => [row.date, d(row.portfolio_nav ?? 0)]),
   );
   const flowsByDate = externalFlowsByDate(transactions ?? []);
-  const flows = new Map();
-  const addFlow = (dateKey, amount) => {
-    if (!amount || !amount.isFinite() || amount.isZero()) {
-      return;
-    }
-    const existing = flows.get(dateKey) ?? ZERO;
-    flows.set(dateKey, existing.plus(amount));
-  };
-
   const startNav = navByDate.get(startKey) ?? ZERO;
   const endNav = navByDate.get(endKey) ?? ZERO;
-  const startFlow = flowsByDate.get(startKey) ?? ZERO;
-  const initialCapital = startNav.minus(startFlow);
-  if (initialCapital.gt(0)) {
-    addFlow(startKey, initialCapital.neg());
+  const windowFlows = filterExternalFlowsInRange(flowsByDate, {
+    startKey,
+    endKey,
+    excludeStartDate: true,
+  });
+  const flowEntries = buildMoneyWeightedFlowEntries({
+    startDate: startKey,
+    endDate: endKey,
+    initialCapital: startNav,
+    externalFlows: windowFlows,
+    terminalValue: endNav,
+  });
+
+  if (!canComputeXirr(flowEntries)) {
+    return ZERO;
   }
 
-  for (const [dateKey, flow] of flowsByDate.entries()) {
-    if (dateKey < startKey || dateKey > endKey) {
+  return computeXirr(flowEntries);
+}
+
+export function computeMatchedBenchmarkMoneyWeightedReturn({
+  benchmarkPrices,
+  transactions,
+  navRows,
+  startDate,
+  endDate,
+}) {
+  if (!Array.isArray(navRows) || navRows.length === 0 || !startDate || !endDate) {
+    return null;
+  }
+  const startKey = toDateKey(startDate);
+  const endKey = toDateKey(endDate);
+  if (!startKey || !endKey || startKey > endKey) {
+    return null;
+  }
+
+  const navByDate = new Map(
+    navRows.map((row) => [row.date, d(row.portfolio_nav ?? 0)]),
+  );
+  const startNav = navByDate.get(startKey) ?? ZERO;
+  if (!startNav.isFinite() || startNav.lte(0)) {
+    return null;
+  }
+
+  const priceMap = normalizeBenchmarkPriceMap(benchmarkPrices, { startKey, endKey });
+  const priceDates = Array.from(priceMap.keys()).sort((a, b) => a.localeCompare(b));
+  if (priceDates.length === 0) {
+    return null;
+  }
+
+  const startPrice = priceMap.get(startKey) ?? ZERO;
+  const endPrice = priceMap.get(endKey) ?? ZERO;
+  if (!startPrice.isFinite() || startPrice.lte(0) || !endPrice.isFinite() || endPrice.lte(0)) {
+    return null;
+  }
+
+  const rawFlows = filterExternalFlowsInRange(externalFlowsByDate(transactions ?? []), {
+    startKey,
+    endKey,
+    excludeStartDate: true,
+  });
+  const alignedFlows = alignFlowsToDates({
+    flowsByDate: rawFlows,
+    dates: priceDates,
+  });
+
+  let shares = startNav.dividedBy(startPrice);
+  for (const dateKey of priceDates) {
+    const flow = alignedFlows.get(dateKey) ?? ZERO;
+    if (flow.isZero()) {
       continue;
     }
-    addFlow(dateKey, flow.neg());
+    const price = priceMap.get(dateKey) ?? ZERO;
+    if (!price.isFinite() || price.lte(0)) {
+      return null;
+    }
+    shares = shares.plus(flow.dividedBy(price));
   }
 
-  if (endNav.gt(0) || flows.has(endKey)) {
-    addFlow(endKey, endNav);
+  if (!shares.isFinite()) {
+    return null;
   }
 
-  const flowEntries = Array.from(flows.entries())
-    .map(([date, amount]) => ({ date, amount }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const terminalValue = shares.times(endPrice);
+  if (!terminalValue.isFinite() || terminalValue.lt(0)) {
+    return null;
+  }
 
-  if (flowEntries.length < 2) {
-    return ZERO;
+  const flowEntries = buildMoneyWeightedFlowEntries({
+    startDate: startKey,
+    endDate: endKey,
+    initialCapital: startNav,
+    externalFlows: alignedFlows,
+    terminalValue,
+  });
+  if (!canComputeXirr(flowEntries)) {
+    return null;
   }
 
   return computeXirr(flowEntries);

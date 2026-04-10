@@ -27,8 +27,8 @@ const METRICS_FIXTURE = {
 };
 
 const ROI_FIXTURE = [
-  { date: "2024-01-01", portfolio: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 },
-  { date: "2024-01-10", portfolio: 5.5, spy: 6, qqq: 8, blended: 4.5, exCash: 7.2, cash: 0.9 },
+  { date: "2024-01-01", portfolio: 0, portfolioTwr: 0, spy: 0, qqq: 0, blended: 0, exCash: 0, cash: 0 },
+  { date: "2024-01-10", portfolio: 5.5, portfolioTwr: 5.5, spy: 6, qqq: 8, blended: 4.5, exCash: 7.2, cash: 0.9 },
 ];
 
 describe("Dashboard summary metrics", () => {
@@ -71,6 +71,7 @@ describe("Dashboard summary metrics", () => {
     expect(derived.totals.netStockPurchases).toBe(200);
     expect(derived.totals.historicalChange).toBe(400);
     expect(derived.totals.netIncome).toBe(-5);
+    expect(derived.totals.totalRoiPct).toBeCloseTo(41.5789, 4);
     expect(Math.round(derived.percentages.returnPct)).toBe(15);
     expect(derived.percentages.cashDragPct).toBe(1.5);
     expect(derived.percentages.spyDeltaPct).toBe(-0.5);
@@ -78,7 +79,7 @@ describe("Dashboard summary metrics", () => {
     expect(derived.percentages.blendedDeltaPct).toBe(1);
   });
 
-  it("renders equity balance, net stock purchases, and total NAV cards", () => {
+  it("renders consolidated metric cards (Total NAV, Total Return, Net Contributions, Equity Price Gain)", () => {
     renderWithProviders(
       <DashboardTab
         metrics={METRICS_FIXTURE}
@@ -89,25 +90,28 @@ describe("Dashboard summary metrics", () => {
       />,
     );
 
-    expect(screen.getByText("Equity Balance")).toBeInTheDocument();
     expect(screen.getByText("Performance context")).toBeInTheDocument();
     expect(screen.getByText("Gap vs Nasdaq-100")).toBeInTheDocument();
-    expect(screen.getByText("3 open holdings priced")).toBeInTheDocument();
-    expect(screen.getByText("Net Stock Purchases")).toBeInTheDocument();
-    expect(screen.getAllByText("$200.00").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Gross buys $400.00 minus sells $200.00"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Historical Change")).toBeInTheDocument();
-    expect(screen.getAllByText("$400.00").length).toBeGreaterThan(0);
+
+    // Total NAV card with equity/cash/cashPct subtitle
     expect(screen.getByText("Total NAV")).toBeInTheDocument();
-    expect(screen.getByText("Cash balance $745.00")).toBeInTheDocument();
-    expect(screen.getByText("Net External Contributions")).toBeInTheDocument();
+    expect(
+      screen.getByText("Equities $600.00 · Cash $745.00 (55.4%)"),
+    ).toBeInTheDocument();
+
+    // Net Contributions card with buys/sells/income subtitle
+    expect(screen.getByText("Net Contributions")).toBeInTheDocument();
     expect(screen.getByText("$950.00")).toBeInTheDocument();
-    expect(screen.getByText("Funding flows only · net income -$5.00")).toBeInTheDocument();
+    expect(
+      screen.getByText("Gross buys $400.00 · Gross sells $200.00 · Net income -$5.00"),
+    ).toBeInTheDocument();
+
+    // Equity Price Gain card
+    expect(screen.getByText("Equity Price Gain")).toBeInTheDocument();
+    expect(screen.getAllByText("$400.00").length).toBeGreaterThan(0);
   });
 
-  it("shows pricing unavailable states instead of valuing open holdings at cost", () => {
+  it("shows pricing unavailable states on NAV and return cards when holdings are unpriced", () => {
     renderWithProviders(
       <DashboardTab
         metrics={{
@@ -126,9 +130,11 @@ describe("Dashboard summary metrics", () => {
       />,
     );
 
+    // NAV card shows cash-only fallback
     expect(
-      screen.getByText("Pricing unavailable for 1 open holdings"),
+      screen.getByText("Cash balance $745.00 · awaiting market prices"),
     ).toBeInTheDocument();
+    // Return card shows pricing unavailable
     expect(
       screen.getByText("Waiting for current market prices before computing return and ROI"),
     ).toBeInTheDocument();

@@ -2,15 +2,8 @@ import { z } from 'zod';
 
 import {
   MAX_TRANSACTIONS_PER_PORTFOLIO,
-  SECURITY_AUDIT_DEFAULT_QUERY_LIMIT,
-  SECURITY_AUDIT_MAX_QUERY_LIMIT,
 } from '../../shared/constants.js';
-
-import {
-  API_KEY_MIN_LENGTH,
-  API_KEY_REGEX,
-  API_KEY_REQUIREMENTS,
-} from '../../shared/apiKey.js';
+import { normalizeSettings } from '../../shared/settings.js';
 
 const ISO_DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/u;
 const PORTFOLIO_ID_REGEX = /^[A-Za-z0-9_-]{1,64}$/u;
@@ -25,12 +18,7 @@ const isoDateSchema = sanitizeString(
     .regex(ISO_DATE_REGEX, 'Must be ISO date (YYYY-MM-DD)'),
 );
 
-const apiKeySchema = sanitizeString(
-  z
-    .string({ invalid_type_error: 'API key must be a string' })
-    .min(API_KEY_MIN_LENGTH, 'API key must be at least 12 characters long')
-    .regex(API_KEY_REGEX, 'API key does not meet strength requirements'),
-);
+
 
 const portfolioIdSchema = sanitizeString(
   z
@@ -236,18 +224,15 @@ const portfolioBodySchema = z
       .default([]),
     signals: signalsSchema.optional().default({}),
     settings: z
-      .object({
-        autoClip: z.boolean().default(false),
-      })
-      .partial()
+      .unknown()
       .optional()
-      .default({}),
+      .transform((value) => normalizeSettings(value)),
     cash: cashPolicySchema.optional().default({ currency: 'USD', apyTimeline: [] }),
   })
   .transform((value) => ({
     transactions: value.transactions,
     signals: value.signals,
-    settings: { autoClip: Boolean(value.settings?.autoClip) },
+    settings: value.settings,
     cash: value.cash,
   }));
 
@@ -258,6 +243,7 @@ const paginationSchema = z.object({
 
 const returnsQuerySchema = z
   .object({
+    portfolioId: portfolioIdSchema.optional().nullable(),
     from: isoDateSchema.optional(),
     to: isoDateSchema.optional(),
     views: sanitizeString(z.string())
@@ -274,6 +260,7 @@ const returnsQuerySchema = z
   })
   .merge(paginationSchema)
   .transform((value) => ({
+    portfolioId: value.portfolioId ?? null,
     from: value.from ?? null,
     to: value.to ?? null,
     views: Array.from(new Set(value.views)),
@@ -283,32 +270,20 @@ const returnsQuerySchema = z
 
 const rangeQuerySchema = z
   .object({
+    portfolioId: portfolioIdSchema.optional().nullable(),
     from: isoDateSchema.optional(),
     to: isoDateSchema.optional(),
   })
   .merge(paginationSchema)
   .transform((value) => ({
+    portfolioId: value.portfolioId ?? null,
     from: value.from ?? null,
     to: value.to ?? null,
     page: value.page,
     perPage: value.per_page,
   }));
 
-const securityEventsQuerySchema = z
-  .object({
-    limit: z
-      .coerce.number({ invalid_type_error: 'Limit must be a number' })
-      .int('Limit must be an integer')
-      .min(1, 'Limit must be at least 1')
-      .max(
-        SECURITY_AUDIT_MAX_QUERY_LIMIT,
-        `Limit cannot exceed ${SECURITY_AUDIT_MAX_QUERY_LIMIT}`,
-      )
-      .default(SECURITY_AUDIT_DEFAULT_QUERY_LIMIT),
-  })
-  .transform((value) => ({
-    limit: value.limit,
-  }));
+
 
 const cashRateBodySchema = z.object({
   effective_date: isoDateSchema,
@@ -354,11 +329,6 @@ export const validatePortfolioBody = parseWith(portfolioBodySchema, 'body');
 export const validateCashRateBody = parseWith(cashRateBodySchema, 'body');
 export const validateReturnsQuery = parseWith(returnsQuerySchema, 'query');
 export const validateRangeQuery = parseWith(rangeQuerySchema, 'query');
-export const validateSecurityEventsQuery = parseWith(
-  securityEventsQuerySchema,
-  'query',
-);
-
 export {
   isoDateSchema,
   portfolioBodySchema,
@@ -366,9 +336,6 @@ export {
   returnsQuerySchema,
   rangeQuerySchema,
   cashRateBodySchema,
-  securityEventsQuerySchema,
-  apiKeySchema,
   validationErrorFromZod,
-  API_KEY_REQUIREMENTS,
 };
 

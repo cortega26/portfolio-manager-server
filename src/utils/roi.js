@@ -4,23 +4,23 @@ const SERIES_META_FALLBACK = Object.freeze([
   {
     id: "spy",
     dataKey: "spy",
-    label: "100% SPY benchmark",
-    description: "Opportunity cost if fully invested in SPY",
-    color: "#6366f1",
+    label: "S&P 500",
+    description: "Cumulative benchmark return for the S&P 500 over the loaded timeline",
+    color: "#2563eb",
   },
   {
     id: "qqq",
     dataKey: "qqq",
-    label: "Nasdaq-100 (QQQ)",
-    description: "Technology-heavy benchmark using QQQ as the Nasdaq-100 proxy",
-    color: "#0f766e",
+    label: "Nasdaq-100",
+    description: "Cumulative benchmark return for the Nasdaq-100 over the loaded timeline",
+    color: "#f97316",
   },
   {
     id: "blended",
     dataKey: "blended",
-    label: "Blended benchmark",
-    description: "Risk-matched mix using start-of-day cash weights",
-    color: "#f97316",
+    label: "Cash-Matched S&P 500",
+    description: "S&P 500 return adjusted for your portfolio's cash allocation on each day.",
+    color: "#8b5cf6",
   },
   {
     id: "exCash",
@@ -144,21 +144,7 @@ export function buildBenchmarkSeriesMeta(catalog) {
     }
     return createFallbackSeriesMeta(entry, index);
   });
-  const derivedMeta = normalizedCatalog.derived.map((entry, index) => {
-    const known = SERIES_META_BY_ID.get(entry.id);
-    if (known) {
-      return {
-        ...known,
-        label: entry.label || known.label,
-        kind: "derived",
-      };
-    }
-    return createFallbackSeriesMeta(entry, marketMeta.length + index);
-  });
-  const fixedMeta = ["exCash", "cash"]
-    .map((id) => SERIES_META_BY_ID.get(id))
-    .filter(Boolean);
-  return [...marketMeta, ...derivedMeta, ...fixedMeta];
+  return marketMeta;
 }
 
 const SERIES_SOURCE_KEYS = {
@@ -168,6 +154,16 @@ const SERIES_SOURCE_KEYS = {
   blended: "r_bench_blended",
   exCash: "r_ex_cash",
   cash: "r_cash",
+};
+
+const ROI_SERIES_SOURCE_KEYS = {
+  portfolio: "portfolio",
+  portfolioTwr: "portfolioTwr",
+  spy: "spy",
+  qqq: "qqq",
+  blended: "bench",
+  exCash: "exCash",
+  cash: "cash",
 };
 
 const TYPE_ORDER = {
@@ -345,6 +341,19 @@ function toNumeric(value) {
   return Math.round((number + Number.EPSILON) * 10_000) / 10_000;
 }
 
+function toNullableNumeric(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+  return Math.round((number + Number.EPSILON) * 10_000) / 10_000;
+}
+
+function toCanonicalNullableNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 export function mergeReturnSeries(series = {}) {
   const entriesByDate = new Map();
 
@@ -382,6 +391,38 @@ export function mergeReturnSeries(series = {}) {
     }
     return row;
   });
+}
+
+export function mergeDailyRoiSeries(series = {}) {
+  const entriesByDate = new Map();
+
+  for (const [targetKey, sourceKey] of Object.entries(ROI_SERIES_SOURCE_KEYS)) {
+    const sourceSeries = Array.isArray(series?.[sourceKey]) ? series[sourceKey] : [];
+    for (const point of sourceSeries) {
+      const date = point?.date;
+      if (!date) {
+        continue;
+      }
+      const normalized = entriesByDate.get(date) ?? { date };
+      normalized[targetKey] = toCanonicalNullableNumber(point?.value);
+      entriesByDate.set(date, normalized);
+    }
+  }
+
+  // Keep the backend ROI payload as the canonical source of truth here.
+  // Presentation layers decide whether to show 2 or 4 decimals.
+  return Array.from(entriesByDate.values())
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)))
+    .map((entry) => ({
+      date: entry.date,
+      portfolio: toCanonicalNullableNumber(entry.portfolio),
+      portfolioTwr: toCanonicalNullableNumber(entry.portfolioTwr),
+      spy: toCanonicalNullableNumber(entry.spy),
+      qqq: toCanonicalNullableNumber(entry.qqq),
+      blended: toCanonicalNullableNumber(entry.blended),
+      exCash: toCanonicalNullableNumber(entry.exCash),
+      cash: toCanonicalNullableNumber(entry.cash),
+    }));
 }
 
 export function buildBenchmarkOverlaySeries(roiData = [], rawSeries = []) {
@@ -433,7 +474,24 @@ export function mergeBenchmarkOverlaySeries(roiData = [], overlaySeries = [], da
   }));
 }
 
-export async function buildRoiSeries(transactions, priceFetcher) {
+export const ROI_FALLBACK_INCOMPLETE_HISTORY = "ROI_FALLBACK_INCOMPLETE_HISTORY";
+
+/**
+ * Builds a daily ROI series from transactions and a price fetcher.
+ *
+ * **Precision limitation:** This function uses native JavaScript floating-point
+ * arithmetic (IEEE 754 doubles). For portfolios with long histories (500+ days),
+ * cumulative return values may diverge from the canonical server-side calculation
+ * (which uses Decimal.js) by up to ~10 basis points. This is acceptable for the
+ * client-side fallback display, but the server result should always be preferred
+ * when available. When this fallback is active, the UI displays an
+ * "≈ Approximate" badge to inform the user.
+ */
+export async function buildRoiSeries(
+  transactions,
+  priceFetcher,
+  { requireCompleteHistory = false } = {},
+) {
   if (!Array.isArray(transactions) || transactions.length === 0) {
     return [];
   }
@@ -443,6 +501,14 @@ export async function buildRoiSeries(transactions, priceFetcher) {
     .filter(Boolean);
 
   if (normalizedTransactions.length === 0) {
+    return [];
+  }
+
+  const firstTransactionDate = normalizedTransactions
+    .map((tx) => tx.date)
+    .filter((date) => typeof date === "string" && date.length > 0)
+    .sort((left, right) => left.localeCompare(right))[0];
+  if (!firstTransactionDate) {
     return [];
   }
 
@@ -484,8 +550,21 @@ export async function buildRoiSeries(transactions, priceFetcher) {
   const priceMap = new Map(
     priceMapEntries.map(([symbol, series]) => [symbol, normalizePriceSeries(series)]),
   );
+  const missingSymbols = tickers
+    .filter((ticker) => (priceMap.get(ticker) ?? []).length === 0)
+    .sort((left, right) => left.localeCompare(right));
+  if (requireCompleteHistory && missingSymbols.length > 0) {
+    const error = new Error(
+      `Fallback ROI is missing historical prices for: ${missingSymbols.join(", ")}`,
+    );
+    error.code = ROI_FALLBACK_INCOMPLETE_HISTORY;
+    error.missingSymbols = missingSymbols;
+    throw error;
+  }
 
-  const spySeries = priceMap.get("SPY") ?? priceMap.get("spy") ?? [];
+  const spySeries = (priceMap.get("SPY") ?? priceMap.get("spy") ?? []).filter(
+    (point) => typeof point?.date === "string" && point.date >= firstTransactionDate,
+  );
   if (spySeries.length === 0) {
     return [];
   }

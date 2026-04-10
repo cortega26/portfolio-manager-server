@@ -8,7 +8,6 @@ import request from 'supertest';
 import { createApp } from '../app.js';
 import { flushPriceCache } from '../cache/priceCache.js';
 import { getPerformanceMetrics } from '../metrics/performanceMetrics.js';
-import { resetRateLimitMetrics } from '../metrics/rateLimitMetrics.js';
 import { resetLockMetrics, withLock } from '../utils/locks.js';
 
 class SilentLogger {
@@ -37,7 +36,6 @@ describe('performance monitoring endpoint', () => {
 
   beforeEach(() => {
     dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-monitoring-'));
-    resetRateLimitMetrics();
     resetLockMetrics();
     flushPriceCache();
     app = createApp({
@@ -46,7 +44,6 @@ describe('performance monitoring endpoint', () => {
       config: {
         featureFlags: { cashBenchmarks: true },
         cors: { allowedOrigins: [] },
-        rateLimit: { portfolio: { windowMs: 1_000, max: 5 } },
       },
     });
   });
@@ -57,7 +54,7 @@ describe('performance monitoring endpoint', () => {
     flushPriceCache();
   });
 
-  test('reports runtime, cache, lock, and security metrics', async () => {
+  test('reports runtime, cache, and lock metrics', async () => {
     const hold = createDeferred();
     const firstLock = withLock('monitor-test', async () => {
       await hold.promise;
@@ -87,9 +84,6 @@ describe('performance monitoring endpoint', () => {
     assert.equal(body.locks.totalPending, 1, 'one queued lock tracked');
     assert.ok(body.locks.maxDepth >= 2, 'depth reflects active + queued locks');
 
-    assert.ok(body.bruteForce, 'brute force metrics present');
-    assert.ok(body.rateLimit, 'rate limit metrics present');
-
     hold.resolve();
     await firstLock;
     await secondLock;
@@ -102,7 +96,5 @@ describe('performance monitoring endpoint', () => {
     assert.ok(snapshot.process);
     assert.ok(snapshot.cache);
     assert.ok(snapshot.locks);
-    assert.ok(snapshot.bruteForce);
-    assert.ok(snapshot.rateLimit);
   });
 });

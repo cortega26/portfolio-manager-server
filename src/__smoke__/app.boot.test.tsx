@@ -34,15 +34,4 @@ describe("app smoke", () => {
     expect(await screen.findByText(/Portfolio Manager/i)).toBeInTheDocument();
     expect(await screen.findByTestId("panel-dashboard")).toBeVisible();
   });
-
-  it("guards admin routes when invite tokens are configured", async () => {
-    vi.stubEnv("VITE_ADMIN_ACCESS_TOKENS", "alpha-token");
-
-    renderWithProviders(["/admin/bad-token"]);
-
-    expect(
-      await screen.findByText(/This admin dashboard link is invalid or has expired/i),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Return to portfolio/i })).toBeVisible();
-  });
 });

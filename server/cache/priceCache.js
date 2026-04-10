@@ -42,19 +42,34 @@ export function generateETag(data) {
     .digest('hex');
 }
 
-export function setCachedPrice(symbol, range, data) {
+export function setCachedPrice(symbol, range, data, { ttlSeconds } = {}) {
   const key = buildKey(symbol, range);
   const etag = generateETag(data);
-  priceCache.set(key, {
+  const payload = {
     data,
     etag,
     timestamp: Date.now(),
-  });
+  };
+  if (Number.isFinite(ttlSeconds) && ttlSeconds > 0) {
+    priceCache.set(key, payload, Math.round(ttlSeconds));
+  } else {
+    priceCache.set(key, payload);
+  }
   return etag;
 }
 
-export function getCachedPrice(symbol, range) {
-  return priceCache.get(buildKey(symbol, range));
+export function getCachedPrice(symbol, range, { maxAgeMs } = {}) {
+  const cached = priceCache.get(buildKey(symbol, range));
+  if (!cached) {
+    return cached;
+  }
+  if (Number.isFinite(maxAgeMs) && maxAgeMs >= 0) {
+    const timestamp = Number(cached.timestamp);
+    if (!Number.isFinite(timestamp) || Date.now() - timestamp > maxAgeMs) {
+      return undefined;
+    }
+  }
+  return cached;
 }
 
 function calculateHitRate(stats) {

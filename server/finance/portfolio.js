@@ -8,12 +8,122 @@ import {
   toMicroShares,
 } from './decimal.js';
 
+// Imported broker CSVs preserve more than six decimal places, but the server
+// stores holdings at micro-share precision. Small cumulative round-off drift
+// can therefore surface as a few extra micro-shares on SELL rows even when the
+// imported ledger is economically flat. We absorb only that bounded dust.
+export const MICRO_SHARE_DUST_TOLERANCE = 5;
+const DAY_NETTED_IMPORT_SOURCE = 'csv-bootstrap';
+const DAY_NETTED_CASH_CHRONOLOGY = 'day-netted';
+
+const HOLDINGS_TYPE_ORDER = {
+  DEPOSIT: 1,
+  BUY: 2,
+  SELL: 3,
+  DIVIDEND: 4,
+  INTEREST: 5,
+  WITHDRAWAL: 6,
+  FEE: 7,
+};
+
+const CASH_AUDIT_TYPE_ORDER = {
+  DEPOSIT: 1,
+  DIVIDEND: 1,
+  INTEREST: 1,
+  SELL: 1,
+  BUY: 2,
+  WITHDRAWAL: 2,
+  FEE: 2,
+};
+
 function cloneHoldings(holdings) {
   const result = new Map();
   for (const [ticker, value] of holdings.entries()) {
     result.set(ticker, value);
   }
   return result;
+}
+
+function toComparableTimestamp(value) {
+  if (typeof value === 'number') {
+    if (Number.isFinite(value) && value >= 0) {
+      return Math.trunc(value);
+    }
+    return 0;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      return 0;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
+
+function toComparableSeq(value) {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      return 0;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
+  }
+  return 0;
+}
+
+function compareTransactionIdentity(a, b) {
+  const createdAtDiff = toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
+  if (createdAtDiff !== 0) {
+    return createdAtDiff;
+  }
+
+  const seqDiff = toComparableSeq(a.seq) - toComparableSeq(b.seq);
+  if (seqDiff !== 0) {
+    return seqDiff;
+  }
+
+  const idDiff = (a.id ?? '').localeCompare(b.id ?? '');
+  if (idDiff !== 0) {
+    return idDiff;
+  }
+
+  return (a.uid ?? '').localeCompare(b.uid ?? '');
+}
+
+export function isDayNettedImportTransaction(transaction) {
+  const importMetadata = transaction?.metadata?.system?.import;
+  if (!importMetadata || typeof importMetadata !== 'object') {
+    return false;
+  }
+
+  if (importMetadata.cashChronology === DAY_NETTED_CASH_CHRONOLOGY) {
+    return true;
+  }
+
+  return importMetadata.source === DAY_NETTED_IMPORT_SOURCE;
+}
+
+export function normalizeMicroShareBalance(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.abs(value) <= MICRO_SHARE_DUST_TOLERANCE ? 0 : value;
+}
+
+export function setNormalizedHoldingMicro(holdings, ticker, value) {
+  const normalized = normalizeMicroShareBalance(value);
+  if (normalized === 0) {
+    holdings.delete(ticker);
+    return 0;
+  }
+  holdings.set(ticker, normalized);
+  return normalized;
 }
 
 function createLedgerState() {
@@ -74,84 +184,60 @@ function buildDailyState({ dateKey, ledgerState, priceMap }) {
 }
 
 /**
- * Sort transactions deterministically.
+ * Sort transactions deterministically for holdings reconstruction.
  *
- * AUDIT FIX (CRITICAL-8): Use type-based ordering for same-day transactions
- * Order: DEPOSIT → BUY → SELL → DIVIDEND → INTEREST → WITHDRAWAL → FEE
- * This ensures cash is deposited before being spent on buys.
+ * This order is intentionally optimized for portfolio/position projection,
+ * not for strict intraday cash chronology. Cash validation uses a separate
+ * audit order because imported broker ledgers are day-granular.
  */
 export function sortTransactions(transactions) {
-  const typeOrder = {
-    DEPOSIT: 1,
-    BUY: 2,
-    SELL: 3,
-    DIVIDEND: 4,
-    INTEREST: 5,
-    WITHDRAWAL: 6,
-    FEE: 7,
-  };
-
-  const toComparableTimestamp = (value) => {
-    if (typeof value === 'number') {
-      if (Number.isFinite(value) && value >= 0) {
-        return Math.trunc(value);
-      }
-      return 0;
-    }
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed === '') {
-        return 0;
-      }
-      const parsed = Number.parseInt(trimmed, 10);
-      return Number.isNaN(parsed) ? 0 : parsed;
-    }
-    return 0;
-  };
-
-  const toComparableSeq = (value) => {
-    if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed === '') {
-        return 0;
-      }
-      const parsed = Number.parseInt(trimmed, 10);
-      return Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
-    }
-    return 0;
-  };
-
   return [...transactions].sort((a, b) => {
     const dateDiff = a.date.localeCompare(b.date);
     if (dateDiff !== 0) {
       return dateDiff;
     }
 
-    const typeA = typeOrder[a.type] ?? 99;
-    const typeB = typeOrder[b.type] ?? 99;
+    const typeA = HOLDINGS_TYPE_ORDER[a.type] ?? 99;
+    const typeB = HOLDINGS_TYPE_ORDER[b.type] ?? 99;
     if (typeA !== typeB) {
       return typeA - typeB;
     }
 
-    const createdAtDiff = toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
-    if (createdAtDiff !== 0) {
-      return createdAtDiff;
+    return compareTransactionIdentity(a, b);
+  });
+}
+
+export function sortTransactionsForCashAudit(transactions) {
+  return [...transactions].sort((a, b) => {
+    const dateDiff = a.date.localeCompare(b.date);
+    if (dateDiff !== 0) {
+      return dateDiff;
     }
 
-    const seqDiff = toComparableSeq(a.seq) - toComparableSeq(b.seq);
-    if (seqDiff !== 0) {
-      return seqDiff;
+    const sameDayNettedImport =
+      isDayNettedImportTransaction(a) && isDayNettedImportTransaction(b);
+    if (sameDayNettedImport) {
+      const bucketA = CASH_AUDIT_TYPE_ORDER[a.type] ?? 99;
+      const bucketB = CASH_AUDIT_TYPE_ORDER[b.type] ?? 99;
+      if (bucketA !== bucketB) {
+        return bucketA - bucketB;
+      }
     }
 
-    const idDiff = (a.id ?? '').localeCompare(b.id ?? '');
-    if (idDiff !== 0) {
-      return idDiff;
+    const identityDiff = compareTransactionIdentity(a, b);
+    if (identityDiff !== 0) {
+      return identityDiff;
     }
 
-    return (a.uid ?? '').localeCompare(b.uid ?? '');
+    if (!sameDayNettedImport) {
+      const typeA = HOLDINGS_TYPE_ORDER[a.type] ?? 99;
+      const typeB = HOLDINGS_TYPE_ORDER[b.type] ?? 99;
+      if (typeA !== typeB) {
+        return typeA - typeB;
+      }
+    }
+
+    return 0;
   });
 }
 
@@ -183,7 +269,7 @@ function applyTransaction(state, tx) {
 
   if (ticker && ticker !== 'CASH' && Number.isFinite(quantity) && quantity !== 0) {
     const next = (state.holdings.get(ticker) ?? 0) + toMicroShares(quantity);
-    state.holdings.set(ticker, next);
+    setNormalizedHoldingMicro(state.holdings, ticker, next);
   }
 }
 
@@ -261,7 +347,7 @@ export function holdingsToObject(holdings) {
 }
 
 export function weightsFromState(state) {
-  if (!state || state.nav === 0) {
+  if (!state || state.nav <= 0) {
     return { cash: 0, risk: 0 };
   }
   return {

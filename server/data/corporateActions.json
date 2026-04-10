@@ -1,0 +1,20 @@
+[
+  {
+    "ticker": "NVDA",
+    "date": "2024-06-10",
+    "type": "split",
+    "ratio": 10,
+    "applies_to": "ALL",
+    "rule": "NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES",
+    "_comment": "NVDA 10-for-1 forward stock split effective 2024-06-10. All BUY and SELL transactions before this date have their quantities multiplied by 10 and prices divided by 10 to match post-split share counts."
+  },
+  {
+    "ticker": "LRCX",
+    "date": "2024-10-03",
+    "type": "split",
+    "ratio": 10,
+    "applies_to": "BUY",
+    "rule": "LRCX_10_FOR_1_DATASET_RECONCILIATION_PRE_2024_10_03_BUY_ONLY",
+    "_comment": "LRCX 10-for-1 forward stock split effective 2024-10-03. Only BUY transactions before this date are adjusted (dataset reconciliation — sells were already recorded post-split)."
+  }
+]

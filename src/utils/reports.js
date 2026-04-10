@@ -1,4 +1,5 @@
 import { formatCurrency, formatPercent } from "./format.js";
+import { ROI_DETAIL_PERCENT_DIGITS } from "../../shared/precision.js";
 import { deriveHoldingStats } from "./holdings.js";
 import { sanitizeCsvCell } from "./csv.js";
 
@@ -183,14 +184,14 @@ export function buildPerformanceCsv(roiSeries) {
   ];
   const rows = roiSeries.map((point) => [
     point.date,
-    formatPercent(point.portfolio, 3),
-    formatPercent(point.spy ?? 0, 3),
-    formatPercent(point.qqq ?? 0, 3),
-    formatPercent(point.blended ?? 0, 3),
-    formatPercent(point.exCash ?? 0, 3),
-    formatPercent(point.cash ?? 0, 3),
-    formatPercent((point.portfolio ?? 0) - (point.spy ?? 0), 3),
-    formatPercent((point.portfolio ?? 0) - (point.qqq ?? 0), 3),
+    formatPercent(point.portfolio, ROI_DETAIL_PERCENT_DIGITS),
+    formatPercent(point.spy ?? 0, ROI_DETAIL_PERCENT_DIGITS),
+    formatPercent(point.qqq ?? 0, ROI_DETAIL_PERCENT_DIGITS),
+    formatPercent(point.blended ?? 0, ROI_DETAIL_PERCENT_DIGITS),
+    formatPercent(point.exCash ?? 0, ROI_DETAIL_PERCENT_DIGITS),
+    formatPercent(point.cash ?? 0, ROI_DETAIL_PERCENT_DIGITS),
+    formatPercent((point.portfolio ?? 0) - (point.spy ?? 0), ROI_DETAIL_PERCENT_DIGITS),
+    formatPercent((point.portfolio ?? 0) - (point.qqq ?? 0), ROI_DETAIL_PERCENT_DIGITS),
   ]);
   return toCsv([header, ...rows]);
 }

@@ -23,7 +23,7 @@ test('buildPerformanceCsv includes benchmark series columns in the header and ro
   );
   assert.equal(
     lines[1],
-    "2024-01-02,0.012%,0.010%,0.015%,0.010%,0.011%,0.001%,0.002%,'-0.003%",
+    "2024-01-02,0.0123%,0.0100%,0.0152%,0.0095%,0.0111%,0.0005%,0.0023%,'-0.0029%",
   );
 });
 

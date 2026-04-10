@@ -1,6 +1,6 @@
 # Portfolio Manager Unified — Estado de integración
 
-Fecha de actualización: 2026-03-20
+Fecha de actualización: 2026-04-10
 
 ## Objetivo de este archivo
 
@@ -10,7 +10,7 @@ Dejar contexto suficiente para retomar la integración en una conversación nuev
 
 ## Base real verificada
 
-Repositorio base: `portfolio-manager-server` en `/home/carlos/VS_Code_Projects/portafolio-unificado`
+Repositorio base: `portfolio-manager-unified` en `/home/carlos/VS_Code_Projects/portafolio-unificado`
 
 Repositorio de referencia R2: `mi_portfolio` clonado en `/home/carlos/VS_Code_Projects/mi_portfolio-reference`
 
@@ -35,7 +35,7 @@ Resultado vigente:
 
 * `node -v` → `v20.19.0`
 * `npm ci` → OK
-* `npm test` → OK (`node:test` 229 pass, 0 fail, 1 skipped; Vitest 38 pass, 0 fail)
+* `npm test` → OK (`node:test` 325 pass, 0 fail, 1 skipped; Vitest 79 pass, 0 fail; coverage 56.19%)
 
 ---
 
@@ -163,14 +163,21 @@ Estado: `PARTIAL`
 
 Ya implementado:
 
+* Motor compartido de señales en `shared/signals.js`.
+* Endpoint `POST /api/signals` en Express para preview backend sobre transacciones + precios.
 * Señales calculadas desde última operación BUY/SELL.
 * Sanity check +/-25% en renderer.
+* Holdings consume el preview backend y muestra las señales calculadas.
+* Nueva pestaña `Signals` dedicada reutiliza la misma matriz de señales y permite editar ventanas por ticker desde una superficie separada.
 * Notificaciones tipo toast para BUY zone y TRIM zone.
+* La configuración de señales ya viaja dentro del payload persistido del portafolio.
+* `Settings` ya controla toasts de transición de señales, banners de mercado y banners de fallback ROI.
+* `Settings` también muestra el estado runtime del scheduler nocturno expuesto por Electron (`JOB_NIGHTLY_ACTIVE`, `JOB_NIGHTLY_HOUR_UTC`).
 
 Pendiente:
 
-* Decidir si la configuración de señales migra a backend/SQLite.
-* Endpoint `/api/signals` en Express (hoy la lógica vive en el renderer).
+* Definir si las notificaciones/alertas de señales deben moverse al scheduler o a un canal persistente.
+* Implementar el canal persistente final para email/notificaciones fuera del renderer.
 
 ### Fase 5A — Limpieza SQLite-only
 
@@ -217,6 +224,67 @@ Cobertura agregada/actualizada:
 * `server/__tests__/api_contract.test.js`
 * tests frontend de bootstrap, ROI y dashboard ajustados para cargar metadata de benchmarks
 
+### Fase 5D — Prices tab
+
+Estado: `PASS`
+
+Implementado y validado:
+
+* Nueva pestaña `Prices` integrada al shell principal vía `src/components/TabBar.jsx`.
+* Vista dedicada en `src/components/PricesTab.jsx`.
+* `PortfolioManagerApp.jsx` refresca precios latest-only con `fetchBulkPrices(..., { latestOnly: true })`.
+* La pestaña lista holdings abiertos y benchmarks monitorizados en una sola tabla.
+* El refresh manual reutiliza la misma capa backend de pricing y sincroniza `currentPrices` para el resto de la app.
+* Copy bilingüe agregado para la nueva vista.
+
+Cobertura agregada/actualizada:
+
+* `src/__tests__/PricesTab.test.tsx`
+* `src/__tests__/DashboardNavigation.test.tsx`
+
+### Fase 5E — Signals tab
+
+Estado: `PASS`
+
+Implementado y validado:
+
+* Nueva pestaña `Signals` integrada al shell principal vía `src/components/TabBar.jsx`.
+* Vista dedicada en `src/components/SignalsTab.jsx`.
+* Nueva pieza compartida `src/components/SignalTableCard.jsx` para reutilizar la matriz de señales entre `Holdings` y `Signals`.
+* `HoldingsTab.jsx` dejó de duplicar la lógica de señales y ahora consume el componente compartido.
+* `PortfolioManagerApp.jsx` enruta la nueva pestaña y reutiliza el mismo estado/backend preview ya existente.
+* Copy bilingüe agregado para la nueva vista.
+
+Cobertura agregada/actualizada:
+
+* `src/__tests__/SignalsTab.test.tsx`
+* `src/__tests__/DashboardNavigation.test.tsx`
+
+### Fase 5F — Settings de alertas y scheduler
+
+Estado: `PASS`
+
+Implementado y validado:
+
+* La forma canónica de `settings` quedó centralizada en `shared/settings.js` para eliminar drift entre renderer, validación API y storage.
+* `POST /api/portfolio/:id` ya no descarta preferencias persistidas: backend guarda e hidrata el payload completo de `settings`.
+* `SettingsTab.jsx` ahora controla:
+  * toasts de transición de señales
+  * banners de mercado cerrado/último cierre
+  * banners de fallback ROI
+* `PortfolioManagerApp.jsx` conecta esos toggles a comportamiento real, sin dejar preferencias huérfanas.
+* Electron inyecta metadata runtime del scheduler nocturno para que `Settings` muestre el estado efectivo del shell desktop.
+
+Cobertura agregada/actualizada:
+
+* `server/__tests__/integration.test.js`
+* `server/__tests__/portfolio.test.js`
+* `server/__tests__/desktop_runtime_config.test.js`
+* `src/__tests__/App.settingsPersistence.test.jsx`
+* `src/__tests__/App.pricing.test.jsx`
+* `src/__tests__/runtimeConfig.test.ts`
+* `src/__tests__/portfolioSchema.test.js`
+
 ---
 
 ## Próximos pasos — Consultar el backlog
@@ -233,4 +301,4 @@ Cobertura agregada/actualizada:
 * No reintroducir archivos JSON como persistencia de datos.
 * No reintroducir rate limiting ni seguridad HTTP orientada a exposición pública.
 * La reconciliación exacta operativa del importador queda en `196.71 USD` por instrucción explícita del usuario y confirmación de soporte.
-* El siguiente bloque activo pasa a ser `Fase 5C`, con `Fase 5B` ya cerrada en `PASS`.
+* El siguiente bloque activo pasa a ser cierre backend/persistente de alertas de señales (`Fase 5C`) o settings de scheduler/alertas, con `Fase 5D` y `Fase 5E` ya cerradas en `PASS`.

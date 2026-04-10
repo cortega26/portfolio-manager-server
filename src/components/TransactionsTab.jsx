@@ -119,32 +119,44 @@ function deriveTransactionPriceLabel(amount, shares) {
   return toInputDecimalLabel(amountDecimal.div(sharesDecimal), PRICE_INPUT_DECIMALS);
 }
 
-function formatTransactionMatchValue(value) {
+function normalizeSearchValue(value) {
   if (value === null || value === undefined) {
     return "";
   }
-  return String(value).toLowerCase();
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
-function matchesTransaction(transaction, term) {
+function getTransactionTypeSearchTokens(type, t) {
+  if (typeof type !== "string") {
+    return [];
+  }
+
+  const typeKey = type.toLowerCase();
+  return [type, t(`transactions.type.${typeKey}`)];
+}
+
+function matchesTransaction(transaction, term, t) {
   if (!term) {
     return true;
   }
 
-  const normalized = term.trim().toLowerCase();
+  const normalized = normalizeSearchValue(term.trim());
   if (!normalized) {
     return true;
   }
 
   return [
     transaction.ticker,
-    transaction.type,
+    ...getTransactionTypeSearchTokens(transaction.type, t),
     transaction.date,
     transaction.shares,
     transaction.amount,
     transaction.price,
   ]
-    .map((value) => formatTransactionMatchValue(value))
+    .map((value) => normalizeSearchValue(value))
     .some((value) => value.includes(normalized));
 }
 
@@ -241,7 +253,7 @@ function VirtualizedRow({ index, style, data }) {
       item={data.transactions[index]}
       onDeleteTransaction={data.onDeleteTransaction}
       style={style}
-      rowIndexOffset={0}
+      rowIndexOffset={data.rowIndexOffset}
       compact={data.compact}
     />
   );
@@ -453,7 +465,12 @@ function TransactionsTable({
             height={listHeight}
             innerElementType={VirtualizedInner}
             itemCount={transactions.length}
-            itemData={{ transactions, onDeleteTransaction, compact }}
+            itemData={{
+              transactions,
+              onDeleteTransaction,
+              compact,
+              rowIndexOffset,
+            }}
             itemSize={rowHeight}
             outerElementType={VirtualizedRowGroup}
             ref={listRef ?? undefined}
@@ -512,35 +529,29 @@ export default function TransactionsTab({
     }
 
     return indexedTransactions.filter(({ transaction }) =>
-      matchesTransaction(transaction, debouncedSearch),
+      matchesTransaction(transaction, debouncedSearch, t),
     );
-  }, [debouncedSearch, indexedTransactions]);
+  }, [debouncedSearch, indexedTransactions, t]);
 
   const totalTransactions = indexedTransactions.length;
   const filteredCount = filteredTransactions.length;
   const safePageSize = pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE;
-  const virtualized = filteredCount > VIRTUALIZATION_THRESHOLD;
-  const totalPages = virtualized
-    ? 1
-    : Math.max(1, Math.ceil(filteredCount / safePageSize));
-  const currentPage = virtualized ? 1 : Math.min(page, totalPages);
-  const startIndex = virtualized ? 0 : (currentPage - 1) * safePageSize;
-  const endIndex = virtualized
-    ? filteredCount
-    : Math.min(startIndex + safePageSize, filteredCount);
+  const totalPages = Math.max(1, Math.ceil(filteredCount / safePageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * safePageSize;
+  const endIndex = Math.min(startIndex + safePageSize, filteredCount);
 
   const visibleTransactions = useMemo(() => {
-    if (virtualized) {
-      return filteredTransactions;
-    }
     return filteredTransactions.slice(startIndex, endIndex);
-  }, [filteredTransactions, startIndex, endIndex, virtualized]);
+  }, [filteredTransactions, startIndex, endIndex]);
+
+  const virtualized = filteredCount > VIRTUALIZATION_THRESHOLD;
 
   useEffect(() => {
-    if (!virtualized && currentPage !== page) {
+    if (currentPage !== page) {
       setPage(currentPage);
     }
-  }, [currentPage, page, virtualized]);
+  }, [currentPage, page]);
 
   useEffect(() => {
     setPage(1);
@@ -550,7 +561,7 @@ export default function TransactionsTab({
     if (listRef.current && typeof listRef.current.scrollTo === "function") {
       listRef.current.scrollTo(0);
     }
-  }, [debouncedSearch, filteredCount, virtualized]);
+  }, [currentPage, debouncedSearch, filteredCount, pageSize, virtualized]);
 
   const handleDepositorOpen = useCallback(() => {
     setDepositorModalOpen(true);
@@ -709,11 +720,8 @@ export default function TransactionsTab({
   const priceReadOnly = requiresPrice;
 
   const hasSearch = Boolean(debouncedSearch?.trim());
-  const showingStart =
-    filteredCount === 0 ? 0 : virtualized ? 1 : startIndex + 1;
-  const showingEnd = virtualized
-    ? filteredCount
-    : Math.min(endIndex, filteredCount);
+  const showingStart = filteredCount === 0 ? 0 : startIndex + 1;
+  const showingEnd = Math.min(endIndex, filteredCount);
   const startLabel = showingStart.toLocaleString();
   const endLabel = showingEnd.toLocaleString();
   const filteredLabel = filteredCount.toLocaleString();
@@ -726,17 +734,6 @@ export default function TransactionsTab({
       return hasSearch
         ? t("transactions.table.noMatch")
         : t("transactions.table.empty");
-    }
-    if (virtualized) {
-      return hasSearch
-        ? t("transactions.summary.virtualFiltered", {
-            count: filteredLabel,
-            total: totalLabel,
-          })
-        : t("transactions.summary.virtual", {
-            count: filteredLabel,
-            total: totalLabel,
-          });
     }
     return hasSearch
       ? t("transactions.summary.filtered", {
@@ -1004,7 +1001,6 @@ export default function TransactionsTab({
                     setPage(1);
                   }}
                   value={pageSize}
-                  disabled={virtualized}
                 >
                   {PAGE_SIZE_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -1036,14 +1032,14 @@ export default function TransactionsTab({
           transactions={visibleTransactions}
           virtualized={virtualized}
           listRef={virtualized ? listRef : null}
-          rowIndexOffset={virtualized ? 0 : startIndex}
+          rowIndexOffset={startIndex}
           hasSearch={hasSearch}
           totalTransactions={totalTransactions}
           rowHeight={rowHeight}
           compact={compact}
         />
 
-        {!virtualized && filteredCount > pageSize ? (
+        {filteredCount > safePageSize ? (
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"

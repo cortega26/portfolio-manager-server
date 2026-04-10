@@ -49,16 +49,6 @@ function buildApp(overrides = {}) {
         ttlSeconds: 600,
         price: { ttlSeconds: 600, checkPeriodSeconds: 120 },
       },
-      security: {
-        bruteForce: {
-          maxAttempts: 5,
-          attemptWindowSeconds: 120,
-          baseLockoutSeconds: 2,
-          maxLockoutSeconds: 30,
-          progressiveMultiplier: 2,
-          checkPeriodSeconds: 1,
-        },
-      },
     },
   });
 }

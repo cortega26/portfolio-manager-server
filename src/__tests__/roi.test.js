@@ -3,8 +3,10 @@ import { strict as assert } from "node:assert";
 import {
   buildBenchmarkOverlaySeries,
   buildRoiSeries,
+  mergeDailyRoiSeries,
   mergeBenchmarkOverlaySeries,
   mergeReturnSeries,
+  ROI_FALLBACK_INCOMPLETE_HISTORY,
 } from "../utils/roi.js";
 
 const transactions = [
@@ -79,6 +81,81 @@ describe("ROI utilities", () => {
     ]);
   });
 
+  it("merges canonical ROI payloads into chart-friendly rows", () => {
+    const merged = mergeDailyRoiSeries({
+      portfolio: [
+        { date: "2024-01-01", value: 0 },
+        { date: "2024-01-02", value: 10.123456 },
+      ],
+      portfolioTwr: [
+        { date: "2024-01-01", value: 0 },
+        { date: "2024-01-02", value: 4.321098 },
+      ],
+      spy: [{ date: "2024-01-02", value: 5.678912 }],
+      qqq: [{ date: "2024-01-02", value: 6.543219 }],
+      bench: [{ date: "2024-01-02", value: 3.333391 }],
+      exCash: [{ date: "2024-01-02", value: 6.444499 }],
+      cash: [{ date: "2024-01-01", value: 0.02 }],
+    });
+
+    assert.deepEqual(merged, [
+      {
+        date: "2024-01-01",
+        portfolio: 0,
+        portfolioTwr: 0,
+        spy: null,
+        qqq: null,
+        blended: null,
+        exCash: null,
+        cash: 0.02,
+      },
+      {
+        date: "2024-01-02",
+        portfolio: 10.123456,
+        portfolioTwr: 4.321098,
+        spy: 5.678912,
+        qqq: 6.543219,
+        blended: 3.333391,
+        exCash: 6.444499,
+        cash: null,
+      },
+    ]);
+  });
+
+  it("preserves missing canonical benchmark values as null instead of flattening them to zero", () => {
+    const merged = mergeDailyRoiSeries({
+      portfolio: [
+        { date: "2024-01-01", value: 1.5 },
+        { date: "2024-01-02", value: 2.5 },
+      ],
+      spy: [],
+      bench: [],
+    });
+
+    assert.deepEqual(merged, [
+      {
+        date: "2024-01-01",
+        portfolio: 1.5,
+        portfolioTwr: null,
+        spy: null,
+        qqq: null,
+        blended: null,
+        exCash: null,
+        cash: null,
+      },
+      {
+        date: "2024-01-02",
+        portfolio: 2.5,
+        portfolioTwr: null,
+        spy: null,
+        qqq: null,
+        blended: null,
+        exCash: null,
+        cash: null,
+      },
+    ]);
+  });
+
   it("builds and merges a Nasdaq benchmark overlay from price history", () => {
     const roiData = [
       { date: "2024-01-01", portfolio: 0, spy: 0 },
@@ -111,6 +188,27 @@ describe("ROI utilities", () => {
     ]);
   });
 
+  it("starts fallback ROI at the portfolio's first operation instead of the benchmark's oldest history", async () => {
+    const fetcher = async (symbol) => {
+      if (symbol.toUpperCase() === "SPY") {
+        return [
+          { date: "2005-01-03", close: 100 },
+          { date: "2005-01-04", close: 101 },
+          ...priceMap.SPY,
+        ];
+      }
+      return priceMap[symbol.toUpperCase()];
+    };
+
+    const series = await buildRoiSeries(transactions, fetcher);
+
+    assert.deepEqual(series.map((point) => point.date), [
+      "2024-01-01",
+      "2024-01-02",
+      "2024-01-03",
+    ]);
+  });
+
   it("returns an empty series when transactions are missing", async () => {
     const fetcher = async () => priceMap.AAPL;
     const series = await buildRoiSeries([], fetcher);
@@ -133,9 +231,8 @@ describe("ROI utilities", () => {
       fetcher,
     );
     assert.deepEqual(series, [
-      { date: "2024-01-01", portfolio: 0, spy: 0 },
-      { date: "2024-01-02", portfolio: 0, spy: 5 },
-      { date: "2024-01-03", portfolio: 0, spy: 10 },
+      { date: "2024-01-02", portfolio: 0, spy: 0 },
+      { date: "2024-01-03", portfolio: 0, spy: 4.762 },
     ]);
   });
 
@@ -215,6 +312,20 @@ describe("ROI utilities", () => {
     const series = await buildRoiSeries(transactions, fetcher);
     assert.equal(series.length, 3);
     assert.equal(series[1].portfolio, 0);
+  });
+
+  it("fails fast when strict fallback coverage is requested and a holding lacks history", async () => {
+    const fetcher = async (symbol) =>
+      symbol.toUpperCase() === "AAPL" ? [] : priceMap.SPY;
+
+    await assert.rejects(
+      () => buildRoiSeries(transactions, fetcher, { requireCompleteHistory: true }),
+      (error) => {
+        assert.equal(error?.code, ROI_FALLBACK_INCOMPLETE_HISTORY);
+        assert.deepEqual(error?.missingSymbols, ["AAPL"]);
+        return true;
+      },
+    );
   });
 
   it("accounts for deposits and dividends when computing fallback ROI", async () => {
@@ -309,10 +420,7 @@ describe("ROI utilities", () => {
 
     assert.deepEqual(
       series,
-      [
-        { date: "2024-01-05", portfolio: 0, spy: 0 },
-        { date: "2024-01-08", portfolio: 0, spy: 0 },
-      ],
+      [{ date: "2024-01-08", portfolio: 0, spy: 0 }],
     );
   });
 

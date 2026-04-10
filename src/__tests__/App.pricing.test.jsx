@@ -21,8 +21,10 @@ vi.mock("../utils/api.js", async (importOriginal) => {
   const actual = await importOriginal();
   const priceCalls = [];
   const priceBatches = [];
+  const bulkPriceCalls = [];
   const signalBodies = [];
   let shouldFailNextPrice = false;
+  let latestOnlyPriceOverride = null;
   const queuedSignalResponses = [];
 
   function normalizeTicker(ticker) {
@@ -139,11 +141,15 @@ vi.mock("../utils/api.js", async (importOriginal) => {
       return buildDefaultSignalResponse(payload);
     }),
     fetchBenchmarkCatalog: vi.fn(async () => ({ data: {} })),
-    fetchBulkPrices: vi.fn(async (symbols) => {
+    fetchBulkPrices: vi.fn(async (symbols, options = {}) => {
       const list = Array.isArray(symbols) ? symbols : [];
       const normalized = list
         .map((ticker) => String(ticker ?? "").toUpperCase())
         .filter((ticker) => ticker && ticker !== "SPY");
+      bulkPriceCalls.push({
+        symbols: [...normalized],
+        options: { ...options },
+      });
       priceBatches.push([...normalized]);
       for (const ticker of normalized) {
         priceCalls.push(ticker);
@@ -171,8 +177,20 @@ vi.mock("../utils/api.js", async (importOriginal) => {
           normalized.map((ticker) => [
             ticker,
             [
-              { date: "2024-01-01", close: 120 },
-              { date: "2024-01-02", close: 125 },
+              {
+                date: "2024-01-01",
+                close:
+                  options?.latestOnly && Number.isFinite(latestOnlyPriceOverride)
+                    ? latestOnlyPriceOverride
+                    : 120,
+              },
+              {
+                date: "2024-01-02",
+                close:
+                  options?.latestOnly && Number.isFinite(latestOnlyPriceOverride)
+                    ? latestOnlyPriceOverride
+                    : 125,
+              },
             ],
           ]),
         ),
@@ -193,6 +211,25 @@ vi.mock("../utils/api.js", async (importOriginal) => {
       },
       requestId: "returns-success-001",
     })),
+    fetchDailyRoi: vi.fn(async () => ({
+      data: {
+        series: {
+          portfolio: [
+            { date: "2024-01-01", value: 0 },
+            { date: "2024-01-02", value: 1 },
+          ],
+          portfolioTwr: [
+            { date: "2024-01-01", value: 0 },
+            { date: "2024-01-02", value: 0.5 },
+          ],
+          spy: [],
+          bench: [],
+          exCash: [],
+          cash: [],
+        },
+      },
+      requestId: "roi-success-001",
+    })),
     persistPortfolio: vi.fn(async () => ({ requestId: "persist-001" })),
     retrievePortfolio: vi.fn(async () => ({
       data: { transactions: [], signals: {}, settings: null },
@@ -212,15 +249,23 @@ vi.mock("../utils/api.js", async (importOriginal) => {
     __getSignalBodies() {
       return signalBodies.slice();
     },
+    __getBulkPriceCalls() {
+      return bulkPriceCalls.slice();
+    },
     __queueSignalResponse(response) {
       queuedSignalResponses.push(response);
+    },
+    __setLatestOnlyPriceOverride(price) {
+      latestOnlyPriceOverride = Number.isFinite(price) ? price : null;
     },
     __resetPriceTracking() {
       priceCalls.length = 0;
       priceBatches.length = 0;
+      bulkPriceCalls.length = 0;
       signalBodies.length = 0;
       queuedSignalResponses.length = 0;
       shouldFailNextPrice = false;
+      latestOnlyPriceOverride = null;
     },
   };
 });
@@ -232,6 +277,9 @@ describe("App price refresh degradations", () => {
 
   beforeEach(() => {
     api.__resetPriceTracking();
+    api.fetchBulkPrices.mockClear();
+    api.retrievePortfolio.mockClear();
+    api.evaluateSignals.mockClear();
     dom = new JSDOM("<!doctype html><html><body></body></html>", {
       url: "http://localhost/",
     });
@@ -305,6 +353,55 @@ describe("App price refresh degradations", () => {
     await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
 
     assert.ok(await screen.findByText("$125.00"));
+  });
+
+  it("preloads latest-only quotes on app open when the market is closed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-02-03T15:00:00Z"));
+    api.__setLatestOnlyPriceOverride(333);
+    api.retrievePortfolio.mockResolvedValueOnce({
+      data: {
+        transactions: [
+          { date: "2024-02-01", ticker: "AAPL", type: "BUY", shares: 2, amount: -250 },
+        ],
+        signals: {},
+        settings: null,
+      },
+      requestId: "retrieve-closed-001",
+    });
+    api.evaluateSignals.mockResolvedValueOnce({
+      data: {
+        rows: [],
+        prices: {},
+        errors: {},
+        market: {
+          isOpen: false,
+          isBeforeOpen: false,
+          lastTradingDate: "2024-02-02",
+          nextTradingDate: "2024-02-05",
+        },
+      },
+      requestId: "signals-closed-001",
+    });
+
+    try {
+      renderApp();
+
+      await waitFor(() => {
+        const latestOnlyCall = api.__getBulkPriceCalls().find(
+          (entry) =>
+            entry.options?.latestOnly === true
+            && Array.isArray(entry.symbols)
+            && entry.symbols.includes("AAPL"),
+        );
+        assert.ok(latestOnlyCall);
+      });
+
+      await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
+      assert.ok(await screen.findByText("$333.00"));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows market-closed guidance instead of an error on weekend failures", async () => {
@@ -565,5 +662,90 @@ describe("App price refresh degradations", () => {
 
     assert.ok(await screen.findByText("AAPL entered BUY zone"));
     assert.ok(await screen.findByText(/\$115\.00/));
+  });
+
+  it("suppresses signal transition toasts when the preference is disabled", async () => {
+    api.__queueSignalResponse({
+      data: {
+        rows: [
+          {
+            ticker: "AAPL",
+            pctWindow: 3,
+            status: "HOLD",
+            currentPrice: 125,
+            currentPriceAsOf: "2024-02-01",
+            lowerBound: 121.25,
+            upperBound: 128.75,
+            referencePrice: 125,
+            referenceDate: "2024-02-01",
+            referenceType: "BUY",
+            sanityRejected: false,
+          },
+        ],
+        prices: { AAPL: 125 },
+        errors: {},
+        market: {
+          isOpen: true,
+          isBeforeOpen: false,
+          lastTradingDate: "2024-02-01",
+          nextTradingDate: "2024-02-02",
+        },
+      },
+      requestId: "signals-hold-001",
+    });
+
+    renderApp();
+
+    await userEvent.click(screen.getByRole("button", { name: /settings/i }));
+    await userEvent.click(screen.getByLabelText(/Signal transition toasts/i));
+
+    await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
+    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
+    await userEvent.type(screen.getByLabelText(/ticker/i), "aapl");
+    await userEvent.type(screen.getByLabelText(/amount/i), "1250");
+    await userEvent.type(screen.getByLabelText(/price/i), "125");
+    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+
+    await waitFor(() => {
+      assert.deepEqual(api.__getLastPriceBatch(), ["AAPL"]);
+    });
+
+    api.__queueSignalResponse({
+      data: {
+        rows: [
+          {
+            ticker: "AAPL",
+            pctWindow: 5,
+            status: "BUY_ZONE",
+            currentPrice: 115,
+            currentPriceAsOf: "2024-02-02",
+            lowerBound: 118.75,
+            upperBound: 131.25,
+            referencePrice: 125,
+            referenceDate: "2024-02-01",
+            referenceType: "BUY",
+            sanityRejected: false,
+          },
+        ],
+        prices: { AAPL: 115 },
+        errors: {},
+        market: {
+          isOpen: true,
+          isBeforeOpen: false,
+          lastTradingDate: "2024-02-02",
+          nextTradingDate: "2024-02-05",
+        },
+      },
+      requestId: "signals-buy-001",
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
+    const windowInput = await screen.findByLabelText(/aapl percent window/i);
+    await userEvent.clear(windowInput);
+    await userEvent.type(windowInput, "5");
+
+    await waitFor(() => {
+      assert.equal(screen.queryByText("AAPL entered BUY zone"), null);
+    });
   });
 });

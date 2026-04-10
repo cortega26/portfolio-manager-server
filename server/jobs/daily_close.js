@@ -196,6 +196,53 @@ function resolveTrackedTickers(transactions, config) {
   return tickers;
 }
 
+export async function backfillPerformanceRange({
+  dataDir,
+  logger,
+  from,
+  to,
+  priceProvider,
+  config,
+} = {}) {
+  const normalizedFrom = toDateKey(from);
+  const normalizedTo = toDateKey(to);
+  if (!normalizedFrom || !normalizedTo) {
+    throw new Error('backfillPerformanceRange requires a valid `from` and `to` date.');
+  }
+  if (normalizedFrom > normalizedTo) {
+    throw new Error('backfillPerformanceRange requires `from` to be before or equal to `to`.');
+  }
+
+  const dates = listDates(normalizedFrom, normalizedTo);
+  let processedDays = 0;
+  let skippedDays = 0;
+  let lastResult = null;
+
+  for (const dateKey of dates) {
+    const result = await runDailyClose({
+      dataDir,
+      logger,
+      date: new Date(`${dateKey}T00:00:00Z`),
+      priceProvider,
+      config,
+    });
+    if (result?.skipped) {
+      skippedDays += 1;
+      continue;
+    }
+    processedDays += 1;
+    lastResult = result;
+  }
+
+  return {
+    from: normalizedFrom,
+    to: normalizedTo,
+    processedDays,
+    skippedDays,
+    lastResult,
+  };
+}
+
 export async function runDailyClose({
   dataDir,
   logger,
@@ -340,15 +387,20 @@ export async function runDailyClose({
   }
 
   const priceMapForSpy = new Map();
+  const priceMapForQqq = new Map();
   for (const record of priceRecords) {
     if (record.ticker === 'SPY') {
       priceMapForSpy.set(record.date, Number(record.adj_close));
+    }
+    if (record.ticker === 'QQQ') {
+      priceMapForQqq.set(record.date, Number(record.adj_close));
     }
   }
   const returnRows = computeDailyReturnRows({
     states,
     rates,
     spyPrices: priceMapForSpy,
+    qqqPrices: priceMapForQqq,
     transactions,
   });
   const targetRow = returnRows.find((row) => row.date === targetDateKey);

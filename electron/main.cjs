@@ -135,6 +135,7 @@ function registerDesktopSessionHandlers({
   apiBaseUrl,
   sessionToken,
   sessionAuthHeader,
+  jobNightlyHourUtc,
   preferredPortfolioId,
   listPortfolioStates,
   hasPin,
@@ -172,6 +173,8 @@ function registerDesktopSessionHandlers({
       sessionToken,
       activePortfolioId: portfolioId,
       sessionAuthHeader,
+      jobNightlyActive: false,
+      jobNightlyHourUtc,
     }),
   });
 
@@ -374,6 +377,8 @@ async function bootstrapDesktopShell() {
   const runtimeConfig = buildDesktopRuntimeConfig({
     apiBaseUrl: embeddedServer.baseUrl,
     sessionAuthHeader,
+    jobNightlyActive: false,
+    jobNightlyHourUtc: desktopConfig?.jobs?.nightlyHour,
   });
   registerDesktopSessionHandlers({
     storage,
@@ -381,6 +386,7 @@ async function bootstrapDesktopShell() {
     apiBaseUrl: embeddedServer.baseUrl,
     sessionToken,
     sessionAuthHeader,
+    jobNightlyHourUtc: desktopConfig?.jobs?.nightlyHour,
     preferredPortfolioId,
     listPortfolioStates,
     hasPin,

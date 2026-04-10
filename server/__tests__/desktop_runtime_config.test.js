@@ -19,6 +19,8 @@ test("desktop runtime config round-trips through environment encoding", () => {
     activePortfolioId: "desktop",
     sessionAuthHeader: "X-Desktop-Auth",
     requestTimeoutMs: 9000,
+    jobNightlyActive: false,
+    jobNightlyHourUtc: 4,
   });
 
   const encoded = encodeDesktopRuntimeConfig(config);
@@ -30,6 +32,8 @@ test("desktop runtime config round-trips through environment encoding", () => {
     ACTIVE_PORTFOLIO_ID: "desktop",
     SESSION_AUTH_HEADER: "X-Desktop-Auth",
     REQUEST_TIMEOUT_MS: 9000,
+    JOB_NIGHTLY_ACTIVE: false,
+    JOB_NIGHTLY_HOUR_UTC: 4,
   });
 });
 
@@ -41,12 +45,15 @@ test("desktop runtime config ignores invalid fields from the environment", () =>
       ACTIVE_PORTFOLIO_ID: " desktop ",
       SESSION_AUTH_HEADER: "",
       REQUEST_TIMEOUT_MS: -100,
+      JOB_NIGHTLY_ACTIVE: false,
+      JOB_NIGHTLY_HOUR_UTC: 26,
     }),
   });
 
   assert.deepEqual(config, {
     API_SESSION_TOKEN: "desktop-session-token",
     ACTIVE_PORTFOLIO_ID: "desktop",
+    JOB_NIGHTLY_ACTIVE: false,
   });
 });
 
@@ -57,6 +64,8 @@ test("desktop runtime config round-trips through BrowserWindow additional argume
     activePortfolioId: "desktop",
     sessionAuthHeader: "X-Desktop-Auth",
     requestTimeoutMs: 9000,
+    jobNightlyActive: false,
+    jobNightlyHourUtc: 4,
   });
 
   const runtimeArg = buildDesktopRuntimeConfigArg(config);
@@ -68,5 +77,7 @@ test("desktop runtime config round-trips through BrowserWindow additional argume
     ACTIVE_PORTFOLIO_ID: "desktop",
     SESSION_AUTH_HEADER: "X-Desktop-Auth",
     REQUEST_TIMEOUT_MS: 9000,
+    JOB_NIGHTLY_ACTIVE: false,
+    JOB_NIGHTLY_HOUR_UTC: 4,
   });
 });

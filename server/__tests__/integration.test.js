@@ -85,7 +85,28 @@ for (const basePath of API_BASES) {
         { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
       ],
       signals: { spy: { pct: 42 } },
-      settings: { autoClip: false },
+      settings: {
+        autoClip: false,
+        notifications: {
+          email: true,
+          push: false,
+          signalTransitions: false,
+        },
+        alerts: {
+          rebalance: false,
+          drawdownThreshold: 12,
+          marketStatus: false,
+          roiFallback: false,
+        },
+        privacy: {
+          hideBalances: true,
+        },
+        display: {
+          currency: 'EUR',
+          refreshInterval: 10,
+          compactTables: true,
+        },
+      },
     };
 
     const update = await withSession(
@@ -104,11 +125,13 @@ for (const basePath of API_BASES) {
     const tickers = fetched.body.transactions.map((tx) => tx.ticker).filter(Boolean);
     assert.ok(tickers.every((ticker) => ticker === ticker.toUpperCase()));
     assert.deepEqual(fetched.body.signals, { SPY: { pct: 42 } });
+    assert.deepEqual(fetched.body.settings, updatePayload.settings);
 
     const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
     const persisted = await readPortfolioState(storage, portfolioId);
     assert.equal(persisted.transactions.length, 2);
     assert.ok(persisted.transactions.every((tx) => typeof tx.uid === 'string' && tx.uid.length > 0));
+    assert.deepEqual(persisted.settings, updatePayload.settings);
   });
 }
 

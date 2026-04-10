@@ -125,4 +125,7 @@ test('holdingsToObject and weightsFromState provide stable transforms', () => {
 
   const zeroWeights = weightsFromState({ nav: 0, cash: 0, riskValue: 0 });
   assert.deepEqual(zeroWeights, { cash: 0, risk: 0 });
+
+  const negativeWeights = weightsFromState({ nav: -100, cash: 50, riskValue: -150 });
+  assert.deepEqual(negativeWeights, { cash: 0, risk: 0 });
 });

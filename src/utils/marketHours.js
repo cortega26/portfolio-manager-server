@@ -11,6 +11,8 @@ const WEEKDAY_INDEX = {
 const MARKET_TIMEZONE = "America/New_York";
 const MARKET_OPEN_MINUTES = 9 * 60 + 30;
 const MARKET_CLOSE_MINUTES = 16 * 60;
+const EXTENDED_PRE_OPEN_MINUTES = 4 * 60;
+const EXTENDED_POST_CLOSE_MINUTES = 20 * 60;
 
 const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: MARKET_TIMEZONE,
@@ -180,6 +182,11 @@ export function getMarketClock(referenceDate = new Date()) {
     tradingDay && currentMinutes >= MARKET_OPEN_MINUTES && currentMinutes < MARKET_CLOSE_MINUTES;
   const isBeforeOpen = tradingDay && currentMinutes < MARKET_OPEN_MINUTES;
   const isAfterClose = tradingDay && currentMinutes >= MARKET_CLOSE_MINUTES;
+  const isExtendedHours =
+    tradingDay
+    && !isOpen
+    && ((currentMinutes >= EXTENDED_PRE_OPEN_MINUTES && currentMinutes < MARKET_OPEN_MINUTES)
+      || (currentMinutes >= MARKET_CLOSE_MINUTES && currentMinutes < EXTENDED_POST_CLOSE_MINUTES));
   const previousTrading = stepTradingDay(now, -1);
   const nextTrading = stepTradingDay(now, 1);
 
@@ -209,6 +216,7 @@ export function getMarketClock(referenceDate = new Date()) {
     nextTradingDate,
     isBeforeOpen,
     isAfterClose,
+    isExtendedHours,
   };
 }
 
