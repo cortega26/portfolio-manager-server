@@ -8,6 +8,7 @@ import request from 'supertest';
 
 import JsonTableStorage from '../data/storage.js';
 import { readPortfolioState } from '../data/portfolioState.js';
+import { runDailyClose } from '../jobs/daily_close.js';
 import { createSessionTestApp, withSession } from './sessionTestUtils.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
@@ -291,6 +292,69 @@ for (const basePath of API_BASES) {
 
     assert.equal(response.status, 400);
     assert.equal(response.body.error, "VALIDATION_ERROR");
+  });
+}
+
+for (const basePath of API_BASES) {
+  test(`portfolio signal notifications expose persisted backend alerts (${basePath})`, async () => {
+    const app = buildApp();
+    const portfolioId = 'alerts-' + randomUUID();
+    const withBase = (suffix) => `${basePath}${suffix}`;
+
+    const saveResponse = await withSession(
+      request(app)
+        .post(withBase('/portfolio/' + portfolioId))
+        .send({
+          transactions: [
+            { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+            { date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5 },
+          ],
+          signals: { AAPL: { pct: 5 } },
+          settings: {
+            notifications: {
+              email: true,
+              push: true,
+              signalTransitions: true,
+            },
+          },
+        }),
+    );
+    assert.equal(saveResponse.status, 200);
+
+    await runDailyClose({
+      dataDir,
+      logger: noopLogger,
+      date: new Date('2024-01-03T00:00:00Z'),
+      priceProvider: {
+        async getDailyAdjustedClose(symbol, from, to) {
+          const rowsBySymbol = {
+            SPY: [
+              { date: '2024-01-02', adjClose: 100 },
+              { date: '2024-01-03', adjClose: 101 },
+            ],
+            AAPL: [
+              { date: '2024-01-02', adjClose: 100 },
+              { date: '2024-01-03', adjClose: 94 },
+            ],
+          };
+          return (rowsBySymbol[symbol] ?? []).filter(
+            (row) => row.date >= from && row.date <= to,
+          );
+        },
+      },
+      config: {
+        featureFlags: { cashBenchmarks: true },
+      },
+    });
+
+    const response = await withSession(
+      request(app).get(withBase('/portfolio/' + portfolioId + '/signal-notifications')),
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.body.data.length, 1);
+    assert.equal(response.body.data[0].ticker, 'AAPL');
+    assert.equal(response.body.data[0].status, 'BUY_ZONE');
+    assert.equal(response.body.data[0].delivery.email.status, 'pending');
   });
 }
 

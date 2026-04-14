@@ -75,14 +75,15 @@ import {
 } from "./middleware/requestContext.js";
 import { normalizeBenchmarkConfig } from "../shared/benchmarks.js";
 import {
-  deriveLastSignalReference,
-  evaluateSignalRow,
   isOpenSignalHolding,
-  resolveSignalWindow,
 } from "../shared/signals.js";
 import { getMarketClock } from "../src/utils/marketHours.js";
 import { createHistoricalPriceLoader } from "./services/historicalPriceLoader.js";
 import { createPerformanceHistoryService } from "./services/performanceHistory.js";
+import {
+  buildPortfolioSignalRows,
+  listPortfolioSignalNotifications,
+} from "./services/signalNotifications.js";
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? "./data");
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.PRICE_FETCH_TIMEOUT_MS ?? "5000",
@@ -1066,16 +1067,20 @@ export function createApp({
       openTickers.length > 0
         ? await fetchLatestSignalPrices(openTickers)
         : { prices: {}, asOf: {}, errors: {} };
-
-    const rows = openTickers.map((ticker) =>
-      evaluateSignalRow({
+    const priceSnapshots = new Map(
+      openTickers.map((ticker) => [
         ticker,
-        pctWindow: resolveSignalWindow(signals, ticker),
-        currentPrice: latestSignalPrices.prices[ticker] ?? null,
-        currentPriceAsOf: latestSignalPrices.asOf[ticker] ?? null,
-        reference: deriveLastSignalReference(sortedTransactions, ticker),
-      }),
+        {
+          price: latestSignalPrices.prices[ticker] ?? null,
+          asOf: latestSignalPrices.asOf[ticker] ?? null,
+        },
+      ]),
     );
+    const rows = buildPortfolioSignalRows({
+      transactions,
+      signals,
+      priceSnapshots,
+    });
 
     const market = marketClock();
     return {
@@ -1376,6 +1381,34 @@ export function createApp({
             status: 500,
             code: "SIGNALS_PREVIEW_FAILED",
             message: "Failed to evaluate signals.",
+            expose: false,
+          }),
+        );
+      }
+    },
+  );
+  app.get(
+    "/api/portfolio/:id/signal-notifications",
+    validatePortfolioId,
+    requirePortfolioAccess,
+    async (req, res, next) => {
+      const { id } = req.params;
+      try {
+        const storage = await getStorage();
+        const data = await listPortfolioSignalNotifications(storage, id, {
+          limit: req.query?.limit,
+        });
+        res.json({ data });
+      } catch (error) {
+        log.error("portfolio_signal_notifications_failed", {
+          id,
+          error: error.message,
+        });
+        next(
+          createHttpError({
+            status: 500,
+            code: "PORTFOLIO_SIGNAL_NOTIFICATIONS_FAILED",
+            message: "Failed to load signal notifications.",
             expose: false,
           }),
         );

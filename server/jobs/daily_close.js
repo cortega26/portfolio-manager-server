@@ -11,6 +11,11 @@ import {
 } from '../data/prices.js';
 import { createConfiguredPriceProvider } from '../data/priceProviderFactory.js';
 import { normalizeBenchmarkConfig } from '../../shared/benchmarks.js';
+import { readPortfolioState } from '../data/portfolioState.js';
+import {
+  buildPriceSnapshotsFromPriceRows,
+  syncPortfolioSignalNotifications,
+} from '../services/signalNotifications.js';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -384,6 +389,28 @@ export async function runDailyClose({
       },
       ['date'],
     );
+  }
+
+  const signalPriceSnapshots = buildPriceSnapshotsFromPriceRows(
+    priceRecords,
+    targetDateKey,
+  );
+  const portfolioStates = await listPortfolioStates(storage);
+  for (const state of portfolioStates) {
+    if (!state?.id) {
+      continue;
+    }
+    const portfolioState = await readPortfolioState(storage, state.id);
+    if (!portfolioState) {
+      continue;
+    }
+    await syncPortfolioSignalNotifications({
+      storage,
+      portfolioId: state.id,
+      portfolioState,
+      priceSnapshots: signalPriceSnapshots,
+      source: 'daily_close',
+    });
   }
 
   const priceMapForSpy = new Map();

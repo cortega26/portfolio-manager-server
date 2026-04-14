@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import request from 'supertest';
 
 import JsonTableStorage from '../data/storage.js';
+import { writePortfolioState } from '../data/portfolioState.js';
 import { runDailyClose } from '../jobs/daily_close.js';
 import { createApp } from '../app.js';
 
@@ -140,6 +141,60 @@ test('runDailyClose posts a single monthly interest entry when enabled', async (
   assert.equal(interest.length, 1);
   assert.equal(interest[0].note, 'Automated monthly cash interest posting');
   assert.ok(interest[0].amount > 0);
+});
+
+test('runDailyClose persists actionable signal transitions once per trading day', async () => {
+  await writePortfolioState(storage, 'signals-desktop', {
+    transactions: [
+      { uid: 'd1', date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+      { uid: 'b1', date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5, quantity: 5 },
+    ],
+    signals: { AAPL: { pct: 5 } },
+    settings: {
+      notifications: {
+        email: true,
+        push: true,
+        signalTransitions: true,
+      },
+    },
+  });
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-02', adjClose: 100 },
+      { date: '2024-01-03', adjClose: 101 },
+    ],
+    AAPL: [
+      { date: '2024-01-02', adjClose: 100 },
+      { date: '2024-01-03', adjClose: 94 },
+    ],
+  });
+
+  await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+  });
+  await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+  });
+
+  const stateRows = await storage.readTable('signal_notification_states');
+  assert.equal(stateRows.length, 1);
+  assert.equal(stateRows[0].portfolio_id, 'signals-desktop');
+  assert.equal(stateRows[0].ticker, 'AAPL');
+  assert.equal(stateRows[0].status, 'BUY_ZONE');
+  assert.equal(stateRows[0].current_price_as_of, '2024-01-03');
+
+  const notifications = await storage.readTable('signal_notifications');
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].ticker, 'AAPL');
+  assert.equal(notifications[0].status, 'BUY_ZONE');
+  assert.equal(notifications[0].delivery.email.status, 'pending');
 });
 
 test('API endpoints expose computed series', async () => {
