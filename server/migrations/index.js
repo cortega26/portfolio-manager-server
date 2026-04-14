@@ -140,6 +140,14 @@ const MIGRATIONS = [
       await storage.ensureTable('roi_sync_state', []);
     },
   },
+  {
+    id: '008_signal_notifications',
+    description: 'Initialize persistent backend signal state and notification tables',
+    async up({ storage }) {
+      await storage.ensureTable('signal_notification_states', []);
+      await storage.ensureTable('signal_notifications', []);
+    },
+  },
 ];
 
 async function readStateFile(filePath) {
