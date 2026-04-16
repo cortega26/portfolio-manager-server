@@ -35,7 +35,9 @@
     "verify:build": "npm run build",
     "smoke:test": "vitest run src/__smoke__/",
     "verify:smoke": "npm run verify:deps && npm run verify:lint && npm run verify:typecheck && npm run verify:build && npm run smoke:test",
-    "prepare": "husky install"
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
   },
   "dependencies": {
     "clsx": "^1.2.1",
@@ -46,6 +48,7 @@
     "helmet": "^8.1.0",
     "node-cache": "^5.1.2",
     "node-fetch": "^3.3.1",
+    "nodemailer": "^6.10.1",
     "pino": "^10.0.0",
     "pino-http": "^11.0.0",
     "react": "^18.2.0",
@@ -73,7 +76,6 @@
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "autoprefixer": "^10.4.15",
-    "baseline-browser-mapping": "^2.10.10",
     "c8": "^9.1.0",
     "cross-env": "^7.0.3",
     "electron": "^41.0.3",
@@ -87,6 +89,7 @@
     "http-server": "^14.1.1",
     "husky": "^9.1.7",
     "jsdom": "^24.0.0",
+    "lint-staged": "^16.4.0",
     "msw": "^2.11.3",
     "postcss": "^8.4.33",
     "prettier": "^3.2.5",
@@ -97,6 +100,15 @@
     "typescript-eslint": "^8.46.0",
     "vite": "^7.1.9",
     "vitest": "^3.2.4"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,cjs,mjs}": [
+      "prettier --write",
+      "eslint --fix --max-warnings=0"
+    ],
+    "*.{json,css,md,html}": [
+      "prettier --write"
+    ]
   },
   "type": "module",
   "engines": {

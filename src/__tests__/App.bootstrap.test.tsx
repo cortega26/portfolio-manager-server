@@ -1,10 +1,34 @@
 import React from 'react';
+import { cleanup } from '@testing-library/react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import App from '../App.jsx';
+import { ApiClientError } from '../lib/apiClient.js';
 import { renderWithProviders } from './test-utils';
+
+function buildApiError({
+  status,
+  code,
+  message,
+  requestId = 'req-auth-001',
+}: {
+  status: number;
+  code: string;
+  message: string;
+  requestId?: string;
+}) {
+  const error = new ApiClientError(message, {
+    status,
+    requestId,
+  });
+  error.body = {
+    error: code,
+    message,
+  };
+  return error;
+}
 
 const {
   evaluateSignalsMock,
@@ -44,6 +68,7 @@ vi.mock('../utils/api.js', async (importOriginal) => {
 
 describe('App desktop bootstrap', () => {
   beforeEach(() => {
+    cleanup();
     vi.clearAllMocks();
     window.localStorage.clear();
     delete (window as typeof window & { __APP_CONFIG__?: unknown }).__APP_CONFIG__;
@@ -71,7 +96,9 @@ describe('App desktop bootstrap', () => {
     });
     fetchPricesMock.mockResolvedValue({ data: [], requestId: 'price-none' });
     fetchDailyRoiMock.mockResolvedValue({
-      data: { series: { portfolio: [], portfolioTwr: [], spy: [], bench: [], exCash: [], cash: [] } },
+      data: {
+        series: { portfolio: [], portfolioTwr: [], spy: [], bench: [], exCash: [], cash: [] },
+      },
       requestId: 'roi-none',
     });
     retrievePortfolioMock.mockResolvedValue({
@@ -152,10 +179,12 @@ describe('App desktop bootstrap', () => {
   });
 
   test('requires a desktop PIN before unlocking an Electron portfolio session', async () => {
-    (window as typeof window & {
-      __APP_CONFIG__?: unknown;
-      portfolioDesktop?: unknown;
-    }).__APP_CONFIG__ = {
+    (
+      window as typeof window & {
+        __APP_CONFIG__?: unknown;
+        portfolioDesktop?: unknown;
+      }
+    ).__APP_CONFIG__ = {
       API_BASE_URL: 'http://desktop.local',
       SESSION_AUTH_HEADER: 'X-Session-Token',
     };
@@ -194,5 +223,178 @@ describe('App desktop bootstrap', () => {
       expect(retrievePortfolioMock).toHaveBeenCalledWith('desktop');
     });
     expect(screen.getByLabelText(/portfolio id/i)).toHaveValue('desktop');
+  });
+
+  test('relocks the desktop session gate when portfolio retrieval fails after unlock', async () => {
+    (
+      window as typeof window & {
+        __APP_CONFIG__?: unknown;
+        portfolioDesktop?: unknown;
+      }
+    ).__APP_CONFIG__ = {
+      API_BASE_URL: 'http://desktop.local',
+      SESSION_AUTH_HEADER: 'X-Session-Token',
+    };
+    (
+      window as typeof window & {
+        portfolioDesktop?: {
+          isAvailable: boolean;
+          listPortfolios: typeof listPortfoliosMock;
+          setupPin: typeof setupPinMock;
+          unlockSession: typeof unlockSessionMock;
+        };
+      }
+    ).portfolioDesktop = {
+      isAvailable: true,
+      listPortfolios: listPortfoliosMock,
+      setupPin: setupPinMock,
+      unlockSession: unlockSessionMock,
+    };
+    listPortfoliosMock.mockResolvedValue({
+      portfolios: [{ id: 'desktop', hasPin: true }],
+      defaultPortfolioId: 'desktop',
+    });
+    retrievePortfolioMock.mockRejectedValue(
+      buildApiError({
+        status: 401,
+        code: 'NO_SESSION_TOKEN',
+        message: 'Session token required.',
+      })
+    );
+
+    renderWithProviders(<App />);
+
+    expect(await screen.findByText(/unlock local portfolio/i)).toBeVisible();
+
+    await userEvent.type(screen.getByLabelText(/^PIN$/i), '2468');
+    await userEvent.click(screen.getByRole('button', { name: /unlock portfolio/i }));
+
+    await waitFor(() => {
+      expect(listPortfoliosMock).toHaveBeenCalledTimes(2);
+    });
+    expect(window.localStorage.getItem('portfolio-manager-active-portfolio')).toBeNull();
+  });
+
+  test('relocks the desktop session gate when bootstrap starts with a stale desktop token', async () => {
+    window.localStorage.setItem(
+      'portfolio-manager-active-portfolio',
+      JSON.stringify({ activeId: 'desktop' })
+    );
+    (
+      window as typeof window & {
+        __APP_CONFIG__?: unknown;
+        portfolioDesktop?: unknown;
+      }
+    ).__APP_CONFIG__ = {
+      API_BASE_URL: 'http://desktop.local',
+      API_SESSION_TOKEN: 'stale-desktop-token',
+      ACTIVE_PORTFOLIO_ID: 'desktop',
+      SESSION_AUTH_HEADER: 'X-Session-Token',
+    };
+    (
+      window as typeof window & {
+        portfolioDesktop?: {
+          isAvailable: boolean;
+          listPortfolios: typeof listPortfoliosMock;
+          setupPin: typeof setupPinMock;
+          unlockSession: typeof unlockSessionMock;
+        };
+      }
+    ).portfolioDesktop = {
+      isAvailable: true,
+      listPortfolios: listPortfoliosMock,
+      setupPin: setupPinMock,
+      unlockSession: unlockSessionMock,
+    };
+    listPortfoliosMock.mockResolvedValue({
+      portfolios: [{ id: 'desktop', hasPin: true }],
+      defaultPortfolioId: 'desktop',
+    });
+    retrievePortfolioMock.mockRejectedValue(
+      buildApiError({
+        status: 403,
+        code: 'INVALID_SESSION_TOKEN',
+        message: 'Invalid session token.',
+      })
+    );
+
+    renderWithProviders(<App />);
+
+    await waitFor(() => {
+      expect(retrievePortfolioMock).toHaveBeenCalledWith('desktop');
+    });
+    await waitFor(() => {
+      expect(listPortfoliosMock).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      (await screen.findAllByRole('button', { name: /unlock portfolio/i })).length
+    ).toBeGreaterThan(0);
+    expect(
+      await screen.findByText(
+        /the desktop session token is invalid\. restart the desktop app and try again\./i
+      )
+    ).toBeVisible();
+    expect(window.localStorage.getItem('portfolio-manager-active-portfolio')).toBeNull();
+  });
+
+  test('clears stale desktop bootstrap state and shows a recovery error when session auth is missing', async () => {
+    window.localStorage.setItem(
+      'portfolio-manager-active-portfolio',
+      JSON.stringify({ activeId: 'desktop' })
+    );
+    retrievePortfolioMock.mockRejectedValue(
+      buildApiError({
+        status: 401,
+        code: 'NO_SESSION_TOKEN',
+        message: 'Session token required.',
+      })
+    );
+
+    renderWithProviders(<App />);
+
+    await waitFor(() => {
+      expect(retrievePortfolioMock).toHaveBeenCalledWith('desktop');
+    });
+    expect(
+      (
+        await screen.findAllByText(
+          /desktop session credentials are missing\. restart the desktop app and try again\./i
+        )
+      ).length
+    ).toBeGreaterThan(0);
+    expect(window.localStorage.getItem('portfolio-manager-active-portfolio')).toBeNull();
+  });
+
+  test('surfaces recovery and clears the manual load input when desktop auth fails without a bridge', async () => {
+    retrievePortfolioMock.mockRejectedValue(
+      buildApiError({
+        status: 401,
+        code: 'NO_SESSION_TOKEN',
+        message: 'Session token required.',
+      })
+    );
+
+    renderWithProviders(<App />);
+
+    const portfolioIdInput = screen.getAllByLabelText(/portfolio id/i).at(-1);
+    const loadPortfolioButton = screen.getAllByRole('button', { name: /load portfolio/i }).at(-1);
+    expect(portfolioIdInput).toBeTruthy();
+    expect(loadPortfolioButton).toBeTruthy();
+
+    await userEvent.type(portfolioIdInput!, 'desktop');
+    await userEvent.click(loadPortfolioButton!);
+
+    await waitFor(() => {
+      expect(retrievePortfolioMock).toHaveBeenCalledWith('desktop');
+    });
+    expect(
+      (
+        await screen.findAllByText(
+          /desktop session credentials are missing\. restart the desktop app and try again\./i
+        )
+      ).length
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText(/portfolio id/i).at(-1)).toHaveValue('');
+    expect(window.localStorage.getItem('portfolio-manager-active-portfolio')).toBeNull();
   });
 });

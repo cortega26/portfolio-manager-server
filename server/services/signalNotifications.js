@@ -152,6 +152,11 @@ function buildSignalNotificationRow({
         attempts: 0,
         lastAttemptAt: null,
         deliveredAt: null,
+        nextRetryAt: null,
+        exhaustedAt: null,
+        requeuedAt: null,
+        failure: null,
+        messageId: null,
       },
     },
   };

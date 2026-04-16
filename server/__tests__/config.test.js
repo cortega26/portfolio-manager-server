@@ -65,3 +65,61 @@ test("loadConfig falls back to the first configured benchmark when defaults are 
   assert.deepEqual(config.benchmarks.tickers, ["QQQ"]);
   assert.deepEqual(config.benchmarks.defaultSelection, ["qqq"]);
 });
+
+test("loadConfig parses email delivery settings", () => {
+  const config = loadConfig({
+    EMAIL_DELIVERY_ENABLED: "true",
+    EMAIL_DELIVERY_CONNECTION_URL: " smtp://user:pass@mail.local:2525 ",
+    EMAIL_DELIVERY_FROM: " alerts@example.com ",
+    EMAIL_DELIVERY_TO: " first@example.com, second@example.com ",
+    EMAIL_DELIVERY_REPLY_TO: " support@example.com ",
+    EMAIL_DELIVERY_SUBJECT_PREFIX: " [Signals] ",
+    EMAIL_DELIVERY_USER: " smtp-user ",
+    EMAIL_DELIVERY_PASS: " smtp-pass ",
+    EMAIL_DELIVERY_RETRY_MAX_ATTEMPTS: "5",
+    EMAIL_DELIVERY_RETRY_MIN_DELAY_SECONDS: "90",
+    EMAIL_DELIVERY_RETRY_BACKOFF_MULTIPLIER: "3",
+    EMAIL_DELIVERY_RETRY_AUTOMATIC: "false",
+  });
+
+  assert.deepEqual(config.notifications.emailDelivery, {
+    enabled: true,
+    configured: true,
+    from: "alerts@example.com",
+    to: ["first@example.com", "second@example.com"],
+    replyTo: "support@example.com",
+    subjectPrefix: "[Signals]",
+    retry: {
+      maxAttempts: 5,
+      minDelayMs: 90_000,
+      backoffMultiplier: 3,
+      automaticRetries: false,
+    },
+    transport: {
+      connectionUrl: "smtp://user:pass@mail.local:2525",
+      host: "",
+      port: 587,
+      secure: false,
+      auth: {
+        user: "smtp-user",
+        pass: "smtp-pass",
+      },
+    },
+  });
+});
+
+test("loadConfig sanitizes retry policy for email delivery", () => {
+  const config = loadConfig({
+    EMAIL_DELIVERY_RETRY_MAX_ATTEMPTS: "0",
+    EMAIL_DELIVERY_RETRY_MIN_DELAY_SECONDS: "-15",
+    EMAIL_DELIVERY_RETRY_BACKOFF_MULTIPLIER: "0",
+    EMAIL_DELIVERY_RETRY_AUTOMATIC: "true",
+  });
+
+  assert.deepEqual(config.notifications.emailDelivery.retry, {
+    maxAttempts: 1,
+    minDelayMs: 0,
+    backoffMultiplier: 1,
+    automaticRetries: true,
+  });
+});

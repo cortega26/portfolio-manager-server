@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# Auto-fix formatting and linting issues on staged files, then re-stage them
+npx lint-staged
