@@ -359,6 +359,107 @@ for (const basePath of API_BASES) {
 }
 
 for (const basePath of API_BASES) {
+  test(`portfolio signal notification requeue reuses the persisted row (${basePath})`, async () => {
+    const app = buildApp();
+    const portfolioId = 'alerts-requeue-' + randomUUID();
+    const withBase = (suffix) => `${basePath}${suffix}`;
+
+    const saveResponse = await withSession(
+      request(app)
+        .post(withBase('/portfolio/' + portfolioId))
+        .send({
+          transactions: [
+            { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+            { date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5 },
+          ],
+          signals: { AAPL: { pct: 5 } },
+          settings: {
+            notifications: {
+              email: true,
+              push: false,
+              signalTransitions: true,
+            },
+          },
+        }),
+    );
+    assert.equal(saveResponse.status, 200);
+
+    await runDailyClose({
+      dataDir,
+      logger: noopLogger,
+      date: new Date('2024-01-03T00:00:00Z'),
+      priceProvider: {
+        async getDailyAdjustedClose(symbol, from, to) {
+          const rowsBySymbol = {
+            SPY: [
+              { date: '2024-01-02', adjClose: 100 },
+              { date: '2024-01-03', adjClose: 101 },
+            ],
+            AAPL: [
+              { date: '2024-01-02', adjClose: 100 },
+              { date: '2024-01-03', adjClose: 94 },
+            ],
+          };
+          return (rowsBySymbol[symbol] ?? []).filter(
+            (row) => row.date >= from && row.date <= to,
+          );
+        },
+      },
+      config: {
+        featureFlags: { cashBenchmarks: true },
+      },
+    });
+
+    const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+    const notifications = await storage.readTable('signal_notifications');
+    assert.equal(notifications.length, 1);
+    const [notification] = notifications;
+    await storage.upsertRow(
+      'signal_notifications',
+      {
+        ...notification,
+        delivery: {
+          ...notification.delivery,
+          email: {
+            ...notification.delivery.email,
+            status: 'exhausted',
+            attempts: 3,
+            lastAttemptAt: '2024-01-03T12:00:00.000Z',
+            nextRetryAt: null,
+            exhaustedAt: '2024-01-03T12:00:00.000Z',
+          },
+        },
+      },
+      ['id'],
+    );
+
+    const requeueResponse = await withSession(
+      request(app).post(
+        withBase(
+          '/portfolio/'
+            + portfolioId
+            + '/signal-notifications/'
+            + encodeURIComponent(notification.id)
+            + '/requeue-email',
+        ),
+      ),
+    );
+    assert.equal(requeueResponse.status, 200);
+    assert.equal(requeueResponse.body.status, 'ok');
+    assert.equal(requeueResponse.body.changed, true);
+    assert.equal(requeueResponse.body.reason, 'requeued');
+    assert.equal(requeueResponse.body.data.id, notification.id);
+    assert.equal(requeueResponse.body.data.delivery.email.status, 'pending');
+
+    const refreshed = await storage.readTable('signal_notifications');
+    assert.equal(refreshed.length, 1);
+    assert.equal(refreshed[0].id, notification.id);
+    assert.equal(refreshed[0].delivery.email.status, 'pending');
+    assert.equal(refreshed[0].delivery.email.exhaustedAt, null);
+  });
+}
+
+for (const basePath of API_BASES) {
   test(`incoming request id header is normalized and echoed (${basePath})`, async () => {
     const app = buildApp();
     const paddedId = 'x'.repeat(140);

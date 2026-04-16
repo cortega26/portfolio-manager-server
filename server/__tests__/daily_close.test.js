@@ -197,6 +197,341 @@ test('runDailyClose persists actionable signal transitions once per trading day'
   assert.equal(notifications[0].delivery.email.status, 'pending');
 });
 
+test('runDailyClose delivers pending signal notification emails once when configured', async () => {
+  await writePortfolioState(storage, 'signals-email', {
+    transactions: [
+      { uid: 'd1', date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+      { uid: 'b1', date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5, quantity: 5 },
+    ],
+    signals: { AAPL: { pct: 5 } },
+    settings: {
+      notifications: {
+        email: true,
+        push: true,
+        signalTransitions: true,
+      },
+    },
+  });
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-02', adjClose: 100 },
+      { date: '2024-01-03', adjClose: 101 },
+    ],
+    AAPL: [
+      { date: '2024-01-02', adjClose: 100 },
+      { date: '2024-01-03', adjClose: 94 },
+    ],
+  });
+  const sentNotificationIds = [];
+  const notificationMailer = {
+    enabled: true,
+    configured: true,
+    async sendSignalNotification(notification) {
+      sentNotificationIds.push(notification.id);
+      return { messageId: 'message-1' };
+    },
+  };
+  const config = {
+    featureFlags: { cashBenchmarks: true },
+    notifications: {
+      emailDelivery: {
+        enabled: true,
+        configured: true,
+        from: 'alerts@example.com',
+        to: ['investor@example.com'],
+        transport: {
+          host: '127.0.0.1',
+          port: 1025,
+          secure: false,
+          auth: {},
+        },
+      },
+    },
+  };
+
+  const firstRun = await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+    config,
+    notificationMailer,
+  });
+  const secondRun = await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+    config,
+    notificationMailer,
+  });
+
+  assert.deepEqual(sentNotificationIds.length, 1);
+  assert.deepEqual(firstRun.signalNotifications.emailDelivery, {
+    attempted: 1,
+    delivered: 1,
+    failed: 0,
+    exhausted: 0,
+    skipped: null,
+  });
+  assert.deepEqual(secondRun.signalNotifications.emailDelivery, {
+    attempted: 0,
+    delivered: 0,
+    failed: 0,
+    exhausted: 0,
+    skipped: null,
+  });
+
+  const notifications = await storage.readTable('signal_notifications');
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].delivery.email.status, 'delivered');
+  assert.equal(notifications[0].delivery.email.attempts, 1);
+  assert.ok(typeof notifications[0].delivery.email.lastAttemptAt === 'string');
+  assert.ok(typeof notifications[0].delivery.email.deliveredAt === 'string');
+  assert.equal(notifications[0].delivery.email.messageId, 'message-1');
+});
+
+test('runDailyClose retries eligible failed signal notification emails on the existing job path', async () => {
+  await writePortfolioState(storage, 'signals-retry', {
+    transactions: [
+      { uid: 'd1', date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+      { uid: 'b1', date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5, quantity: 5 },
+    ],
+    signals: { AAPL: { pct: 5 } },
+    settings: {
+      notifications: {
+        email: true,
+        push: true,
+        signalTransitions: true,
+      },
+    },
+  });
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-02', adjClose: 100 },
+      { date: '2024-01-03', adjClose: 101 },
+    ],
+    AAPL: [
+      { date: '2024-01-02', adjClose: 100 },
+      { date: '2024-01-03', adjClose: 94 },
+    ],
+  });
+  const retryConfig = {
+    featureFlags: { cashBenchmarks: true },
+    notifications: {
+      emailDelivery: {
+        enabled: true,
+        configured: true,
+        from: 'alerts@example.com',
+        to: ['investor@example.com'],
+        retry: {
+          maxAttempts: 3,
+          minDelayMs: 0,
+          backoffMultiplier: 2,
+          automaticRetries: true,
+        },
+        transport: {
+          host: '127.0.0.1',
+          port: 1025,
+          secure: false,
+          auth: {},
+        },
+      },
+    },
+  };
+
+  const firstRun = await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+    config: retryConfig,
+    notificationMailer: {
+      enabled: true,
+      configured: true,
+      async sendSignalNotification() {
+        throw Object.assign(new Error('SMTP unavailable'), { code: 'ECONNREFUSED' });
+      },
+    },
+  });
+  const secondRun = await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+    config: retryConfig,
+    notificationMailer: {
+      enabled: true,
+      configured: true,
+      async sendSignalNotification() {
+        return { messageId: 'retried-message-1' };
+      },
+    },
+  });
+  const thirdRun = await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+    config: retryConfig,
+    notificationMailer: {
+      enabled: true,
+      configured: true,
+      async sendSignalNotification() {
+        throw new Error('should not retry after delivery');
+      },
+    },
+  });
+
+  assert.deepEqual(firstRun.signalNotifications.emailDelivery, {
+    attempted: 1,
+    delivered: 0,
+    failed: 1,
+    exhausted: 0,
+    skipped: null,
+  });
+  assert.deepEqual(secondRun.signalNotifications.emailDelivery, {
+    attempted: 1,
+    delivered: 1,
+    failed: 0,
+    exhausted: 0,
+    skipped: null,
+  });
+  assert.deepEqual(thirdRun.signalNotifications.emailDelivery, {
+    attempted: 0,
+    delivered: 0,
+    failed: 0,
+    exhausted: 0,
+    skipped: null,
+  });
+
+  const notifications = await storage.readTable('signal_notifications');
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].delivery.email.status, 'delivered');
+  assert.equal(notifications[0].delivery.email.attempts, 2);
+  assert.equal(notifications[0].delivery.email.messageId, 'retried-message-1');
+});
+
+test('runDailyClose marks failed signal notification emails as exhausted after the retry limit', async () => {
+  await writePortfolioState(storage, 'signals-exhausted', {
+    transactions: [
+      { uid: 'd1', date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+      { uid: 'b1', date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5, quantity: 5 },
+    ],
+    signals: { AAPL: { pct: 5 } },
+    settings: {
+      notifications: {
+        email: true,
+        push: true,
+        signalTransitions: true,
+      },
+    },
+  });
+
+  const provider = new FakePriceProvider({
+    SPY: [
+      { date: '2024-01-02', adjClose: 100 },
+      { date: '2024-01-03', adjClose: 101 },
+    ],
+    AAPL: [
+      { date: '2024-01-02', adjClose: 100 },
+      { date: '2024-01-03', adjClose: 94 },
+    ],
+  });
+  const retryConfig = {
+    featureFlags: { cashBenchmarks: true },
+    notifications: {
+      emailDelivery: {
+        enabled: true,
+        configured: true,
+        from: 'alerts@example.com',
+        to: ['investor@example.com'],
+        retry: {
+          maxAttempts: 2,
+          minDelayMs: 0,
+          backoffMultiplier: 2,
+          automaticRetries: true,
+        },
+        transport: {
+          host: '127.0.0.1',
+          port: 1025,
+          secure: false,
+          auth: {},
+        },
+      },
+    },
+  };
+  const failingMailer = {
+    enabled: true,
+    configured: true,
+    async sendSignalNotification() {
+      throw Object.assign(new Error('Still failing'), { code: 'ETIMEDOUT' });
+    },
+  };
+
+  const firstRun = await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+    config: retryConfig,
+    notificationMailer: failingMailer,
+  });
+  const secondRun = await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+    config: retryConfig,
+    notificationMailer: failingMailer,
+  });
+  const thirdRun = await runDailyClose({
+    dataDir,
+    logger: noopLogger,
+    date: new Date('2024-01-03T00:00:00Z'),
+    priceProvider: provider,
+    config: retryConfig,
+    notificationMailer: {
+      enabled: true,
+      configured: true,
+      async sendSignalNotification() {
+        throw new Error('should not retry after exhaustion');
+      },
+    },
+  });
+
+  assert.deepEqual(firstRun.signalNotifications.emailDelivery, {
+    attempted: 1,
+    delivered: 0,
+    failed: 1,
+    exhausted: 0,
+    skipped: null,
+  });
+  assert.deepEqual(secondRun.signalNotifications.emailDelivery, {
+    attempted: 1,
+    delivered: 0,
+    failed: 0,
+    exhausted: 1,
+    skipped: null,
+  });
+  assert.deepEqual(thirdRun.signalNotifications.emailDelivery, {
+    attempted: 0,
+    delivered: 0,
+    failed: 0,
+    exhausted: 0,
+    skipped: null,
+  });
+
+  const notifications = await storage.readTable('signal_notifications');
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].delivery.email.status, 'exhausted');
+  assert.equal(notifications[0].delivery.email.attempts, 2);
+  assert.equal(notifications[0].delivery.email.nextRetryAt, null);
+  assert.ok(typeof notifications[0].delivery.email.exhaustedAt === 'string');
+});
+
 test('API endpoints expose computed series', async () => {
   await storage.upsertRow(
     'cash_rates',

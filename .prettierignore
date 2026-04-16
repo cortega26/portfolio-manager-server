@@ -3,3 +3,13 @@ server/**
 index.html
 tailwind.config.js
 vite.config.js
+dist/**
+coverage/**
+node_modules/**
+playwright-report/**
+reports/**
+build-history-logs/**
+*.csv
+*.sqlite
+*.lock
+

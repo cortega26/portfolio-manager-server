@@ -84,6 +84,9 @@ import {
   buildPortfolioSignalRows,
   listPortfolioSignalNotifications,
 } from "./services/signalNotifications.js";
+import {
+  requeueSignalNotificationEmailDelivery,
+} from "./services/signalNotificationEmail.js";
 const DEFAULT_DATA_DIR = path.resolve(process.env.DATA_DIR ?? "./data");
 const DEFAULT_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.PRICE_FETCH_TIMEOUT_MS ?? "5000",
@@ -1409,6 +1412,64 @@ export function createApp({
             status: 500,
             code: "PORTFOLIO_SIGNAL_NOTIFICATIONS_FAILED",
             message: "Failed to load signal notifications.",
+            expose: false,
+          }),
+        );
+      }
+    },
+  );
+  app.post(
+    "/api/portfolio/:id/signal-notifications/:notificationId/requeue-email",
+    validatePortfolioId,
+    requirePortfolioAccess,
+    async (req, res, next) => {
+      const { id, notificationId } = req.params;
+      const normalizedNotificationId =
+        typeof notificationId === "string" ? notificationId.trim() : "";
+      if (!normalizedNotificationId) {
+        next(
+          createHttpError({
+            status: 400,
+            code: "INVALID_SIGNAL_NOTIFICATION_ID",
+            message: "Signal notification id is required.",
+          }),
+        );
+        return;
+      }
+      try {
+        const storage = await getStorage();
+        const result = await requeueSignalNotificationEmailDelivery({
+          storage,
+          portfolioId: id,
+          notificationId: normalizedNotificationId,
+        });
+        if (!result) {
+          next(
+            createHttpError({
+              status: 404,
+              code: "SIGNAL_NOTIFICATION_NOT_FOUND",
+              message: "Signal notification not found.",
+            }),
+          );
+          return;
+        }
+        res.json({
+          status: "ok",
+          changed: result.changed,
+          reason: result.reason,
+          data: result.notification,
+        });
+      } catch (error) {
+        log.error("portfolio_signal_notification_requeue_failed", {
+          id,
+          notificationId: normalizedNotificationId,
+          error: error.message,
+        });
+        next(
+          createHttpError({
+            status: 500,
+            code: "PORTFOLIO_SIGNAL_NOTIFICATION_REQUEUE_FAILED",
+            message: "Failed to requeue signal notification email delivery.",
             expose: false,
           }),
         );

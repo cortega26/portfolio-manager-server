@@ -56,6 +56,26 @@ export function createSessionAuth({
 
   return function sessionAuth(req, _res, next) {
     if (!normalizedToken) {
+      if (process.env.NODE_ENV === "development") {
+        if (typeof logger?.warn === "function") {
+          logger.warn("session_auth_bypassed", {
+            reason: "development_mode",
+          });
+        }
+        if (typeof req.auditLog === "function") {
+          req.auditLog(
+            "auth_success",
+            buildAuditPayload(req, { mode: "development_bypass" }),
+          );
+        }
+        req.portfolioAuth = {
+          ...(req.portfolioAuth ?? {}),
+          mode: "development_bypass",
+        };
+        next();
+        return;
+      }
+
       if (typeof logger?.error === "function") {
         logger.error("session_auth_misconfigured", {
           header_name: normalizedHeaderName,

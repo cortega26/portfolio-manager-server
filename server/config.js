@@ -41,6 +41,14 @@ function parseNumber(value, defaultValue) {
   return Number.isFinite(parsed) ? parsed : defaultValue;
 }
 
+function parseInteger(value, defaultValue) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
+}
+
 function parseList(value, defaultValue = []) {
   if (value === undefined || value === null) {
     return defaultValue;
@@ -52,6 +60,14 @@ function parseList(value, defaultValue = []) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseOptionalString(value, defaultValue = "") {
+  if (typeof value !== "string") {
+    return defaultValue;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : defaultValue;
 }
 
 export function loadConfig(env = process.env) {
@@ -166,6 +182,44 @@ export function loadConfig(env = process.env) {
     env.RATE_LIMIT_PRICES_MAX,
     RATE_LIMIT_DEFAULTS.prices.max,
   );
+  const emailDeliveryEnabled = parseBoolean(env.EMAIL_DELIVERY_ENABLED, false);
+  const emailDeliveryConnectionUrl = parseOptionalString(
+    env.EMAIL_DELIVERY_CONNECTION_URL,
+  );
+  const emailDeliveryHost = parseOptionalString(env.EMAIL_DELIVERY_HOST);
+  const emailDeliveryPort = parseNumber(env.EMAIL_DELIVERY_PORT, 587);
+  const emailDeliverySecure = parseBoolean(env.EMAIL_DELIVERY_SECURE, false);
+  const emailDeliveryUser = parseOptionalString(env.EMAIL_DELIVERY_USER);
+  const emailDeliveryPass = parseOptionalString(env.EMAIL_DELIVERY_PASS);
+  const emailDeliveryFrom = parseOptionalString(env.EMAIL_DELIVERY_FROM);
+  const emailDeliveryTo = parseList(env.EMAIL_DELIVERY_TO, []);
+  const emailDeliveryReplyTo = parseOptionalString(env.EMAIL_DELIVERY_REPLY_TO);
+  const emailDeliverySubjectPrefix = parseOptionalString(
+    env.EMAIL_DELIVERY_SUBJECT_PREFIX,
+    "[Portfolio Manager]",
+  );
+  const emailDeliveryRetryMaxAttempts = Math.max(
+    1,
+    parseInteger(env.EMAIL_DELIVERY_RETRY_MAX_ATTEMPTS, 3),
+  );
+  const emailDeliveryRetryMinDelaySeconds = Math.max(
+    0,
+    parseInteger(env.EMAIL_DELIVERY_RETRY_MIN_DELAY_SECONDS, 60 * 60),
+  );
+  const emailDeliveryRetryBackoffMultiplier = Math.max(
+    1,
+    parseInteger(env.EMAIL_DELIVERY_RETRY_BACKOFF_MULTIPLIER, 2),
+  );
+  const emailDeliveryRetryAutomatic = parseBoolean(
+    env.EMAIL_DELIVERY_RETRY_AUTOMATIC,
+    true,
+  );
+  const emailDeliveryConfigured = Boolean(
+    emailDeliveryEnabled
+      && emailDeliveryFrom
+      && emailDeliveryTo.length > 0
+      && (emailDeliveryConnectionUrl || emailDeliveryHost),
+  );
   const latestProvider = normalizeLatestQuoteProviderName(
     env.PRICE_PROVIDER_LATEST,
     "none",
@@ -185,6 +239,32 @@ export function loadConfig(env = process.env) {
     jobs: {
       nightlyHour,
       nightlyEnabled,
+    },
+    notifications: {
+      emailDelivery: {
+        enabled: emailDeliveryEnabled,
+        configured: emailDeliveryConfigured,
+        from: emailDeliveryFrom,
+        to: emailDeliveryTo,
+        replyTo: emailDeliveryReplyTo,
+        subjectPrefix: emailDeliverySubjectPrefix,
+        retry: {
+          maxAttempts: emailDeliveryRetryMaxAttempts,
+          minDelayMs: emailDeliveryRetryMinDelaySeconds * 1000,
+          backoffMultiplier: emailDeliveryRetryBackoffMultiplier,
+          automaticRetries: emailDeliveryRetryAutomatic,
+        },
+        transport: {
+          connectionUrl: emailDeliveryConnectionUrl,
+          host: emailDeliveryHost,
+          port: emailDeliveryPort,
+          secure: emailDeliverySecure,
+          auth: {
+            user: emailDeliveryUser,
+            pass: emailDeliveryPass,
+          },
+        },
+      },
     },
     cors: {
       allowedOrigins,

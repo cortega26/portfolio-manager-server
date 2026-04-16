@@ -16,6 +16,9 @@ import {
   buildPriceSnapshotsFromPriceRows,
   syncPortfolioSignalNotifications,
 } from '../services/signalNotifications.js';
+import {
+  processPendingSignalNotificationEmails,
+} from '../services/signalNotificationEmail.js';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -254,6 +257,7 @@ export async function runDailyClose({
   date = new Date(Date.now() - MS_PER_DAY),
   priceProvider,
   config,
+  notificationMailer,
 } = {}) {
   const targetDate = new Date(`${toDateKey(date)}T00:00:00Z`);
   if (!isTradingDay(targetDate)) {
@@ -413,6 +417,13 @@ export async function runDailyClose({
     });
   }
 
+  const emailDelivery = await processPendingSignalNotificationEmails({
+    storage,
+    config,
+    logger,
+    mailer: notificationMailer,
+  });
+
   const priceMapForSpy = new Map();
   const priceMapForQqq = new Map();
   for (const record of priceRecords) {
@@ -445,7 +456,13 @@ export async function runDailyClose({
     ['job'],
   );
 
-  return { state: targetState, returns: targetRow };
+  return {
+    state: targetState,
+    returns: targetRow,
+    signalNotifications: {
+      emailDelivery,
+    },
+  };
 }
 
 export default runDailyClose;
