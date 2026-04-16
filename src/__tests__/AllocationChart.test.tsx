@@ -9,10 +9,10 @@ vi.mock('recharts', () => ({
   PieChart: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="pie-chart">{children}</div>
   ),
-  Pie: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="pie">{children}</div>
+  Pie: ({ children }: { children: React.ReactNode }) => <div data-testid="pie">{children}</div>,
+  Cell: ({ fill }: { fill?: string }) => (
+    <span data-testid="pie-cell" style={{ background: fill }} />
   ),
-  Cell: ({ fill }: { fill?: string }) => <span data-testid="pie-cell" style={{ background: fill }} />,
   Tooltip: () => null,
   Legend: ({ payload }: { payload?: Array<{ value?: string }> }) => (
     <div data-testid="pie-legend">
@@ -94,7 +94,7 @@ describe('AllocationChart render', () => {
         openHoldings={holdingsFixture}
         currentPrices={pricesFixture}
         cashBalance={50}
-      />,
+      />
     );
 
     expect(screen.getByTestId('allocation-chart')).toBeDefined();
@@ -103,13 +103,7 @@ describe('AllocationChart render', () => {
   });
 
   test('renders empty state when no holdings are provided', () => {
-    renderWithProviders(
-      <AllocationChart
-        openHoldings={[]}
-        currentPrices={{}}
-        cashBalance={0}
-      />,
-    );
+    renderWithProviders(<AllocationChart openHoldings={[]} currentPrices={{}} cashBalance={0} />);
 
     expect(screen.getByTestId('allocation-chart-empty')).toBeDefined();
     expect(screen.queryByTestId('allocation-chart-content')).toBeNull();
@@ -121,7 +115,7 @@ describe('AllocationChart render', () => {
         openHoldings={[{ ticker: 'NOPRICE', shares: '10', cost: 100 }]}
         currentPrices={{}}
         cashBalance={0}
-      />,
+      />
     );
 
     expect(screen.getByTestId('allocation-chart-empty')).toBeDefined();

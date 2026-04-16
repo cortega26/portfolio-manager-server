@@ -1,11 +1,11 @@
-import assert from "node:assert/strict";
-import { test } from "node:test";
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
 
-import fc from "fast-check";
+import fc from 'fast-check';
 
-import { buildRoiSeries } from "../utils/roi.js";
+import { buildRoiSeries } from '../utils/roi.js';
 
-const START_DATE = new Date("2024-01-01T00:00:00Z");
+const START_DATE = new Date('2024-01-01T00:00:00Z');
 
 function dayString(offset) {
   const date = new Date(START_DATE);
@@ -18,7 +18,7 @@ const dailyScenarioArb = fc.array(
     price: fc.double({ min: 5, max: 600, noNaN: true }),
     spy: fc.double({ min: 5, max: 600, noNaN: true }),
   }),
-  { minLength: 3, maxLength: 9 },
+  { minLength: 3, maxLength: 9 }
 );
 const initialShareArb = fc.double({ min: 0.1, max: 20, noNaN: true });
 const incomeArb = fc.double({ min: 0.01, max: 500, noNaN: true });
@@ -36,28 +36,28 @@ function buildFetcher(seriesMap) {
     if (normalized in seriesMap) {
       return seriesMap[normalized];
     }
-    if (symbol === "spy" && seriesMap.SPY) {
+    if (symbol === 'spy' && seriesMap.SPY) {
       return seriesMap.SPY;
     }
     throw new Error(`Unexpected symbol ${symbol}`);
   };
 }
 
-test("ROI remains invariant when scaling position sizes", async () => {
+test('ROI remains invariant when scaling position sizes', async () => {
   await fc.assert(
     fc.asyncProperty(
       dailyScenarioArb,
       initialShareArb,
       fc.double({ min: 0.5, max: 12, noNaN: true }),
       async (days, baseShare, factor) => {
-        const equitySeries = toSeries(days, "price");
-        const spySeries = toSeries(days, "spy");
+        const equitySeries = toSeries(days, 'price');
+        const spySeries = toSeries(days, 'spy');
         const normalizedShare = Number.parseFloat(baseShare.toFixed(6));
         const baseTransactions = [
           {
             date: dayString(0),
-            ticker: "ACME",
-            type: "BUY",
+            ticker: 'ACME',
+            type: 'BUY',
             shares: normalizedShare,
             amount: -Number.parseFloat((normalizedShare * days[0].price).toFixed(2)),
           },
@@ -77,32 +77,29 @@ test("ROI remains invariant when scaling position sizes", async () => {
         assert.equal(baseline.length, scaled.length);
         for (let i = 0; i < baseline.length; i += 1) {
           const delta = Math.abs(baseline[i].portfolio - scaled[i].portfolio);
-          assert.ok(
-            delta <= 0.003,
-            `Expected ROI invariance at index ${i}, delta=${delta}`,
-          );
+          assert.ok(delta <= 0.003, `Expected ROI invariance at index ${i}, delta=${delta}`);
           assert.equal(baseline[i].spy, scaled[i].spy);
         }
-      },
-    ),
+      }
+    )
   );
 });
 
-test("SPY-only portfolios track the SPY benchmark", async () => {
+test('SPY-only portfolios track the SPY benchmark', async () => {
   await fc.assert(
     fc.asyncProperty(dailyScenarioArb, initialShareArb, async (days, share) => {
-      const spySeries = toSeries(days, "spy");
+      const spySeries = toSeries(days, 'spy');
       const normalizedShare = Number.parseFloat(share.toFixed(6));
       const transactions = [
         {
           date: dayString(0),
-          type: "DEPOSIT",
+          type: 'DEPOSIT',
           amount: Number.parseFloat((normalizedShare * days[0].spy).toFixed(2)),
         },
         {
           date: dayString(0),
-          ticker: "SPY",
-          type: "BUY",
+          ticker: 'SPY',
+          type: 'BUY',
           shares: normalizedShare,
           amount: -Number.parseFloat((normalizedShare * days[0].spy).toFixed(2)),
         },
@@ -115,60 +112,53 @@ test("SPY-only portfolios track the SPY benchmark", async () => {
         const delta = Math.abs(roiSeries[i].portfolio - roiSeries[i].spy);
         assert.ok(delta <= 0.0015, `SPY parity drift at index ${i}: ${delta}`);
       }
-    }),
+    })
   );
 });
 
-test("income cash flows are reflected as performance gains", async () => {
+test('income cash flows are reflected as performance gains', async () => {
   await fc.assert(
-    fc.asyncProperty(
-      dailyScenarioArb,
-      initialShareArb,
-      incomeArb,
-      async (days, share, income) => {
-        const equitySeries = toSeries(days, "price");
-        const spySeries = toSeries(days, "spy");
-        const normalizedShare = Number.parseFloat(share.toFixed(6));
-        const initialPrice = equitySeries[0].close;
-        const purchaseCost = Number.parseFloat(
-          (normalizedShare * initialPrice).toFixed(2),
-        );
-        const baseTransactions = [
-          {
-            date: dayString(0),
-            type: "DEPOSIT",
-            amount: purchaseCost,
-          },
-          {
-            date: dayString(0),
-            ticker: "ACME",
-            type: "BUY",
-            shares: normalizedShare,
-            amount: -purchaseCost,
-          },
-        ];
-        const dividendAmount = Number.parseFloat(income.toFixed(2));
-        const incomeTransactions = [
-          ...baseTransactions,
-          {
-            date: dayString(equitySeries.length - 1),
-            type: "DIVIDEND",
-            amount: dividendAmount,
-          },
-        ];
+    fc.asyncProperty(dailyScenarioArb, initialShareArb, incomeArb, async (days, share, income) => {
+      const equitySeries = toSeries(days, 'price');
+      const spySeries = toSeries(days, 'spy');
+      const normalizedShare = Number.parseFloat(share.toFixed(6));
+      const initialPrice = equitySeries[0].close;
+      const purchaseCost = Number.parseFloat((normalizedShare * initialPrice).toFixed(2));
+      const baseTransactions = [
+        {
+          date: dayString(0),
+          type: 'DEPOSIT',
+          amount: purchaseCost,
+        },
+        {
+          date: dayString(0),
+          ticker: 'ACME',
+          type: 'BUY',
+          shares: normalizedShare,
+          amount: -purchaseCost,
+        },
+      ];
+      const dividendAmount = Number.parseFloat(income.toFixed(2));
+      const incomeTransactions = [
+        ...baseTransactions,
+        {
+          date: dayString(equitySeries.length - 1),
+          type: 'DIVIDEND',
+          amount: dividendAmount,
+        },
+      ];
 
-        const fetcher = buildFetcher({ ACME: equitySeries, SPY: spySeries });
-        const withIncome = await buildRoiSeries(incomeTransactions, fetcher);
-        const withoutIncome = await buildRoiSeries(baseTransactions, fetcher);
+      const fetcher = buildFetcher({ ACME: equitySeries, SPY: spySeries });
+      const withIncome = await buildRoiSeries(incomeTransactions, fetcher);
+      const withoutIncome = await buildRoiSeries(baseTransactions, fetcher);
 
-        const lastWithIncome = withIncome.at(-1);
-        const lastWithoutIncome = withoutIncome.at(-1);
-        assert.ok(lastWithIncome && lastWithoutIncome);
-        assert.ok(
-          lastWithIncome.portfolio >= lastWithoutIncome.portfolio - 0.01,
-          `income ROI should not be worse (with=${lastWithIncome.portfolio}, without=${lastWithoutIncome.portfolio})`,
-        );
-      },
-    ),
+      const lastWithIncome = withIncome.at(-1);
+      const lastWithoutIncome = withoutIncome.at(-1);
+      assert.ok(lastWithIncome && lastWithoutIncome);
+      assert.ok(
+        lastWithIncome.portfolio >= lastWithoutIncome.portfolio - 0.01,
+        `income ROI should not be worse (with=${lastWithIncome.portfolio}, without=${lastWithoutIncome.portfolio})`
+      );
+    })
   );
 });

@@ -8,16 +8,16 @@ const TYPE_ORDER = {
   FEE: 7,
 };
 
-const CASH_IN_TYPES = new Set(["DEPOSIT", "DIVIDEND", "INTEREST", "SELL"]);
-const CASH_OUT_TYPES = new Set(["WITHDRAWAL", "BUY", "FEE"]);
+const CASH_IN_TYPES = new Set(['DEPOSIT', 'DIVIDEND', 'INTEREST', 'SELL']);
+const CASH_OUT_TYPES = new Set(['WITHDRAWAL', 'BUY', 'FEE']);
 
 function toComparableTimestamp(value) {
-  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
     return Math.trunc(value);
   }
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const trimmed = value.trim();
-    if (trimmed === "") {
+    if (trimmed === '') {
       return 0;
     }
     const parsed = Number.parseInt(trimmed, 10);
@@ -27,12 +27,12 @@ function toComparableTimestamp(value) {
 }
 
 function toComparableSeq(value) {
-  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
     return value;
   }
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const trimmed = value.trim();
-    if (trimmed === "") {
+    if (trimmed === '') {
       return 0;
     }
     const parsed = Number.parseInt(trimmed, 10);
@@ -43,8 +43,8 @@ function toComparableSeq(value) {
 
 function sortTransactionsForCashCheck(transactions) {
   return [...transactions].sort((a, b) => {
-    const dateA = typeof a.date === "string" ? a.date : "";
-    const dateB = typeof b.date === "string" ? b.date : "";
+    const dateA = typeof a.date === 'string' ? a.date : '';
+    const dateB = typeof b.date === 'string' ? b.date : '';
     const dateDiff = dateA.localeCompare(dateB);
     if (dateDiff !== 0) {
       return dateDiff;
@@ -56,8 +56,7 @@ function sortTransactionsForCashCheck(transactions) {
       return orderA - orderB;
     }
 
-    const createdDiff =
-      toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
+    const createdDiff = toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
     if (createdDiff !== 0) {
       return createdDiff;
     }
@@ -67,12 +66,12 @@ function sortTransactionsForCashCheck(transactions) {
       return seqDiff;
     }
 
-    const idDiff = String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    const idDiff = String(a.id ?? '').localeCompare(String(b.id ?? ''));
     if (idDiff !== 0) {
       return idDiff;
     }
 
-    return String(a.uid ?? "").localeCompare(String(b.uid ?? ""));
+    return String(a.uid ?? '').localeCompare(String(b.uid ?? ''));
   });
 }
 
@@ -97,7 +96,7 @@ export function validateNonNegativeCash(transactions) {
       continue;
     }
 
-    const type = String(tx.type ?? "").toUpperCase();
+    const type = String(tx.type ?? '').toUpperCase();
     if (CASH_IN_TYPES.has(type)) {
       cashCents += cents;
     } else if (CASH_OUT_TYPES.has(type)) {
@@ -106,7 +105,7 @@ export function validateNonNegativeCash(transactions) {
       cashCents += (tx.amount ?? 0) >= 0 ? cents : -cents;
     }
 
-    if (cashCents < 0 && type === "WITHDRAWAL") {
+    if (cashCents < 0 && type === 'WITHDRAWAL') {
       return {
         ok: false,
         deficit: Math.abs(cashCents) / 100,

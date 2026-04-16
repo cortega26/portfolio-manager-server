@@ -53,7 +53,7 @@ describe('TransactionsTab interactions', () => {
         transactions={transactions}
         onAddTransaction={vi.fn()}
         onDeleteTransaction={onDelete}
-      />,
+      />
     );
 
     const table = await screen.findByRole('table', { name: /transactions/i });
@@ -92,7 +92,7 @@ describe('TransactionsTab interactions', () => {
         transactions={transactions}
         onAddTransaction={vi.fn()}
         onDeleteTransaction={onDelete}
-      />,
+      />
     );
 
     const virtualList = await screen.findByTestId('transactions-virtual-list');
@@ -121,14 +121,16 @@ describe('TransactionsTab interactions', () => {
         transactions={transactions}
         onAddTransaction={vi.fn()}
         onDeleteTransaction={vi.fn()}
-      />,
+      />
     );
 
     const searchInput = screen.getByLabelText(/buscar transacciones/i);
 
     await userEvent.type(searchInput, 'Depósito');
     await waitFor(() => {
-      expect(screen.getByText(/Mostrando 1-1 de 1 transacciones \(filtradas de 3\)/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Mostrando 1-1 de 1 transacciones \(filtradas de 3\)/i)
+      ).toBeInTheDocument();
     });
 
     await userEvent.clear(searchInput);

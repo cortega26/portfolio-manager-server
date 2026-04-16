@@ -1,11 +1,11 @@
-let activeLocale = "en-US";
-let activeCurrency = "USD";
+let activeLocale = 'en-US';
+let activeCurrency = 'USD';
 
 export function configureFormat({ locale, currency } = {}) {
-  if (typeof locale === "string" && locale.trim()) {
+  if (typeof locale === 'string' && locale.trim()) {
     activeLocale = locale;
   }
-  if (typeof currency === "string" && currency.trim()) {
+  if (typeof currency === 'string' && currency.trim()) {
     activeCurrency = currency;
   }
 }
@@ -16,13 +16,13 @@ function isNilOrNaN(value) {
 
 export function formatCurrency(value, { locale, currency } = {}) {
   if (isNilOrNaN(value)) {
-    return "—";
+    return '—';
   }
 
   const resolvedLocale = locale ?? activeLocale;
   const resolvedCurrency = currency ?? activeCurrency;
   const formatter = new Intl.NumberFormat(resolvedLocale, {
-    style: "currency",
+    style: 'currency',
     currency: resolvedCurrency,
     maximumFractionDigits: 2,
   });
@@ -31,12 +31,12 @@ export function formatCurrency(value, { locale, currency } = {}) {
 
 export function formatPercent(value, fractionDigits = 2, { locale } = {}) {
   if (isNilOrNaN(value)) {
-    return "—";
+    return '—';
   }
 
   const normalized = Number(value);
   if (!Number.isFinite(normalized)) {
-    return "—";
+    return '—';
   }
 
   const formatter = new Intl.NumberFormat(locale ?? activeLocale, {
@@ -48,12 +48,12 @@ export function formatPercent(value, fractionDigits = 2, { locale } = {}) {
 
 export function formatSignedPercent(value, fractionDigits = 2, { locale } = {}) {
   if (isNilOrNaN(value)) {
-    return "—";
+    return '—';
   }
 
   const normalized = Number(value);
   if (!Number.isFinite(normalized)) {
-    return "—";
+    return '—';
   }
 
   const rounded = Number(normalized.toFixed(fractionDigits));
@@ -69,18 +69,21 @@ export function formatSignedPercent(value, fractionDigits = 2, { locale } = {}) 
   }
 
   const absolute = percentFormatter.format(Math.abs(rounded));
-  const sign = rounded > 0 ? "+" : "-";
+  const sign = rounded > 0 ? '+' : '-';
   return `${sign}${absolute}%`;
 }
 
-export function formatNumber(value, { locale, minimumFractionDigits = 0, maximumFractionDigits = 2 } = {}) {
+export function formatNumber(
+  value,
+  { locale, minimumFractionDigits = 0, maximumFractionDigits = 2 } = {}
+) {
   if (isNilOrNaN(value)) {
-    return "—";
+    return '—';
   }
 
   const normalized = Number(value);
   if (!Number.isFinite(normalized)) {
-    return "—";
+    return '—';
   }
 
   const formatter = new Intl.NumberFormat(locale ?? activeLocale, {

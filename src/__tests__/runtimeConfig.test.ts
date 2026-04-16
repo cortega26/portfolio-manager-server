@@ -5,10 +5,7 @@ import {
   mergeRuntimeConfig,
   setRuntimeConfigForTesting,
 } from '../lib/runtimeConfig.js';
-import {
-  invalidateApiBaseUrlCache,
-  resolveApiBaseUrl,
-} from '../lib/apiClient.js';
+import { invalidateApiBaseUrlCache, resolveApiBaseUrl } from '../lib/apiClient.js';
 
 const originalFetch = global.fetch;
 

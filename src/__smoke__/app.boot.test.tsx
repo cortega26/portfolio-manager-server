@@ -1,11 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
-import App from "../App.jsx";
-import { I18nProvider } from "../i18n/I18nProvider.jsx";
+import App from '../App.jsx';
+import { I18nProvider } from '../i18n/I18nProvider.jsx';
 
-vi.mock("../components/DashboardTab.jsx", () => ({
+vi.mock('../components/DashboardTab.jsx', () => ({
   __esModule: true,
   default: () => <div data-testid="stub-dashboard-tab" />,
 }));
@@ -19,7 +19,7 @@ function renderWithProviders(initialEntries: string[]) {
       >
         <App />
       </MemoryRouter>
-    </I18nProvider>,
+    </I18nProvider>
   );
 }
 
@@ -27,11 +27,11 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("app smoke", () => {
-  it("renders the dashboard route by default", async () => {
-    renderWithProviders(["/"]);
+describe('app smoke', () => {
+  it('renders the dashboard route by default', async () => {
+    renderWithProviders(['/']);
 
     expect(await screen.findByText(/Portfolio Manager/i)).toBeInTheDocument();
-    expect(await screen.findByTestId("panel-dashboard")).toBeVisible();
+    expect(await screen.findByTestId('panel-dashboard')).toBeVisible();
   });
 });

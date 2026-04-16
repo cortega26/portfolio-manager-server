@@ -1,4 +1,4 @@
-import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useI18n } from '../i18n/I18nProvider.jsx';
 
 export default function DesktopSessionGate({
   portfolios,
@@ -21,10 +21,10 @@ export default function DesktopSessionGate({
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <div className="border-b border-slate-200 pb-4 dark:border-slate-800">
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
-            {t("desktopSession.title")}
+            {t('desktopSession.title')}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-            {t("desktopSession.subtitle")}
+            {t('desktopSession.subtitle')}
           </p>
         </div>
 
@@ -37,7 +37,7 @@ export default function DesktopSessionGate({
         >
           <div className="grid gap-5 md:grid-cols-2">
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-              <span>{t("desktopSession.portfolio.label")}</span>
+              <span>{t('desktopSession.portfolio.label')}</span>
               <select
                 value={selectedPortfolioId}
                 onChange={(event) => onPortfolioChange(event.target.value)}
@@ -55,41 +55,41 @@ export default function DesktopSessionGate({
             <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
               <p className="font-medium text-slate-800 dark:text-slate-100">
                 {requiresPinSetup
-                  ? t("desktopSession.portfolio.status.setup")
-                  : t("desktopSession.portfolio.status.locked")}
+                  ? t('desktopSession.portfolio.status.setup')
+                  : t('desktopSession.portfolio.status.locked')}
               </p>
               <p className="mt-1 text-slate-600 dark:text-slate-300">
                 {requiresPinSetup
-                  ? t("desktopSession.portfolio.status.setupDetail")
-                  : t("desktopSession.portfolio.status.lockedDetail")}
+                  ? t('desktopSession.portfolio.status.setupDetail')
+                  : t('desktopSession.portfolio.status.lockedDetail')}
               </p>
             </div>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-              <span>{t("desktopSession.pin.label")}</span>
+              <span>{t('desktopSession.pin.label')}</span>
               <input
                 type="password"
                 inputMode="numeric"
                 autoComplete="current-password"
                 value={pin}
                 onChange={(event) => onPinChange(event.target.value)}
-                placeholder={t("desktopSession.pin.placeholder")}
+                placeholder={t('desktopSession.pin.placeholder')}
                 disabled={loading || submitting}
                 className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-slate-400 dark:focus:ring-slate-800"
               />
             </label>
 
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-              <span>{t("desktopSession.pinConfirm.label")}</span>
+              <span>{t('desktopSession.pinConfirm.label')}</span>
               <input
                 type="password"
                 inputMode="numeric"
                 autoComplete="new-password"
                 value={pinConfirm}
                 onChange={(event) => onPinConfirmChange(event.target.value)}
-                placeholder={t("desktopSession.pinConfirm.placeholder")}
+                placeholder={t('desktopSession.pinConfirm.placeholder')}
                 disabled={loading || submitting || !requiresPinSetup}
                 className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-slate-400 dark:focus:ring-slate-800"
               />
@@ -112,13 +112,13 @@ export default function DesktopSessionGate({
               className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
             >
               {submitting
-                ? t("desktopSession.submit.pending")
+                ? t('desktopSession.submit.pending')
                 : requiresPinSetup
-                  ? t("desktopSession.submit.setup")
-                  : t("desktopSession.submit.unlock")}
+                  ? t('desktopSession.submit.setup')
+                  : t('desktopSession.submit.unlock')}
             </button>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              {loading ? t("desktopSession.loading") : t("desktopSession.securityHint")}
+              {loading ? t('desktopSession.loading') : t('desktopSession.securityHint')}
             </p>
           </div>
         </form>
@@ -126,12 +126,12 @@ export default function DesktopSessionGate({
 
       <aside className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
-          {t("desktopSession.explainer.title")}
+          {t('desktopSession.explainer.title')}
         </h2>
         <ol className="mt-4 space-y-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          <li>{t("desktopSession.explainer.stepOne")}</li>
-          <li>{t("desktopSession.explainer.stepTwo")}</li>
-          <li>{t("desktopSession.explainer.stepThree")}</li>
+          <li>{t('desktopSession.explainer.stepOne')}</li>
+          <li>{t('desktopSession.explainer.stepTwo')}</li>
+          <li>{t('desktopSession.explainer.stepThree')}</li>
         </ol>
       </aside>
     </div>

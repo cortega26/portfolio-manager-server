@@ -43,46 +43,57 @@ Ranked with **ICE (Impact × Confidence ÷ Effort)**; all are high-impact, low-c
          const { data } = await fetchDailyReturns(...);
          ...
        } catch (error) {
+     ```
+
 -        console.error(error);
-+        console.error(error);
-+        setStatusBanner({
-+          tone: "error",
-+          message: "ROI data is temporarily unavailable. Showing cached values.",
-+          requestId: error.requestId,
-+        });
+
+*        console.error(error);
+*        setStatusBanner({
+*          tone: "error",
+*          message: "ROI data is temporarily unavailable. Showing cached values.",
+*          requestId: error.requestId,
+*        });
          try {
            const fallbackSeries = await buildRoiSeries(...);
-     ```
-   - **Expected UX impact:** Users know when data is stale and can quote the request ID to ops, avoiding incorrect decisions.
-   - **Tests/docs:** Add Vitest covering banner state when `fetchDailyReturns` throws; document banner behaviour in README troubleshooting.
+  ```
+  - **Expected UX impact:** Users know when data is stale and can quote the request ID to ops, avoiding incorrect decisions.
+  - **Tests/docs:** Add Vitest covering banner state when `fetchDailyReturns` throws; document banner behaviour in README troubleshooting.
+  ```
 
 4. **Auto-refresh Admin metrics per runbook** — ICE ≈ 5×0.9÷2 = **2.25**
    - **Location:** `src/components/AdminTab.jsx`
    - **Sample diff:**
      ```diff
      useEffect(() => {
+     ```
+
 -      const controller = new AbortController();
 -      let isSubscribed = true;
 -      async function load() { ... }
 -      load();
 -      return () => { ... };
--    }, [eventLimit, refreshKey]);
-+      const controller = new AbortController();
-+      let isSubscribed = true;
-+      async function load() { ... }
-+      load();
-+      const interval = setInterval(() => {
-+        setRefreshKey((prev) => prev + 1);
-+      }, Number(import.meta.env.VITE_ADMIN_POLL_INTERVAL_MS ?? 15000));
-+      return () => {
-+        clearInterval(interval);
-+        isSubscribed = false;
-+        controller.abort();
-+      };
-+    }, [eventLimit, refreshKey]);
-     ```
-   - **Expected UX impact:** Ops sees live lockouts and rate limits without manual clicks, aligning with the operations playbook.
-   - **Tests/docs:** Add timer-mocked test ensuring polling occurs; mention auto-refresh in `docs/playbooks/frontend-operations.md` if cadence changes.
+- }, [eventLimit, refreshKey]);
+
+*      const controller = new AbortController();
+*      let isSubscribed = true;
+*      async function load() { ... }
+*      load();
+*      const interval = setInterval(() => {
+*        setRefreshKey((prev) => prev + 1);
+*      }, Number(import.meta.env.VITE_ADMIN_POLL_INTERVAL_MS ?? 15000));
+*      return () => {
+*        clearInterval(interval);
+*        isSubscribed = false;
+*        controller.abort();
+*      };
+* }, [eventLimit, refreshKey]);
+
+  ```
+
+  ```
+
+- **Expected UX impact:** Ops sees live lockouts and rate limits without manual clicks, aligning with the operations playbook.
+- **Tests/docs:** Add timer-mocked test ensuring polling occurs; mention auto-refresh in `docs/playbooks/frontend-operations.md` if cadence changes.
 
 5. **Include all benchmark series in performance CSV** — ICE ≈ 5×0.85÷1 = **4.25**
    - **Location:** `src/utils/reports.js`

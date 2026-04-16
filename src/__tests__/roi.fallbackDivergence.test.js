@@ -12,21 +12,21 @@
  * Note: Transaction format differs between paths — the frontend reads `shares`,
  * the backend reads `quantity`. Both fields are included in test data.
  */
-import { describe, it } from "node:test";
-import { strict as assert } from "node:assert";
+import { describe, it } from 'node:test';
+import { strict as assert } from 'node:assert';
 
-import { buildRoiSeries } from "../utils/roi.js";
-import { computeDailyStates } from "../../server/finance/portfolio.js";
-import { computeDailyReturnRows, summarizeReturns } from "../../server/finance/returns.js";
+import { buildRoiSeries } from '../utils/roi.js';
+import { computeDailyStates } from '../../server/finance/portfolio.js';
+import { computeDailyReturnRows, summarizeReturns } from '../../server/finance/returns.js';
 
 const DAYS = 500;
-const TICKER = "TSLA";
+const TICKER = 'TSLA';
 const INITIAL_SPY = 400;
 const INITIAL_STOCK = 200;
 
 function deterministicReturn(seed) {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
-  return ((x - Math.floor(x)) - 0.5) * 0.06;
+  return (x - Math.floor(x) - 0.5) * 0.06;
 }
 
 function toDateKey(date) {
@@ -34,7 +34,7 @@ function toDateKey(date) {
 }
 
 function generatePriceSeries() {
-  const baseDate = new Date("2023-01-02T00:00:00Z");
+  const baseDate = new Date('2023-01-02T00:00:00Z');
   const dates = [];
   const spyPriceList = [];
   const stockPriceList = [];
@@ -48,8 +48,8 @@ function generatePriceSeries() {
     dates.push(dateKey);
 
     if (i > 0) {
-      spyPrice *= (1 + deterministicReturn(i * 2));
-      stockPrice *= (1 + deterministicReturn(i * 2 + 1));
+      spyPrice *= 1 + deterministicReturn(i * 2);
+      stockPrice *= 1 + deterministicReturn(i * 2 + 1);
     }
 
     spyPriceList.push({ date: dateKey, close: Number(spyPrice.toFixed(4)) });
@@ -68,8 +68,8 @@ function runBackendPath(transactions, dates, stockPriceList, spyPriceList) {
   }
 
   const states = computeDailyStates({ transactions, pricesByDate, dates });
-  const spyPricesMap = new Map(spyPriceList.map(p => [p.date, p.close]));
-  const rates = [{ effective_date: "2023-01-01", apy: 0 }];
+  const spyPricesMap = new Map(spyPriceList.map((p) => [p.date, p.close]));
+  const rates = [{ effective_date: '2023-01-01', apy: 0 }];
 
   const rows = computeDailyReturnRows({
     states,
@@ -93,20 +93,20 @@ async function runFrontendPath(transactions, stockPriceList, spyPriceList) {
 // Build transactions with both `shares` (frontend) and `quantity` (backend) fields,
 // and positive `amount` (backend convention — frontend uses Math.abs internally).
 function makeBuyTx(date, shares, amount) {
-  return { date, ticker: TICKER, type: "BUY", shares, quantity: shares, amount };
+  return { date, ticker: TICKER, type: 'BUY', shares, quantity: shares, amount };
 }
 
-describe("PM-AUD-020: Frontend fallback vs backend precision divergence", () => {
+describe('PM-AUD-020: Frontend fallback vs backend precision divergence', () => {
   const { dates, spyPriceList, stockPriceList } = generatePriceSeries();
 
-  it("SPY benchmark divergence is < 10 basis points over 500 days", async () => {
+  it('SPY benchmark divergence is < 10 basis points over 500 days', async () => {
     const transactions = [
-      { date: dates[0], type: "DEPOSIT", amount: 10000 },
+      { date: dates[0], type: 'DEPOSIT', amount: 10000 },
       makeBuyTx(dates[0], 20, 4000),
     ];
 
     const frontendSeries = await runFrontendPath(transactions, stockPriceList, spyPriceList);
-    assert.ok(frontendSeries.length > 0, "Frontend series should not be empty");
+    assert.ok(frontendSeries.length > 0, 'Frontend series should not be empty');
     const frontendSpyReturn = frontendSeries[frontendSeries.length - 1].spy;
 
     const summary = runBackendPath(transactions, dates, stockPriceList, spyPriceList);
@@ -115,20 +115,20 @@ describe("PM-AUD-020: Frontend fallback vs backend precision divergence", () => 
     const divergencePctPoints = Math.abs(frontendSpyReturn - backendSpyReturn);
 
     assert.ok(
-      divergencePctPoints < 0.10,
+      divergencePctPoints < 0.1,
       `SPY return divergence of ${divergencePctPoints.toFixed(6)} pct points ` +
-      `exceeds 10 bps threshold. Frontend: ${frontendSpyReturn.toFixed(4)}%, Backend: ${backendSpyReturn.toFixed(4)}%`,
+        `exceeds 10 bps threshold. Frontend: ${frontendSpyReturn.toFixed(4)}%, Backend: ${backendSpyReturn.toFixed(4)}%`
     );
   });
 
-  it("portfolio cumulative return divergence is < 10 basis points for buy-and-hold", async () => {
+  it('portfolio cumulative return divergence is < 10 basis points for buy-and-hold', async () => {
     const transactions = [
-      { date: dates[0], type: "DEPOSIT", amount: 10000 },
+      { date: dates[0], type: 'DEPOSIT', amount: 10000 },
       makeBuyTx(dates[0], 20, 4000),
     ];
 
     const frontendSeries = await runFrontendPath(transactions, stockPriceList, spyPriceList);
-    assert.ok(frontendSeries.length > 0, "Frontend series should not be empty");
+    assert.ok(frontendSeries.length > 0, 'Frontend series should not be empty');
     const frontendReturn = frontendSeries[frontendSeries.length - 1].portfolio;
 
     const summary = runBackendPath(transactions, dates, stockPriceList, spyPriceList);
@@ -137,23 +137,23 @@ describe("PM-AUD-020: Frontend fallback vs backend precision divergence", () => 
     const divergencePctPoints = Math.abs(frontendReturn - backendReturn);
 
     assert.ok(
-      divergencePctPoints < 0.10,
+      divergencePctPoints < 0.1,
       `Portfolio return divergence of ${divergencePctPoints.toFixed(6)} pct points ` +
-      `exceeds 10 bps threshold. Frontend: ${frontendReturn.toFixed(4)}%, Backend: ${backendReturn.toFixed(4)}%`,
+        `exceeds 10 bps threshold. Frontend: ${frontendReturn.toFixed(4)}%, Backend: ${backendReturn.toFixed(4)}%`
     );
   });
 
-  it("portfolio divergence with periodic deposits stays within acceptable bounds", async () => {
+  it('portfolio divergence with periodic deposits stays within acceptable bounds', async () => {
     const transactions = [
-      { date: dates[0], type: "DEPOSIT", amount: 10000 },
+      { date: dates[0], type: 'DEPOSIT', amount: 10000 },
       makeBuyTx(dates[0], 20, 4000),
     ];
     for (let i = 30; i < DAYS; i += 30) {
-      transactions.push({ date: dates[i], type: "DEPOSIT", amount: 500 });
+      transactions.push({ date: dates[i], type: 'DEPOSIT', amount: 500 });
     }
 
     const frontendSeries = await runFrontendPath(transactions, stockPriceList, spyPriceList);
-    assert.ok(frontendSeries.length > 0, "Frontend series should not be empty");
+    assert.ok(frontendSeries.length > 0, 'Frontend series should not be empty');
     const frontendReturn = frontendSeries[frontendSeries.length - 1].portfolio;
 
     const summary = runBackendPath(transactions, dates, stockPriceList, spyPriceList);
@@ -167,8 +167,8 @@ describe("PM-AUD-020: Frontend fallback vs backend precision divergence", () => 
     assert.ok(
       divergencePctPoints < 5.0,
       `Portfolio return divergence of ${divergencePctPoints.toFixed(4)} pct points ` +
-      `exceeds 500 bps threshold with periodic deposits. ` +
-      `Frontend: ${frontendReturn.toFixed(4)}%, Backend: ${backendReturn.toFixed(4)}%`,
+        `exceeds 500 bps threshold with periodic deposits. ` +
+        `Frontend: ${frontendReturn.toFixed(4)}%, Backend: ${backendReturn.toFixed(4)}%`
     );
   });
 });

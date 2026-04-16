@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { test, beforeEach } from 'node:test';
+import { test } from 'node:test';
 
 import { d } from '../finance/decimal.js';
 import {
-  _setCorporateActionsForTest,
   _resetCorporateActionsCache,
 } from '../import/csvPortfolioImport.js';
 

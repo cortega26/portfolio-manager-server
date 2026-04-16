@@ -1,53 +1,53 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-import { MAX_TRANSACTIONS_PER_PORTFOLIO } from "../../shared/constants.js";
-import { normalizeSettings } from "../../shared/settings.js";
+import { MAX_TRANSACTIONS_PER_PORTFOLIO } from '../../shared/constants.js';
+import { normalizeSettings } from '../../shared/settings.js';
 
 const ISO_DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/u;
 const TICKER_REGEX = /^[A-Za-z0-9._-]{1,32}$/u;
 
 const sanitizeString = (schema) =>
-  z.preprocess((value) => (typeof value === "string" ? value.trim() : value), schema);
+  z.preprocess((value) => (typeof value === 'string' ? value.trim() : value), schema);
 
 const isoDateSchema = sanitizeString(
   z
-    .string({ invalid_type_error: "Expected ISO date string" })
-    .regex(ISO_DATE_REGEX, "Must be ISO date (YYYY-MM-DD)"),
+    .string({ invalid_type_error: 'Expected ISO date string' })
+    .regex(ISO_DATE_REGEX, 'Must be ISO date (YYYY-MM-DD)')
 );
 
 const tickerSchema = sanitizeString(
   z
-    .string({ invalid_type_error: "Ticker must be a string" })
-    .min(1, "Ticker is required")
-    .max(32, "Ticker must be at most 32 characters")
-    .regex(TICKER_REGEX, "Ticker must match [A-Za-z0-9._-]{1,32}")
-    .transform((value) => value.toUpperCase()),
+    .string({ invalid_type_error: 'Ticker must be a string' })
+    .min(1, 'Ticker is required')
+    .max(32, 'Ticker must be at most 32 characters')
+    .regex(TICKER_REGEX, 'Ticker must match [A-Za-z0-9._-]{1,32}')
+    .transform((value) => value.toUpperCase())
 );
 
 const currencyCodeSchema = sanitizeString(
   z
-    .string({ invalid_type_error: "Currency must be a string" })
-    .min(3, "Currency must be a 3-letter ISO code")
-    .max(3, "Currency must be a 3-letter ISO code")
-    .regex(/^[A-Za-z]{3}$/u, "Currency must be a 3-letter ISO code")
-    .transform((value) => value.toUpperCase()),
+    .string({ invalid_type_error: 'Currency must be a string' })
+    .min(3, 'Currency must be a 3-letter ISO code')
+    .max(3, 'Currency must be a 3-letter ISO code')
+    .regex(/^[A-Za-z]{3}$/u, 'Currency must be a 3-letter ISO code')
+    .transform((value) => value.toUpperCase())
 );
 
 const transactionTypeSchema = z.enum([
-  "BUY",
-  "SELL",
-  "DIVIDEND",
-  "DEPOSIT",
-  "WITHDRAWAL",
-  "INTEREST",
-  "FEE",
+  'BUY',
+  'SELL',
+  'DIVIDEND',
+  'DEPOSIT',
+  'WITHDRAWAL',
+  'INTEREST',
+  'FEE',
 ]);
 
 const inputTransactionTypeSchema = z.preprocess((value) => {
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const normalized = value.trim().toUpperCase();
-    if (normalized === "WITHDRAW") {
-      return "WITHDRAWAL";
+    if (normalized === 'WITHDRAW') {
+      return 'WITHDRAWAL';
     }
     return normalized;
   }
@@ -55,17 +55,17 @@ const inputTransactionTypeSchema = z.preprocess((value) => {
 }, transactionTypeSchema);
 
 const numeric = (message) =>
-  z
-    .coerce.number({ invalid_type_error: message })
+  z.coerce
+    .number({ invalid_type_error: message })
     .refine((value) => Number.isFinite(value), message);
 
 const optionalNumeric = (message) =>
   z.preprocess(
-    (value) => (value === undefined || value === null || value === "" ? undefined : value),
-    z
-      .coerce.number({ invalid_type_error: message })
+    (value) => (value === undefined || value === null || value === '' ? undefined : value),
+    z.coerce
+      .number({ invalid_type_error: message })
       .refine((value) => Number.isFinite(value), message)
-      .optional(),
+      .optional()
   );
 
 const transactionSchema = z
@@ -73,36 +73,42 @@ const transactionSchema = z
     id: sanitizeString(z.string().min(1).max(128)).optional(),
     uid: sanitizeString(z.string().min(1).max(128)).optional(),
     createdAt: z
-      .preprocess((value) => {
-        if (typeof value === "string" && value.trim() !== "") {
-          const parsed = Number.parseInt(value, 10);
-          return Number.isNaN(parsed) ? value : parsed;
-        }
-        return value;
-      }, z
-        .number({ invalid_type_error: "createdAt must be a number" })
-        .int("createdAt must be an integer")
-        .nonnegative("createdAt must be non-negative"))
+      .preprocess(
+        (value) => {
+          if (typeof value === 'string' && value.trim() !== '') {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isNaN(parsed) ? value : parsed;
+          }
+          return value;
+        },
+        z
+          .number({ invalid_type_error: 'createdAt must be a number' })
+          .int('createdAt must be an integer')
+          .nonnegative('createdAt must be non-negative')
+      )
       .optional(),
     seq: z
-      .preprocess((value) => {
-        if (typeof value === "string" && value.trim() !== "") {
-          const parsed = Number.parseInt(value, 10);
-          return Number.isNaN(parsed) ? value : parsed;
-        }
-        return value;
-      }, z
-        .number({ invalid_type_error: "seq must be a number" })
-        .int("seq must be an integer")
-        .min(0, "seq must be non-negative"))
+      .preprocess(
+        (value) => {
+          if (typeof value === 'string' && value.trim() !== '') {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isNaN(parsed) ? value : parsed;
+          }
+          return value;
+        },
+        z
+          .number({ invalid_type_error: 'seq must be a number' })
+          .int('seq must be an integer')
+          .min(0, 'seq must be non-negative')
+      )
       .optional(),
     date: isoDateSchema,
     ticker: tickerSchema.optional(),
     type: inputTransactionTypeSchema,
-    amount: numeric("Amount must be a finite number"),
-    price: optionalNumeric("Price must be a finite number"),
-    quantity: optionalNumeric("Quantity must be a finite number"),
-    shares: optionalNumeric("Shares must be a finite number"),
+    amount: numeric('Amount must be a finite number'),
+    price: optionalNumeric('Price must be a finite number'),
+    quantity: optionalNumeric('Quantity must be a finite number'),
+    shares: optionalNumeric('Shares must be a finite number'),
     note: sanitizeString(z.string().max(1024)).optional(),
     currency: currencyCodeSchema.optional(),
     metadata: z.object({}).catchall(z.unknown()).optional(),
@@ -110,13 +116,13 @@ const transactionSchema = z
   })
   .transform((value) => {
     const ticker = value.ticker ?? undefined;
-    const hasTicker = typeof ticker === "string" && ticker.length > 0;
+    const hasTicker = typeof ticker === 'string' && ticker.length > 0;
     const amount = Number(value.amount);
-    let quantity = typeof value.quantity === "number" ? Number(value.quantity) : undefined;
-    if (quantity === undefined && typeof value.shares === "number") {
+    let quantity = typeof value.quantity === 'number' ? Number(value.quantity) : undefined;
+    if (quantity === undefined && typeof value.shares === 'number') {
       quantity = Number(value.shares);
     }
-    const price = typeof value.price === "number" ? Number(value.price) : undefined;
+    const price = typeof value.price === 'number' ? Number(value.price) : undefined;
 
     return {
       ...value,
@@ -127,30 +133,30 @@ const transactionSchema = z
     };
   })
   .superRefine((value, ctx) => {
-    const needsTicker = !["DEPOSIT", "WITHDRAWAL", "DIVIDEND", "INTEREST", "FEE"].includes(
-      value.type,
+    const needsTicker = !['DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST', 'FEE'].includes(
+      value.type
     );
     if (needsTicker && !value.ticker) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Ticker is required for non-cash transactions",
-        path: ["ticker"],
+        message: 'Ticker is required for non-cash transactions',
+        path: ['ticker'],
       });
     }
     if (value.price !== undefined && value.price <= 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Price must be greater than 0",
-        path: ["price"],
+        message: 'Price must be greater than 0',
+        path: ['price'],
       });
     }
   });
 
 const signalEntrySchema = z
   .object({
-    pct: numeric("Signal percentage must be a finite number")
-      .min(0, "Signal percentage must be non-negative")
-      .max(100, "Signal percentage cannot exceed 100"),
+    pct: numeric('Signal percentage must be a finite number')
+      .min(0, 'Signal percentage must be non-negative')
+      .max(100, 'Signal percentage cannot exceed 100'),
   })
   .transform((value) => ({ pct: Number(value.pct) }));
 
@@ -163,7 +169,7 @@ const signalsSchema = z
       if (!TICKER_REGEX.test(normalized)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Signal ticker must match [A-Za-z0-9._-]{1,32}",
+          message: 'Signal ticker must match [A-Za-z0-9._-]{1,32}',
           path: [key],
         });
       }
@@ -187,14 +193,14 @@ const cashTimelineEntrySchema = z
   .object({
     from: isoDateSchema,
     to: isoDateSchema.optional().nullable(),
-    apy: numeric("APY must be a finite number"),
+    apy: numeric('APY must be a finite number'),
   })
   .superRefine((value, ctx) => {
     if (value.to && value.to < value.from) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "`to` date must be on or after `from` date",
-        path: ["to"],
+        message: '`to` date must be on or after `from` date',
+        path: ['to'],
       });
     }
   })
@@ -210,20 +216,17 @@ const cashPolicySchema = z
     apyTimeline: z.array(cashTimelineEntrySchema).default([]),
   })
   .transform((value) => ({
-    currency: value.currency ?? "USD",
+    currency: value.currency ?? 'USD',
     apyTimeline: [...value.apyTimeline].sort((left, right) => left.from.localeCompare(right.from)),
   }))
-  .default({ currency: "USD", apyTimeline: [] });
+  .default({ currency: 'USD', apyTimeline: [] });
 
 export const portfolioPayloadSchema = z
   .object({
-    transactions: z
-      .array(transactionSchema)
-      .max(MAX_TRANSACTIONS_PER_PORTFOLIO)
-      .default([]),
+    transactions: z.array(transactionSchema).max(MAX_TRANSACTIONS_PER_PORTFOLIO).default([]),
     signals: signalsSchema.optional().default({}),
     settings: settingsSchema,
-    cash: cashPolicySchema.optional().default({ currency: "USD", apyTimeline: [] }),
+    cash: cashPolicySchema.optional().default({ currency: 'USD', apyTimeline: [] }),
   })
   .transform((value) => ({
     transactions: value.transactions,
@@ -235,10 +238,10 @@ export const portfolioPayloadSchema = z
 export function validateAndNormalizePortfolioPayload(payload) {
   const result = portfolioPayloadSchema.safeParse(payload);
   if (!result.success) {
-    const message = result.error.issues.map((issue) => issue.message).join("; ");
-    const baseMessage = "Portfolio payload validation failed";
-    const error = new Error(message ? baseMessage + ": " + message : baseMessage);
-    error.name = "PortfolioValidationError";
+    const message = result.error.issues.map((issue) => issue.message).join('; ');
+    const baseMessage = 'Portfolio payload validation failed';
+    const error = new Error(message ? baseMessage + ': ' + message : baseMessage);
+    error.name = 'PortfolioValidationError';
     error.issues = result.error.issues;
     throw error;
   }

@@ -8,13 +8,13 @@ The portfolio engine now performs all internal calculations using [`decimal.js`]
 
 ## Implementation Highlights
 
-| Area | Strategy |
-|------|----------|
-| Cash balances | Convert inputs to integer cents via `toCents`, sum in integers, and expose numbers with `fromCents`. |
-| Holdings | Track share quantities as integer micro-shares (1e-6 precision) internally. |
+| Area                 | Strategy                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Cash balances        | Convert inputs to integer cents via `toCents`, sum in integers, and expose numbers with `fromCents`.                        |
+| Holdings             | Track share quantities as integer micro-shares (1e-6 precision) internally.                                                 |
 | Returns & benchmarks | Compute TWR steps, blended benchmarks, and summaries with Decimal arithmetic before rounding to eight decimals for the API. |
-| Interest accrual | Use Decimal APY → daily rate conversion; persist accruals rounded to cents with deterministic IDs. |
-| Serialization | JSON storage & API responses emit rounded numbers; reloading the ledger reconstructs Decimal states exactly. |
+| Interest accrual     | Use Decimal APY → daily rate conversion; persist accruals rounded to cents with deterministic IDs.                          |
+| Serialization        | JSON storage & API responses emit rounded numbers; reloading the ledger reconstructs Decimal states exactly.                |
 
 Refer to [`server/finance/decimal.js`](../server/finance/decimal.js) for helper utilities and the updated tests under `server/__tests__` for property-style coverage against drift.
 

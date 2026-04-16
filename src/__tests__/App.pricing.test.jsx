@@ -1,23 +1,23 @@
-import assert from "node:assert/strict";
-import { JSDOM } from "jsdom";
-import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
-import { vi } from "vitest";
-import { afterEach, beforeEach, describe, it } from "node:test";
+import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
+import React from 'react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { vi } from 'vitest';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import App from "../App.jsx";
+import App from '../App.jsx';
 
 function renderApp() {
   return render(
     <MemoryRouter>
       <App />
-    </MemoryRouter>,
+    </MemoryRouter>
   );
 }
 
-vi.mock("../utils/api.js", async (importOriginal) => {
+vi.mock('../utils/api.js', async (importOriginal) => {
   const actual = await importOriginal();
   const priceCalls = [];
   const priceBatches = [];
@@ -28,7 +28,9 @@ vi.mock("../utils/api.js", async (importOriginal) => {
   const queuedSignalResponses = [];
 
   function normalizeTicker(ticker) {
-    return String(ticker ?? "").trim().toUpperCase();
+    return String(ticker ?? '')
+      .trim()
+      .toUpperCase();
   }
 
   function deriveOpenHoldings(transactions) {
@@ -36,18 +38,19 @@ vi.mock("../utils/api.js", async (importOriginal) => {
     for (const transaction of Array.isArray(transactions) ? transactions : []) {
       const ticker = normalizeTicker(transaction?.ticker);
       const type = normalizeTicker(transaction?.type);
-      if (!ticker || (type !== "BUY" && type !== "SELL")) {
+      if (!ticker || (type !== 'BUY' && type !== 'SELL')) {
         continue;
       }
-      const quantityCandidate =
-        Number.isFinite(transaction?.quantity)
-          ? Number(transaction.quantity)
-          : Number.isFinite(transaction?.shares)
-            ? Number(transaction.shares)
-            : Number.isFinite(transaction?.amount) && Number.isFinite(transaction?.price) && transaction.price !== 0
-              ? Math.abs(Number(transaction.amount) / Number(transaction.price))
-              : 0;
-      const signedQuantity = type === "BUY" ? quantityCandidate : -quantityCandidate;
+      const quantityCandidate = Number.isFinite(transaction?.quantity)
+        ? Number(transaction.quantity)
+        : Number.isFinite(transaction?.shares)
+          ? Number(transaction.shares)
+          : Number.isFinite(transaction?.amount) &&
+              Number.isFinite(transaction?.price) &&
+              transaction.price !== 0
+            ? Math.abs(Number(transaction.amount) / Number(transaction.price))
+            : 0;
+      const signedQuantity = type === 'BUY' ? quantityCandidate : -quantityCandidate;
       positions.set(ticker, (positions.get(ticker) ?? 0) + signedQuantity);
     }
     return Array.from(positions.entries())
@@ -59,25 +62,25 @@ vi.mock("../utils/api.js", async (importOriginal) => {
   function buildDefaultSignalResponse(body) {
     const openHoldings = deriveOpenHoldings(body?.transactions);
     const prices = Object.fromEntries(
-      openHoldings.map((ticker) => [ticker, ticker === "MSFT" ? 250 : 125]),
+      openHoldings.map((ticker) => [ticker, ticker === 'MSFT' ? 250 : 125])
     );
     const rows = openHoldings.map((ticker) => {
       const pctWindow = Number(body?.signals?.[ticker]?.pct ?? 3);
-      const referencePrice = ticker === "MSFT" ? 250 : 125;
+      const referencePrice = ticker === 'MSFT' ? 250 : 125;
       const currentPrice = prices[ticker];
       const lowerBound = referencePrice * (1 - pctWindow / 100);
       const upperBound = referencePrice * (1 + pctWindow / 100);
       return {
         ticker,
         pctWindow,
-        status: "HOLD",
+        status: 'HOLD',
         currentPrice,
-        currentPriceAsOf: "2024-02-02",
+        currentPriceAsOf: '2024-02-02',
         lowerBound,
         upperBound,
         referencePrice,
-        referenceDate: "2024-02-01",
-        referenceType: "BUY",
+        referenceDate: '2024-02-01',
+        referenceType: 'BUY',
         sanityRejected: false,
       };
     });
@@ -89,11 +92,11 @@ vi.mock("../utils/api.js", async (importOriginal) => {
         market: {
           isOpen: true,
           isBeforeOpen: false,
-          lastTradingDate: "2024-02-02",
-          nextTradingDate: "2024-02-05",
+          lastTradingDate: '2024-02-02',
+          nextTradingDate: '2024-02-05',
         },
       },
-      requestId: "signals-success-001",
+      requestId: 'signals-success-001',
     };
   }
 
@@ -110,7 +113,7 @@ vi.mock("../utils/api.js", async (importOriginal) => {
       }
       if (queuedSignalResponses.length > 0) {
         const nextResponse = queuedSignalResponses.shift();
-        return typeof nextResponse === "function" ? nextResponse(payload) : nextResponse;
+        return typeof nextResponse === 'function' ? nextResponse(payload) : nextResponse;
       }
       if (shouldFailNextPrice) {
         shouldFailNextPrice = false;
@@ -122,20 +125,20 @@ vi.mock("../utils/api.js", async (importOriginal) => {
               openHoldings.map((ticker) => [
                 ticker,
                 {
-                  code: "PRICE_FETCH_FAILED",
-                  message: "Pricing temporarily unavailable",
-                  requestId: "price-fail-001",
+                  code: 'PRICE_FETCH_FAILED',
+                  message: 'Pricing temporarily unavailable',
+                  requestId: 'price-fail-001',
                 },
-              ]),
+              ])
             ),
             market: {
               isOpen: true,
               isBeforeOpen: false,
-              lastTradingDate: "2024-02-02",
-              nextTradingDate: "2024-02-05",
+              lastTradingDate: '2024-02-02',
+              nextTradingDate: '2024-02-05',
             },
           },
-          requestId: "price-fail-001",
+          requestId: 'price-fail-001',
         };
       }
       return buildDefaultSignalResponse(payload);
@@ -144,8 +147,8 @@ vi.mock("../utils/api.js", async (importOriginal) => {
     fetchBulkPrices: vi.fn(async (symbols, options = {}) => {
       const list = Array.isArray(symbols) ? symbols : [];
       const normalized = list
-        .map((ticker) => String(ticker ?? "").toUpperCase())
-        .filter((ticker) => ticker && ticker !== "SPY");
+        .map((ticker) => String(ticker ?? '').toUpperCase())
+        .filter((ticker) => ticker && ticker !== 'SPY');
       bulkPriceCalls.push({
         symbols: [...normalized],
         options: { ...options },
@@ -162,14 +165,14 @@ vi.mock("../utils/api.js", async (importOriginal) => {
             normalized.map((ticker) => [
               ticker,
               {
-                code: "PRICE_FETCH_FAILED",
-                message: "Pricing temporarily unavailable",
-                requestId: "price-fail-001",
+                code: 'PRICE_FETCH_FAILED',
+                message: 'Pricing temporarily unavailable',
+                requestId: 'price-fail-001',
               },
-            ]),
+            ])
           ),
           metadata: {},
-          requestId: "price-fail-001",
+          requestId: 'price-fail-001',
         };
       }
       return {
@@ -178,49 +181,49 @@ vi.mock("../utils/api.js", async (importOriginal) => {
             ticker,
             [
               {
-                date: "2024-01-01",
+                date: '2024-01-01',
                 close:
                   options?.latestOnly && Number.isFinite(latestOnlyPriceOverride)
                     ? latestOnlyPriceOverride
                     : 120,
               },
               {
-                date: "2024-01-02",
+                date: '2024-01-02',
                 close:
                   options?.latestOnly && Number.isFinite(latestOnlyPriceOverride)
                     ? latestOnlyPriceOverride
                     : 125,
               },
             ],
-          ]),
+          ])
         ),
         errors: {},
         metadata: {},
-        requestId: "price-success-001",
+        requestId: 'price-success-001',
       };
     }),
     fetchDailyReturns: vi.fn(async () => ({
       data: {
         series: {
           port: [
-            { date: "2024-01-01", value: 0 },
-            { date: "2024-01-02", value: 0.01 },
+            { date: '2024-01-01', value: 0 },
+            { date: '2024-01-02', value: 0.01 },
           ],
           spy: [],
         },
       },
-      requestId: "returns-success-001",
+      requestId: 'returns-success-001',
     })),
     fetchDailyRoi: vi.fn(async () => ({
       data: {
         series: {
           portfolio: [
-            { date: "2024-01-01", value: 0 },
-            { date: "2024-01-02", value: 1 },
+            { date: '2024-01-01', value: 0 },
+            { date: '2024-01-02', value: 1 },
           ],
           portfolioTwr: [
-            { date: "2024-01-01", value: 0 },
-            { date: "2024-01-02", value: 0.5 },
+            { date: '2024-01-01', value: 0 },
+            { date: '2024-01-02', value: 0.5 },
           ],
           spy: [],
           bench: [],
@@ -228,19 +231,19 @@ vi.mock("../utils/api.js", async (importOriginal) => {
           cash: [],
         },
       },
-      requestId: "roi-success-001",
+      requestId: 'roi-success-001',
     })),
-    persistPortfolio: vi.fn(async () => ({ requestId: "persist-001" })),
+    persistPortfolio: vi.fn(async () => ({ requestId: 'persist-001' })),
     retrievePortfolio: vi.fn(async () => ({
       data: { transactions: [], signals: {}, settings: null },
-      requestId: "retrieve-001",
+      requestId: 'retrieve-001',
     })),
     __setNextPriceFailure(flag) {
       shouldFailNextPrice = flag;
     },
     __getPriceCalls() {
       return priceCalls
-        .filter((ticker) => typeof ticker === "string" && ticker.toUpperCase() !== "SPY")
+        .filter((ticker) => typeof ticker === 'string' && ticker.toUpperCase() !== 'SPY')
         .map((ticker) => ticker.toUpperCase());
     },
     __getLastPriceBatch() {
@@ -270,9 +273,9 @@ vi.mock("../utils/api.js", async (importOriginal) => {
   };
 });
 
-const api = await import("../utils/api.js");
+const api = await import('../utils/api.js');
 
-describe("App price refresh degradations", () => {
+describe('App price refresh degradations', () => {
   let dom;
 
   beforeEach(() => {
@@ -280,8 +283,8 @@ describe("App price refresh degradations", () => {
     api.fetchBulkPrices.mockClear();
     api.retrievePortfolio.mockClear();
     api.evaluateSignals.mockClear();
-    dom = new JSDOM("<!doctype html><html><body></body></html>", {
-      url: "http://localhost/",
+    dom = new JSDOM('<!doctype html><html><body></body></html>', {
+      url: 'http://localhost/',
     });
     global.window = dom.window;
     global.document = dom.window.document;
@@ -308,66 +311,59 @@ describe("App price refresh degradations", () => {
     delete global.ResizeObserver;
   });
 
-  it("retains previous prices and surfaces an alert when refresh fails", async () => {
+  it('retains previous prices and surfaces an alert when refresh fails', async () => {
     renderApp();
 
-    await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
+    await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
 
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
-    await userEvent.type(screen.getByLabelText(/ticker/i), "aapl");
-    await userEvent.type(screen.getByLabelText(/amount/i), "1250");
-    await userEvent.type(screen.getByLabelText(/price/i), "125");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-01');
+    await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
+    await userEvent.type(screen.getByLabelText(/amount/i), '1250');
+    await userEvent.type(screen.getByLabelText(/price/i), '125');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
     await waitFor(() => {
-      assert.deepEqual(api.__getPriceCalls(), ["AAPL"]);
+      assert.deepEqual(api.__getPriceCalls(), ['AAPL']);
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
+    await userEvent.click(screen.getByRole('button', { name: /holdings/i }));
 
-    assert.ok(await screen.findByText("$125.00"));
+    assert.ok(await screen.findByText('$125.00'));
 
     api.__setNextPriceFailure(true);
 
-    await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-02");
+    await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-02');
     await userEvent.clear(screen.getByLabelText(/ticker/i));
-    await userEvent.type(screen.getByLabelText(/ticker/i), "aapl");
-    await userEvent.type(screen.getByLabelText(/amount/i), "250");
-    await userEvent.type(screen.getByLabelText(/price/i), "125");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
+    await userEvent.type(screen.getByLabelText(/amount/i), '250');
+    await userEvent.type(screen.getByLabelText(/price/i), '125');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
-    await userEvent.click(screen.getByRole("button", { name: /dashboard/i }));
+    await userEvent.click(screen.getByRole('button', { name: /dashboard/i }));
 
-    assert.ok(
-      await screen.findByText("Price refresh failed"),
-      "alerts when pricing request fails",
-    );
-    assert.ok(
-      screen.getByText(
-        /Unable to update prices for AAPL. Showing last known values/, 
-      ),
-    );
+    assert.ok(await screen.findByText('Price refresh failed'), 'alerts when pricing request fails');
+    assert.ok(screen.getByText(/Unable to update prices for AAPL. Showing last known values/));
     assert.ok(screen.getByText(/Request IDs?: price-fail-001/i));
 
-    await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
+    await userEvent.click(screen.getByRole('button', { name: /holdings/i }));
 
-    assert.ok(await screen.findByText("$125.00"));
+    assert.ok(await screen.findByText('$125.00'));
   });
 
-  it("preloads latest-only quotes on app open when the market is closed", async () => {
+  it('preloads latest-only quotes on app open when the market is closed', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-02-03T15:00:00Z"));
+    vi.setSystemTime(new Date('2024-02-03T15:00:00Z'));
     api.__setLatestOnlyPriceOverride(333);
     api.retrievePortfolio.mockResolvedValueOnce({
       data: {
         transactions: [
-          { date: "2024-02-01", ticker: "AAPL", type: "BUY", shares: 2, amount: -250 },
+          { date: '2024-02-01', ticker: 'AAPL', type: 'BUY', shares: 2, amount: -250 },
         ],
         signals: {},
         settings: null,
       },
-      requestId: "retrieve-closed-001",
+      requestId: 'retrieve-closed-001',
     });
     api.evaluateSignals.mockResolvedValueOnce({
       data: {
@@ -377,50 +373,52 @@ describe("App price refresh degradations", () => {
         market: {
           isOpen: false,
           isBeforeOpen: false,
-          lastTradingDate: "2024-02-02",
-          nextTradingDate: "2024-02-05",
+          lastTradingDate: '2024-02-02',
+          nextTradingDate: '2024-02-05',
         },
       },
-      requestId: "signals-closed-001",
+      requestId: 'signals-closed-001',
     });
 
     try {
       renderApp();
 
       await waitFor(() => {
-        const latestOnlyCall = api.__getBulkPriceCalls().find(
-          (entry) =>
-            entry.options?.latestOnly === true
-            && Array.isArray(entry.symbols)
-            && entry.symbols.includes("AAPL"),
-        );
+        const latestOnlyCall = api
+          .__getBulkPriceCalls()
+          .find(
+            (entry) =>
+              entry.options?.latestOnly === true &&
+              Array.isArray(entry.symbols) &&
+              entry.symbols.includes('AAPL')
+          );
         assert.ok(latestOnlyCall);
       });
 
-      await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
-      assert.ok(await screen.findByText("$333.00"));
+      await userEvent.click(screen.getByRole('button', { name: /holdings/i }));
+      assert.ok(await screen.findByText('$333.00'));
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("shows market-closed guidance instead of an error on weekend failures", async () => {
+  it('shows market-closed guidance instead of an error on weekend failures', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-02-03T15:00:00Z"));
+    vi.setSystemTime(new Date('2024-02-03T15:00:00Z'));
 
     try {
       renderApp();
 
-      await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
+      await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
 
-      await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
-      await userEvent.type(screen.getByLabelText(/ticker/i), "msft");
-      await userEvent.type(screen.getByLabelText(/amount/i), "2500");
-      await userEvent.type(screen.getByLabelText(/price/i), "250");
-      await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+      await userEvent.type(screen.getByLabelText(/date/i), '2024-02-01');
+      await userEvent.type(screen.getByLabelText(/ticker/i), 'msft');
+      await userEvent.type(screen.getByLabelText(/amount/i), '2500');
+      await userEvent.type(screen.getByLabelText(/price/i), '250');
+      await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
       await waitFor(() => {
-        assert.deepEqual(api.__getPriceCalls(), ["MSFT"]);
+        assert.deepEqual(api.__getPriceCalls(), ['MSFT']);
       });
 
       api.__queueSignalResponse({
@@ -429,29 +427,29 @@ describe("App price refresh degradations", () => {
           prices: {},
           errors: {
             MSFT: {
-              code: "PRICE_FETCH_FAILED",
-              message: "Pricing temporarily unavailable",
-              requestId: "price-fail-001",
+              code: 'PRICE_FETCH_FAILED',
+              message: 'Pricing temporarily unavailable',
+              requestId: 'price-fail-001',
             },
           },
           market: {
             isOpen: false,
             isBeforeOpen: false,
-            lastTradingDate: "2024-02-02",
-            nextTradingDate: "2024-02-05",
+            lastTradingDate: '2024-02-02',
+            nextTradingDate: '2024-02-05',
           },
         },
-        requestId: "price-fail-001",
+        requestId: 'price-fail-001',
       });
 
-      await userEvent.type(screen.getByLabelText(/date/i), "2024-02-02");
+      await userEvent.type(screen.getByLabelText(/date/i), '2024-02-02');
       await userEvent.clear(screen.getByLabelText(/ticker/i));
-      await userEvent.type(screen.getByLabelText(/ticker/i), "msft");
-      await userEvent.type(screen.getByLabelText(/amount/i), "250");
-      await userEvent.type(screen.getByLabelText(/price/i), "250");
-      await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+      await userEvent.type(screen.getByLabelText(/ticker/i), 'msft');
+      await userEvent.type(screen.getByLabelText(/amount/i), '250');
+      await userEvent.type(screen.getByLabelText(/price/i), '250');
+      await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
-      await userEvent.click(screen.getByRole("button", { name: /dashboard/i }));
+      await userEvent.click(screen.getByRole('button', { name: /dashboard/i }));
 
       assert.ok(await screen.findByText(/Market is closed/i));
       assert.equal(screen.queryByText(/Price refresh failed/i), null);
@@ -460,43 +458,43 @@ describe("App price refresh degradations", () => {
     }
   });
 
-  it("falls back to market-closed guidance when the signal preview request fails on a weekend", async () => {
+  it('falls back to market-closed guidance when the signal preview request fails on a weekend', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2024-02-03T15:00:00Z"));
+    vi.setSystemTime(new Date('2024-02-03T15:00:00Z'));
 
     try {
       renderApp();
 
-      await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
+      await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
 
-      await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
-      await userEvent.type(screen.getByLabelText(/ticker/i), "msft");
-      await userEvent.type(screen.getByLabelText(/amount/i), "2500");
-      await userEvent.type(screen.getByLabelText(/price/i), "250");
-      await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+      await userEvent.type(screen.getByLabelText(/date/i), '2024-02-01');
+      await userEvent.type(screen.getByLabelText(/ticker/i), 'msft');
+      await userEvent.type(screen.getByLabelText(/amount/i), '2500');
+      await userEvent.type(screen.getByLabelText(/price/i), '250');
+      await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
       await waitFor(() => {
-        assert.deepEqual(api.__getPriceCalls(), ["MSFT"]);
+        assert.deepEqual(api.__getPriceCalls(), ['MSFT']);
       });
 
-      await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
-      assert.ok(await screen.findByText("$250.00"));
+      await userEvent.click(screen.getByRole('button', { name: /holdings/i }));
+      assert.ok(await screen.findByText('$250.00'));
 
       api.__queueSignalResponse(() => {
-        const error = new Error("Signals preview failed");
-        error.requestId = "price-fail-001";
+        const error = new Error('Signals preview failed');
+        error.requestId = 'price-fail-001';
         throw error;
       });
 
-      await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
-      await userEvent.type(screen.getByLabelText(/date/i), "2024-02-02");
+      await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
+      await userEvent.type(screen.getByLabelText(/date/i), '2024-02-02');
       await userEvent.clear(screen.getByLabelText(/ticker/i));
-      await userEvent.type(screen.getByLabelText(/ticker/i), "msft");
-      await userEvent.type(screen.getByLabelText(/amount/i), "250");
-      await userEvent.type(screen.getByLabelText(/price/i), "250");
-      await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+      await userEvent.type(screen.getByLabelText(/ticker/i), 'msft');
+      await userEvent.type(screen.getByLabelText(/amount/i), '250');
+      await userEvent.type(screen.getByLabelText(/price/i), '250');
+      await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
-      await userEvent.click(screen.getByRole("button", { name: /dashboard/i }));
+      await userEvent.click(screen.getByRole('button', { name: /dashboard/i }));
 
       assert.ok(await screen.findByText(/Market is closed/i));
       assert.equal(screen.queryByText(/Price refresh failed/i), null);
@@ -506,62 +504,62 @@ describe("App price refresh degradations", () => {
     }
   });
 
-  it("requests live prices only for open holdings", async () => {
+  it('requests live prices only for open holdings', async () => {
     renderApp();
 
-    await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
+    await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
 
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
-    await userEvent.type(screen.getByLabelText(/ticker/i), "aapl");
-    await userEvent.type(screen.getByLabelText(/amount/i), "1250");
-    await userEvent.type(screen.getByLabelText(/price/i), "125");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-01');
+    await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
+    await userEvent.type(screen.getByLabelText(/amount/i), '1250');
+    await userEvent.type(screen.getByLabelText(/price/i), '125');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
     const typeSelect = screen.getByLabelText(/type/i);
-    await userEvent.selectOptions(typeSelect, "SELL");
+    await userEvent.selectOptions(typeSelect, 'SELL');
     await userEvent.clear(screen.getByLabelText(/date/i));
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-02");
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-02');
     await userEvent.clear(screen.getByLabelText(/ticker/i));
-    await userEvent.type(screen.getByLabelText(/ticker/i), "aapl");
+    await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
     await userEvent.clear(screen.getByLabelText(/amount/i));
-    await userEvent.type(screen.getByLabelText(/amount/i), "1250");
+    await userEvent.type(screen.getByLabelText(/amount/i), '1250');
     await userEvent.clear(screen.getByLabelText(/price/i));
-    await userEvent.type(screen.getByLabelText(/price/i), "125");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.type(screen.getByLabelText(/price/i), '125');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
-    await userEvent.selectOptions(typeSelect, "DEPOSIT");
+    await userEvent.selectOptions(typeSelect, 'DEPOSIT');
     await userEvent.clear(screen.getByLabelText(/date/i));
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-03");
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-03');
     await userEvent.clear(screen.getByLabelText(/amount/i));
-    await userEvent.type(screen.getByLabelText(/amount/i), "500");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.type(screen.getByLabelText(/amount/i), '500');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
-    await userEvent.selectOptions(typeSelect, "BUY");
+    await userEvent.selectOptions(typeSelect, 'BUY');
     await userEvent.clear(screen.getByLabelText(/date/i));
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-04");
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-04');
     await userEvent.clear(screen.getByLabelText(/ticker/i));
-    await userEvent.type(screen.getByLabelText(/ticker/i), "msft");
+    await userEvent.type(screen.getByLabelText(/ticker/i), 'msft');
     await userEvent.clear(screen.getByLabelText(/amount/i));
-    await userEvent.type(screen.getByLabelText(/amount/i), "250");
+    await userEvent.type(screen.getByLabelText(/amount/i), '250');
     await userEvent.clear(screen.getByLabelText(/price/i));
-    await userEvent.type(screen.getByLabelText(/price/i), "250");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.type(screen.getByLabelText(/price/i), '250');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
     await waitFor(() => {
-      assert.deepEqual(api.__getLastPriceBatch(), ["MSFT"]);
+      assert.deepEqual(api.__getLastPriceBatch(), ['MSFT']);
     });
   });
 
-  it("re-evaluates signals when the percent window changes", async () => {
+  it('re-evaluates signals when the percent window changes', async () => {
     renderApp();
 
-    await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
+    await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
 
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
-    await userEvent.type(screen.getByLabelText(/ticker/i), "aapl");
-    await userEvent.type(screen.getByLabelText(/amount/i), "1250");
-    await userEvent.type(screen.getByLabelText(/price/i), "125");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-01');
+    await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
+    await userEvent.type(screen.getByLabelText(/amount/i), '1250');
+    await userEvent.type(screen.getByLabelText(/price/i), '125');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
     await waitFor(() => {
       const calls = api.__getSignalBodies();
@@ -569,11 +567,11 @@ describe("App price refresh degradations", () => {
       assert.deepEqual(calls.at(-1).signals, {});
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
+    await userEvent.click(screen.getByRole('button', { name: /holdings/i }));
 
     const windowInput = await screen.findByLabelText(/aapl percent window/i);
     await userEvent.clear(windowInput);
-    await userEvent.type(windowInput, "5");
+    await userEvent.type(windowInput, '5');
 
     await waitFor(() => {
       const calls = api.__getSignalBodies();
@@ -582,21 +580,21 @@ describe("App price refresh degradations", () => {
     });
   });
 
-  it("triggers signal toasts from backend status transitions", async () => {
+  it('triggers signal toasts from backend status transitions', async () => {
     api.__queueSignalResponse({
       data: {
         rows: [
           {
-            ticker: "AAPL",
+            ticker: 'AAPL',
             pctWindow: 3,
-            status: "HOLD",
+            status: 'HOLD',
             currentPrice: 125,
-            currentPriceAsOf: "2024-02-01",
+            currentPriceAsOf: '2024-02-01',
             lowerBound: 121.25,
             upperBound: 128.75,
             referencePrice: 125,
-            referenceDate: "2024-02-01",
-            referenceType: "BUY",
+            referenceDate: '2024-02-01',
+            referenceType: 'BUY',
             sanityRejected: false,
           },
         ],
@@ -605,41 +603,41 @@ describe("App price refresh degradations", () => {
         market: {
           isOpen: true,
           isBeforeOpen: false,
-          lastTradingDate: "2024-02-01",
-          nextTradingDate: "2024-02-02",
+          lastTradingDate: '2024-02-01',
+          nextTradingDate: '2024-02-02',
         },
       },
-      requestId: "signals-hold-001",
+      requestId: 'signals-hold-001',
     });
 
     renderApp();
 
-    await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
+    await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
 
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
-    await userEvent.type(screen.getByLabelText(/ticker/i), "aapl");
-    await userEvent.type(screen.getByLabelText(/amount/i), "1250");
-    await userEvent.type(screen.getByLabelText(/price/i), "125");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-01');
+    await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
+    await userEvent.type(screen.getByLabelText(/amount/i), '1250');
+    await userEvent.type(screen.getByLabelText(/price/i), '125');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
     await waitFor(() => {
-      assert.deepEqual(api.__getLastPriceBatch(), ["AAPL"]);
+      assert.deepEqual(api.__getLastPriceBatch(), ['AAPL']);
     });
 
     api.__queueSignalResponse({
       data: {
         rows: [
           {
-            ticker: "AAPL",
+            ticker: 'AAPL',
             pctWindow: 5,
-            status: "BUY_ZONE",
+            status: 'BUY_ZONE',
             currentPrice: 115,
-            currentPriceAsOf: "2024-02-02",
+            currentPriceAsOf: '2024-02-02',
             lowerBound: 118.75,
             upperBound: 131.25,
             referencePrice: 125,
-            referenceDate: "2024-02-01",
-            referenceType: "BUY",
+            referenceDate: '2024-02-01',
+            referenceType: 'BUY',
             sanityRejected: false,
           },
         ],
@@ -648,37 +646,37 @@ describe("App price refresh degradations", () => {
         market: {
           isOpen: true,
           isBeforeOpen: false,
-          lastTradingDate: "2024-02-02",
-          nextTradingDate: "2024-02-05",
+          lastTradingDate: '2024-02-02',
+          nextTradingDate: '2024-02-05',
         },
       },
-      requestId: "signals-buy-001",
+      requestId: 'signals-buy-001',
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
+    await userEvent.click(screen.getByRole('button', { name: /holdings/i }));
     const windowInput = await screen.findByLabelText(/aapl percent window/i);
     await userEvent.clear(windowInput);
-    await userEvent.type(windowInput, "5");
+    await userEvent.type(windowInput, '5');
 
-    assert.ok(await screen.findByText("AAPL entered BUY zone"));
+    assert.ok(await screen.findByText('AAPL entered BUY zone'));
     assert.ok(await screen.findByText(/\$115\.00/));
   });
 
-  it("suppresses signal transition toasts when the preference is disabled", async () => {
+  it('suppresses signal transition toasts when the preference is disabled', async () => {
     api.__queueSignalResponse({
       data: {
         rows: [
           {
-            ticker: "AAPL",
+            ticker: 'AAPL',
             pctWindow: 3,
-            status: "HOLD",
+            status: 'HOLD',
             currentPrice: 125,
-            currentPriceAsOf: "2024-02-01",
+            currentPriceAsOf: '2024-02-01',
             lowerBound: 121.25,
             upperBound: 128.75,
             referencePrice: 125,
-            referenceDate: "2024-02-01",
-            referenceType: "BUY",
+            referenceDate: '2024-02-01',
+            referenceType: 'BUY',
             sanityRejected: false,
           },
         ],
@@ -687,43 +685,43 @@ describe("App price refresh degradations", () => {
         market: {
           isOpen: true,
           isBeforeOpen: false,
-          lastTradingDate: "2024-02-01",
-          nextTradingDate: "2024-02-02",
+          lastTradingDate: '2024-02-01',
+          nextTradingDate: '2024-02-02',
         },
       },
-      requestId: "signals-hold-001",
+      requestId: 'signals-hold-001',
     });
 
     renderApp();
 
-    await userEvent.click(screen.getByRole("button", { name: /settings/i }));
+    await userEvent.click(screen.getByRole('button', { name: /settings/i }));
     await userEvent.click(screen.getByLabelText(/Signal transition toasts/i));
 
-    await userEvent.click(screen.getByRole("button", { name: /transactions/i }));
-    await userEvent.type(screen.getByLabelText(/date/i), "2024-02-01");
-    await userEvent.type(screen.getByLabelText(/ticker/i), "aapl");
-    await userEvent.type(screen.getByLabelText(/amount/i), "1250");
-    await userEvent.type(screen.getByLabelText(/price/i), "125");
-    await userEvent.click(screen.getByRole("button", { name: /add transaction/i }));
+    await userEvent.click(screen.getByRole('button', { name: /transactions/i }));
+    await userEvent.type(screen.getByLabelText(/date/i), '2024-02-01');
+    await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
+    await userEvent.type(screen.getByLabelText(/amount/i), '1250');
+    await userEvent.type(screen.getByLabelText(/price/i), '125');
+    await userEvent.click(screen.getByRole('button', { name: /add transaction/i }));
 
     await waitFor(() => {
-      assert.deepEqual(api.__getLastPriceBatch(), ["AAPL"]);
+      assert.deepEqual(api.__getLastPriceBatch(), ['AAPL']);
     });
 
     api.__queueSignalResponse({
       data: {
         rows: [
           {
-            ticker: "AAPL",
+            ticker: 'AAPL',
             pctWindow: 5,
-            status: "BUY_ZONE",
+            status: 'BUY_ZONE',
             currentPrice: 115,
-            currentPriceAsOf: "2024-02-02",
+            currentPriceAsOf: '2024-02-02',
             lowerBound: 118.75,
             upperBound: 131.25,
             referencePrice: 125,
-            referenceDate: "2024-02-01",
-            referenceType: "BUY",
+            referenceDate: '2024-02-01',
+            referenceType: 'BUY',
             sanityRejected: false,
           },
         ],
@@ -732,20 +730,20 @@ describe("App price refresh degradations", () => {
         market: {
           isOpen: true,
           isBeforeOpen: false,
-          lastTradingDate: "2024-02-02",
-          nextTradingDate: "2024-02-05",
+          lastTradingDate: '2024-02-02',
+          nextTradingDate: '2024-02-05',
         },
       },
-      requestId: "signals-buy-001",
+      requestId: 'signals-buy-001',
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /holdings/i }));
+    await userEvent.click(screen.getByRole('button', { name: /holdings/i }));
     const windowInput = await screen.findByLabelText(/aapl percent window/i);
     await userEvent.clear(windowInput);
-    await userEvent.type(windowInput, "5");
+    await userEvent.type(windowInput, '5');
 
     await waitFor(() => {
-      assert.equal(screen.queryByText("AAPL entered BUY zone"), null);
+      assert.equal(screen.queryByText('AAPL entered BUY zone'), null);
     });
   });
 });

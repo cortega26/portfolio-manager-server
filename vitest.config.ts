@@ -18,7 +18,7 @@ export default defineConfig({
       enabled: true,
       reporter: ['text-summary', 'lcov'],
       include: ['src/**/*.{js,jsx,ts,tsx}'],
-      exclude: ['src/main.*', 'src/vite-env.d.ts']
-    }
-  }
+      exclude: ['src/main.*', 'src/vite-env.d.ts'],
+    },
+  },
 });

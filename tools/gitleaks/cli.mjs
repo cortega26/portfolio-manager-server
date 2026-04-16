@@ -26,7 +26,15 @@ if (command && command !== 'detect') {
 }
 
 const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const IGNORE_DIRS = new Set(['.git', 'node_modules', 'coverage', 'dist', '.nyc_output', '.cache', 'bin']);
+const IGNORE_DIRS = new Set([
+  '.git',
+  'node_modules',
+  'coverage',
+  'dist',
+  '.nyc_output',
+  '.cache',
+  'bin',
+]);
 const MAX_FILE_SIZE_BYTES = 1024 * 1024;
 
 const PATTERNS = [

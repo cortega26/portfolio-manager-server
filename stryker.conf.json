@@ -1,8 +1,6 @@
 {
   "$schema": "node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "mutate": [
-    "src/utils/roi.js"
-  ],
+  "mutate": ["src/utils/roi.js"],
   "testRunner": "command",
   "commandRunner": {
     "command": "node --import ./server/__tests__/setup/global.js --test src/__tests__/roi.test.js src/__tests__/roi.property.test.js"

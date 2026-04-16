@@ -1,30 +1,30 @@
-import { formatCurrency, formatPercent } from "./format.js";
-import { ROI_DETAIL_PERCENT_DIGITS } from "../../shared/precision.js";
-import { deriveHoldingStats } from "./holdings.js";
-import { sanitizeCsvCell } from "./csv.js";
+import { formatCurrency, formatPercent } from './format.js';
+import { ROI_DETAIL_PERCENT_DIGITS } from '../../shared/precision.js';
+import { deriveHoldingStats } from './holdings.js';
+import { sanitizeCsvCell } from './csv.js';
 
 const REPORT_SUMMARY_FALLBACKS = Object.freeze({
-  "reports.summary.cards.transactions.label": "Transactions",
-  "reports.summary.cards.transactions.detail": "Last activity {lastActivity}",
-  "reports.summary.cards.tickers.label": "Active tickers",
-  "reports.summary.cards.tickers.detail": "{count} holdings entries",
-  "reports.summary.cards.portfolioValue.label": "Portfolio value",
-  "reports.summary.cards.portfolioValue.detail": "{unrealised}",
-  "reports.summary.cards.portfolioValue.unavailable": "Pricing unavailable for open holdings",
-  "reports.summary.cards.roiCoverage.label": "ROI coverage",
-  "reports.summary.cards.roiCoverage.value.ready": "Ready",
-  "reports.summary.cards.roiCoverage.value.pending": "Pending",
-  "reports.summary.cards.roiCoverage.detail": "Requires pricing for CSV exports",
+  'reports.summary.cards.transactions.label': 'Transactions',
+  'reports.summary.cards.transactions.detail': 'Last activity {lastActivity}',
+  'reports.summary.cards.tickers.label': 'Active tickers',
+  'reports.summary.cards.tickers.detail': '{count} holdings entries',
+  'reports.summary.cards.portfolioValue.label': 'Portfolio value',
+  'reports.summary.cards.portfolioValue.detail': '{unrealised}',
+  'reports.summary.cards.portfolioValue.unavailable': 'Pricing unavailable for open holdings',
+  'reports.summary.cards.roiCoverage.label': 'ROI coverage',
+  'reports.summary.cards.roiCoverage.value.ready': 'Ready',
+  'reports.summary.cards.roiCoverage.value.pending': 'Pending',
+  'reports.summary.cards.roiCoverage.detail': 'Requires pricing for CSV exports',
 });
 
 function interpolate(template, values = {}) {
   return template.replace(/\{(\w+)\}/g, (_, token) =>
-    Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : `{${token}}`,
+    Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : `{${token}}`
   );
 }
 
 function createReportTranslator(translate) {
-  if (typeof translate === "function") {
+  if (typeof translate === 'function') {
     return (key, values) => {
       const result = translate(key, values);
       if (result === key && REPORT_SUMMARY_FALLBACKS[key]) {
@@ -38,94 +38,84 @@ function createReportTranslator(translate) {
 
 function toCsvValue(value) {
   const sanitized = sanitizeCsvCell(value);
-  if (sanitized === "") {
-    return "";
+  if (sanitized === '') {
+    return '';
   }
-  if (sanitized.includes(",") || sanitized.includes("\n") || sanitized.includes('"')) {
+  if (sanitized.includes(',') || sanitized.includes('\n') || sanitized.includes('"')) {
     return `"${sanitized.replace(/"/g, '""')}"`;
   }
   return sanitized;
 }
 
 function toCsv(rows) {
-  return rows.map((row) => row.map(toCsvValue).join(",")).join("\n");
+  return rows.map((row) => row.map(toCsvValue).join(',')).join('\n');
 }
 
 export function buildReportSummary(
   transactions,
   holdings,
   metrics,
-  { translate, formatDate } = {},
+  { translate, formatDate } = {}
 ) {
   const t = createReportTranslator(translate);
   const formatDateValue =
-    typeof formatDate === "function"
-      ? (value) => formatDate(value, { dateStyle: "medium" })
+    typeof formatDate === 'function'
+      ? (value) => formatDate(value, { dateStyle: 'medium' })
       : (value) => value;
 
   const pricingComplete = metrics?.pricingComplete !== false;
-  const totalValue =
-    metrics && pricingComplete ? formatCurrency(metrics.totalValue ?? 0) : "—";
+  const totalValue = metrics && pricingComplete ? formatCurrency(metrics.totalValue ?? 0) : '—';
   const unrealised =
-    metrics && pricingComplete ? formatCurrency(metrics.totalUnrealised ?? 0) : "—";
+    metrics && pricingComplete ? formatCurrency(metrics.totalUnrealised ?? 0) : '—';
   const transactionCount = Array.isArray(transactions) ? transactions.length : 0;
   const holdingsCount = Array.isArray(holdings) ? holdings.length : 0;
   const tickers = Array.isArray(holdings)
     ? new Set(holdings.map((holding) => holding.ticker)).size
     : 0;
-  const lastActivityRaw = Array.isArray(transactions) && transactions.length > 0
-    ? [...transactions]
-        .filter((tx) => Boolean(tx.date))
-        .sort((a, b) => (a.date < b.date ? 1 : -1))[0]?.date ?? "—"
-    : "—";
-  const lastActivity =
-    lastActivityRaw === "—"
-      ? "—"
-      : formatDateValue(lastActivityRaw) ?? "—";
+  const lastActivityRaw =
+    Array.isArray(transactions) && transactions.length > 0
+      ? ([...transactions]
+          .filter((tx) => Boolean(tx.date))
+          .sort((a, b) => (a.date < b.date ? 1 : -1))[0]?.date ?? '—')
+      : '—';
+  const lastActivity = lastActivityRaw === '—' ? '—' : (formatDateValue(lastActivityRaw) ?? '—');
   const roiStatusKey =
     transactionCount > 0
-      ? "reports.summary.cards.roiCoverage.value.ready"
-      : "reports.summary.cards.roiCoverage.value.pending";
+      ? 'reports.summary.cards.roiCoverage.value.ready'
+      : 'reports.summary.cards.roiCoverage.value.pending';
 
   return [
     {
-      label: t("reports.summary.cards.transactions.label"),
+      label: t('reports.summary.cards.transactions.label'),
       value: transactionCount.toString(),
-      detail: t("reports.summary.cards.transactions.detail", { lastActivity }),
+      detail: t('reports.summary.cards.transactions.detail', { lastActivity }),
     },
     {
-      label: t("reports.summary.cards.tickers.label"),
+      label: t('reports.summary.cards.tickers.label'),
       value: tickers.toString(),
-      detail: t("reports.summary.cards.tickers.detail", { count: holdingsCount }),
+      detail: t('reports.summary.cards.tickers.detail', { count: holdingsCount }),
     },
     {
-      label: t("reports.summary.cards.portfolioValue.label"),
+      label: t('reports.summary.cards.portfolioValue.label'),
       value: totalValue,
       detail: pricingComplete
-        ? t("reports.summary.cards.portfolioValue.detail", { unrealised })
-        : t("reports.summary.cards.portfolioValue.unavailable"),
+        ? t('reports.summary.cards.portfolioValue.detail', { unrealised })
+        : t('reports.summary.cards.portfolioValue.unavailable'),
     },
     {
-      label: t("reports.summary.cards.roiCoverage.label"),
+      label: t('reports.summary.cards.roiCoverage.label'),
       value: t(roiStatusKey),
-      detail: t("reports.summary.cards.roiCoverage.detail"),
+      detail: t('reports.summary.cards.roiCoverage.detail'),
     },
   ];
 }
 
 export function buildTransactionsCsv(transactions) {
   if (!Array.isArray(transactions) || transactions.length === 0) {
-    return "";
+    return '';
   }
 
-  const header = [
-    "date",
-    "ticker",
-    "type",
-    "amount",
-    "price",
-    "shares",
-  ];
+  const header = ['date', 'ticker', 'type', 'amount', 'price', 'shares'];
   const rows = transactions.map((tx) => [
     tx.date,
     tx.ticker,
@@ -139,17 +129,17 @@ export function buildTransactionsCsv(transactions) {
 
 export function buildHoldingsCsv(holdings, currentPrices) {
   if (!Array.isArray(holdings) || holdings.length === 0) {
-    return "";
+    return '';
   }
 
   const header = [
-    "ticker",
-    "shares",
-    "avg_cost",
-    "current_price",
-    "value",
-    "unrealised_pnl",
-    "realised_pnl",
+    'ticker',
+    'shares',
+    'avg_cost',
+    'current_price',
+    'value',
+    'unrealised_pnl',
+    'realised_pnl',
   ];
   const rows = holdings.map((holding) => {
     const enriched = deriveHoldingStats(holding, currentPrices?.[holding.ticker]);
@@ -157,9 +147,9 @@ export function buildHoldingsCsv(holdings, currentPrices) {
       holding.ticker,
       holding.shares,
       enriched.avgCost,
-      enriched.priceAvailable ? currentPrices?.[holding.ticker] ?? "" : "",
-      enriched.priceAvailable ? enriched.value ?? "" : "",
-      enriched.priceAvailable ? enriched.unrealised ?? "" : "",
+      enriched.priceAvailable ? (currentPrices?.[holding.ticker] ?? '') : '',
+      enriched.priceAvailable ? (enriched.value ?? '') : '',
+      enriched.priceAvailable ? (enriched.unrealised ?? '') : '',
       holding.realised,
     ];
   });
@@ -168,19 +158,19 @@ export function buildHoldingsCsv(holdings, currentPrices) {
 
 export function buildPerformanceCsv(roiSeries) {
   if (!Array.isArray(roiSeries) || roiSeries.length === 0) {
-    return "";
+    return '';
   }
 
   const header = [
-    "date",
-    "portfolio_roi",
-    "spy_roi",
-    "qqq_roi",
-    "blended_roi",
-    "ex_cash_roi",
-    "cash_roi",
-    "spy_spread",
-    "qqq_spread",
+    'date',
+    'portfolio_roi',
+    'spy_roi',
+    'qqq_roi',
+    'blended_roi',
+    'ex_cash_roi',
+    'cash_roi',
+    'spy_spread',
+    'qqq_spread',
   ];
   const rows = roiSeries.map((point) => [
     point.date,
@@ -198,17 +188,17 @@ export function buildPerformanceCsv(roiSeries) {
 
 export function buildSecurityEventsCsv(events) {
   if (!Array.isArray(events) || events.length === 0) {
-    return "";
+    return '';
   }
 
   const header = [
-    "timestamp",
-    "event",
-    "portfolio_id",
-    "ip",
-    "user_agent",
-    "request_id",
-    "metadata",
+    'timestamp',
+    'event',
+    'portfolio_id',
+    'ip',
+    'user_agent',
+    'request_id',
+    'metadata',
   ];
 
   const rows = events.map((event) => {
@@ -221,7 +211,7 @@ export function buildSecurityEventsCsv(events) {
       request_id: requestId,
       ...rest
     } = event ?? {};
-    const metadata = Object.keys(rest).length > 0 ? JSON.stringify(rest) : "";
+    const metadata = Object.keys(rest).length > 0 ? JSON.stringify(rest) : '';
     return [timestamp, eventName, portfolioId, ip, userAgent, requestId, metadata];
   });
 
@@ -229,20 +219,20 @@ export function buildSecurityEventsCsv(events) {
 }
 
 export function triggerCsvDownload(filename, csvContent, globalScope = globalThis) {
-  if (!csvContent || typeof csvContent !== "string") {
+  if (!csvContent || typeof csvContent !== 'string') {
     return false;
   }
 
-  const hasWindow = typeof globalScope?.window !== "undefined";
-  const hasDocument = typeof globalScope?.document !== "undefined";
+  const hasWindow = typeof globalScope?.window !== 'undefined';
+  const hasDocument = typeof globalScope?.document !== 'undefined';
   if (!hasWindow || !hasDocument) {
     return false;
   }
 
   const { document } = globalScope;
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
   const url = globalScope.URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   document.body.appendChild(link);

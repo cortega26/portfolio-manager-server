@@ -4,7 +4,7 @@ import {
   cloneHoldingsMap,
   holdingsMapToArray,
   revertTransactionSnapshot,
-} from "./holdings.js";
+} from './holdings.js';
 
 function normalizeTransactions(transactions) {
   if (!Array.isArray(transactions)) {
@@ -69,11 +69,11 @@ function removeTransaction(state, index) {
 
 export function ledgerReducer(state, action) {
   switch (action.type) {
-    case "append":
+    case 'append':
       return appendTransaction(state, action.transaction);
-    case "remove":
+    case 'remove':
       return removeTransaction(state, action.index);
-    case "replace":
+    case 'replace':
       return buildLedgerFromTransactions(action.transactions, {
         logSummary: action.logSummary !== false,
       });
@@ -81,4 +81,3 @@ export function ledgerReducer(state, action) {
       return state;
   }
 }
-

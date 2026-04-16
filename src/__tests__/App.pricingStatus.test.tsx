@@ -165,7 +165,9 @@ describe('App pricing status UX', () => {
 
     expect(await screen.findByText(/Live quotes temporarily unavailable/i)).toBeVisible();
     expect(
-      screen.getByText(/Showing the latest official close for MSFT while the live pricing provider recovers/i),
+      screen.getByText(
+        /Showing the latest official close for MSFT while the live pricing provider recovers/i
+      )
     ).toBeVisible();
     expect(screen.queryByText(/Price refresh failed/i)).not.toBeInTheDocument();
   });

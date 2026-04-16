@@ -1,16 +1,15 @@
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
-import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useI18n } from '../i18n/I18nProvider.jsx';
 
 const TYPE_STYLES = {
   success:
-    "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200",
+    'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200',
   error:
-    "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200",
+    'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200',
   warning:
-    "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200",
-  info:
-    "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200",
+    'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200',
+  info: 'border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200',
 };
 
 function resolveClassName(type) {
@@ -24,9 +23,7 @@ export default function ToastStack({ toasts, onDismiss }) {
       return undefined;
     }
     const timers = toasts.map((toast) => {
-      const timeout = Number.isFinite(toast.durationMs)
-        ? toast.durationMs
-        : 6000;
+      const timeout = Number.isFinite(toast.durationMs) ? toast.durationMs : 6000;
       if (timeout <= 0) {
         return null;
       }
@@ -59,7 +56,7 @@ export default function ToastStack({ toasts, onDismiss }) {
           <div
             key={toast.id}
             className={`pointer-events-auto rounded-lg border px-4 py-3 shadow-lg transition ${resolveClassName(
-              toast.type,
+              toast.type
             )}`}
             role="status"
           >
@@ -70,12 +67,12 @@ export default function ToastStack({ toasts, onDismiss }) {
                   <p className="mt-1 text-sm leading-snug">{toast.message}</p>
                 ) : null}
               </div>
-                <button
-                  type="button"
-                  onClick={() => onDismiss?.(toast.id)}
-                  className="-mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold uppercase tracking-wide text-inherit/80 hover:text-inherit"
-                  aria-label={t("toast.dismiss")}
-                >
+              <button
+                type="button"
+                onClick={() => onDismiss?.(toast.id)}
+                className="-mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold uppercase tracking-wide text-inherit/80 hover:text-inherit"
+                aria-label={t('toast.dismiss')}
+              >
                 ×
               </button>
             </div>
@@ -88,4 +85,3 @@ export default function ToastStack({ toasts, onDismiss }) {
     </div>
   );
 }
-

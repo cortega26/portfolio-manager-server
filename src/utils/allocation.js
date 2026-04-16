@@ -61,10 +61,8 @@ export function computeAssetContributions(openHoldings, currentPrices, cashBalan
   return rows
     .map((r) => {
       const weight = r.value / totalNav;
-      const individualReturn =
-        r.cost > 0 ? (r.value - r.cost) / r.cost : null;
-      const contributionPp =
-        individualReturn !== null ? weight * individualReturn * 100 : null;
+      const individualReturn = r.cost > 0 ? (r.value - r.cost) / r.cost : null;
+      const contributionPp = individualReturn !== null ? weight * individualReturn * 100 : null;
 
       return {
         ticker: r.ticker,

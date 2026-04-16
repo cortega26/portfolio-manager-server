@@ -56,9 +56,9 @@ describe('computeAssetContributions', () => {
 
   test('sorts rows by contribution descending, nulls last', () => {
     const openHoldings = [
-      { ticker: 'LOW', shares: '1', cost: 100 },   // return = (110-100)/100 = 10%
-      { ticker: 'HIGH', shares: '1', cost: 100 },  // return = (200-100)/100 = 100%
-      { ticker: 'ZERO', shares: '1', cost: 0 },    // individualReturn = null
+      { ticker: 'LOW', shares: '1', cost: 100 }, // return = (110-100)/100 = 10%
+      { ticker: 'HIGH', shares: '1', cost: 100 }, // return = (200-100)/100 = 100%
+      { ticker: 'ZERO', shares: '1', cost: 0 }, // individualReturn = null
     ];
     const currentPrices = { LOW: 110, HIGH: 200, ZERO: 50 };
     const rows = computeAssetContributions(openHoldings, currentPrices, 0);
@@ -93,7 +93,7 @@ describe('ContributionTable render', () => {
         openHoldings={holdingsFixture}
         currentPrices={pricesFixture}
         cashBalance={0}
-      />,
+      />
     );
 
     expect(screen.getByTestId('contribution-table')).toBeDefined();
@@ -104,13 +104,7 @@ describe('ContributionTable render', () => {
   });
 
   test('renders empty state when no holdings', () => {
-    renderWithProviders(
-      <ContributionTable
-        openHoldings={[]}
-        currentPrices={{}}
-        cashBalance={0}
-      />,
-    );
+    renderWithProviders(<ContributionTable openHoldings={[]} currentPrices={{}} cashBalance={0} />);
 
     expect(screen.getByTestId('contribution-table-empty')).toBeDefined();
     expect(screen.queryByTestId('contribution-table-content')).toBeNull();
@@ -122,7 +116,7 @@ describe('ContributionTable render', () => {
         openHoldings={[{ ticker: 'NOPRICE', shares: '1', cost: 100 }]}
         currentPrices={{}}
         cashBalance={0}
-      />,
+      />
     );
 
     expect(screen.getByTestId('contribution-table-empty')).toBeDefined();

@@ -26,16 +26,12 @@ describe('Depositor modal behaviour', () => {
 
       expect(screen.queryByTestId('depositor-modal')).not.toBeInTheDocument();
 
-      await userEvent.click(
-        screen.getByRole('button', { name: /add depositor/i }),
-      );
+      await userEvent.click(screen.getByRole('button', { name: /add depositor/i }));
 
       const modal = await screen.findByTestId('depositor-modal');
       const nameInput = within(modal).getByLabelText(/depositor name/i);
       await userEvent.type(nameInput, 'Family Trust');
-      await userEvent.click(
-        within(modal).getByRole('button', { name: /save depositor/i }),
-      );
+      await userEvent.click(within(modal).getByRole('button', { name: /save depositor/i }));
 
       await waitFor(() => {
         expect(screen.queryByTestId('depositor-modal')).not.toBeInTheDocument();

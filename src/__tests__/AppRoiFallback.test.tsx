@@ -47,7 +47,6 @@ vi.mock('../components/SettingsTab.jsx', () => ({
   default: () => <div data-testid="stub-settings" />,
 }));
 
-
 vi.mock('../utils/api.js', () => ({
   evaluateSignals: evaluateSignalsMock,
   fetchDailyRoi: fetchDailyRoiMock,
@@ -107,7 +106,9 @@ describe('ROI availability alerts', () => {
       },
       requestId: 'roi-ok-001',
     });
-    mergeDailyRoiSeriesMock.mockReturnValue([{ date: '2024-01-03', portfolio: 5, portfolioTwr: 3 }]);
+    mergeDailyRoiSeriesMock.mockReturnValue([
+      { date: '2024-01-03', portfolio: 5, portfolioTwr: 3 },
+    ]);
     createInitialLedgerStateMock.mockReturnValue({
       transactions: [
         { date: '2024-01-02', type: 'DEPOSIT', amount: 1000 },
@@ -126,22 +127,21 @@ describe('ROI availability alerts', () => {
   });
 
   test('loads canonical ROI data without showing an alert when the API succeeds', async () => {
-
     renderWithProviders(<App />);
 
     await waitFor(() => {
       expect(fetchDailyRoiMock).toHaveBeenCalledTimes(1);
     });
-    expect(
-      screen.queryByText(/latest valid roi snapshot/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/latest valid roi snapshot/i)).not.toBeInTheDocument();
   });
 
   test('shows ROI unavailable when the first ROI request fails', async () => {
-    fetchDailyRoiMock.mockRejectedValue(Object.assign(new Error('ROI service unavailable'), {
-      name: 'ApiError',
-      requestId: 'roi-fail-002',
-    }));
+    fetchDailyRoiMock.mockRejectedValue(
+      Object.assign(new Error('ROI service unavailable'), {
+        name: 'ApiError',
+        requestId: 'roi-fail-002',
+      })
+    );
 
     createInitialLedgerStateMock.mockReturnValue({
       transactions: [
@@ -163,8 +163,8 @@ describe('ROI availability alerts', () => {
 
     expect(
       await screen.findByText(
-        /roi service and fallback computation failed\. try again after reloading the page\./i,
-      ),
+        /roi service and fallback computation failed\. try again after reloading the page\./i
+      )
     ).toBeInTheDocument();
 
     await waitFor(() => {

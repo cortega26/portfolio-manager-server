@@ -1,8 +1,9 @@
 <!-- markdownlint-disable -->
+
 # Portfolio Manager — Core Audit, Fix Plan & Guardrails (for GPT Codex‑5)
 
 **Repository**: `cortega26/portfolio-manager-server`  
-**Objective**: Verify and harden *core logic, math and business rules*; implement missing pieces with **minimal risk**.  
+**Objective**: Verify and harden _core logic, math and business rules_; implement missing pieces with **minimal risk**.  
 **Mindset**: **PEV — Plan → Execute → Verify** on each task. **Do not stop at planning**; modify files, run tests, and provide artifacts.
 
 ---
@@ -16,7 +17,7 @@
   - **All‑SPY ghost**: invest each **external** flow into SPY total‑return on its flow date.
 - **UI/Server**: keep current stack (Express backend + Vite/React frontend + file‑based persistence). If detection differs, **adapt but preserve API behavior**.
 
-> If any assumption above doesn’t match the repo, detect and adapt while keeping the *business rules* unchanged.
+> If any assumption above doesn’t match the repo, detect and adapt while keeping the _business rules_ unchanged.
 
 ---
 
@@ -49,6 +50,7 @@
 ## 2) Business Rules (Canonical Formulas)
 
 ### 2.1 Daily portfolio step (TWR)
+
 Let `MV_t` be end‑of‑day market value, and `Flows_t` the **net external flow** during day `t`.
 
 - **Step return**:  
@@ -59,21 +61,25 @@ Let `MV_t` be end‑of‑day market value, and `Flows_t` the **net external flow
 **Internal events** (`DIVIDEND`, `INTEREST`) affect `MV_t` but are **not** part of `Flows_t`.
 
 ### 2.2 Cash interest (daily accrual)
-- Daily rate from APY: `r_daily = (1 + apy)^(1/365) - 1`  
-- Accrual amount: `interest_t = cash_{t-1} * r_daily`  
+
+- Daily rate from APY: `r_daily = (1 + apy)^(1/365) - 1`
+- Accrual amount: `interest_t = cash_{t-1} * r_daily`
 - Book: `INTEREST` (internal) that increases `CASH`.
 
 ### 2.3 Blended benchmark (risk‑matched)
+
 - **Start‑of‑day** weights:  
-  `w_cash_t = cash_{t-1} / MV_{t-1}`  
+  `w_cash_t = cash_{t-1} / MV_{t-1}`
 - **Returns**:  
   `r_bench_t = w_cash_t * r_cash_t + (1 - w_cash_t) * r_SPY_t`
 
 ### 2.4 All‑SPY counterfactual (“opportunity cost”)
-- For each external flow on date `d`, buy SPY at **adjusted close** on `d`.  
+
+- For each external flow on date `d`, buy SPY at **adjusted close** on `d`.
 - Compute TWR on this synthetic track.
 
 ### 2.5 Optional: Money‑weighted return
+
 - Provide **XIRR** for the investor outcome (portfolio incl. cash).
 
 ---
@@ -83,11 +89,13 @@ Let `MV_t` be end‑of‑day market value, and `Flows_t` the **net external flow
 > Follow PEV for each phase. If blocked, split minimally but **ship a working subset** behind a feature flag `features.cash_benchmarks`.
 
 ### Phase 0 — Detect & Wire
+
 - Detect actual stack & scripts; preserve `npm run dev` / `npm run server`.
 - Add feature flag in config/env.
 - Add `pino` logger with request‑ID and upstream timing.
 
 ### Phase 1 — Models & Storage (file‑based)
+
 - Add/confirm enums: `DEPOSIT`, `WITHDRAWAL`, `BUY`, `SELL`, `DIVIDEND`, `INTEREST`, `FEE`.
 - Create/extend stores:
   - `cash_rates.json` (APY timeline; piecewise constant).
@@ -95,33 +103,39 @@ Let `MV_t` be end‑of‑day market value, and `Flows_t` the **net external flow
   - `returns_<id>.jsonl` (daily step returns, including `r_port`, `r_ex_cash`, `r_bench_blended`, `r_spy_100`, `r_cash`).
 
 ### Phase 2 — Price Provider
+
 - Introduce `PriceProvider` interface: `get_adjusted_series(ticker, from, to)` with **timeout**, **retry**, **cache**.
 - Implement `YahooProvider` (default) and optional `StooqProvider` (normalized to adjusted). Add unit tests and a mock.
 
 ### Phase 3 — Core Math
+
 - `cash/dailyRate(date)`, `cash/accrue(date)` idempotent with unique key `(portfolio_id, date, 'INTEREST')`.
 - `returns/twr.ts`: portfolio incl‑cash & ex‑cash functions; external flow detector.
 - `benchmarks/index.ts`: blended (start‑of‑day weights) and All‑SPY ghost.
 
 ### Phase 4 — Scheduler & CLI
+
 - Nightly job `jobs/daily_close.ts` (UTC 04:00–05:00). Steps:
-  1) Resolve APY for `t-1`; accrue interest.
-  2) Fetch adjusted prices.
-  3) Build NAV snapshot.
-  4) Compute `r_*` series.
+  1. Resolve APY for `t-1`; accrue interest.
+  2. Fetch adjusted prices.
+  3. Build NAV snapshot.
+  4. Compute `r_*` series.
 - CLI: `npm run backfill -- --from=YYYY-MM-DD --to=YYYY-MM-DD` using the same functions.
 
 ### Phase 5 — API
+
 - `GET /api/returns/daily?from&to&views=port,excash,spy,bench`
 - `GET /api/nav/daily?from&to`
 - `GET /api/benchmarks/summary?from&to` — cumulative returns + cash drag.
 - `POST /api/admin/cash-rate` — upsert `{effective_date, apy}` (protected).  
-All routes use schema validation and return typed JSON.
+  All routes use schema validation and return typed JSON.
 
 ### Phase 6 — Frontend
+
 - Add 4 line series (Portfolio, Ex‑cash, All‑SPY, Blended) with a toggle **Blended vs 100% SPY** and KPIs (TWR, XIRR, Cash Drag).
 
 ### Phase 7 — Docs
+
 - `docs/cash-benchmarks.md` with formulas, examples, and API usage.
 - Update README; state **Yahoo Adjusted Close** as SPY source across app.
 
@@ -181,9 +195,9 @@ All routes use schema validation and return typed JSON.
 ## 8) Synthetic Dataset (for tests)
 
 - **APY timeline**: `2025‑01‑01..∞ → 0.04` (4%)
-- **Flows**:  
-  - `2025‑02‑03 DEPOSIT 10,000`  
-  - `2025‑04‑10 WITHDRAWAL -2,000`  
+- **Flows**:
+  - `2025‑02‑03 DEPOSIT 10,000`
+  - `2025‑04‑10 WITHDRAWAL -2,000`
 - **Holdings**: buy 50% SPY on 2025‑02‑03 at that day’s adjusted close; keep 50% cash.
 
 **Expectations**: A1 identity within 1 bp; A3 parity if the real portfolio is “only SPY”.
@@ -193,7 +207,8 @@ All routes use schema validation and return typed JSON.
 ## 9) How to Execute (prompt for Codex‑5)
 
 > **You are GPT Codex‑5. Implement the fixes and features in this file. Edit files directly; don’t just plan.**
-> 1) Detect stack and confirm scripts. 2) Add PriceProvider with Yahoo Adjusted Close (default) and optional Stooq fallback; unify SPY across UI and engine. 3) Implement start‑of‑day blended benchmark and All‑SPY ghost as specified. 4) Implement daily interest accrual (idempotent), nightly job, and backfill CLI. 5) Add endpoints and input validation. 6) Add tests A1–A7 and CI gates. 7) Update docs. 8) Open a PR with the checklist filled.
+>
+> 1. Detect stack and confirm scripts. 2) Add PriceProvider with Yahoo Adjusted Close (default) and optional Stooq fallback; unify SPY across UI and engine. 3) Implement start‑of‑day blended benchmark and All‑SPY ghost as specified. 4) Implement daily interest accrual (idempotent), nightly job, and backfill CLI. 5) Add endpoints and input validation. 6) Add tests A1–A7 and CI gates. 7) Update docs. 8) Open a PR with the checklist filled.
 >
 > **Acceptance**: All tests pass; coverage ≥85% on new code; SPY parity between UI and engine; idempotent accrual; docs updated.
 

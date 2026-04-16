@@ -44,11 +44,11 @@ export default defineConfig({
       reporter: ['text-summary', 'lcov'],
       include: [
         // Only the components we touch in this task
-        'src/components/**/*.{js,jsx,ts,tsx}'
+        'src/components/**/*.{js,jsx,ts,tsx}',
       ],
-      exclude: ['src/main.*', 'src/vite-env.d.ts']
-    }
-  }
+      exclude: ['src/main.*', 'src/vite-env.d.ts'],
+    },
+  },
 });
 ```
 
@@ -58,11 +58,7 @@ Create/update **`src/setupTests.ts`** to add RTL matchers and guard console nois
 import '@testing-library/jest-dom/vitest';
 import { afterAll, vi } from 'vitest';
 
-const allowList = [
-  /Warning: .*act\(\)/i,
-  /StrictMode/i,
-  /deprecated/i
-];
+const allowList = [/Warning: .*act\(\)/i, /StrictMode/i, /deprecated/i];
 
 const patch = (type: 'error' | 'warn') => {
   const orig = console[type];
@@ -132,6 +128,7 @@ Update `package.json` scripts; **don’t duplicate**, adjust if present:
 Create the following files and keep them **small** and **offline**. If selectors are flaky, add `data-testid` to components (no behavioral changes).
 
 ### 3.1 Dashboard tabs — `src/__tests__/DashboardNavigation.test.tsx`
+
 ```tsx
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -152,6 +149,7 @@ test('switches tabs and shows expected panels', async () => {
 ```
 
 ### 3.2 Transaction form validation — `src/__tests__/TransactionForm.test.tsx`
+
 ```tsx
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -178,6 +176,7 @@ test('shows validation errors then submits when fixed', async () => {
 ```
 
 ### 3.3 Holdings table — `src/__tests__/HoldingsTable.test.tsx`
+
 ```tsx
 import { screen, within } from '@testing-library/react';
 import { renderWithProviders } from './test-utils';
@@ -185,7 +184,7 @@ import HoldingsTable from '../components/holdings/HoldingsTable'; // adjust
 
 const rows = [
   { ticker: 'AAPL', qty: 10, value: 1500 },
-  { ticker: 'MSFT', qty: 5, value: 800 }
+  { ticker: 'MSFT', qty: 5, value: 800 },
 ];
 
 test('renders table headers and rows', async () => {
@@ -201,6 +200,7 @@ test('renders table headers and rows', async () => {
 ```
 
 > If components don’t expose stable roles/ids, add **minimal** `data-testid` attributes:
+>
 > - `data-testid="panel-holdings"`, `data-testid="panel-transactions"`
 > - `data-testid="error-<field>"` for field errors
 > - `data-testid="holdings-tbody"` for the rows container
@@ -212,7 +212,7 @@ test('renders table headers and rows', async () => {
 - **Never** fetch live prices/data in tests. If a component imports a fetcher, stub it:
   ```ts
   vi.mock('../../shared/prices', () => ({
-    fetchPrices: vi.fn(async () => ({ AAPL: 150, MSFT: 160 }))
+    fetchPrices: vi.fn(async () => ({ AAPL: 150, MSFT: 160 })),
   }));
   ```
 - If your code uses `axios/fetch`, intercept with MSW or a simple `vi.mock('axios', …)`.
@@ -229,10 +229,12 @@ npm run build
 ```
 
 Copy the **text-summary** coverage from the terminal into:
+
 - `docs/reference/HARDENING_SCOREBOARD.md` row **P5-TEST-1** (commands + coverage + passed tests count)
 - `README.md` (Testing section): add how to run tests and coverage
 
 Commit:
+
 ```bash
 git add -A
 git commit -m "test(ui): add minimal RTL specs for tabs/form/holdings; single-run coverage; offline"

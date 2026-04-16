@@ -8,21 +8,21 @@ const WEEKDAY_INDEX = {
   sat: 6,
 };
 
-const MARKET_TIMEZONE = "America/New_York";
+const MARKET_TIMEZONE = 'America/New_York';
 const MARKET_OPEN_MINUTES = 9 * 60 + 30;
 const MARKET_CLOSE_MINUTES = 16 * 60;
 const EXTENDED_PRE_OPEN_MINUTES = 4 * 60;
 const EXTENDED_POST_CLOSE_MINUTES = 20 * 60;
 
-const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: MARKET_TIMEZONE,
   hour12: false,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  weekday: "short",
-  hour: "2-digit",
-  minute: "2-digit",
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
 });
 
 const holidayCache = new Map();
@@ -37,23 +37,23 @@ function getNewYorkDateParts(date) {
     weekday: 0,
   };
   for (const part of dateTimeFormatter.formatToParts(date)) {
-    if (part.type === "year") {
+    if (part.type === 'year') {
       parts.year = Number.parseInt(part.value, 10);
-    } else if (part.type === "month") {
+    } else if (part.type === 'month') {
       parts.month = Number.parseInt(part.value, 10);
-    } else if (part.type === "day") {
+    } else if (part.type === 'day') {
       parts.day = Number.parseInt(part.value, 10);
-    } else if (part.type === "hour") {
+    } else if (part.type === 'hour') {
       parts.hour = Number.parseInt(part.value, 10);
-    } else if (part.type === "minute") {
+    } else if (part.type === 'minute') {
       parts.minute = Number.parseInt(part.value, 10);
-    } else if (part.type === "weekday") {
+    } else if (part.type === 'weekday') {
       const key = part.value.toLowerCase().slice(0, 3);
       parts.weekday = WEEKDAY_INDEX[key] ?? 0;
     }
   }
-  const month = String(parts.month).padStart(2, "0");
-  const day = String(parts.day).padStart(2, "0");
+  const month = String(parts.month).padStart(2, '0');
+  const day = String(parts.day).padStart(2, '0');
   return {
     ...parts,
     dateKey: `${parts.year}-${month}-${day}`,
@@ -183,10 +183,10 @@ export function getMarketClock(referenceDate = new Date()) {
   const isBeforeOpen = tradingDay && currentMinutes < MARKET_OPEN_MINUTES;
   const isAfterClose = tradingDay && currentMinutes >= MARKET_CLOSE_MINUTES;
   const isExtendedHours =
-    tradingDay
-    && !isOpen
-    && ((currentMinutes >= EXTENDED_PRE_OPEN_MINUTES && currentMinutes < MARKET_OPEN_MINUTES)
-      || (currentMinutes >= MARKET_CLOSE_MINUTES && currentMinutes < EXTENDED_POST_CLOSE_MINUTES));
+    tradingDay &&
+    !isOpen &&
+    ((currentMinutes >= EXTENDED_PRE_OPEN_MINUTES && currentMinutes < MARKET_OPEN_MINUTES) ||
+      (currentMinutes >= MARKET_CLOSE_MINUTES && currentMinutes < EXTENDED_POST_CLOSE_MINUTES));
   const previousTrading = stepTradingDay(now, -1);
   const nextTrading = stepTradingDay(now, 1);
 
@@ -223,4 +223,3 @@ export function getMarketClock(referenceDate = new Date()) {
 export function isMarketOpen(referenceDate = new Date()) {
   return getMarketClock(referenceDate).isOpen;
 }
-

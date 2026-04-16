@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import {
   configureFormat,
@@ -6,31 +6,31 @@ import {
   formatNumber as baseFormatNumber,
   formatPercent as baseFormatPercent,
   formatSignedPercent as baseFormatSignedPercent,
-} from "../utils/format.js";
-import { translations } from "./translations.js";
+} from '../utils/format.js';
+import { translations } from './translations.js';
 
-const FALLBACK_LANGUAGE = "en";
-const STORAGE_KEY = "portfolio-manager-language";
+const FALLBACK_LANGUAGE = 'en';
+const STORAGE_KEY = 'portfolio-manager-language';
 
 const LANGUAGE_CONFIG = {
-  en: { locale: "en-US", currency: "USD", measurementSystem: "imperial" },
-  es: { locale: "es-ES", currency: "USD", measurementSystem: "metric" },
+  en: { locale: 'en-US', currency: 'USD', measurementSystem: 'imperial' },
+  es: { locale: 'es-ES', currency: 'USD', measurementSystem: 'metric' },
 };
 
 const I18nContext = createContext(null);
 
 function interpolate(template, values = {}) {
   return template.replace(/\{(\w+)\}/g, (_, token) =>
-    Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : `{${token}}`,
+    Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : `{${token}}`
   );
 }
 
 function getStorage() {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
   const storage = window.localStorage;
-  if (!storage || typeof storage.getItem !== "function" || typeof storage.setItem !== "function") {
+  if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') {
     return null;
   }
   return storage;
@@ -44,9 +44,9 @@ function getInitialLanguage() {
       return stored;
     }
   }
-  const navigator = typeof window !== "undefined" ? window.navigator : undefined;
+  const navigator = typeof window !== 'undefined' ? window.navigator : undefined;
   const navigatorLang = navigator?.language ?? navigator?.languages?.[0];
-  if (typeof navigatorLang === "string") {
+  if (typeof navigatorLang === 'string') {
     const normalized = navigatorLang.slice(0, 2).toLowerCase();
     if (LANGUAGE_CONFIG[normalized]) {
       return normalized;
@@ -79,48 +79,48 @@ export function I18nProvider({ children }) {
       const template = table[key] ?? fallbackTable[key] ?? key;
       return interpolate(template, vars);
     },
-    [language],
+    [language]
   );
 
   const formatCurrency = useCallback(
     (value, options) => baseFormatCurrency(value, { locale, currency, ...options }),
-    [currency, locale],
+    [currency, locale]
   );
 
   const formatPercent = useCallback(
     (value, fractionDigits = 2, options) =>
       baseFormatPercent(value, fractionDigits, { locale, ...options }),
-    [locale],
+    [locale]
   );
 
   const formatSignedPercent = useCallback(
     (value, fractionDigits = 2, options) =>
       baseFormatSignedPercent(value, fractionDigits, { locale, ...options }),
-    [locale],
+    [locale]
   );
 
   const formatNumber = useCallback(
     (value, options = {}) => baseFormatNumber(value, { locale, ...options }),
-    [locale],
+    [locale]
   );
 
   const formatDate = useCallback(
     (value, options = {}) => {
       if (!value) {
-        return "—";
+        return '—';
       }
       const date = value instanceof Date ? value : new Date(value);
       if (Number.isNaN(date.getTime())) {
-        return "—";
+        return '—';
       }
       try {
         const formatter = new Intl.DateTimeFormat(locale, options);
         return formatter.format(date);
       } catch {
-        return "—";
+        return '—';
       }
     },
-    [locale],
+    [locale]
   );
 
   const value = useMemo(
@@ -150,7 +150,7 @@ export function I18nProvider({ children }) {
       setCurrencyOverride,
       locale,
       translate,
-    ],
+    ]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
@@ -159,7 +159,7 @@ export function I18nProvider({ children }) {
 export function useI18n() {
   const context = useContext(I18nContext);
   if (!context) {
-    throw new Error("useI18n must be used within an I18nProvider");
+    throw new Error('useI18n must be used within an I18nProvider');
   }
   return context;
 }

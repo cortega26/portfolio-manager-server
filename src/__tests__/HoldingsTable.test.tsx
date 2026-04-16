@@ -24,7 +24,7 @@ describe('HoldingsTab', () => {
         currentPrices={{ AAPL: 150, MSFT: 160 }}
         signals={{}}
         onSignalChange={vi.fn()}
-      />,
+      />
     );
 
     const holdingsTable = screen.getAllByRole('table', { name: /holdings/i })[0];
@@ -65,7 +65,7 @@ describe('HoldingsTab', () => {
         currentPrices={{ AAPL: 150, MSFT: 160 }}
         signals={{ AAPL: { pct: 8 } }}
         onSignalChange={onSignalChange}
-      />,
+      />
     );
 
     const tables = screen.getAllByRole('table', { name: /signals/i });
@@ -80,8 +80,9 @@ describe('HoldingsTab', () => {
   });
 
   test('normalizes signal configs and renders state-specific badges', () => {
-    const deriveSignalRowSpy = vi.spyOn(holdingsUtils, 'deriveSignalRow').mockImplementation(
-      (holding) => {
+    const deriveSignalRowSpy = vi
+      .spyOn(holdingsUtils, 'deriveSignalRow')
+      .mockImplementation((holding) => {
         if (holding.ticker === 'SPY') {
           return {
             price: '$40.00',
@@ -104,8 +105,7 @@ describe('HoldingsTab', () => {
           upper: '—',
           signal: 'NO DATA',
         };
-      },
-    );
+      });
 
     try {
       renderWithProviders(
@@ -119,7 +119,7 @@ describe('HoldingsTab', () => {
           currentPrices={{ SPY: 40, IWM: 230 }}
           signals={{ spy: { percent: '5.5' }, IWM: 2 }}
           onSignalChange={vi.fn()}
-        />,
+        />
       );
     } finally {
       deriveSignalRowSpy.mockRestore();
@@ -150,7 +150,7 @@ describe('HoldingsTab', () => {
         currentPrices={{}}
         signals={{}}
         onSignalChange={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByText(/no holdings yet/i)).toBeVisible();
@@ -165,7 +165,7 @@ describe('HoldingsTab', () => {
         currentPrices={{}}
         signals={{}}
         onSignalChange={vi.fn()}
-      />,
+      />
     );
 
     const holdingsTable = view.getAllByRole('table', { name: /holdings/i })[0];
@@ -185,13 +185,20 @@ describe('HoldingsTab', () => {
       <HoldingsTab
         holdings={[{ ticker: 'AAPL', shares: 10, cost: 1000, realised: 0 }]}
         transactions={[
-          { ticker: 'AAPL', type: 'BUY', shares: 10, amount: -1000, price: 100, date: '2024-01-01' },
+          {
+            ticker: 'AAPL',
+            type: 'BUY',
+            shares: 10,
+            amount: -1000,
+            price: 100,
+            date: '2024-01-01',
+          },
           { ticker: 'AAPL', type: 'SELL', shares: 2, amount: 230, price: 115, date: '2024-01-05' },
         ]}
         currentPrices={{ AAPL: 121 }}
         signals={{ AAPL: { pct: 5 } }}
         onSignalChange={vi.fn()}
-      />,
+      />
     );
 
     const tables = screen.getAllByRole('table', { name: /signals/i });
@@ -215,7 +222,7 @@ describe('HoldingsTab', () => {
         currentPrices={{ NVDA: 140 }}
         signals={{ NVDA: { pct: 5 } }}
         onSignalChange={vi.fn()}
-      />,
+      />
     );
 
     const tables = screen.getAllByRole('table', { name: /signals/i });
@@ -231,12 +238,19 @@ describe('HoldingsTab', () => {
   test('renders the corrected NVDA holding after the pre-split sell adjustment', () => {
     renderWithProviders(
       <HoldingsTab
-        holdings={[{ ticker: 'NVDA', shares: '0.815097910', cost: 147.90260276740557, realised: 62.89260276740556 }]}
+        holdings={[
+          {
+            ticker: 'NVDA',
+            shares: '0.815097910',
+            cost: 147.90260276740557,
+            realised: 62.89260276740556,
+          },
+        ]}
         transactions={[]}
         currentPrices={{ NVDA: 180.36 }}
         signals={{}}
         onSignalChange={vi.fn()}
-      />,
+      />
     );
 
     const holdingsTable = screen.getAllByRole('table', { name: /holdings/i })[0];

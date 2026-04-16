@@ -1,6 +1,7 @@
 # Personas
 
 ## 1. Erin “RIA” Carter — Registered Investment Advisor
+
 - **Goals & constraints:** Maintain multiple client portfolios, prove performance vs. benchmarks, and deliver quarterly packets without exceeding compliance review time. Constrained by small team size and tight reporting deadlines.
 - **Device & context:** Dual-monitor desktop in an advisory office; toggles dark mode for long analysis sessions. 【F:src/components/DashboardTab.jsx†L148-L198】
 - **Financial literacy:** Expert; comfortable interpreting ROI metrics and blended benchmarks.
@@ -12,6 +13,7 @@
   - Dashboard ROI chart with benchmark controls lets her validate client-specific blends.【F:src/components/DashboardTab.jsx†L148-L198】【F:src/utils/roi.js†L1-L38】
 
 ## 2. Marcus “DIY” Nguyen — Active Individual Investor
+
 - **Goals & constraints:** Track personal trades across devices, quickly add buys/sells, and understand cash drag without running spreadsheets. Constrained by limited evening time and no back-office support.
 - **Device & context:** Laptop and tablet while commuting; expects responsive UI for the Transactions tab and dashboard metrics.【F:src/components/TransactionsTab.jsx†L439-L575】
 - **Financial literacy:** Advanced retail investor familiar with order types and cost basis but not with institutional tooling.
@@ -23,6 +25,7 @@
   - ROI fetch and fallback logic determine how quickly his dashboard responds after edits.【F:src/PortfolioManagerApp.jsx†L337-L640】【F:src/utils/roi.js†L104-L175】
 
 ## 3. Priya “Compliance” Desai — Portfolio Compliance & Security Lead
+
 - **Goals & constraints:** Enforce API key hygiene, monitor rate limits, and audit security events to satisfy regulators. Operates under strict evidence requirements and must document every key rotation.
 - **Device & context:** Corporate laptop on a secured network; frequently cross-references Admin tab with backend logs.【F:src/components/AdminTab.jsx†L410-L558】
 - **Financial literacy:** High; focuses on policy adherence rather than day-to-day trading.
@@ -31,9 +34,10 @@
 - **Evidence pointers:**
   - README and security guide specify key strength, rotation, and audit expectations she must enforce.【F:README.md†L91-L146】【F:docs/reference/SECURITY.md†L11-L77】
   - Admin tab surfaces lockouts, rate limit scopes, and request IDs that Priya monitors daily.【F:src/components/AdminTab.jsx†L410-L558】
-  - Integration tests prove key rotation and brute-force handling she relies on for compliance sign-off.【F:server/__tests__/integration.test.js†L61-L190】
+  - Integration tests prove key rotation and brute-force handling she relies on for compliance sign-off.【F:server/**tests**/integration.test.js†L61-L190】
 
 ## 4. Sofia “Ops” Ramirez — Operations Engineer / SRE
+
 - **Goals & constraints:** Ensure nightly cash/benchmark jobs succeed, detect stale price feeds, and keep monitoring dashboards green. Works within on-call rotations and limited maintenance windows.
 - **Device & context:** Uses terminal + dashboard on a laptop during overnight shifts; cross-checks CLI jobs with Admin metrics.【F:server/jobs/daily_close.js†L103-L200】【F:src/components/AdminTab.jsx†L364-L465】
 - **Financial literacy:** High-level understanding of NAV, returns, and interest accrual; focuses on system health.
@@ -45,6 +49,7 @@
   - Frontend operations playbook mandates Admin tab polling and KPI verification during her shift.【F:docs/playbooks/frontend-operations.md†L30-L95】
 
 ## 5. Jamal “Quant” Lee — Automation & Data Engineering Lead
+
 - **Goals & constraints:** Integrate REST endpoints with internal analytics, maintain data fidelity, and script imports/exports for research notebooks. Operates under time pressure during market hours.
 - **Device & context:** Linux workstation; orchestrates scripts hitting `/api/v1/*` and consumes CSV outputs for modelling.【F:docs/reference/openapi.yaml†L620-L686】【F:src/utils/api.js†L3-L288】
 - **Financial literacy:** Expert; comfortable with TWR, ex-cash sleeves, and SPY benchmarks.

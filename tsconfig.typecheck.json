@@ -12,9 +12,5 @@
     "server/**/*.ts",
     "vitest.config.ts"
   ],
-  "exclude": [
-    "src/__tests__/**",
-    "src/__smoke__/**",
-    "e2e/**"
-  ]
+  "exclude": ["src/__tests__/**", "src/__smoke__/**", "e2e/**"]
 }

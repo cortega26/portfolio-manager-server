@@ -1,17 +1,15 @@
-import { requestJson as requestJsonInternal } from "../lib/apiClient.js";
-import { validateAndNormalizePortfolioPayload } from "./portfolioSchema.js";
+import { requestJson as requestJsonInternal } from '../lib/apiClient.js';
+import { validateAndNormalizePortfolioPayload } from './portfolioSchema.js';
 
 const PORTFOLIO_ID_REGEX = /^[A-Za-z0-9_-]{1,64}$/;
 
 function normalizePortfolioId(portfolioId) {
-  if (typeof portfolioId !== "string") {
-    throw new Error("Portfolio ID must be a string");
+  if (typeof portfolioId !== 'string') {
+    throw new Error('Portfolio ID must be a string');
   }
   const trimmed = portfolioId.trim();
   if (!PORTFOLIO_ID_REGEX.test(trimmed)) {
-    throw new Error(
-      "Portfolio ID must match [A-Za-z0-9_-]{1,64} before sending to the server",
-    );
+    throw new Error('Portfolio ID must match [A-Za-z0-9_-]{1,64} before sending to the server');
   }
   return trimmed;
 }
@@ -20,14 +18,14 @@ async function requestJson(path, options = {}) {
   return requestJsonInternal(path, options);
 }
 
-export async function fetchPrices(symbol, range = "1y", options = {}) {
+export async function fetchPrices(symbol, range = '1y', options = {}) {
   const params = new URLSearchParams();
   if (range !== undefined && range !== null) {
-    params.set("range", String(range));
+    params.set('range', String(range));
   }
   const encodedSymbol = encodeURIComponent(String(symbol));
   const query = params.toString();
-  return requestJson(`/prices/${encodedSymbol}${query ? `?${query}` : ""}`, {
+  return requestJson(`/prices/${encodedSymbol}${query ? `?${query}` : ''}`, {
     signal: options.signal,
     onRequestMetadata: options.onRequestMetadata,
   });
@@ -37,46 +35,50 @@ function normalizeBulkSymbols(symbols) {
   if (Array.isArray(symbols)) {
     return symbols;
   }
-  if (typeof symbols === "string") {
-    return symbols.split(",");
+  if (typeof symbols === 'string') {
+    return symbols.split(',');
   }
   return [];
 }
 
 export async function fetchBulkPrices(
   symbols,
-  { range = "1y", latestOnly = false, signal, onRequestMetadata } = {},
+  { range = '1y', latestOnly = false, signal, onRequestMetadata } = {}
 ) {
   const candidateSymbols = normalizeBulkSymbols(symbols)
-    .map((symbol) => (typeof symbol === "string" ? symbol.trim() : ""))
+    .map((symbol) => (typeof symbol === 'string' ? symbol.trim() : ''))
     .filter((symbol) => symbol.length > 0);
   const uniqueSymbols = Array.from(new Set(candidateSymbols));
   if (uniqueSymbols.length === 0) {
-    return { series: new Map(), errors: {}, metadata: {}, requestId: undefined, version: undefined };
+    return {
+      series: new Map(),
+      errors: {},
+      metadata: {},
+      requestId: undefined,
+      version: undefined,
+    };
   }
   const params = new URLSearchParams();
-  params.set("symbols", uniqueSymbols.join(","));
+  params.set('symbols', uniqueSymbols.join(','));
   if (range !== undefined && range !== null) {
-    params.set("range", String(range));
+    params.set('range', String(range));
   }
   if (latestOnly) {
-    params.set("latest", "1");
+    params.set('latest', '1');
   }
   const query = params.toString();
-  const { data, requestId, version } = await requestJson(`/prices/bulk${query ? `?${query}` : ""}`, {
-    signal,
-    onRequestMetadata,
-  });
+  const { data, requestId, version } = await requestJson(
+    `/prices/bulk${query ? `?${query}` : ''}`,
+    {
+      signal,
+      onRequestMetadata,
+    }
+  );
   const series = new Map();
   const rawSeries = data?.series ?? {};
   for (const [symbol, entries] of Object.entries(rawSeries)) {
     const normalized = symbol.toUpperCase();
-    series.set(
-      normalized,
-      Array.isArray(entries)
-        ? entries.map((entry) => ({ ...entry }))
-        : [],
-    );
+    series.set(normalized, Array.isArray(entries) ? entries.map((entry) => ({ ...entry })) : []);
   }
   for (const symbol of uniqueSymbols) {
     const normalized = symbol.toUpperCase();
@@ -94,7 +96,7 @@ export async function fetchBulkPrices(
 }
 
 export async function fetchBenchmarkCatalog({ signal, onRequestMetadata } = {}) {
-  return requestJson("/benchmarks", {
+  return requestJson('/benchmarks', {
     signal,
     onRequestMetadata,
   });
@@ -111,45 +113,40 @@ export async function fetchBenchmarkSummary({
   const normalizedFrom = normalizeDateParam(from);
   const normalizedTo = normalizeDateParam(to);
   if (normalizedFrom) {
-    params.set("from", normalizedFrom);
+    params.set('from', normalizedFrom);
   }
   if (normalizedTo) {
-    params.set("to", normalizedTo);
+    params.set('to', normalizedTo);
   }
-  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
-    params.set("portfolioId", portfolioId.trim());
+  if (typeof portfolioId === 'string' && portfolioId.trim().length > 0) {
+    params.set('portfolioId', portfolioId.trim());
   }
   const query = params.toString();
-  return requestJson(`/benchmarks/summary${query ? `?${query}` : ""}`, {
+  return requestJson(`/benchmarks/summary${query ? `?${query}` : ''}`, {
     signal,
     onRequestMetadata,
   });
 }
 
-export async function fetchNavDaily({
-  from,
-  to,
-  portfolioId,
-  signal,
-} = {}) {
+export async function fetchNavDaily({ from, to, portfolioId, signal } = {}) {
   const params = new URLSearchParams();
   const normalizedFrom = normalizeDateParam(from);
   const normalizedTo = normalizeDateParam(to);
   if (normalizedFrom) {
-    params.set("from", normalizedFrom);
+    params.set('from', normalizedFrom);
   }
   if (normalizedTo) {
-    params.set("to", normalizedTo);
+    params.set('to', normalizedTo);
   }
-  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
-    params.set("portfolioId", portfolioId.trim());
+  if (typeof portfolioId === 'string' && portfolioId.trim().length > 0) {
+    params.set('portfolioId', portfolioId.trim());
   }
-  params.set("perPage", "10000");
+  params.set('perPage', '10000');
   const query = params.toString();
-  return requestJson(`/nav/daily${query ? `?${query}` : ""}`, { signal });
+  return requestJson(`/nav/daily${query ? `?${query}` : ''}`, { signal });
 }
 
-const RETURN_VIEWS = new Set(["port", "excash", "spy", "bench", "cash"]);
+const RETURN_VIEWS = new Set(['port', 'excash', 'spy', 'bench', 'cash']);
 
 function normalizeDateParam(value) {
   if (!value) {
@@ -158,7 +155,7 @@ function normalizeDateParam(value) {
   if (value instanceof Date && Number.isFinite(value.getTime?.())) {
     return value.toISOString().slice(0, 10);
   }
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const trimmed = value.trim();
     if (trimmed) {
       return trimmed;
@@ -169,19 +166,17 @@ function normalizeDateParam(value) {
 
 function buildReturnViewsParam(views) {
   if (!Array.isArray(views) || views.length === 0) {
-    return "port,spy,bench";
+    return 'port,spy,bench';
   }
   const normalized = Array.from(
     new Set(
-      views
-        .map((view) => String(view).toLowerCase())
-        .filter((view) => RETURN_VIEWS.has(view)),
-    ),
+      views.map((view) => String(view).toLowerCase()).filter((view) => RETURN_VIEWS.has(view))
+    )
   );
   if (normalized.length === 0) {
-    return "port,spy,bench";
+    return 'port,spy,bench';
   }
-  return normalized.join(",");
+  return normalized.join(',');
 }
 
 export async function fetchDailyReturns({
@@ -196,43 +191,37 @@ export async function fetchDailyReturns({
   const normalizedFrom = normalizeDateParam(from);
   const normalizedTo = normalizeDateParam(to);
   if (normalizedFrom) {
-    params.set("from", normalizedFrom);
+    params.set('from', normalizedFrom);
   }
   if (normalizedTo) {
-    params.set("to", normalizedTo);
+    params.set('to', normalizedTo);
   }
-  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
-    params.set("portfolioId", portfolioId.trim());
+  if (typeof portfolioId === 'string' && portfolioId.trim().length > 0) {
+    params.set('portfolioId', portfolioId.trim());
   }
-  params.set("views", buildReturnViewsParam(views));
+  params.set('views', buildReturnViewsParam(views));
   const query = params.toString();
-  return requestJson(`/returns/daily${query ? `?${query}` : ""}`, {
+  return requestJson(`/returns/daily${query ? `?${query}` : ''}`, {
     signal,
     onRequestMetadata,
   });
 }
 
-export async function fetchDailyRoi({
-  from,
-  to,
-  portfolioId,
-  signal,
-  onRequestMetadata,
-} = {}) {
+export async function fetchDailyRoi({ from, to, portfolioId, signal, onRequestMetadata } = {}) {
   const params = new URLSearchParams();
   const normalizedFrom = normalizeDateParam(from);
   const normalizedTo = normalizeDateParam(to);
   if (normalizedFrom) {
-    params.set("from", normalizedFrom);
+    params.set('from', normalizedFrom);
   }
   if (normalizedTo) {
-    params.set("to", normalizedTo);
+    params.set('to', normalizedTo);
   }
-  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
-    params.set("portfolioId", portfolioId.trim());
+  if (typeof portfolioId === 'string' && portfolioId.trim().length > 0) {
+    params.set('portfolioId', portfolioId.trim());
   }
   const query = params.toString();
-  return requestJson(`/roi/daily${query ? `?${query}` : ""}`, {
+  return requestJson(`/roi/daily${query ? `?${query}` : ''}`, {
     signal,
     onRequestMetadata,
   });
@@ -251,24 +240,24 @@ export async function fetchNavSnapshots({
   const normalizedFrom = normalizeDateParam(from);
   const normalizedTo = normalizeDateParam(to);
   if (normalizedFrom) {
-    params.set("from", normalizedFrom);
+    params.set('from', normalizedFrom);
   }
   if (normalizedTo) {
-    params.set("to", normalizedTo);
+    params.set('to', normalizedTo);
   }
-  if (typeof portfolioId === "string" && portfolioId.trim().length > 0) {
-    params.set("portfolioId", portfolioId.trim());
+  if (typeof portfolioId === 'string' && portfolioId.trim().length > 0) {
+    params.set('portfolioId', portfolioId.trim());
   }
   if (Number.isFinite(page)) {
     const pageValue = Math.max(1, Math.floor(page));
-    params.set("page", String(pageValue));
+    params.set('page', String(pageValue));
   }
   if (Number.isFinite(perPage)) {
     const capped = Math.min(500, Math.max(1, Math.floor(perPage)));
-    params.set("per_page", String(capped));
+    params.set('per_page', String(capped));
   }
   const query = params.toString();
-  return requestJson(`/nav/daily${query ? `?${query}` : ""}`, {
+  return requestJson(`/nav/daily${query ? `?${query}` : ''}`, {
     signal,
     onRequestMetadata,
   });
@@ -279,9 +268,9 @@ export async function persistPortfolio(portfolioId, body, options = {}) {
   const normalizedId = normalizePortfolioId(portfolioId);
   const payload = validateAndNormalizePortfolioPayload(body ?? {});
   return requestJson(`/portfolio/${normalizedId}`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
     allowEmptyObject: true,
@@ -302,10 +291,10 @@ export async function retrievePortfolio(portfolioId, options = {}) {
 export async function evaluateSignals(body, options = {}) {
   const { signal, onRequestMetadata } = options;
   const payload = validateAndNormalizePortfolioPayload(body ?? {});
-  return requestJson("/signals", {
-    method: "POST",
+  return requestJson('/signals', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
     allowEmptyObject: true,
@@ -315,14 +304,14 @@ export async function evaluateSignals(body, options = {}) {
 }
 
 export async function fetchMonitoringSnapshot(options = {}) {
-  return requestJson("/monitoring", {
+  return requestJson('/monitoring', {
     signal: options.signal,
     onRequestMetadata: options.onRequestMetadata,
   });
 }
 
 export async function fetchSecurityStats(options = {}) {
-  return requestJson("/security/stats", {
+  return requestJson('/security/stats', {
     signal: options.signal,
     onRequestMetadata: options.onRequestMetadata,
   });
@@ -331,10 +320,10 @@ export async function fetchSecurityStats(options = {}) {
 export async function fetchSecurityEvents({ limit, signal, onRequestMetadata } = {}) {
   const params = new URLSearchParams();
   if (Number.isFinite(limit)) {
-    params.set("limit", String(Math.max(1, Math.floor(limit))));
+    params.set('limit', String(Math.max(1, Math.floor(limit))));
   }
   const query = params.toString();
-  return requestJson(`/security/events${query ? `?${query}` : ""}`, {
+  return requestJson(`/security/events${query ? `?${query}` : ''}`, {
     signal,
     onRequestMetadata,
   });

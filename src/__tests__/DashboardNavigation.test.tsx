@@ -6,37 +6,36 @@ import { renderWithProviders } from './test-utils';
 import App from '../App.jsx';
 
 vi.mock('../components/DashboardTab.jsx', () => ({
-  default: () => <div data-testid="stub-dashboard" />
+  default: () => <div data-testid="stub-dashboard" />,
 }));
 vi.mock('../components/HoldingsTab.jsx', () => ({
   __esModule: true,
-  default: () => <div data-testid="stub-holdings" />
+  default: () => <div data-testid="stub-holdings" />,
 }));
 vi.mock('../components/PricesTab.jsx', () => ({
   __esModule: true,
-  default: () => <div data-testid="stub-prices" />
+  default: () => <div data-testid="stub-prices" />,
 }));
 vi.mock('../components/SignalsTab.jsx', () => ({
   __esModule: true,
-  default: () => <div data-testid="stub-signals" />
+  default: () => <div data-testid="stub-signals" />,
 }));
 vi.mock('../components/TransactionsTab.jsx', () => ({
   __esModule: true,
-  default: () => <div data-testid="stub-transactions" />
+  default: () => <div data-testid="stub-transactions" />,
 }));
 vi.mock('../components/HistoryTab.jsx', () => ({
-  default: () => <div data-testid="stub-history" />
+  default: () => <div data-testid="stub-history" />,
 }));
 vi.mock('../components/MetricsTab.jsx', () => ({
-  default: () => <div data-testid="stub-metrics" />
+  default: () => <div data-testid="stub-metrics" />,
 }));
 vi.mock('../components/ReportsTab.jsx', () => ({
-  default: () => <div data-testid="stub-reports" />
+  default: () => <div data-testid="stub-reports" />,
 }));
 vi.mock('../components/SettingsTab.jsx', () => ({
-  default: () => <div data-testid="stub-settings" />
+  default: () => <div data-testid="stub-settings" />,
 }));
-
 
 vi.mock('../utils/api.js', () => ({
   evaluateSignals: vi.fn(async () => ({
@@ -59,14 +58,14 @@ vi.mock('../utils/api.js', () => ({
   fetchDailyReturns: vi.fn(async () => ({ data: { series: [] } })),
   fetchPrices: vi.fn(async () => ({ data: [] })),
   persistPortfolio: vi.fn(),
-  retrievePortfolio: vi.fn(async () => null)
+  retrievePortfolio: vi.fn(async () => null),
 }));
 
 vi.mock('../utils/roi.js', async (original) => {
   const mod = await original();
   return {
     ...mod,
-    mergeDailyRoiSeries: vi.fn(() => [])
+    mergeDailyRoiSeries: vi.fn(() => []),
   };
 });
 

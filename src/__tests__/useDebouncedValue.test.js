@@ -1,9 +1,9 @@
-import assert from "node:assert/strict";
-import { afterEach, beforeEach, test } from "node:test";
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { JSDOM } from "jsdom";
+import assert from 'node:assert/strict';
+import { afterEach, beforeEach, test } from 'node:test';
+import { act, cleanup, renderHook } from '@testing-library/react';
+import { JSDOM } from 'jsdom';
 
-import useDebouncedValue from "../hooks/useDebouncedValue.js";
+import useDebouncedValue from '../hooks/useDebouncedValue.js';
 
 function createFakeTimers() {
   const originalSetTimeout = globalThis.setTimeout;
@@ -21,7 +21,7 @@ function createFakeTimers() {
 
   function advance(ms) {
     if (!Number.isFinite(ms) || ms < 0) {
-      throw new TypeError("advance requires a non-negative number");
+      throw new TypeError('advance requires a non-negative number');
     }
     now += ms;
     const due = [...scheduled.entries()]
@@ -35,7 +35,7 @@ function createFakeTimers() {
 
   function install() {
     globalThis.setTimeout = (handler, delay, ...args) =>
-      schedule(typeof handler === "function" ? handler : () => {}, delay, args);
+      schedule(typeof handler === 'function' ? handler : () => {}, delay, args);
     globalThis.clearTimeout = (id) => {
       scheduled.delete(id);
     };
@@ -54,10 +54,10 @@ let timers;
 let dom;
 
 beforeEach(() => {
-  dom = new JSDOM("<!doctype html><html><body></body></html>");
+  dom = new JSDOM('<!doctype html><html><body></body></html>');
   global.window = dom.window;
   global.document = dom.window.document;
-  Object.defineProperty(global, "navigator", {
+  Object.defineProperty(global, 'navigator', {
     value: dom.window.navigator,
     configurable: true,
   });
@@ -74,44 +74,40 @@ afterEach(() => {
   delete global.navigator;
 });
 
-test("useDebouncedValue delays updates until debounce window elapses", () => {
-  const { result, rerender } = renderHook(({ value, delay }) =>
-    useDebouncedValue(value, delay),
-  {
-    initialProps: { value: "AAPL", delay: 300 },
+test('useDebouncedValue delays updates until debounce window elapses', () => {
+  const { result, rerender } = renderHook(({ value, delay }) => useDebouncedValue(value, delay), {
+    initialProps: { value: 'AAPL', delay: 300 },
   });
 
-  assert.equal(result.current, "AAPL");
+  assert.equal(result.current, 'AAPL');
 
-  rerender({ value: "MSFT", delay: 300 });
+  rerender({ value: 'MSFT', delay: 300 });
   act(() => {
     timers.advance(299);
   });
-  assert.equal(result.current, "AAPL");
+  assert.equal(result.current, 'AAPL');
 
   act(() => {
     timers.advance(1);
   });
-  assert.equal(result.current, "MSFT");
+  assert.equal(result.current, 'MSFT');
 });
 
-test("useDebouncedValue applies default delay when provided value is invalid", () => {
-  const { result, rerender } = renderHook(({ value, delay }) =>
-    useDebouncedValue(value, delay),
-  {
-    initialProps: { value: "initial", delay: -10 },
+test('useDebouncedValue applies default delay when provided value is invalid', () => {
+  const { result, rerender } = renderHook(({ value, delay }) => useDebouncedValue(value, delay), {
+    initialProps: { value: 'initial', delay: -10 },
   });
 
-  assert.equal(result.current, "initial");
+  assert.equal(result.current, 'initial');
 
-  rerender({ value: "next", delay: Number.NaN });
+  rerender({ value: 'next', delay: Number.NaN });
   act(() => {
     timers.advance(299);
   });
-  assert.equal(result.current, "initial");
+  assert.equal(result.current, 'initial');
 
   act(() => {
     timers.advance(1);
   });
-  assert.equal(result.current, "next");
+  assert.equal(result.current, 'next');
 });

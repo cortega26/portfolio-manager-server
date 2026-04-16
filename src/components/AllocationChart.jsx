@@ -1,29 +1,22 @@
-import { useMemo } from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
+import { useMemo } from 'react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useI18n } from '../i18n/I18nProvider.jsx';
 
 const SLICE_COLORS = [
-  "#6366f1", // indigo
-  "#22c55e", // green
-  "#f59e0b", // amber
-  "#3b82f6", // blue
-  "#ec4899", // pink
-  "#14b8a6", // teal
-  "#f97316", // orange
-  "#8b5cf6", // violet
-  "#ef4444", // red
-  "#06b6d4", // cyan
+  '#6366f1', // indigo
+  '#22c55e', // green
+  '#f59e0b', // amber
+  '#3b82f6', // blue
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#f97316', // orange
+  '#8b5cf6', // violet
+  '#ef4444', // red
+  '#06b6d4', // cyan
 ];
 
-const CASH_COLOR = "#94a3b8"; // slate-400
+const CASH_COLOR = '#94a3b8'; // slate-400
 
 /**
  * Computes allocation slices from open holdings + cash.
@@ -72,7 +65,7 @@ export function computeAllocationSlices(openHoldings, currentPrices, cashBalance
 
   if (cash > 0) {
     slices.push({
-      ticker: "Cash",
+      ticker: 'Cash',
       value: cash,
       percentage: (cash / totalNav) * 100,
     });
@@ -90,9 +83,7 @@ function AllocationTooltip({ active, payload, formatCurrency }) {
 
   return (
     <div className="rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-        {entry.ticker}
-      </p>
+      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{entry.ticker}</p>
       <p className="text-xs text-slate-600 dark:text-slate-300">
         {formatCurrency(entry.value)} · {entry.percentage.toFixed(1)}%
       </p>
@@ -108,7 +99,7 @@ export default function AllocationChart({
   const { t, formatCurrency } = useI18n();
   const { slices } = useMemo(
     () => computeAllocationSlices(openHoldings, currentPrices, cashBalance),
-    [openHoldings, currentPrices, cashBalance],
+    [openHoldings, currentPrices, cashBalance]
   );
 
   return (
@@ -117,7 +108,7 @@ export default function AllocationChart({
       data-testid="allocation-chart"
     >
       <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-        {t("dashboard.allocation.title")}
+        {t('dashboard.allocation.title')}
       </h3>
 
       {slices.length === 0 ? (
@@ -125,7 +116,7 @@ export default function AllocationChart({
           className="mt-4 text-sm text-slate-500 dark:text-slate-400"
           data-testid="allocation-chart-empty"
         >
-          {t("dashboard.allocation.empty")}
+          {t('dashboard.allocation.empty')}
         </p>
       ) : (
         <div className="mt-4 h-64 w-full" data-testid="allocation-chart-content">
@@ -133,7 +124,7 @@ export default function AllocationChart({
             width="100%"
             height="100%"
             role="img"
-            aria-label={t("dashboard.allocation.aria")}
+            aria-label={t('dashboard.allocation.aria')}
           >
             <PieChart>
               <Pie
@@ -149,27 +140,21 @@ export default function AllocationChart({
                   <Cell
                     key={entry.ticker}
                     fill={
-                      entry.ticker === "Cash"
+                      entry.ticker === 'Cash'
                         ? CASH_COLOR
                         : SLICE_COLORS[index % SLICE_COLORS.length]
                     }
                   />
                 ))}
               </Pie>
-              <Tooltip
-                content={
-                  <AllocationTooltip formatCurrency={formatCurrency} />
-                }
-              />
+              <Tooltip content={<AllocationTooltip formatCurrency={formatCurrency} />} />
               <Legend
                 formatter={(value) => value}
                 payload={slices.map((s, index) => ({
                   id: s.ticker,
                   value: `${s.ticker} ${s.percentage.toFixed(1)}%`,
                   color:
-                    s.ticker === "Cash"
-                      ? CASH_COLOR
-                      : SLICE_COLORS[index % SLICE_COLORS.length],
+                    s.ticker === 'Cash' ? CASH_COLOR : SLICE_COLORS[index % SLICE_COLORS.length],
                 }))}
               />
             </PieChart>

@@ -81,11 +81,7 @@ async function walk(absDir, relDir, accumulator) {
         // Skip non-test utility directories that are imported by tests.
         continue;
       }
-      await walk(
-        path.join(absDir, entry.name),
-        path.join(relDir, entry.name),
-        accumulator,
-      );
+      await walk(path.join(absDir, entry.name), path.join(relDir, entry.name), accumulator);
       continue;
     }
     if (!entry.isFile()) {
@@ -111,10 +107,7 @@ function toSeed(value) {
     return value >>> 0;
   }
   if (typeof value === 'string' && value !== '') {
-    const digest = crypto
-      .createHash('sha256')
-      .update(value)
-      .digest();
+    const digest = crypto.createHash('sha256').update(value).digest();
     return digest.readUInt32LE(0);
   }
   return DEFAULT_SEED;
@@ -149,12 +142,14 @@ function resolveC8Bin() {
 async function main() {
   const { options } = parseArgs(process.argv.slice(2));
   const files = await collectTestFiles();
-  const baseSeed = toSeed(process.env.TEST_SHUFFLE_SEED ?? (options.ci ? String(DEFAULT_SEED) : ''));
+  const baseSeed = toSeed(
+    process.env.TEST_SHUFFLE_SEED ?? (options.ci ? String(DEFAULT_SEED) : '')
+  );
   for (let runIndex = 0; runIndex < options.repeat; runIndex += 1) {
     const runSeed = (baseSeed + runIndex) >>> 0;
     const order = shuffle(files, runSeed);
     process.stdout.write(
-      `\n[test-run ${runIndex + 1}/${options.repeat}] seed=${runSeed} fileCount=${order.length}\n`,
+      `\n[test-run ${runIndex + 1}/${options.repeat}] seed=${runSeed} fileCount=${order.length}\n`
     );
     for (const [idx, file] of order.entries()) {
       process.stdout.write(`  ${idx + 1}. ${file}\n`);

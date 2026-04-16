@@ -1,4 +1,5 @@
 <!-- markdownlint-disable -->
+
 # Task: Implement Phase 2 - Performance & Scalability Improvements
 
 ## Context
@@ -6,12 +7,14 @@
 You are continuing work on a Node.js/React portfolio management application. **Phase 1 (Documentation & Security) is complete**. Phase 2 focuses on performance optimization and scalability improvements identified in the comprehensive audit (comprehensive_audit_v3.md).
 
 **Phase 1 Accomplishments:**
+
 - ✅ Enhanced user guide
 - ✅ API key strength enforcement
 - ✅ Security audit logging
 - ✅ Environment template
 
 **Phase 2 Goals:**
+
 - Improve response times by 80%
 - Reduce external API calls by 95%
 - Decrease bundle size by 30%
@@ -23,6 +26,7 @@ You are continuing work on a Node.js/React portfolio management application. **P
 ## Objectives (in priority order)
 
 ### Phase 2: Performance & Scalability (Month 1)
+
 **Priority**: HIGH | **Estimated Effort**: 14 hours
 
 Implement these 5 items:
@@ -32,11 +36,13 @@ Implement these 5 items:
 ## Item 1: Price Data Caching (3 hours)
 
 ### Priority: 🔴 CRITICAL
+
 **Impact**: 95% reduction in external API calls, 80% faster price requests
 
 ### Current Problem
 
 Every price request hits the external Stooq API:
+
 - Slow response times (~1-3 seconds)
 - Unnecessary API calls for repeated requests
 - Risk of hitting rate limits
@@ -58,9 +64,9 @@ import crypto from 'crypto';
 
 // Already installed: node-cache
 const priceCache = new NodeCache({
-  stdTTL: 600,        // 10 minutes default
-  checkperiod: 120,   // Check for expired keys every 2 min
-  useClones: false    // Better performance
+  stdTTL: 600, // 10 minutes default
+  checkperiod: 120, // Check for expired keys every 2 min
+  useClones: false, // Better performance
 });
 
 export function getCachedPrice(symbol, range) {
@@ -71,21 +77,18 @@ export function getCachedPrice(symbol, range) {
 export function setCachedPrice(symbol, range, data) {
   const key = `${symbol}:${range}`;
   const etag = generateETag(data);
-  
+
   priceCache.set(key, {
     data,
     etag,
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
-  
+
   return etag;
 }
 
 export function generateETag(data) {
-  return crypto
-    .createHash('md5')
-    .update(JSON.stringify(data))
-    .digest('hex');
+  return crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
 }
 
 export function getCacheStats() {
@@ -93,14 +96,14 @@ export function getCacheStats() {
     keys: priceCache.keys().length,
     hits: priceCache.getStats().hits,
     misses: priceCache.getStats().misses,
-    hitRate: calculateHitRate()
+    hitRate: calculateHitRate(),
   };
 }
 
 function calculateHitRate() {
   const stats = priceCache.getStats();
   const total = stats.hits + stats.misses;
-  return total > 0 ? (stats.hits / total * 100).toFixed(2) : 0;
+  return total > 0 ? ((stats.hits / total) * 100).toFixed(2) : 0;
 }
 ```
 
@@ -114,18 +117,18 @@ import { getCachedPrice, setCachedPrice, getCacheStats } from './cache/priceCach
 app.get('/api/prices/:symbol', async (req, res) => {
   const { symbol } = req.params;
   const { range = '1y' } = req.query;
-  
+
   // Check cache first
   const cached = getCachedPrice(symbol, range);
-  
+
   if (cached) {
     // Support conditional requests
     const clientETag = req.get('If-None-Match');
-    
+
     if (clientETag === cached.etag) {
       return res.status(304).end();
     }
-    
+
     // Cache hit - return cached data
     return res
       .set('ETag', cached.etag)
@@ -133,12 +136,12 @@ app.get('/api/prices/:symbol', async (req, res) => {
       .set('X-Cache', 'HIT')
       .json(cached.data);
   }
-  
+
   // Cache miss - fetch from API
   try {
     const data = await fetchFromStooq(symbol, range);
     const etag = setCachedPrice(symbol, range, data);
-    
+
     res
       .set('ETag', etag)
       .set('Cache-Control', 'private, max-age=600')
@@ -178,9 +181,9 @@ import { getCachedPrice, setCachedPrice, generateETag } from '../cache/priceCach
 test('caches price data', () => {
   const data = [{ date: '2024-01-01', close: 100 }];
   const etag = setCachedPrice('AAPL', '1y', data);
-  
+
   const cached = getCachedPrice('AAPL', '1y');
-  
+
   assert.ok(cached);
   assert.deepEqual(cached.data, data);
   assert.equal(cached.etag, etag);
@@ -195,7 +198,7 @@ test('generates consistent ETags', () => {
   const data = [{ date: '2024-01-01', close: 100 }];
   const etag1 = generateETag(data);
   const etag2 = generateETag(data);
-  
+
   assert.equal(etag1, etag2);
 });
 
@@ -212,19 +215,17 @@ Integration test for the endpoint:
 ```javascript
 test('returns cached price on second request', async () => {
   const app = createApp();
-  
+
   // First request - cache miss
-  const res1 = await request(app)
-    .get('/api/prices/AAPL?range=1y');
-  
+  const res1 = await request(app).get('/api/prices/AAPL?range=1y');
+
   assert.equal(res1.status, 200);
   assert.equal(res1.headers['x-cache'], 'MISS');
   const etag = res1.headers['etag'];
-  
+
   // Second request - cache hit
-  const res2 = await request(app)
-    .get('/api/prices/AAPL?range=1y');
-  
+  const res2 = await request(app).get('/api/prices/AAPL?range=1y');
+
   assert.equal(res2.status, 200);
   assert.equal(res2.headers['x-cache'], 'HIT');
   assert.equal(res2.headers['etag'], etag);
@@ -232,17 +233,14 @@ test('returns cached price on second request', async () => {
 
 test('supports conditional requests', async () => {
   const app = createApp();
-  
-  const res1 = await request(app)
-    .get('/api/prices/AAPL?range=1y');
-  
+
+  const res1 = await request(app).get('/api/prices/AAPL?range=1y');
+
   const etag = res1.headers['etag'];
-  
+
   // Request with If-None-Match
-  const res2 = await request(app)
-    .get('/api/prices/AAPL?range=1y')
-    .set('If-None-Match', etag);
-  
+  const res2 = await request(app).get('/api/prices/AAPL?range=1y').set('If-None-Match', etag);
+
   assert.equal(res2.status, 304);
 });
 ```
@@ -261,11 +259,13 @@ test('supports conditional requests', async () => {
 #### Expected Performance Impact
 
 **Before:**
+
 - Average response time: 1,000-3,000ms
 - External API calls: 100%
 - User experience: Slow
 
 **After:**
+
 - Average response time: 50-200ms (80% improvement)
 - External API calls: <5% (95% reduction)
 - User experience: Fast, responsive
@@ -275,11 +275,13 @@ test('supports conditional requests', async () => {
 ## Item 2: Enhanced Brute Force Protection (3 hours)
 
 ### Priority: 🟡 MEDIUM
+
 **Impact**: Prevents credential stuffing and brute force attacks
 
 ### Current Problem
 
 Basic rate limiting exists but:
+
 - No progressive lockout
 - No account-level tracking
 - Attackers can keep trying after timeout
@@ -297,27 +299,27 @@ Implement progressive lockout with attempt tracking.
 import NodeCache from 'node-cache';
 import { createHttpError } from './errorHandler.js';
 
-const failureCache = new NodeCache({ 
-  stdTTL: 900,  // 15 minutes
-  checkperiod: 60 
+const failureCache = new NodeCache({
+  stdTTL: 900, // 15 minutes
+  checkperiod: 60,
 });
 
 const lockoutCache = new NodeCache({
-  stdTTL: 3600,  // 1 hour max lockout
-  checkperiod: 60
+  stdTTL: 3600, // 1 hour max lockout
+  checkperiod: 60,
 });
 
 // Configuration
 const config = {
   maxAttempts: 5,
-  lockoutDuration: 900,     // 15 minutes
-  attemptWindow: 900,       // 15 minute window
-  progressiveMultiplier: 2  // Double lockout each time
+  lockoutDuration: 900, // 15 minutes
+  attemptWindow: 900, // 15 minute window
+  progressiveMultiplier: 2, // Double lockout each time
 };
 
 export function trackAuthFailure(portfolioId, ip) {
   const key = `${portfolioId}:${ip}`;
-  
+
   // Check if already locked out
   if (isLockedOut(key)) {
     const lockout = lockoutCache.get(key);
@@ -325,37 +327,37 @@ export function trackAuthFailure(portfolioId, ip) {
       status: 429,
       code: 'TOO_MANY_KEY_ATTEMPTS',
       message: 'Account temporarily locked due to too many failed attempts',
-      headers: { 
-        'Retry-After': Math.ceil(lockout.remainingTime / 1000).toString()
+      headers: {
+        'Retry-After': Math.ceil(lockout.remainingTime / 1000).toString(),
       },
       metadata: {
         locked_until: lockout.lockedUntil,
-        attempts: lockout.attempts
-      }
+        attempts: lockout.attempts,
+      },
     });
   }
-  
+
   // Track failure
   const failures = (failureCache.get(key) || 0) + 1;
   failureCache.set(key, failures);
-  
+
   // Check if should lock out
   if (failures >= config.maxAttempts) {
     applyLockout(key, failures);
-    
+
     throw createHttpError({
       status: 429,
       code: 'TOO_MANY_KEY_ATTEMPTS',
       message: 'Too many failed authentication attempts. Account locked.',
-      headers: { 
-        'Retry-After': config.lockoutDuration.toString()
-      }
+      headers: {
+        'Retry-After': config.lockoutDuration.toString(),
+      },
     });
   }
-  
+
   return {
     failures,
-    remainingAttempts: config.maxAttempts - failures
+    remainingAttempts: config.maxAttempts - failures,
   };
 }
 
@@ -368,12 +370,12 @@ export function clearAuthFailures(portfolioId, ip) {
 function isLockedOut(key) {
   const lockout = lockoutCache.get(key);
   if (!lockout) return false;
-  
+
   const now = Date.now();
   if (now < lockout.lockedUntil) {
     return true;
   }
-  
+
   // Lockout expired
   lockoutCache.del(key);
   return false;
@@ -381,17 +383,18 @@ function isLockedOut(key) {
 
 function applyLockout(key, attempts) {
   const lockoutCount = getLockoutCount(key);
-  const duration = config.lockoutDuration * Math.pow(
-    config.progressiveMultiplier, 
-    lockoutCount
+  const duration = config.lockoutDuration * Math.pow(config.progressiveMultiplier, lockoutCount);
+
+  lockoutCache.set(
+    key,
+    {
+      attempts,
+      lockoutCount: lockoutCount + 1,
+      lockedUntil: Date.now() + duration,
+      remainingTime: duration,
+    },
+    Math.ceil(duration / 1000)
   );
-  
-  lockoutCache.set(key, {
-    attempts,
-    lockoutCount: lockoutCount + 1,
-    lockedUntil: Date.now() + duration,
-    remainingTime: duration
-  }, Math.ceil(duration / 1000));
 }
 
 function getLockoutCount(key) {
@@ -403,7 +406,7 @@ export function getBruteForceStats() {
   return {
     activeFailures: failureCache.keys().length,
     activeLockouts: lockoutCache.keys().length,
-    config
+    config,
   };
 }
 ```
@@ -419,35 +422,35 @@ import { trackAuthFailure, clearAuthFailures } from './middleware/bruteForce.js'
 function ensureApiKey(req, res, next) {
   const providedKey = req.headers['x-portfolio-key'];
   const portfolioId = req.params.id;
-  
+
   if (!providedKey) {
     trackAuthFailure(portfolioId, req.ip);
     req.auditLog('auth_failed', { reason: 'no_key' });
     return res.status(401).json({ error: 'NO_KEY' });
   }
-  
+
   // Load stored hash
   const stored = loadPortfolioAuth(portfolioId);
-  
+
   if (!stored) {
     return next(); // New portfolio
   }
-  
+
   // Verify key
   const hash = hashKey(providedKey);
-  
+
   if (hash !== stored.hash) {
     const failure = trackAuthFailure(portfolioId, req.ip);
-    req.auditLog('auth_failed', { 
+    req.auditLog('auth_failed', {
       reason: 'invalid_key',
-      remaining_attempts: failure.remainingAttempts
+      remaining_attempts: failure.remainingAttempts,
     });
-    return res.status(403).json({ 
+    return res.status(403).json({
       error: 'INVALID_KEY',
-      remaining_attempts: failure.remainingAttempts
+      remaining_attempts: failure.remainingAttempts,
     });
   }
-  
+
   // Success - clear failures
   clearAuthFailures(portfolioId, req.ip);
   req.auditLog('auth_success');
@@ -467,19 +470,15 @@ app.get('/api/security/stats', (req, res) => {
 ```javascript
 test('locks out after max attempts', async () => {
   const app = createApp();
-  
+
   // Make 5 failed attempts
   for (let i = 0; i < 5; i++) {
-    await request(app)
-      .get('/api/portfolio/test')
-      .set('X-Portfolio-Key', 'wrong');
+    await request(app).get('/api/portfolio/test').set('X-Portfolio-Key', 'wrong');
   }
-  
+
   // 6th attempt should be locked out
-  const res = await request(app)
-    .get('/api/portfolio/test')
-    .set('X-Portfolio-Key', 'wrong');
-  
+  const res = await request(app).get('/api/portfolio/test').set('X-Portfolio-Key', 'wrong');
+
   assert.equal(res.status, 429);
   assert.equal(res.body.error, 'TOO_MANY_KEY_ATTEMPTS');
   assert.ok(res.headers['retry-after']);
@@ -488,32 +487,26 @@ test('locks out after max attempts', async () => {
 test('clears lockout on successful auth', async () => {
   const app = createApp();
   const key = 'ValidKey123!';
-  
+
   // Create portfolio
   await request(app)
     .post('/api/portfolio/test')
     .set('X-Portfolio-Key', key)
     .send({ transactions: [], signals: {} });
-  
+
   // Make failed attempts
   for (let i = 0; i < 3; i++) {
-    await request(app)
-      .get('/api/portfolio/test')
-      .set('X-Portfolio-Key', 'wrong');
+    await request(app).get('/api/portfolio/test').set('X-Portfolio-Key', 'wrong');
   }
-  
+
   // Successful auth should clear failures
-  const res = await request(app)
-    .get('/api/portfolio/test')
-    .set('X-Portfolio-Key', key);
-  
+  const res = await request(app).get('/api/portfolio/test').set('X-Portfolio-Key', key);
+
   assert.equal(res.status, 200);
-  
+
   // Can make more attempts now
-  const res2 = await request(app)
-    .get('/api/portfolio/test')
-    .set('X-Portfolio-Key', 'wrong');
-  
+  const res2 = await request(app).get('/api/portfolio/test').set('X-Portfolio-Key', 'wrong');
+
   assert.notEqual(res2.status, 429);
 });
 
@@ -539,11 +532,13 @@ test('implements progressive lockout', async () => {
 ## Item 3: Response Compression (1 hour)
 
 ### Priority: 🟡 MEDIUM
+
 **Impact**: 60-70% smaller response sizes, faster data transfer
 
 ### Current Problem
 
 Large JSON responses sent uncompressed:
+
 - Slow on mobile/slow connections
 - Higher bandwidth costs
 - Poor performance
@@ -566,30 +561,32 @@ npm install compression
 import compression from 'compression';
 
 // Add compression middleware early in the stack
-app.use(compression({
-  // Compress responses larger than 1KB
-  threshold: 1024,
-  
-  // Compression level (0-9, 6 is default)
-  level: 6,
-  
-  // Filter function
-  filter: (req, res) => {
-    // Don't compress if client sends x-no-compression
-    if (req.headers['x-no-compression']) {
-      return false;
-    }
-    
-    // Use compression's default filter
-    return compression.filter(req, res);
-  },
-  
-  // Enable brotli if available
-  brotli: {
-    enabled: true,
-    zlib: {}
-  }
-}));
+app.use(
+  compression({
+    // Compress responses larger than 1KB
+    threshold: 1024,
+
+    // Compression level (0-9, 6 is default)
+    level: 6,
+
+    // Filter function
+    filter: (req, res) => {
+      // Don't compress if client sends x-no-compression
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+
+      // Use compression's default filter
+      return compression.filter(req, res);
+    },
+
+    // Enable brotli if available
+    brotli: {
+      enabled: true,
+      zlib: {},
+    },
+  })
+);
 ```
 
 #### Testing Requirements
@@ -599,33 +596,30 @@ app.use(compression({
 ```javascript
 test('compresses large responses', async () => {
   const app = createApp();
-  
-  const res = await request(app)
-    .get('/api/prices/AAPL?range=1y')
-    .set('Accept-Encoding', 'gzip');
-  
+
+  const res = await request(app).get('/api/prices/AAPL?range=1y').set('Accept-Encoding', 'gzip');
+
   assert.ok(res.headers['content-encoding']);
   assert.ok(['gzip', 'br'].includes(res.headers['content-encoding']));
 });
 
 test('skips compression for small responses', async () => {
   const app = createApp();
-  
-  const res = await request(app)
-    .get('/api/health');
-  
+
+  const res = await request(app).get('/api/health');
+
   // Health check is small, might not be compressed
   // This is expected behavior
 });
 
 test('respects x-no-compression header', async () => {
   const app = createApp();
-  
+
   const res = await request(app)
     .get('/api/prices/AAPL?range=1y')
     .set('X-No-Compression', '1')
     .set('Accept-Encoding', 'gzip');
-  
+
   assert.equal(res.headers['content-encoding'], undefined);
 });
 ```
@@ -650,11 +644,13 @@ test('respects x-no-compression header', async () => {
 ## Item 4: Bundle Optimization (3 hours)
 
 ### Priority: 🟡 MEDIUM
+
 **Impact**: 30% smaller bundles, faster page loads
 
 ### Current Problem
 
 Single large JavaScript bundle:
+
 - ~250KB initial load
 - All code loaded at once
 - Slow first paint
@@ -677,18 +673,19 @@ export default defineConfig({
   plugins: [
     react(),
     // Bundle analyzer (dev only)
-    process.env.ANALYZE && visualizer({
-      open: true,
-      filename: 'dist/stats.html',
-      gzipSize: true,
-      brotliSize: true
-    })
+    process.env.ANALYZE &&
+      visualizer({
+        open: true,
+        filename: 'dist/stats.html',
+        gzipSize: true,
+        brotliSize: true,
+      }),
   ],
-  
+
   build: {
     // Enable source maps for debugging
     sourcemap: true,
-    
+
     // Rollup options
     rollupOptions: {
       output: {
@@ -697,19 +694,19 @@ export default defineConfig({
           // Vendor chunks
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-charts': ['recharts'],
-          'vendor-utils': ['decimal.js', 'clsx']
-        }
-      }
+          'vendor-utils': ['decimal.js', 'clsx'],
+        },
+      },
     },
-    
+
     // Chunk size warning limit
-    chunkSizeWarningLimit: 500
+    chunkSizeWarningLimit: 500,
   },
-  
+
   // Optimizations
   optimizeDeps: {
-    include: ['react', 'react-dom', 'recharts']
-  }
+    include: ['react', 'react-dom', 'recharts'],
+  },
 });
 ```
 
@@ -809,11 +806,13 @@ ls -lh dist/assets/*.js
 ## Item 5: Frontend Component Tests (3 hours)
 
 ### Priority: 🟢 LOW
+
 **Impact**: Better UI coverage, catch regressions
 
 ### Current Problem
 
 Limited React component testing:
+
 - Only basic smoke tests
 - No user interaction tests
 - UI regressions possible
@@ -842,26 +841,26 @@ import Dashboard from '../components/Dashboard';
 describe('Dashboard', () => {
   it('renders performance summary', () => {
     render(<Dashboard />);
-    
+
     expect(screen.getByText(/Portfolio Value/i)).toBeInTheDocument();
     expect(screen.getByText(/Total Return/i)).toBeInTheDocument();
   });
-  
+
   it('displays returns chart', () => {
     render(<Dashboard />);
-    
+
     // Chart should be present
     const chart = screen.getByRole('img', { name: /returns chart/i });
     expect(chart).toBeInTheDocument();
   });
-  
+
   it('handles refresh action', async () => {
     const user = userEvent.setup();
     render(<Dashboard />);
-    
+
     const refreshButton = screen.getByRole('button', { name: /refresh/i });
     await user.click(refreshButton);
-    
+
     // Should show loading state
     await waitFor(() => {
       expect(screen.getByText(/loading/i)).toBeInTheDocument();
@@ -877,36 +876,36 @@ describe('TransactionsTab', () => {
   it('validates transaction form', async () => {
     const user = userEvent.setup();
     render(<TransactionsTab />);
-    
+
     // Try to submit empty form
     const submitButton = screen.getByRole('button', { name: /add/i });
     await user.click(submitButton);
-    
+
     // Should show validation errors
     expect(screen.getByText(/required/i)).toBeInTheDocument();
   });
-  
+
   it('calculates shares automatically', async () => {
     const user = userEvent.setup();
     render(<TransactionsTab />);
-    
+
     // Enter amount and price
     await user.type(screen.getByLabelText(/amount/i), '1000');
     await user.type(screen.getByLabelText(/price/i), '100');
-    
+
     // Shares should be calculated
     const sharesInput = screen.getByLabelText(/shares/i);
     expect(sharesInput.value).toBe('10');
   });
-  
+
   it('filters transactions by type', async () => {
     const user = userEvent.setup();
     render(<TransactionsTab transactions={mockTransactions} />);
-    
+
     // Select filter
     const filter = screen.getByLabelText(/type/i);
     await user.selectOptions(filter, 'BUY');
-    
+
     // Only BUY transactions visible
     const rows = screen.getAllByRole('row');
     expect(rows).toHaveLength(mockBuyTransactions.length + 1); // +1 for header
@@ -920,34 +919,34 @@ describe('TransactionsTab', () => {
 describe('Holdings', () => {
   it('displays holdings table', () => {
     render(<Holdings holdings={mockHoldings} />);
-    
+
     expect(screen.getByText(/AAPL/i)).toBeInTheDocument();
     expect(screen.getByText(/MSFT/i)).toBeInTheDocument();
   });
-  
+
   it('shows buy/sell signals', () => {
     const holdingsWithSignals = [
       { ticker: 'AAPL', signal: 'BUY', ... },
       { ticker: 'MSFT', signal: 'TRIM', ... }
     ];
-    
+
     render(<Holdings holdings={holdingsWithSignals} />);
-    
+
     expect(screen.getByText(/BUY/i)).toHaveClass('text-green-600');
     expect(screen.getByText(/TRIM/i)).toHaveClass('text-red-600');
   });
-  
+
   it('updates signal percentage', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn();
-    
+
     render(<Holdings holdings={mockHoldings} onUpdateSignal={onUpdate} />);
-    
+
     const input = screen.getByLabelText(/signal.*AAPL/i);
     await user.clear(input);
     await user.type(input, '10');
     await user.tab(); // Trigger blur
-    
+
     expect(onUpdate).toHaveBeenCalledWith('AAPL', 10);
   });
 });
@@ -956,6 +955,7 @@ describe('Holdings', () => {
 #### Testing Requirements
 
 Create tests for:
+
 - [ ] Dashboard component (3-5 tests)
 - [ ] TransactionsTab component (5-8 tests)
 - [ ] Holdings component (4-6 tests)
@@ -979,6 +979,7 @@ Minimum: 18-25 new UI tests
 ## Technical Constraints
 
 ### Technology Stack
+
 - **Language**: JavaScript (ES modules)
 - **Node Version**: 20+
 - **Backend**: Express 4.x
@@ -987,6 +988,7 @@ Minimum: 18-25 new UI tests
 - **Testing**: Node test runner, Vitest
 
 ### Development Principles
+
 - ✅ **Backward Compatible**: No breaking changes
 - ✅ **Test Coverage**: Maintain 85%+ coverage
 - ✅ **Performance**: Measure before/after
@@ -995,12 +997,12 @@ Minimum: 18-25 new UI tests
 
 ### Performance Targets
 
-| Metric | Current | Target | Improvement |
-|--------|---------|--------|-------------|
-| Price request time | 1-3s | <200ms | -80% |
-| Bundle size | 250KB | 170KB | -30% |
-| Cache hit rate | 0% | >80% | New |
-| Response size | 100% | 30-40% | -60% |
+| Metric             | Current | Target | Improvement |
+| ------------------ | ------- | ------ | ----------- |
+| Price request time | 1-3s    | <200ms | -80%        |
+| Bundle size        | 250KB   | 170KB  | -30%        |
+| Cache hit rate     | 0%      | >80%   | New         |
+| Response size      | 100%    | 30-40% | -60%        |
 
 ---
 
@@ -1051,6 +1053,7 @@ npm run dev
 Before and after each item, measure:
 
 **Item 1 (Caching):**
+
 ```bash
 # Before: Time 10 price requests
 time curl http://localhost:3000/api/prices/AAPL
@@ -1060,6 +1063,7 @@ curl http://localhost:3000/api/cache/stats
 ```
 
 **Item 3 (Compression):**
+
 ```bash
 # Check response size
 curl -s http://localhost:3000/api/prices/AAPL | wc -c  # Uncompressed
@@ -1067,6 +1071,7 @@ curl -s -H "Accept-Encoding: gzip" http://localhost:3000/api/prices/AAPL | wc -c
 ```
 
 **Item 4 (Bundles):**
+
 ```bash
 # Check bundle sizes
 npm run build
@@ -1083,22 +1088,27 @@ For each completed item:
 ## ✅ Item X: [Name]
 
 ### Implementation Summary
+
 [Brief description]
 
 ### Changes Made
 
 #### Files Created
+
 - path/to/file.js - [Purpose]
 
 #### Files Modified
+
 - path/to/file.js - [Changes]
 
 ### Performance Impact
 
 **Before:**
+
 - [Metric]: [Value]
 
 **After:**
+
 - [Metric]: [Value]
 - Improvement: [Percentage]
 
@@ -1111,8 +1121,10 @@ For each completed item:
 
 **Test Results:**
 ```
+
 ✓ All tests passing
 Coverage: XX%
+
 ```
 
 ### Documentation Updated
@@ -1170,6 +1182,7 @@ Implement in this sequence:
 ### Existing Patterns
 
 Reference these for consistency:
+
 - Middleware: `server/middleware/validation.js`
 - Testing: `server/__tests__/audit_log.test.js`
 - Error handling: `server/app.js`
@@ -1191,13 +1204,13 @@ Before starting:
 
 ## Phase 2 Timeline
 
-| Item | Priority | Effort | Order |
-|------|----------|--------|-------|
-| Price Caching | 🔴 HIGH | 3h | 1st |
-| Response Compression | 🟡 MEDIUM | 1h | 2nd |
-| Brute Force Protection | 🟡 MEDIUM | 3h | 3rd |
-| Bundle Optimization | 🟡 MEDIUM | 3h | 4th |
-| Frontend Tests | 🟢 LOW | 3h | 5th |
+| Item                   | Priority  | Effort | Order |
+| ---------------------- | --------- | ------ | ----- |
+| Price Caching          | 🔴 HIGH   | 3h     | 1st   |
+| Response Compression   | 🟡 MEDIUM | 1h     | 2nd   |
+| Brute Force Protection | 🟡 MEDIUM | 3h     | 3rd   |
+| Bundle Optimization    | 🟡 MEDIUM | 3h     | 4th   |
+| Frontend Tests         | 🟢 LOW    | 3h     | 5th   |
 
 **Total**: ~14 hours over 1-2 weeks
 

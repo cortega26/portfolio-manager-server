@@ -4,10 +4,10 @@ This document captures the routing configuration required to keep the Tooltician
 
 ## Host configuration
 
-| Setting | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| SPA fallback | Static file (`public/404.html`) | N/A | Yes | Redirects all unknown paths to `/index.html` after saving the requested location in `sessionStorage`. |
-| Health check | GitHub Actions step | N/A | Yes | Executes `curl -f` against `/` and `/admin` to detect regressions before merge. |
+| Setting      | Type                            | Default | Required | Description                                                                                           |
+| ------------ | ------------------------------- | ------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| SPA fallback | Static file (`public/404.html`) | N/A     | Yes      | Redirects all unknown paths to `/index.html` after saving the requested location in `sessionStorage`. |
+| Health check | GitHub Actions step             | N/A     | Yes      | Executes `curl -f` against `/` and `/admin` to detect regressions before merge.                       |
 
 ### Why GitHub Pages needs a fallback
 

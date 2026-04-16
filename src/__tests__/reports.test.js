@@ -19,11 +19,11 @@ test('buildPerformanceCsv includes benchmark series columns in the header and ro
   const lines = csv.trim().split('\n');
   assert.equal(
     lines[0],
-    'date,portfolio_roi,spy_roi,qqq_roi,blended_roi,ex_cash_roi,cash_roi,spy_spread,qqq_spread',
+    'date,portfolio_roi,spy_roi,qqq_roi,blended_roi,ex_cash_roi,cash_roi,spy_spread,qqq_spread'
   );
   assert.equal(
     lines[1],
-    "2024-01-02,0.0123%,0.0100%,0.0152%,0.0095%,0.0111%,0.0005%,0.0023%,'-0.0029%",
+    "2024-01-02,0.0123%,0.0100%,0.0152%,0.0095%,0.0111%,0.0005%,0.0023%,'-0.0029%"
   );
 });
 
@@ -41,12 +41,9 @@ test('buildSecurityEventsCsv serialises security events with request metadata', 
   ]);
 
   const lines = csv.trim().split('\n');
-  assert.equal(
-    lines[0],
-    'timestamp,event,portfolio_id,ip,user_agent,request_id,metadata',
-  );
+  assert.equal(lines[0], 'timestamp,event,portfolio_id,ip,user_agent,request_id,metadata');
   assert.equal(
     lines[1],
-    '2024-01-05T12:00:00Z,auth_failed,demo,127.0.0.1,vitest,req-1,"{""attempts"":3}"',
+    '2024-01-05T12:00:00Z,auth_failed,demo,127.0.0.1,vitest,req-1,"{""attempts"":3}"'
   );
 });

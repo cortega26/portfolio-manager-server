@@ -39,7 +39,9 @@ function parseArgs(argv) {
 
 function printSummary(result) {
   process.stdout.write(`portfolioId: ${result.portfolioId}\n`);
-  process.stdout.write(`storage: ${path.resolve(result.dataDir ?? process.cwd(), 'storage.sqlite')}\n`);
+  process.stdout.write(
+    `storage: ${path.resolve(result.dataDir ?? process.cwd(), 'storage.sqlite')}\n`
+  );
   process.stdout.write(`transactionCount: ${result.transactionCount}\n`);
   process.stdout.write(`dryRun: ${result.dryRun}\n`);
   process.stdout.write('holdings:\n');

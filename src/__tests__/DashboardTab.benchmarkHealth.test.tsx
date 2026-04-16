@@ -35,8 +35,24 @@ describe('DashboardTab benchmark health notice', () => {
       <DashboardTab
         metrics={metricsFixture}
         roiData={[
-          { date: '2024-01-01', portfolio: 0, spy: null, qqq: null, blended: null, exCash: 0, cash: 0 },
-          { date: '2024-01-02', portfolio: 1.2, spy: null, qqq: null, blended: null, exCash: 1.1, cash: 0.1 },
+          {
+            date: '2024-01-01',
+            portfolio: 0,
+            spy: null,
+            qqq: null,
+            blended: null,
+            exCash: 0,
+            cash: 0,
+          },
+          {
+            date: '2024-01-02',
+            portfolio: 1.2,
+            spy: null,
+            qqq: null,
+            blended: null,
+            exCash: 1.1,
+            cash: 0.1,
+          },
         ]}
         roiMeta={{
           benchmarkHealth: {
@@ -46,13 +62,11 @@ describe('DashboardTab benchmark health notice', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(
-      screen.getByText(
-        /Canonical benchmark data is still being rebuilt for: SPY, QQQ/i,
-      ),
+      screen.getByText(/Canonical benchmark data is still being rebuilt for: SPY, QQQ/i)
     ).toBeVisible();
   });
 });

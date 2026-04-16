@@ -1,12 +1,8 @@
-import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useI18n } from '../i18n/I18nProvider.jsx';
 
 function MetricsGrid({ cards, t }) {
   if (cards.length === 0) {
-    return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        {t("metrics.empty.cards")}
-      </p>
-    );
+    return <p className="text-sm text-slate-500 dark:text-slate-400">{t('metrics.empty.cards')}</p>;
   }
 
   return (
@@ -34,26 +30,25 @@ function MetricsGrid({ cards, t }) {
 function AllocationList({ allocations, t, formatCurrency, formatPercent }) {
   if (allocations.length === 0) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        {t("metrics.empty.allocations")}
-      </p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{t('metrics.empty.allocations')}</p>
     );
   }
 
   return (
     <ul className="space-y-3">
       {allocations.map((row) => (
-        <li key={row.ticker} className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <li
+          key={row.ticker}
+          className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+        >
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-              {row.ticker}
-            </p>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{row.ticker}</p>
             <span className="text-sm font-medium text-indigo-600 dark:text-indigo-300">
               {formatPercent(row.weight * 100, 1)}
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {t("metrics.allocations.currentValue", { value: formatCurrency(row.value) })}
+            {t('metrics.allocations.currentValue', { value: formatCurrency(row.value) })}
           </p>
           <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800">
             <div
@@ -70,9 +65,7 @@ function AllocationList({ allocations, t, formatCurrency, formatPercent }) {
 function PerformanceHighlights({ performance, t }) {
   if (performance.length === 0) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        {t("metrics.empty.performance")}
-      </p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{t('metrics.empty.performance')}</p>
     );
   }
 
@@ -90,9 +83,7 @@ function PerformanceHighlights({ performance, t }) {
             {item.value}
           </dd>
           {item.description && (
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {item.description}
-            </p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.description}</p>
           )}
         </div>
       ))}
@@ -107,10 +98,10 @@ export default function MetricsTab({ metricCards, allocations, performance }) {
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
         <header>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {t("metrics.section.keyRatios")}
+            {t('metrics.section.keyRatios')}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {t("metrics.section.keyRatios.subtitle")}
+            {t('metrics.section.keyRatios.subtitle')}
           </p>
         </header>
         <div className="mt-4">
@@ -121,10 +112,10 @@ export default function MetricsTab({ metricCards, allocations, performance }) {
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
         <header>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {t("metrics.section.allocations")}
+            {t('metrics.section.allocations')}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {t("metrics.section.allocations.subtitle")}
+            {t('metrics.section.allocations.subtitle')}
           </p>
         </header>
         <div className="mt-4">
@@ -140,10 +131,10 @@ export default function MetricsTab({ metricCards, allocations, performance }) {
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
         <header>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {t("metrics.section.performance")}
+            {t('metrics.section.performance')}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {t("metrics.section.performance.subtitle")}
+            {t('metrics.section.performance.subtitle')}
           </p>
         </header>
         <div className="mt-4">

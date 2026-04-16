@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 const MIN_DELAY_MS = 0;
 const DEFAULT_DELAY = 300;
@@ -7,7 +7,7 @@ export default function useDebouncedValue(value, delay = DEFAULT_DELAY) {
   const safeDelay = Number.isFinite(delay) && delay >= MIN_DELAY_MS ? delay : DEFAULT_DELAY;
   const [debouncedValue, setDebouncedValue] = useState(value);
   const timeoutRef = useRef();
-  const isBrowser = typeof window !== "undefined";
+  const isBrowser = typeof window !== 'undefined';
 
   useEffect(() => {
     let cancelled = false;
@@ -25,7 +25,7 @@ export default function useDebouncedValue(value, delay = DEFAULT_DELAY) {
     }
 
     const timeoutId = setTimeout(() => {
-      if (cancelled || typeof window === "undefined") {
+      if (cancelled || typeof window === 'undefined') {
         return;
       }
       setDebouncedValue(value);

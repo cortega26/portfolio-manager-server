@@ -22,7 +22,7 @@ describe('TransactionsTab deposit UX', () => {
           transactions={[]}
           onAddTransaction={onSubmit}
           onDeleteTransaction={vi.fn()}
-        />,
+        />
       );
 
       const form = screen.getByRole('form', { name: /add transaction/i });
