@@ -16,11 +16,13 @@ Este archivo es el hub canónico de contexto. No es una wiki.
 
 ## Qué vive en cada documento
 
+- Comandos operativos rápidos para agentes: `AGENTS_QUICKSTART.md`
 - Reglas operativas de trabajo: `context/CONSTRAINTS.md`
 - Invariantes confirmados del proyecto: `context/KNOWN_INVARIANTS.md`
-- Boundaries y flujos del sistema: `context/ARCHITECTURE.md`
+- Boundaries y flujos del sistema (con diagrama): `context/ARCHITECTURE.md`
 - Mapa de módulos y entrypoints: `context/MODULE_INDEX.md`
 - Trabajo activo, hipótesis y verificación: `context/runtime/ACTIVE_TASK.md`
+- Decisiones de arquitectura: `docs/adr/`
 - Estado amplio y backlog: `docs/reference/portfolio-manager-unified-status.md` y `docs/backlog/portfolio-manager-unified-next-steps.md`
 
 Un link no implica autoload.
@@ -30,14 +32,15 @@ Carga solo lo que el tipo de tarea necesite.
 
 1. Instrucciones explícitas del usuario
 2. `AGENTS.md`
-3. Código real, tests, `package.json` y configuración observable
-4. `context/KNOWN_INVARIANTS.md`
-5. `context/CONSTRAINTS.md`
-6. `context/ARCHITECTURE.md`
-7. `context/MODULE_INDEX.md`
-8. `context/runtime/ACTIVE_TASK.md`
-9. `docs/reference/portfolio-manager-unified-status.md`
-10. `docs/backlog/portfolio-manager-unified-next-steps.md`
+3. `AGENTS_QUICKSTART.md` (comandos operativos; anula `docs/meta/automation/agents-playbook.md`)
+4. Código real, tests, `package.json` y configuración observable
+5. `context/KNOWN_INVARIANTS.md`
+6. `context/CONSTRAINTS.md`
+7. `context/ARCHITECTURE.md`
+8. `context/MODULE_INDEX.md`
+9. `context/runtime/ACTIVE_TASK.md`
+10. `docs/reference/portfolio-manager-unified-status.md`
+11. `docs/backlog/portfolio-manager-unified-next-steps.md`
 
 Reglas de resolución:
 

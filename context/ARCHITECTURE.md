@@ -56,6 +56,45 @@ Describir la forma del sistema y sus fronteras sin mezclar estado de roadmap ni 
 - La persistencia escribe transacciones deterministas.
 - El estado reconciliado se expone por los contratos backend normales.
 
+## Topología de procesos
+
+```mermaid
+graph TD
+    subgraph Electron
+        MAIN["main.cjs\nOrchestration + session token"]
+        PRELOAD["preload.cjs\nSecure bridge (contextBridge)"]
+    end
+    subgraph Renderer["Renderer (Vite/React)"]
+        REACT["src/ — React SPA"]
+        CLIENT["src/lib/apiClient.js"]
+    end
+    subgraph Backend["Backend (Express)"]
+        EXPRESS["server/app.js\nAuth · validation · routes"]
+        FINANCE["server/finance/\nDecimal arithmetic · holdings · ROI"]
+        IMPORT["server/import/\nCSV importer · reconciliation"]
+        JOBS["server/jobs/\nScheduler · daily close · backfill CLI"]
+    end
+    DB[("SQLite\ndata/*.sqlite")]
+
+    MAIN -->|"spawns + injects token"| EXPRESS
+    MAIN -->|"loads"| PRELOAD
+    PRELOAD -->|"contextBridge.exposeInMainWorld"| REACT
+    REACT --> CLIENT
+    CLIENT -->|"HTTP 127.0.0.1:PORT\nx-session-token"| EXPRESS
+    EXPRESS --> FINANCE
+    EXPRESS --> IMPORT
+    EXPRESS --> JOBS
+    EXPRESS --> DB
+    FINANCE --> DB
+    IMPORT --> DB
+```
+
+**Reglas que el diagrama hace explícitas:**
+
+- `REACT` nunca toca `DB` directamente.
+- `PRELOAD` solo expone el bridge; no contiene lógica de dominio.
+- `MAIN` es el único punto que genera el session token.
+
 ## Olores de arquitectura a rechazar
 
 - lógica de dominio crítica solo en renderer
