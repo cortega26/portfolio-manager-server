@@ -78,12 +78,12 @@ Tests fail fast on console warnings/errors via `setupTests` hooks (`server/__tes
 
 Use the following commands during local development and CI:
 
-| Command | Purpose |
-| --- | --- |
-| `npm test` | Runs the Vitest suite once with coverage enforcement, warning promotion, and deterministic shuffling. |
-| `npm run test:stress` | Executes the suite five times without coverage to detect flakiness. |
-| `npm run test:perf` | Generates a 12k+ transaction ledger and ensures holdings projection completes under 1 000 ms while logging metrics. |
-| `npm run test:mutation` | Invokes StrykerJS against targeted math modules and reports the mutation score. |
+| Command                 | Purpose                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `npm test`              | Runs the Vitest suite once with coverage enforcement, warning promotion, and deterministic shuffling.               |
+| `npm run test:stress`   | Executes the suite five times without coverage to detect flakiness.                                                 |
+| `npm run test:perf`     | Generates a 12k+ transaction ledger and ensures holdings projection completes under 1 000 ms while logging metrics. |
+| `npm run test:mutation` | Invokes StrykerJS against targeted math modules and reports the mutation score.                                     |
 
 For strict deprecation/warning checks, run:
 

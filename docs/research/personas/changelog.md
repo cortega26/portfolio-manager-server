@@ -23,18 +23,18 @@
 
 ## Severity Delta
 
-| id | persona(s) | pain | severity_before | severity_after | playbook_step |
-| --- | --- | --- | --- | --- | --- |
-| P001 | Erin Carter; Priya Desai | Portfolio Controls surfaces raw HTTP errors | Critical | Low | #low-continuous-improvement |
-| P002 | Erin Carter | Price fetch failures zero out holdings | Critical | Low | #low-continuous-improvement |
-| P003 | Erin Carter; Jamal Lee | README promises an import workflow that the UI lacks | Critical | Negligible | #negligible-monitor-only |
-| P004 | Marcus Nguyen | Cash-only transactions require a price input | Critical | Negligible | #negligible-monitor-only |
-| P005 | Marcus Nguyen | Undefined tickers trigger /prices/undefined | High | Negligible | #negligible-monitor-only |
-| P006 | Marcus Nguyen | ROI fallback runs silently after API errors | High | Low | #low-continuous-improvement |
-| P007 | Marcus Nguyen | Display settings persist only locally | Critical | Low | #low-continuous-improvement |
-| P008 | Priya Desai | Admin tab lacks security event export | High | Negligible | #negligible-monitor-only |
-| P009 | Sofia Ramirez | Admin metrics do not auto-refresh | Critical | Low | #low-continuous-improvement |
-| P010 | Sofia Ramirez | stale_price flag never reaches UI | High | Low | #low-continuous-improvement |
-| P011 | Jamal Lee | Performance CSV omits benchmark columns | High | Negligible | #negligible-monitor-only |
+| id   | persona(s)               | pain                                                 | severity_before | severity_after | playbook_step               |
+| ---- | ------------------------ | ---------------------------------------------------- | --------------- | -------------- | --------------------------- |
+| P001 | Erin Carter; Priya Desai | Portfolio Controls surfaces raw HTTP errors          | Critical        | Low            | #low-continuous-improvement |
+| P002 | Erin Carter              | Price fetch failures zero out holdings               | Critical        | Low            | #low-continuous-improvement |
+| P003 | Erin Carter; Jamal Lee   | README promises an import workflow that the UI lacks | Critical        | Negligible     | #negligible-monitor-only    |
+| P004 | Marcus Nguyen            | Cash-only transactions require a price input         | Critical        | Negligible     | #negligible-monitor-only    |
+| P005 | Marcus Nguyen            | Undefined tickers trigger /prices/undefined          | High            | Negligible     | #negligible-monitor-only    |
+| P006 | Marcus Nguyen            | ROI fallback runs silently after API errors          | High            | Low            | #low-continuous-improvement |
+| P007 | Marcus Nguyen            | Display settings persist only locally                | Critical        | Low            | #low-continuous-improvement |
+| P008 | Priya Desai              | Admin tab lacks security event export                | High            | Negligible     | #negligible-monitor-only    |
+| P009 | Sofia Ramirez            | Admin metrics do not auto-refresh                    | Critical        | Low            | #low-continuous-improvement |
+| P010 | Sofia Ramirez            | stale_price flag never reaches UI                    | High            | Low            | #low-continuous-improvement |
+| P011 | Jamal Lee                | Performance CSV omits benchmark columns              | High            | Negligible     | #negligible-monitor-only    |
 
 All tracked pains remain mitigated; severity is downgraded accordingly and referenced in `docs/reference/severity_matrix.csv` and `docs/reference/scoreboard.csv`.

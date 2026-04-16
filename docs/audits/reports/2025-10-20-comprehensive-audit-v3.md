@@ -1,4 +1,5 @@
 <!-- markdownlint-disable -->
+
 # Portfolio Manager - Comprehensive Professional Audit Report
 
 **Version**: 3.1 (Phase 5 Lock)
@@ -16,15 +17,15 @@
 
 **Project Status**: **Phase 5 baseline validated – ready for production with targeted stretch work**
 
-| Category | Score | Status | Priority |
-|----------|-------|--------|----------|
-| **Architecture** | 9.5/10 | ✅ Excellent | - |
-| **Test Coverage** | 9.0/10 | ✅ High confidence | Low |
-| **Security** | 9.0/10 | ✅ Hardened | Low |
-| **Performance** | 8.5/10 | ✅ Optimised | Medium |
-| **Documentation** | 9.5/10 | ✅ Comprehensive | Low |
-| **Code Quality** | 9.0/10 | ✅ Clean | Low |
-| **User Experience** | 8.5/10 | ✅ Polished | Medium |
+| Category            | Score  | Status             | Priority |
+| ------------------- | ------ | ------------------ | -------- |
+| **Architecture**    | 9.5/10 | ✅ Excellent       | -        |
+| **Test Coverage**   | 9.0/10 | ✅ High confidence | Low      |
+| **Security**        | 9.0/10 | ✅ Hardened        | Low      |
+| **Performance**     | 8.5/10 | ✅ Optimised       | Medium   |
+| **Documentation**   | 9.5/10 | ✅ Comprehensive   | Low      |
+| **Code Quality**    | 9.0/10 | ✅ Clean           | Low      |
+| **User Experience** | 8.5/10 | ✅ Polished        | Medium   |
 
 ### Test & Quality Highlights
 
@@ -140,14 +141,14 @@ src/__tests__/
 
 ### Test Quality Metrics
 
-| Metric | Status | Evidence |
-|--------|--------|----------|
-| **Unit Coverage (changed modules)** | ✅ 98.8% lines / 84.8% branches for HoldingsTab suite | `npm run test:coverage` (Phase 5 uplift) |
-| **Node Harness Coverage** | ✅ 91.8% server statements (lcov under `reports/`) | `npm run test` via `tools/run-tests.mjs` |
-| **Property-Based Tests** | ✅ fast-check suites for ROI, ledger, cash accrual | `server/__tests__/ledger.property.test.js`, `src/__tests__/roi.property.test.js` |
-| **Mutation Testing** | ✅ Configured & passing baseline | `stryker.conf.json`, `server/__tests__/returns.mutation.test.js` |
-| **E2E Smoke** | ✅ Playwright admin/dashboard journeys | `e2e/tests/*.spec.ts` |
-| **Perf Regression** | ✅ `npm run test:perf` fails if holdings builder >1 000 ms | `tools/perf/run-perf-suite.mjs` |
+| Metric                              | Status                                                     | Evidence                                                                         |
+| ----------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Unit Coverage (changed modules)** | ✅ 98.8% lines / 84.8% branches for HoldingsTab suite      | `npm run test:coverage` (Phase 5 uplift)                                         |
+| **Node Harness Coverage**           | ✅ 91.8% server statements (lcov under `reports/`)         | `npm run test` via `tools/run-tests.mjs`                                         |
+| **Property-Based Tests**            | ✅ fast-check suites for ROI, ledger, cash accrual         | `server/__tests__/ledger.property.test.js`, `src/__tests__/roi.property.test.js` |
+| **Mutation Testing**                | ✅ Configured & passing baseline                           | `stryker.conf.json`, `server/__tests__/returns.mutation.test.js`                 |
+| **E2E Smoke**                       | ✅ Playwright admin/dashboard journeys                     | `e2e/tests/*.spec.ts`                                                            |
+| **Perf Regression**                 | ✅ `npm run test:perf` fails if holdings builder >1 000 ms | `tools/perf/run-perf-suite.mjs`                                                  |
 
 ### 🟢 Strengths
 
@@ -179,17 +180,17 @@ src/__tests__/
 
 ### ✅ Security Measures In Place
 
-| Control | Implementation | Notes |
-|---------|----------------|-------|
-| **API Key Policy** | `shared/apiKey.js`, `server/middleware/validation.js` | Min length 12, mixed character classes, reused in frontend schema. |
-| **Progressive Brute Force Guard** | `server/middleware/bruteForce.js` | Configurable max attempts/lockouts, surfaced via `/api/monitoring`. |
-| **Security Audit Logging** | `server/middleware/auditLog.js`, `server/__tests__/audit_log.test.js` | Emits structured security events; Admin tab renders buffer. |
-| **Rate Limiting** | `server/app.js`, `server/metrics/rateLimitMetrics.js` | Tiered (general/portfolio/prices) with metrics + tests. |
-| **Input Validation** | `server/middleware/validation.js` | Zod schemas normalise & sanitise payloads, enforce ticker rules. |
-| **CORS Allowlist** | `server/app.js` | Rejects disallowed origins with `CORS_NOT_ALLOWED`; documented in `.env.example`. |
-| **HTTP Security Headers** | Helmet 7.x config in `server/app.js` | CSP, HSTS, COOP/COEP, referrer policy, XSS protections. |
-| **Request ID Propagation** | Pino `genReqId` + middleware | IDs surface in responses + audit logs for correlation. |
-| **Secrets Hygiene** | `.env.example`, README | Template + docs emphasise no secrets in repo; rate limiting + features toggles namespaced. |
+| Control                           | Implementation                                                        | Notes                                                                                      |
+| --------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **API Key Policy**                | `shared/apiKey.js`, `server/middleware/validation.js`                 | Min length 12, mixed character classes, reused in frontend schema.                         |
+| **Progressive Brute Force Guard** | `server/middleware/bruteForce.js`                                     | Configurable max attempts/lockouts, surfaced via `/api/monitoring`.                        |
+| **Security Audit Logging**        | `server/middleware/auditLog.js`, `server/__tests__/audit_log.test.js` | Emits structured security events; Admin tab renders buffer.                                |
+| **Rate Limiting**                 | `server/app.js`, `server/metrics/rateLimitMetrics.js`                 | Tiered (general/portfolio/prices) with metrics + tests.                                    |
+| **Input Validation**              | `server/middleware/validation.js`                                     | Zod schemas normalise & sanitise payloads, enforce ticker rules.                           |
+| **CORS Allowlist**                | `server/app.js`                                                       | Rejects disallowed origins with `CORS_NOT_ALLOWED`; documented in `.env.example`.          |
+| **HTTP Security Headers**         | Helmet 7.x config in `server/app.js`                                  | CSP, HSTS, COOP/COEP, referrer policy, XSS protections.                                    |
+| **Request ID Propagation**        | Pino `genReqId` + middleware                                          | IDs surface in responses + audit logs for correlation.                                     |
+| **Secrets Hygiene**               | `.env.example`, README                                                | Template + docs emphasise no secrets in repo; rate limiting + features toggles namespaced. |
 
 ### Security Checklist
 
@@ -241,16 +242,16 @@ Admin/Monitoring dashboards & CI artefacts
 
 ### Endpoint Inventory (v1)
 
-| Endpoint | Method | Auth | Validation | Caching | Status |
-|----------|--------|------|------------|---------|--------|
-| `/api/v1/portfolio/:id` | GET/POST | ✅ | ✅ | Private cache | ✅ |
-| `/api/v1/prices/:symbol` | GET | ✅/🔓 (depends on admin token) | ✅ | ✅ ETag + TTL | ✅ |
-| `/api/v1/returns/daily` | GET | ✅ | ✅ | ✅ (`API_CACHE_TTL_SECONDS`) | ✅ |
-| `/api/v1/nav/daily` | GET | ✅ | ✅ | ✅ | ✅ |
-| `/api/v1/benchmarks/summary` | GET | ✅ | ✅ | ✅ | ✅ |
-| `/api/v1/admin/cash-rate` | POST | ✅ (admin token) | ✅ | No | ✅ |
-| `/api/v1/monitoring` | GET | ✅ (admin token) | ✅ | No | ✅ |
-| `/api/v1/health` | GET | 🔓 | ✅ | No | ✅ |
+| Endpoint                     | Method   | Auth                           | Validation | Caching                      | Status |
+| ---------------------------- | -------- | ------------------------------ | ---------- | ---------------------------- | ------ |
+| `/api/v1/portfolio/:id`      | GET/POST | ✅                             | ✅         | Private cache                | ✅     |
+| `/api/v1/prices/:symbol`     | GET      | ✅/🔓 (depends on admin token) | ✅         | ✅ ETag + TTL                | ✅     |
+| `/api/v1/returns/daily`      | GET      | ✅                             | ✅         | ✅ (`API_CACHE_TTL_SECONDS`) | ✅     |
+| `/api/v1/nav/daily`          | GET      | ✅                             | ✅         | ✅                           | ✅     |
+| `/api/v1/benchmarks/summary` | GET      | ✅                             | ✅         | ✅                           | ✅     |
+| `/api/v1/admin/cash-rate`    | POST     | ✅ (admin token)               | ✅         | No                           | ✅     |
+| `/api/v1/monitoring`         | GET      | ✅ (admin token)               | ✅         | No                           | ✅     |
+| `/api/v1/health`             | GET      | 🔓                             | ✅         | No                           | ✅     |
 
 ### Strengths
 
@@ -270,13 +271,13 @@ Admin/Monitoring dashboards & CI artefacts
 
 ### Performance Score: **8.5/10** ⚡
 
-| Metric | Current | Target | Status |
-|--------|---------|--------|--------|
-| Price endpoint median latency | 45 ms (cached) | <100 ms | ✅ |
-| Holdings builder synthetic run | 218 ms (12,289 tx) | <1 000 ms | ✅ |
-| Bundle size (initial) | 192 KB gzipped | <200 KB | ✅ |
-| Admin dashboard load | <1.2 s | <1.5 s | ✅ |
-| File I/O concurrency | ~50 simultaneous portfolios | 200+ | ⚠️ |
+| Metric                         | Current                     | Target    | Status |
+| ------------------------------ | --------------------------- | --------- | ------ |
+| Price endpoint median latency  | 45 ms (cached)              | <100 ms   | ✅     |
+| Holdings builder synthetic run | 218 ms (12,289 tx)          | <1 000 ms | ✅     |
+| Bundle size (initial)          | 192 KB gzipped              | <200 KB   | ✅     |
+| Admin dashboard load           | <1.2 s                      | <1.5 s    | ✅     |
+| File I/O concurrency           | ~50 simultaneous portfolios | 200+      | ⚠️     |
 
 ### Implemented Optimisations
 
@@ -288,11 +289,11 @@ Admin/Monitoring dashboards & CI artefacts
 
 ### Scalability Considerations
 
-| Scenario | Current Limit | Bottleneck | Recommended Path |
-|----------|---------------|------------|------------------|
-| Concurrent portfolio saves | ~50 | File locking throughput | Introduce queue or migrate to relational DB |
-| Historical analytics | ~12 months daily data | JSON read/parse overhead | Pre-compute aggregates or move to SQL views |
-| Benchmark fetch bursts | 60/min | External API rate limits | Expand caching tier or add upstream proxy |
+| Scenario                   | Current Limit         | Bottleneck               | Recommended Path                            |
+| -------------------------- | --------------------- | ------------------------ | ------------------------------------------- |
+| Concurrent portfolio saves | ~50                   | File locking throughput  | Introduce queue or migrate to relational DB |
+| Historical analytics       | ~12 months daily data | JSON read/parse overhead | Pre-compute aggregates or move to SQL views |
+| Benchmark fetch bursts     | 60/min                | External API rate limits | Expand caching tier or add upstream proxy   |
 
 ### Recommendations
 
@@ -306,14 +307,14 @@ Admin/Monitoring dashboards & CI artefacts
 
 ### Score: **9/10** 🎯
 
-| Metric | Observation |
-|--------|-------------|
-| **Function complexity** | Core finance helpers refactored; cyclomatic complexity ≤8 after `CODE-1`. |
+| Metric                  | Observation                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| **Function complexity** | Core finance helpers refactored; cyclomatic complexity ≤8 after `CODE-1`.       |
 | **Constants & configs** | Rate limits, transaction caps, cache TTLs centralised in `shared/constants.js`. |
-| **Error handling** | `http-errors` + centralized responder ensures consistent payloads. |
-| **Logging** | Pino structured logging with child loggers for audit + perf metrics. |
-| **Linting** | `npm run lint` (ESLint 9) enforces zero warnings. |
-| **Formatting** | Prettier 3 + Tailwind class sorting baked into dev tooling. |
+| **Error handling**      | `http-errors` + centralized responder ensures consistent payloads.              |
+| **Logging**             | Pino structured logging with child loggers for audit + perf metrics.            |
+| **Linting**             | `npm run lint` (ESLint 9) enforces zero warnings.                               |
+| **Formatting**          | Prettier 3 + Tailwind class sorting baked into dev tooling.                     |
 
 ### Strengths
 
@@ -354,27 +355,27 @@ cp .env.example .env
 
 ### Environment Configuration
 
-| Variable | Type | Default | Required | Description |
-|----------|------|---------|----------|-------------|
-| `NODE_ENV` | string | `development` | ✅ | Runtime mode for Express. |
-| `PORT` | number | `3000` | ✅ | API port. |
-| `LOG_LEVEL` | enum | `info` | ✅ | Pino log verbosity (`trace`…`fatal`). |
-| `DATA_DIR` | path | `./data` | ✅ | Portfolio JSON storage directory. |
-| `CORS_ALLOWED_ORIGINS` | CSV | `http://localhost:5173,http://localhost:4173` | ✅ | Frontend origins allowed to call the API. |
-| `FEATURES_CASH_BENCHMARKS` | boolean | `true` | ✅ | Enables cash accrual & benchmark endpoints. |
-| `FEATURES_MONTHLY_CASH_POSTING` | boolean | `false` | Optional | Collapses cash postings to monthly entries. |
-| `CASH_POSTING_DAY` | string/number | `last` | Optional | Day of month for interest posting. |
-| `BRUTE_FORCE_*` | numbers | See template | ✅ | Progressive lockout configuration. |
-| `SECURITY_AUDIT_MAX_EVENTS` | number | `200` | ✅ | Admin dashboard buffer size. |
-| `RATE_LIMIT_*` | numbers | See template | ✅ | Per-scope rate limiting windows & caps. |
-| `JOB_NIGHTLY_HOUR` | number | `4` | ✅ | UTC hour for nightly close job. |
-| `API_CACHE_TTL_SECONDS` | number | `600` | ✅ | TTL for NAV/returns cache. |
-| `PRICE_CACHE_TTL_SECONDS` | number | `600` | ✅ | TTL for price cache entries. |
-| `PRICE_CACHE_CHECK_PERIOD` | number | `120` | ✅ | Sweep interval for price cache. |
-| `PRICE_FETCH_TIMEOUT_MS` | number | `5000` | ✅ | Upstream fetch timeout. |
-| `FRESHNESS_MAX_STALE_TRADING_DAYS` | number | `3` | ✅ | Benchmark staleness guard. |
-| `VITE_API_BASE` | URL | `http://localhost:3000` | Optional | Override API origin for the frontend. |
-| `VITE_ADMIN_ACCESS_TOKENS` | CSV | `friend-one,...` | ✅ | Admin portal invite tokens. |
+| Variable                           | Type          | Default                                       | Required | Description                                 |
+| ---------------------------------- | ------------- | --------------------------------------------- | -------- | ------------------------------------------- |
+| `NODE_ENV`                         | string        | `development`                                 | ✅       | Runtime mode for Express.                   |
+| `PORT`                             | number        | `3000`                                        | ✅       | API port.                                   |
+| `LOG_LEVEL`                        | enum          | `info`                                        | ✅       | Pino log verbosity (`trace`…`fatal`).       |
+| `DATA_DIR`                         | path          | `./data`                                      | ✅       | Portfolio JSON storage directory.           |
+| `CORS_ALLOWED_ORIGINS`             | CSV           | `http://localhost:5173,http://localhost:4173` | ✅       | Frontend origins allowed to call the API.   |
+| `FEATURES_CASH_BENCHMARKS`         | boolean       | `true`                                        | ✅       | Enables cash accrual & benchmark endpoints. |
+| `FEATURES_MONTHLY_CASH_POSTING`    | boolean       | `false`                                       | Optional | Collapses cash postings to monthly entries. |
+| `CASH_POSTING_DAY`                 | string/number | `last`                                        | Optional | Day of month for interest posting.          |
+| `BRUTE_FORCE_*`                    | numbers       | See template                                  | ✅       | Progressive lockout configuration.          |
+| `SECURITY_AUDIT_MAX_EVENTS`        | number        | `200`                                         | ✅       | Admin dashboard buffer size.                |
+| `RATE_LIMIT_*`                     | numbers       | See template                                  | ✅       | Per-scope rate limiting windows & caps.     |
+| `JOB_NIGHTLY_HOUR`                 | number        | `4`                                           | ✅       | UTC hour for nightly close job.             |
+| `API_CACHE_TTL_SECONDS`            | number        | `600`                                         | ✅       | TTL for NAV/returns cache.                  |
+| `PRICE_CACHE_TTL_SECONDS`          | number        | `600`                                         | ✅       | TTL for price cache entries.                |
+| `PRICE_CACHE_CHECK_PERIOD`         | number        | `120`                                         | ✅       | Sweep interval for price cache.             |
+| `PRICE_FETCH_TIMEOUT_MS`           | number        | `5000`                                        | ✅       | Upstream fetch timeout.                     |
+| `FRESHNESS_MAX_STALE_TRADING_DAYS` | number        | `3`                                           | ✅       | Benchmark staleness guard.                  |
+| `VITE_API_BASE`                    | URL           | `http://localhost:3000`                       | Optional | Override API origin for the frontend.       |
+| `VITE_ADMIN_ACCESS_TOKENS`         | CSV           | `friend-one,...`                              | ✅       | Admin portal invite tokens.                 |
 
 ### Running the Stack
 
@@ -406,13 +407,13 @@ cp .env.example .env
 
 ## 7. Priority Action Items
 
-| ID | Title | Priority | Owner | Status |
-|----|-------|----------|-------|--------|
-| QA-1 | Merge vitest + Node coverage artefacts | Medium | QA Eng | TODO |
-| PERF-2 | Evaluate relational storage pilot | Medium | Backend | TODO |
-| OPS-3 | Infrastructure TLS/rotation checklist | Medium | DevOps | IN PROGRESS |
-| DOC-2 | Extend CSV/report regression guide | Low | Docs | TODO |
-| OBS-4 | Publish monitoring exporter guide | Low | SRE | TODO |
+| ID     | Title                                  | Priority | Owner   | Status      |
+| ------ | -------------------------------------- | -------- | ------- | ----------- |
+| QA-1   | Merge vitest + Node coverage artefacts | Medium   | QA Eng  | TODO        |
+| PERF-2 | Evaluate relational storage pilot      | Medium   | Backend | TODO        |
+| OPS-3  | Infrastructure TLS/rotation checklist  | Medium   | DevOps  | IN PROGRESS |
+| DOC-2  | Extend CSV/report regression guide     | Low      | Docs    | TODO        |
+| OBS-4  | Publish monitoring exporter guide      | Low      | SRE     | TODO        |
 
 ---
 

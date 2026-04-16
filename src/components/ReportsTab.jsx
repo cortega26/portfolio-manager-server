@@ -1,11 +1,9 @@
-import { useI18n } from "../i18n/I18nProvider.jsx";
+import { useI18n } from '../i18n/I18nProvider.jsx';
 
 function SummaryCards({ cards, t }) {
   if (cards.length === 0) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        {t("reports.summary.empty")}
-      </p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{t('reports.summary.empty')}</p>
     );
   }
 
@@ -48,27 +46,32 @@ function ExportAction({ title, description, actionLabel, onAction, disabled }) {
   );
 }
 
-export default function ReportsTab({ summaryCards, onExportTransactions, onExportHoldings, onExportPerformance }) {
+export default function ReportsTab({
+  summaryCards,
+  onExportTransactions,
+  onExportHoldings,
+  onExportPerformance,
+}) {
   const { t } = useI18n();
   const disabled = summaryCards.length === 0;
 
   const exportActions = [
     {
-      title: t("reports.export.transactions.title"),
-      description: t("reports.export.transactions.description"),
-      actionLabel: t("reports.export.transactions.action"),
+      title: t('reports.export.transactions.title'),
+      description: t('reports.export.transactions.description'),
+      actionLabel: t('reports.export.transactions.action'),
       onAction: onExportTransactions,
     },
     {
-      title: t("reports.export.holdings.title"),
-      description: t("reports.export.holdings.description"),
-      actionLabel: t("reports.export.holdings.action"),
+      title: t('reports.export.holdings.title'),
+      description: t('reports.export.holdings.description'),
+      actionLabel: t('reports.export.holdings.action'),
       onAction: onExportHoldings,
     },
     {
-      title: t("reports.export.performance.title"),
-      description: t("reports.export.performance.description"),
-      actionLabel: t("reports.export.performance.action"),
+      title: t('reports.export.performance.title'),
+      description: t('reports.export.performance.description'),
+      actionLabel: t('reports.export.performance.action'),
       onAction: onExportPerformance,
     },
   ];
@@ -78,10 +81,10 @@ export default function ReportsTab({ summaryCards, onExportTransactions, onExpor
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
         <header>
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {t("reports.section.snapshot.title")}
+            {t('reports.section.snapshot.title')}
           </h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {t("reports.section.snapshot.subtitle")}
+            {t('reports.section.snapshot.subtitle')}
           </p>
         </header>
         <div className="mt-4">
@@ -103,14 +106,16 @@ export default function ReportsTab({ summaryCards, onExportTransactions, onExpor
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("reports.tips.title")}</h2>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          {t('reports.tips.title')}
+        </h2>
         <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-600 dark:text-slate-400">
-          <li>{t("reports.tips.reconcile")}</li>
-          <li>{t("reports.tips.combine")}</li>
-          <li>{t("reports.tips.audit")}</li>
+          <li>{t('reports.tips.reconcile')}</li>
+          <li>{t('reports.tips.combine')}</li>
+          <li>{t('reports.tips.audit')}</li>
           <li>
-            {t("reports.tips.importer.prefix")} <code>/api/v1/portfolio/&lt;id&gt;</code>
-            {t("reports.tips.importer.suffix")}
+            {t('reports.tips.importer.prefix')} <code>/api/v1/portfolio/&lt;id&gt;</code>
+            {t('reports.tips.importer.suffix')}
           </li>
         </ul>
       </section>

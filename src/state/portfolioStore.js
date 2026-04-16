@@ -1,10 +1,10 @@
-const STORAGE_KEY = "portfolio-manager-active-portfolio";
+const STORAGE_KEY = 'portfolio-manager-active-portfolio';
 
 function getStorage(storage) {
   if (storage) {
     return storage;
   }
-  if (typeof window === "undefined" || !window.localStorage) {
+  if (typeof window === 'undefined' || !window.localStorage) {
     return null;
   }
   return window.localStorage;
@@ -17,16 +17,16 @@ function readState(storage) {
       return { activeId: null };
     }
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") {
+    if (!parsed || typeof parsed !== 'object') {
       return { activeId: null };
     }
     const legacyActiveId =
-      typeof parsed.activeId === "string" && parsed.activeId.trim().length > 0
+      typeof parsed.activeId === 'string' && parsed.activeId.trim().length > 0
         ? parsed.activeId.trim()
         : null;
     return { activeId: legacyActiveId };
   } catch (error) {
-    console.error("Failed to read active portfolio preference", error);
+    console.error('Failed to read active portfolio preference', error);
     return { activeId: null };
   }
 }
@@ -36,7 +36,7 @@ function writeState(storage, value) {
     storage.setItem(STORAGE_KEY, JSON.stringify(value));
     return true;
   } catch (error) {
-    console.error("Failed to persist active portfolio preference", error);
+    console.error('Failed to persist active portfolio preference', error);
     return false;
   }
 }
@@ -54,12 +54,10 @@ export function setActivePortfolioId(id, storage) {
   if (!store) {
     return false;
   }
-  const normalizedId =
-    typeof id === "string" && id.trim().length > 0 ? id.trim() : null;
+  const normalizedId = typeof id === 'string' && id.trim().length > 0 ? id.trim() : null;
   if (!normalizedId) {
     store.removeItem(STORAGE_KEY);
     return true;
   }
   return writeState(store, { activeId: normalizedId });
 }
-

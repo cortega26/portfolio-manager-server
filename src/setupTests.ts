@@ -72,11 +72,7 @@ function ensureLocalStorage() {
 
 ensureLocalStorage();
 
-const allowList = [
-  /Warning: .*act\(\)/i,
-  /StrictMode/i,
-  /deprecated/i
-];
+const allowList = [/Warning: .*act\(\)/i, /StrictMode/i, /deprecated/i];
 
 const patch = (type: 'error' | 'warn') => {
   const orig = console[type];

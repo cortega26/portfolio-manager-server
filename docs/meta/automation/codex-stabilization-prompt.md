@@ -1,9 +1,11 @@
 # Codex Prompt — Repo Surgeon Stabilization Playbook
 
 ## ROLE
+
 You are a senior repo surgeon + release engineer. Take charge of stabilizing this JavaScript/TypeScript React/Vite/Node app after manual merges introduced widespread breakage. Your job is to (1) restore BUILD → (2) get a SMOKE test green → (3) isolate bad commits via BISECT scripts → (4) surgically revert/restore only what broke → (5) quarantine legacy failures → (6) re‑enable the full suite in buckets → (7) add guardrails to prevent recurrence. Work autonomously; propose minimal diffs; avoid refactors.
 
 ## OPERATING RULES
+
 - Bias for **minimal patches** that make the build/tests green. Do NOT rewrite APIs or perform “cleanup” unrelated to the failing traces.
 - Keep changes small and well-scoped with clear commit messages (Conventional Commits).
 - If TypeScript isn’t configured, use `checkJs` to cheaply type-check JS.
@@ -11,6 +13,7 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
 - Prefer **revert/restore** over large edits: use `git revert` or `git restore -p` to selectively bring back known-good hunks.
 
 ## DELIVERABLES
+
 1. A new branch `fix/stabilize-YYYYMMDD` pushed.
 2. Updated `package.json` with verification scripts:
    - `verify:deps`, `verify:lint`, `verify:typecheck` (TS or checkJs), `verify:build`, `verify:smoke`.
@@ -26,10 +29,12 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
 ## PLAN (DO THESE IN ORDER)
 
 ### 0) Safety net & setup
+
 - Create and push `fix/stabilize-YYYYMMDD`.
 - Add/confirm `.nvmrc` or engines to lock Node version if missing.
 
 ### 1) One gate first: BUILD must pass
+
 - Add scripts to `package.json`:
   ```json
   {
@@ -56,6 +61,7 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
 - Run `npm run verify:smoke`; capture errors and fix only what blocks build (missing/duplicate exports, wrong import paths, bad JSX returns, unresolved modules). Commit as `fix(build): restore compiling state after manual merge`.
 
 ### 2) Minimal runtime check: SMOKE
+
 - Create `src/__smoke__/app.boot.test.tsx` (Vitest/Jest) with 1–3 assertions:
   - Renders `<App/>` without crashing.
   - Navigates to the primary route (e.g., `/dashboard`).
@@ -64,6 +70,7 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
 - Ensure `npm test -- src/__smoke__/` passes. Commit as `test(smoke): add boot smoke for app wiring`.
 
 ### 3) Bisect scripts (to pinpoint where merges broke things)
+
 - Create `scripts/bisect-build.sh`:
   ```bash
   #!/usr/bin/env bash
@@ -84,6 +91,7 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
   ```
 - `chmod +x scripts/bisect-*.sh`
 - Add to `STABILIZATION_PLAYBOOK.md`:
+
   ```bash
   git bisect start
   git bisect bad HEAD
@@ -101,12 +109,14 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
   ```
 
 ### 4) Surgical repair (only what broke)
+
 - For each culprit commit identified by bisect or error traces:
   - Prefer `git revert <sha>`; if reverting is too broad, use `git restore -s <good_sha> -p <path>` to restore hunks.
 - Avoid changing public API signatures unless the smoke test requires it.
 - After each repair, run `verify:smoke` and commit with a message referencing the broken commit (e.g., `revert(merge): restore correct export from X after <sha>`).
 
 ### 5) Bring back the full suite in buckets
+
 - Temporarily quarantine unstable tests with `describe.skip` and a `@quarantine` comment or move them under `src/__quarantine__/`.
 - Re-enable buckets gradually:
   ```bash
@@ -117,6 +127,7 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
 - For any **pre-existing** bugs you find, first add a focused regression test, then fix, then commit (e.g., `test(transactions): regression for deposit field lock` → `fix(transactions): ensure deposit disables ticker/shares`).
 
 ### 6) Guardrails
+
 - Add Husky hooks:
   - `.husky/pre-commit`: `npm run verify:lint`
   - `.husky/pre-push`: `npm run verify:smoke`
@@ -124,6 +135,7 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
 - Add a short HEALTH section to README showing current status and how to run smoke vs. full tests.
 
 ### 7) Documentation
+
 - Produce `STABILIZATION_PLAYBOOK.md` summarizing:
   - What failed initially (build errors, smoke errors).
   - Exact commits/hunks reverted/restored.
@@ -132,6 +144,7 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
   - Definition of Done.
 
 ## DEFINITION OF DONE
+
 - `npm run verify:build` and `npm test -- src/__smoke__/` **both pass** locally and in CI.
 - Problematic merges are reverted/restored with minimal diffs and clear commit messages.
 - Legacy failures (if any) are either green or explicitly quarantined and tracked in the playbook.
@@ -139,7 +152,9 @@ You are a senior repo surgeon + release engineer. Take charge of stabilizing thi
 - The repo contains the two bisect scripts and the smoke spec.
 
 ## OUTPUT FORMAT
+
 Open a PR titled `Stabilization: build + smoke green` with:
+
 - All patches described above.
 - `STABILIZATION_PLAYBOOK.md`.
 - A checklist of quarantined test groups (if any) with proposed dates/owners to un-quarantine.

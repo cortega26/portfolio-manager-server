@@ -33,7 +33,7 @@ function measureHoldingsBuilder({ transactions, pricesByDate, dates }) {
 
   if (durationMs > HOLDINGS_THRESHOLD_MS) {
     throw new Error(
-      `holdings builder exceeded ${HOLDINGS_THRESHOLD_MS}ms threshold (${durationMs.toFixed(2)}ms)`,
+      `holdings builder exceeded ${HOLDINGS_THRESHOLD_MS}ms threshold (${durationMs.toFixed(2)}ms)`
     );
   }
 

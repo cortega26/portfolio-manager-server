@@ -1,5 +1,7 @@
 <!-- markdownlint-disable -->
+
 # Portfolio Manager Unified
+
 > A desktop-first portfolio tracker built on Electron + React + Express + SQLite.
 
 [![CI](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml/badge.svg)](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml) ![Node 20.19](https://img.shields.io/badge/node-20.19.x-339933?logo=node.js) ![Electron](https://img.shields.io/badge/electron-shell-47848F?logo=electron)
@@ -34,12 +36,12 @@ flowchart LR
 
 ### Process Boundary
 
-| Layer | Runs in | Access |
-|---|---|---|
-| React UI (renderer) | Chromium process | Cannot access SQLite directly |
-| Express API | Node.js (main) | Session token required for every request |
-| Electron shell | Node.js (main) | Generates session token, starts Express on loopback |
-| SQLite | Filesystem | Only accessed via Express storage layer |
+| Layer               | Runs in          | Access                                              |
+| ------------------- | ---------------- | --------------------------------------------------- |
+| React UI (renderer) | Chromium process | Cannot access SQLite directly                       |
+| Express API         | Node.js (main)   | Session token required for every request            |
+| Electron shell      | Node.js (main)   | Generates session token, starts Express on loopback |
+| SQLite              | Filesystem       | Only accessed via Express storage layer             |
 
 ## Tech Stack
 
@@ -96,37 +98,37 @@ All configuration lives in `.env`. Copy `.env.example` for defaults.
 
 ### Core Settings
 
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3000` | Express API port (standalone mode) |
-| `DATA_DIR` | `./data` | SQLite database directory |
-| `LOG_LEVEL` | `info` | Pino log level |
+| Variable    | Default  | Description                        |
+| ----------- | -------- | ---------------------------------- |
+| `PORT`      | `3000`   | Express API port (standalone mode) |
+| `DATA_DIR`  | `./data` | SQLite database directory          |
+| `LOG_LEVEL` | `info`   | Pino log level                     |
 
 ### Pricing & Benchmarks
 
-| Variable | Default | Description |
-|---|---|---|
-| `PRICE_PROVIDER_PRIMARY` | `stooq` | Historical price provider (`stooq`, `yahoo`, `none`) |
-| `PRICE_PROVIDER_FALLBACK` | `none` | Fallback provider if primary fails |
-| `PRICE_PROVIDER_LATEST` | `alpaca` | Intraday quote provider (`alpaca`, `twelvedata`, `none`) |
-| `ALPACA_API_KEY` | — | Alpaca Market Data API key |
-| `ALPACA_API_SECRET` | — | Alpaca Market Data API secret |
-| `BENCHMARK_TICKERS` | `SPY,QQQ` | Market benchmarks for ROI comparison |
+| Variable                  | Default   | Description                                              |
+| ------------------------- | --------- | -------------------------------------------------------- |
+| `PRICE_PROVIDER_PRIMARY`  | `stooq`   | Historical price provider (`stooq`, `yahoo`, `none`)     |
+| `PRICE_PROVIDER_FALLBACK` | `none`    | Fallback provider if primary fails                       |
+| `PRICE_PROVIDER_LATEST`   | `alpaca`  | Intraday quote provider (`alpaca`, `twelvedata`, `none`) |
+| `ALPACA_API_KEY`          | —         | Alpaca Market Data API key                               |
+| `ALPACA_API_SECRET`       | —         | Alpaca Market Data API secret                            |
+| `BENCHMARK_TICKERS`       | `SPY,QQQ` | Market benchmarks for ROI comparison                     |
 
 ### Scheduler
 
-| Variable | Default | Description |
-|---|---|---|
-| `JOB_NIGHTLY_ENABLED` | `true` | Enable nightly close scheduler |
-| `JOB_NIGHTLY_HOUR` | `4` | UTC hour for nightly recomputation |
+| Variable              | Default | Description                        |
+| --------------------- | ------- | ---------------------------------- |
+| `JOB_NIGHTLY_ENABLED` | `true`  | Enable nightly close scheduler     |
+| `JOB_NIGHTLY_HOUR`    | `4`     | UTC hour for nightly recomputation |
 
 ### Cache & Performance
 
-| Variable | Default | Description |
-|---|---|---|
-| `PRICE_CACHE_TTL_SECONDS` | `600` | TTL for historical price cache |
-| `PRICE_CACHE_LIVE_OPEN_TTL_SECONDS` | `60` | TTL for intraday prices during market hours |
-| `PRICE_CACHE_LIVE_CLOSED_TTL_SECONDS` | `900` | TTL for prices outside market hours |
+| Variable                              | Default | Description                                 |
+| ------------------------------------- | ------- | ------------------------------------------- |
+| `PRICE_CACHE_TTL_SECONDS`             | `600`   | TTL for historical price cache              |
+| `PRICE_CACHE_LIVE_OPEN_TTL_SECONDS`   | `60`    | TTL for intraday prices during market hours |
+| `PRICE_CACHE_LIVE_CLOSED_TTL_SECONDS` | `900`   | TTL for prices outside market hours         |
 
 ## Project Structure
 

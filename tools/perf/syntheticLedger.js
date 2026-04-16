@@ -36,12 +36,7 @@ function determineType({ ticker, holdings, rngValue, saleFrequency }) {
   return rngValue < saleFrequency ? 'SELL' : 'BUY';
 }
 
-function generateTransactions({
-  transactionCount,
-  tickers,
-  baseDate,
-  saleFrequency,
-}) {
+function generateTransactions({ transactionCount, tickers, baseDate, saleFrequency }) {
   const rng = createDeterministicRng(11);
   const transactions = [
     {

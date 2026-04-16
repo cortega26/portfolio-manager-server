@@ -1,4 +1,5 @@
 <!-- markdownlint-disable -->
+
 # Frontend Operations Playbook
 
 ## Purpose
@@ -7,24 +8,24 @@ This playbook standardizes how to operate, verify, and troubleshoot the Vite/Rea
 
 ## Roles & Responsibilities
 
-| Role | Primary Responsibilities | Handoff Notes |
-|------|--------------------------|---------------|
-| Frontend On-Call | Execute smoke tests, validate benchmark toggles & KPIs, watch Admin tab metrics post-deploy. | Rotate weekly with backend on-call; share findings in #portfolio-ops channel. |
-| Release Captain | Coordinate deployment windows, ensure README + scoreboard remain current, track rollout checklist completion. | Owns rollback decision within 15 minutes of detected regression. |
-| Observability Lead | Maintain dashboards surfaced in Admin tab and `/api/monitoring`, ensure alerts route to PagerDuty. | Update runbooks when new metrics are added. |
+| Role               | Primary Responsibilities                                                                                      | Handoff Notes                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Frontend On-Call   | Execute smoke tests, validate benchmark toggles & KPIs, watch Admin tab metrics post-deploy.                  | Rotate weekly with backend on-call; share findings in #portfolio-ops channel. |
+| Release Captain    | Coordinate deployment windows, ensure README + scoreboard remain current, track rollout checklist completion. | Owns rollback decision within 15 minutes of detected regression.              |
+| Observability Lead | Maintain dashboards surfaced in Admin tab and `/api/monitoring`, ensure alerts route to PagerDuty.            | Update runbooks when new metrics are added.                                   |
 
 ## Configuration Reference
 
 > Private operations should distribute the admin dashboard via invite-only URLs (`/admin/<token>`). Configure `VITE_ADMIN_ACCESS_TOKENS` before sharing links with testers or on-call staff.
 
-| Name | Type | Default | Required | Description |
-|------|------|---------|----------|-------------|
-| `VITE_API_BASE` | string (URL) | `http://localhost:3000/api/v1` | ✅ | API base path consumed by frontend queries, including Admin tab monitoring. |
-| `VITE_FEATURE_BENCHMARK_TOGGLES` | boolean (`"true" \| "false"`) | `true` | ✅ | Enables benchmark toggle controls on the dashboard ROI chart; leave enabled for Phase 4 baseline. |
-| `VITE_FEATURE_KPI_REFRESH` | boolean (`"true" \| "false"`) | `true` | ✅ | Enables refreshed KPI panel with cash drag + benchmark deltas. |
-| `VITE_ADMIN_POLL_INTERVAL_MS` | number | `15000` | ✅ | Poll frequency (ms) for Admin tab monitoring fetches. Increase temporarily if rate limits approach thresholds. |
-| `VITE_ADMIN_ACCESS_TOKENS` | string[] (comma-separated) | `friend-one,friend-two,friend-three` | ❌ | Invite tokens for the private admin portal; share a distinct token per tester and rotate when access should be revoked. |
-| `LOG_LEVEL` | string (`"info" \| "debug" \| "error"`) | `info` | ✅ | Controls frontend structured logging verbosity surfaced in browser console output. |
+| Name                             | Type                                    | Default                              | Required | Description                                                                                                             |
+| -------------------------------- | --------------------------------------- | ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `VITE_API_BASE`                  | string (URL)                            | `http://localhost:3000/api/v1`       | ✅       | API base path consumed by frontend queries, including Admin tab monitoring.                                             |
+| `VITE_FEATURE_BENCHMARK_TOGGLES` | boolean (`"true" \| "false"`)           | `true`                               | ✅       | Enables benchmark toggle controls on the dashboard ROI chart; leave enabled for Phase 4 baseline.                       |
+| `VITE_FEATURE_KPI_REFRESH`       | boolean (`"true" \| "false"`)           | `true`                               | ✅       | Enables refreshed KPI panel with cash drag + benchmark deltas.                                                          |
+| `VITE_ADMIN_POLL_INTERVAL_MS`    | number                                  | `15000`                              | ✅       | Poll frequency (ms) for Admin tab monitoring fetches. Increase temporarily if rate limits approach thresholds.          |
+| `VITE_ADMIN_ACCESS_TOKENS`       | string[] (comma-separated)              | `friend-one,friend-two,friend-three` | ❌       | Invite tokens for the private admin portal; share a distinct token per tester and rotate when access should be revoked. |
+| `LOG_LEVEL`                      | string (`"info" \| "debug" \| "error"`) | `info`                               | ✅       | Controls frontend structured logging verbosity surfaced in browser console output.                                      |
 
 > **Note:** Feature toggles must remain consistent with backend exposure. When disabling toggles for a canary, document rationale in the deployment record and link to scoreboard evidence.
 

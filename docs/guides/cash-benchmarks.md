@@ -1,4 +1,3 @@
-
 # Cash & Benchmarks
 
 This document specifies the daily cash accrual, NAV, return, and benchmark infrastructure introduced by the **cash & benchmarks** feature flag (env: `FEATURES_CASH_BENCHMARKS`). All functionality is persisted in JSON-backed tables under the configured `DATA_DIR`.
@@ -7,15 +6,15 @@ When `FEATURES_MONTHLY_CASH_POSTING` is enabled the server still computes the ca
 
 ## Data Model
 
-| Table | Purpose |
-| --- | --- |
-| `transactions.json` | Portfolio ledger including automated `INTEREST` entries. |
-| `portfolio_<id>.json` | Per-portfolio payload including transactions, signals, settings, and `cash.apyTimeline`. |
-| `cash_rates.json` | Legacy global APY schedule. Acts as the default seed for `cash.apyTimeline` when migrating or provisioning portfolios. |
-| `prices.json` | Daily adjusted close prices for held tickers, SPY, and cash (fixed 1.0). |
-| `nav_snapshots.json` | End-of-day NAV, ex-cash NAV, sleeve balances, and `stale_price` flag. |
-| `returns_daily.json` | Time-weighted daily returns for portfolio, ex-cash sleeve, blended benchmark, SPY, and cash. |
-| `_migrations_state.json` | Migration bookkeeping to keep file schema idempotent. |
+| Table                    | Purpose                                                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `transactions.json`      | Portfolio ledger including automated `INTEREST` entries.                                                               |
+| `portfolio_<id>.json`    | Per-portfolio payload including transactions, signals, settings, and `cash.apyTimeline`.                               |
+| `cash_rates.json`        | Legacy global APY schedule. Acts as the default seed for `cash.apyTimeline` when migrating or provisioning portfolios. |
+| `prices.json`            | Daily adjusted close prices for held tickers, SPY, and cash (fixed 1.0).                                               |
+| `nav_snapshots.json`     | End-of-day NAV, ex-cash NAV, sleeve balances, and `stale_price` flag.                                                  |
+| `returns_daily.json`     | Time-weighted daily returns for portfolio, ex-cash sleeve, blended benchmark, SPY, and cash.                           |
+| `_migrations_state.json` | Migration bookkeeping to keep file schema idempotent.                                                                  |
 
 ## Cash Accrual
 
@@ -28,7 +27,7 @@ r_{\text{daily}} &= \frac{\text{APY}}{365},\\
 \end{aligned}
 $$
 
-where \(\text{Cash}^{\text{EOD}}_{t}\) is the cash balance after all non-interest transactions dated on \(t\) have been applied (but before the automated posting for \(t\)). The accrual job writes deterministic identifiers (`interest-YYYY-MM-DD`) so re-running the job simply updates the same record.
+where \(\text{Cash}^{\text{EOD}}\_{t}\) is the cash balance after all non-interest transactions dated on \(t\) have been applied (but before the automated posting for \(t\)). The accrual job writes deterministic identifiers (`interest-YYYY-MM-DD`) so re-running the job simply updates the same record.
 
 ### Day-count convention
 
@@ -50,13 +49,13 @@ where \(\text{Cash}^{\text{EOD}}_{t}\) is the cash balance after all non-interes
 
 ## Time-Weighted Returns & Benchmarks
 
-For each day `t` we compute **external flows** `F_t` (deposits/withdrawals only; **internal** events like `BUY`, `SELL`, `DIVIDEND`, `INTEREST`, `FEE` are *excluded*) and apply a daily subperiod return consistent with **end-of-day flow timing**:
+For each day `t` we compute **external flows** `F_t` (deposits/withdrawals only; **internal** events like `BUY`, `SELL`, `DIVIDEND`, `INTEREST`, `FEE` are _excluded_) and apply a daily subperiod return consistent with **end-of-day flow timing**:
 
 $$
 r_t = \frac{MV_t - F_t}{MV_{t-1}} - 1
 $$
 
-- Interpretation: `F_t` is the **net flow during `[t-1, t]` treated as occurring at the end of day `t`**. This makes intraday flows neutral to that day’s performance (they affect the level, not the return). If you need **start-of-day** timing, the equivalent would be \( r_t = \frac{MV_t}{MV_{t-1} + F_t} - 1 \). If multiple intraday flows must be time-weighted, prefer **Modified Dietz** or break the period at each flow.
+- Interpretation: `F_t` is the **net flow during `[t-1, t]` treated as occurring at the end of day `t`**. This makes intraday flows neutral to that day’s performance (they affect the level, not the return). If you need **start-of-day** timing, the equivalent would be \( r*t = \frac{MV_t}{MV*{t-1} + F_t} - 1 \). If multiple intraday flows must be time-weighted, prefer **Modified Dietz** or break the period at each flow.
 
 Additional series:
 
@@ -131,16 +130,16 @@ Guard applies to: `/api/prices/:symbol`, `/api/returns/daily`, `/api/nav/daily`,
 
 ## Configuration
 
-| Name | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| `DATA_DIR` | string | `./data` | No | Root directory for JSON tables. |
-| `PRICE_FETCH_TIMEOUT_MS` | number | `5000` | No | Timeout for legacy price fetches. |
-| `FEATURES_CASH_BENCHMARKS` | boolean | `true` | No | Enables cash & benchmark endpoints/jobs. |
-| `FEATURES_MONTHLY_CASH_POSTING` | boolean | `false` | No | Aggregates daily cash interest accruals into a single monthly ledger posting. |
-| `CASH_POSTING_DAY` | number/string | `last` | No | Day of month (`1`-`31`) or `last` for end-of-month cash interest posting. |
-| `JOB_NIGHTLY_HOUR` | number | `4` | No | UTC hour for the nightly accrual job. |
-| `CORS_ALLOWED_ORIGINS` | string (CSV) | _(empty)_ | No | Whitelist of origins allowed by the API CORS policy. |
-| `FRESHNESS_MAX_STALE_TRADING_DAYS` | number | `3` | No | Max allowable trading‑day age before guarded endpoints emit `503 STALE_DATA`. |
+| Name                               | Type          | Default   | Required | Description                                                                   |
+| ---------------------------------- | ------------- | --------- | -------- | ----------------------------------------------------------------------------- |
+| `DATA_DIR`                         | string        | `./data`  | No       | Root directory for JSON tables.                                               |
+| `PRICE_FETCH_TIMEOUT_MS`           | number        | `5000`    | No       | Timeout for legacy price fetches.                                             |
+| `FEATURES_CASH_BENCHMARKS`         | boolean       | `true`    | No       | Enables cash & benchmark endpoints/jobs.                                      |
+| `FEATURES_MONTHLY_CASH_POSTING`    | boolean       | `false`   | No       | Aggregates daily cash interest accruals into a single monthly ledger posting. |
+| `CASH_POSTING_DAY`                 | number/string | `last`    | No       | Day of month (`1`-`31`) or `last` for end-of-month cash interest posting.     |
+| `JOB_NIGHTLY_HOUR`                 | number        | `4`       | No       | UTC hour for the nightly accrual job.                                         |
+| `CORS_ALLOWED_ORIGINS`             | string (CSV)  | _(empty)_ | No       | Whitelist of origins allowed by the API CORS policy.                          |
+| `FRESHNESS_MAX_STALE_TRADING_DAYS` | number        | `3`       | No       | Max allowable trading‑day age before guarded endpoints emit `503 STALE_DATA`. |
 
 ## Testing
 

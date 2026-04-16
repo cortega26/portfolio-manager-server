@@ -1,4 +1,5 @@
 <!-- markdownlint-disable -->
+
 # Portfolio Manager - Complete Audit Report & Action Plan
 
 **Project**: Portfolio Manager (Server Edition)  
@@ -13,12 +14,14 @@
 ### Overall Health Score: 7.5/10 ⭐⭐⭐⭐
 
 **Strengths:**
+
 - ✅ Solid architecture with clear separation of concerns
 - ✅ Good test coverage (85%+) across core modules
 - ✅ Well-documented with AGENTS.md and technical specs
 - ✅ Phase 1 critical fixes already identified and planned
 
 **Critical Areas Requiring Attention:**
+
 - 🔴 Test implementation status unclear
 - 🟡 Frontend-backend communication needs validation
 - 🟡 Performance optimization opportunities
@@ -43,30 +46,33 @@
 
 ### ✅ Completed/In Place
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| **Backend API** | ✅ Operational | Express with file-based storage |
-| **Frontend UI** | ✅ Operational | React + Vite + Tailwind |
-| **Price Fetching** | ✅ Working | Stooq integration (no API key) |
-| **Portfolio CRUD** | ✅ Working | Save/load with ID validation |
-| **Documentation** | ✅ Good | AGENTS.md, README, audit docs |
-| **Phase 1 Fixes** | 📋 Planned | Defined but implementation unclear |
+| Component          | Status         | Notes                              |
+| ------------------ | -------------- | ---------------------------------- |
+| **Backend API**    | ✅ Operational | Express with file-based storage    |
+| **Frontend UI**    | ✅ Operational | React + Vite + Tailwind            |
+| **Price Fetching** | ✅ Working     | Stooq integration (no API key)     |
+| **Portfolio CRUD** | ✅ Working     | Save/load with ID validation       |
+| **Documentation**  | ✅ Good        | AGENTS.md, README, audit docs      |
+| **Phase 1 Fixes**  | 📋 Planned     | Defined but implementation unclear |
 
 ### 🔴 Issues Identified
 
 #### CRITICAL Issues
+
 1. **TEST-1**: Phase 1 audit fixes defined but test execution status unknown
 2. **TEST-2**: Need to verify all tests pass with current codebase
 3. **COM-1**: Frontend-backend API contract validation needed
 4. **SEC-1**: Missing rate limiting on critical endpoints
 
 #### HIGH Priority Issues
+
 1. **PERF-1**: No caching strategy for price data
 2. **PERF-2**: Holdings recalculation on every transaction
 3. **TEST-3**: Coverage gaps in edge cases
 4. **DOC-1**: API documentation incomplete
 
 #### MEDIUM Priority Issues
+
 1. **CODE-1**: Some functions exceed complexity thresholds
 2. **CODE-2**: Inconsistent error handling patterns
 3. **SCALE-1**: No pagination for large transaction lists
@@ -98,8 +104,9 @@ npm test
 ```
 
 **Expected Outcomes:**
+
 - ✅ All Phase 1 audit tests should PASS
-- ⚠️  If any tests FAIL, this indicates fixes not yet applied
+- ⚠️ If any tests FAIL, this indicates fixes not yet applied
 - ❌ If tests missing, need to implement from fixed_portfolio_files.txt
 
 ### Test Coverage Gaps Identified
@@ -107,6 +114,7 @@ npm test
 #### Missing Test Scenarios
 
 1. **Transaction Edge Cases** (Priority: HIGH)
+
    ```javascript
    // Need tests for:
    - Multiple same-day transactions across all types
@@ -117,6 +125,7 @@ npm test
    ```
 
 2. **Holdings Calculations** (Priority: HIGH)
+
    ```javascript
    // Need tests for:
    - Multiple buys and sells same ticker
@@ -126,6 +135,7 @@ npm test
    ```
 
 3. **API Integration** (Priority: MEDIUM)
+
    ```javascript
    // Need tests for:
    - Network timeout handling
@@ -155,27 +165,24 @@ import createApp from '../app.js';
 
 test('full portfolio lifecycle', async () => {
   const app = createApp({ dataDir: './test-data' });
-  
+
   // Create portfolio
   const res1 = await request(app)
     .post('/api/portfolio/test-001')
     .send({ transactions: [], signals: {} });
   assert.equal(res1.status, 200);
-  
+
   // Add transaction
   const res2 = await request(app)
     .post('/api/portfolio/test-001')
     .send({
-      transactions: [
-        { date: '2024-01-01', ticker: 'SPY', type: 'BUY', amount: -1000, price: 100 }
-      ],
-      signals: {}
+      transactions: [{ date: '2024-01-01', ticker: 'SPY', type: 'BUY', amount: -1000, price: 100 }],
+      signals: {},
     });
   assert.equal(res2.status, 200);
-  
+
   // Retrieve and verify
-  const res3 = await request(app)
-    .get('/api/portfolio/test-001');
+  const res3 = await request(app).get('/api/portfolio/test-001');
   assert.equal(res3.body.transactions.length, 1);
 });
 ```
@@ -188,26 +195,27 @@ test('full portfolio lifecycle', async () => {
 
 #### Current Endpoints
 
-| Endpoint | Method | Status | Issues |
-|----------|--------|--------|--------|
-| `/api/prices/:symbol` | GET | ✅ Working | No caching headers |
-| `/api/portfolio/:id` | GET | ✅ Working | No validation feedback |
-| `/api/portfolio/:id` | POST | ✅ Working | Missing size limits |
-| `/api/returns/daily` | GET | 📋 Planned | Cash benchmarks feature |
-| `/api/nav/daily` | GET | 📋 Planned | Cash benchmarks feature |
+| Endpoint              | Method | Status     | Issues                  |
+| --------------------- | ------ | ---------- | ----------------------- |
+| `/api/prices/:symbol` | GET    | ✅ Working | No caching headers      |
+| `/api/portfolio/:id`  | GET    | ✅ Working | No validation feedback  |
+| `/api/portfolio/:id`  | POST   | ✅ Working | Missing size limits     |
+| `/api/returns/daily`  | GET    | 📋 Planned | Cash benchmarks feature |
+| `/api/nav/daily`      | GET    | 📋 Planned | Cash benchmarks feature |
 
 #### **CRITICAL**: Request/Response Validation
 
 **Current Implementation Issues:**
 
 1. **Missing Input Validation** (Priority: CRITICAL)
+
 ```javascript
 // ISSUE: In src/utils/api.js
 export async function persistPortfolio(portfolioId, data) {
   // ❌ No validation of `data` structure before sending
   const response = await fetch(`/api/portfolio/${portfolioId}`, {
     method: 'POST',
-    body: JSON.stringify(data)  // Could send anything
+    body: JSON.stringify(data), // Could send anything
   });
 }
 
@@ -215,19 +223,22 @@ export async function persistPortfolio(portfolioId, data) {
 import { z } from 'zod';
 
 const PortfolioSchema = z.object({
-  transactions: z.array(z.object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    ticker: z.string().min(1).max(10),
-    type: z.enum(['BUY', 'SELL', 'DIVIDEND', 'DEPOSIT', 'WITHDRAWAL']),
-    amount: z.number(),
-    price: z.number().positive(),
-    shares: z.number()
-  })),
-  signals: z.record(z.number())
+  transactions: z.array(
+    z.object({
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      ticker: z.string().min(1).max(10),
+      type: z.enum(['BUY', 'SELL', 'DIVIDEND', 'DEPOSIT', 'WITHDRAWAL']),
+      amount: z.number(),
+      price: z.number().positive(),
+      shares: z.number(),
+    })
+  ),
+  signals: z.record(z.number()),
 });
 ```
 
 2. **Error Response Handling** (Priority: HIGH)
+
 ```javascript
 // ISSUE: Inconsistent error handling
 // Some components catch errors, others don't
@@ -236,7 +247,7 @@ const PortfolioSchema = z.object({
 const ErrorResponse = {
   400: { code: 'VALIDATION_ERROR', message: 'Invalid input' },
   404: { code: 'NOT_FOUND', message: 'Portfolio not found' },
-  500: { code: 'SERVER_ERROR', message: 'Internal error' }
+  500: { code: 'SERVER_ERROR', message: 'Internal error' },
 };
 ```
 
@@ -248,18 +259,32 @@ const ErrorResponse = {
 test('data persists correctly through full cycle', async () => {
   const testData = {
     transactions: [
-      { date: '2024-01-01', ticker: 'AAPL', type: 'BUY', amount: -1000, price: 150, shares: 6.666667 },
-      { date: '2024-01-02', ticker: 'AAPL', type: 'SELL', amount: 900, price: 155, shares: 5.806451 }
+      {
+        date: '2024-01-01',
+        ticker: 'AAPL',
+        type: 'BUY',
+        amount: -1000,
+        price: 150,
+        shares: 6.666667,
+      },
+      {
+        date: '2024-01-02',
+        ticker: 'AAPL',
+        type: 'SELL',
+        amount: 900,
+        price: 155,
+        shares: 5.806451,
+      },
     ],
-    signals: { AAPL: 5 }
+    signals: { AAPL: 5 },
   };
-  
+
   // Save
   await persistPortfolio('e2e-test', testData);
-  
+
   // Load
   const loaded = await retrievePortfolio('e2e-test');
-  
+
   // Verify exact match (including floating point)
   assert.deepEqual(loaded.transactions, testData.transactions);
   assert.deepEqual(loaded.signals, testData.signals);
@@ -288,23 +313,23 @@ Code Duplication: Low (<5%)
    - Complexity: 12
    - Lines: 95
    - **Recommendation**: Split into smaller functions
-   
+
    ```javascript
    // REFACTOR SUGGESTION:
    export function buildHoldings(transactions) {
      const map = new Map();
-     
-     transactions.forEach(tx => {
-       processTransaction(map, tx);  // Extract processing logic
+
+     transactions.forEach((tx) => {
+       processTransaction(map, tx); // Extract processing logic
      });
-     
-     return finalizeHoldings(map);  // Extract finalization
+
+     return finalizeHoldings(map); // Extract finalization
    }
-   
+
    function processTransaction(map, tx) {
      // Transaction processing logic
    }
-   
+
    function finalizeHoldings(map) {
      // Conversion to array and sorting
    }
@@ -318,6 +343,7 @@ Code Duplication: Low (<5%)
 #### Inconsistent Error Handling
 
 **Pattern 1: Try-Catch** (Backend)
+
 ```javascript
 try {
   const data = await fs.readFile(path);
@@ -329,6 +355,7 @@ try {
 ```
 
 **Pattern 2: If-Checks** (Frontend)
+
 ```javascript
 if (!response.ok) {
   console.error('Failed to fetch');
@@ -357,11 +384,13 @@ async function handleApiCall(promise, fallback = null) {
 ### Code Style Consistency
 
 #### ✅ Already Consistent:
+
 - File naming (camelCase for JS, PascalCase for components)
 - Import ordering (standard library → packages → local)
 - Function declarations (arrow functions for utilities)
 
 #### ⚠️ Needs Standardization:
+
 - Comment styles (mix of `//` and `/* */`)
 - Error message formats
 - Logging patterns
@@ -416,11 +445,12 @@ Endpoint Response Times:
 #### CRITICAL: No Caching Strategy
 
 **Issue**: Price data fetched on every request
+
 ```javascript
 // Current implementation (server/app.js)
 app.get('/api/prices/:symbol', async (req, res) => {
   const symbol = req.params.symbol;
-  const data = await fetchHistoricalPrices(symbol);  // Always fetches
+  const data = await fetchHistoricalPrices(symbol); // Always fetches
   res.json(data);
 });
 ```
@@ -436,14 +466,14 @@ const priceCache = new NodeCache({ stdTTL: 300 });
 app.get('/api/prices/:symbol', async (req, res) => {
   const symbol = req.params.symbol;
   const cacheKey = `prices:${symbol}:${req.query.range || '1y'}`;
-  
+
   // Check cache
   let data = priceCache.get(cacheKey);
   if (!data) {
     data = await fetchHistoricalPrices(symbol, req.query.range);
     priceCache.set(cacheKey, data);
   }
-  
+
   // Set cache headers
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.json(data);
@@ -453,6 +483,7 @@ app.get('/api/prices/:symbol', async (req, res) => {
 #### HIGH: Inefficient Holdings Recalculation
 
 **Issue**: Holdings rebuilt from scratch on every transaction
+
 ```javascript
 // Current: O(n²) where n = transaction count
 const holdings = useMemo(() => buildHoldings(transactions), [transactions]);
@@ -465,7 +496,7 @@ const holdings = useMemo(() => buildHoldings(transactions), [transactions]);
 const [holdings, setHoldings] = useState(new Map());
 
 const addTransaction = useCallback((transaction) => {
-  setHoldings(prev => {
+  setHoldings((prev) => {
     const updated = new Map(prev);
     updateHoldingWithTransaction(updated, transaction);
     return updated;
@@ -487,30 +518,25 @@ Concurrent Users: ~50 (Express default)
 #### Scaling Recommendations
 
 1. **Pagination** (Priority: MEDIUM)
+
 ```javascript
 // Add to TransactionsTable
-<PaginatedTable
-  data={transactions}
-  pageSize={50}
-  onPageChange={handlePageChange}
-/>
+<PaginatedTable data={transactions} pageSize={50} onPageChange={handlePageChange} />
 ```
 
 2. **Virtual Scrolling** (Priority: LOW)
+
 ```javascript
 // For large transaction lists
 import { FixedSizeList } from 'react-window';
 
-<FixedSizeList
-  height={600}
-  itemCount={transactions.length}
-  itemSize={50}
->
+<FixedSizeList height={600} itemCount={transactions.length} itemSize={50}>
   {TransactionRow}
-</FixedSizeList>
+</FixedSizeList>;
 ```
 
 3. **Database Migration Path** (Future)
+
 ```
 When to migrate to DB:
 ├── Transactions > 50,000
@@ -544,6 +570,7 @@ When to migrate to DB:
 ##### SEC-1: Missing Rate Limiting (CRITICAL)
 
 **Current State**: Only `/api/prices` has rate limiting
+
 ```javascript
 // Only this endpoint is protected
 app.use('/api/prices', priceLimiter);
@@ -552,19 +579,20 @@ app.use('/api/prices', priceLimiter);
 **RISK**: Portfolio endpoints vulnerable to abuse
 
 **FIX REQUIRED**:
+
 ```javascript
 // Add rate limiting to all endpoints
 const portfolioLimiter = rateLimit({
   windowMs: 60_000,
-  max: 20,  // 20 requests per minute
-  message: 'Too many portfolio requests'
+  max: 20, // 20 requests per minute
+  message: 'Too many portfolio requests',
 });
 
 app.use('/api/portfolio', portfolioLimiter);
 
 const generalLimiter = rateLimit({
   windowMs: 60_000,
-  max: 100
+  max: 100,
 });
 
 app.use('/api', generalLimiter);
@@ -575,15 +603,18 @@ app.use('/api', generalLimiter);
 **RISK**: Large payload DOS attack
 
 **FIX**:
+
 ```javascript
-app.use(express.json({
-  limit: '10mb',  // Already set, but verify enforcement
-  verify: (req, res, buf) => {
-    if (buf.length > 10_000_000) {
-      throw new Error('Request too large');
-    }
-  }
-}));
+app.use(
+  express.json({
+    limit: '10mb', // Already set, but verify enforcement
+    verify: (req, res, buf) => {
+      if (buf.length > 10_000_000) {
+        throw new Error('Request too large');
+      }
+    },
+  })
+);
 ```
 
 ##### SEC-3: No Authentication (MEDIUM)
@@ -593,6 +624,7 @@ app.use(express.json({
 **RISK**: Enumeration attack to discover portfolios
 
 **RECOMMENDATION** (for future phase):
+
 ```javascript
 // Add JWT authentication
 const jwt = require('jsonwebtoken');
@@ -602,7 +634,7 @@ app.use('/api/portfolio', verifyToken);
 function verifyToken(req, res, next) {
   const token = req.headers['authorization'];
   if (!token) return res.status(401).json({ error: 'No token' });
-  
+
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) return res.status(403).json({ error: 'Invalid token' });
     req.userId = decoded.userId;
@@ -616,6 +648,7 @@ function verifyToken(req, res, next) {
 ##### SEC-4: Error Information Leakage
 
 **Issue**: Stack traces exposed in development
+
 ```javascript
 // Make sure NODE_ENV=production in deployment
 if (process.env.NODE_ENV !== 'production') {
@@ -631,6 +664,7 @@ if (process.env.NODE_ENV !== 'production') {
 ##### SEC-5: No HTTPS Enforcement
 
 **RECOMMENDATION**: Add HTTPS redirect middleware
+
 ```javascript
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && !req.secure) {
@@ -661,6 +695,7 @@ app.use((req, res, next) => {
 ### Immediate Actions (This Week)
 
 #### 1. **Verify Test Suite** ⏱️ 30 minutes
+
 ```bash
 # Run tests
 npm test
@@ -676,13 +711,14 @@ npm test -- --experimental-test-coverage
 #### 2. **Add Missing Security** ⏱️ 2 hours
 
 **File**: `server/app.js`
+
 ```javascript
 // Add comprehensive rate limiting
 const portfolioLimiter = rateLimit({
   windowMs: 60_000,
   max: 20,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
 
 app.use('/api/portfolio', portfolioLimiter);
@@ -693,6 +729,7 @@ app.use('/api/nav', portfolioLimiter);
 #### 3. **Implement Request Validation** ⏱️ 3 hours
 
 **File**: `server/middleware/validation.js` (NEW)
+
 ```javascript
 import { z } from 'zod';
 
@@ -702,12 +739,12 @@ export const TransactionSchema = z.object({
   type: z.enum(['BUY', 'SELL', 'DIVIDEND', 'DEPOSIT', 'WITHDRAWAL']),
   amount: z.number(),
   price: z.number().positive(),
-  shares: z.number().nonnegative()
+  shares: z.number().nonnegative(),
 });
 
 export const PortfolioSchema = z.object({
   transactions: z.array(TransactionSchema),
-  signals: z.record(z.string(), z.number())
+  signals: z.record(z.string(), z.number()),
 });
 
 export function validatePortfolio(req, res, next) {
@@ -717,13 +754,14 @@ export function validatePortfolio(req, res, next) {
   } catch (error) {
     res.status(400).json({
       error: 'VALIDATION_ERROR',
-      details: error.errors
+      details: error.errors,
     });
   }
 }
 ```
 
 **File**: `server/app.js`
+
 ```javascript
 import { validatePortfolio } from './middleware/validation.js';
 
@@ -737,6 +775,7 @@ app.post('/api/portfolio/:id', validatePortfolio, async (req, res) => {
 #### 4. **Add Price Caching** ⏱️ 4 hours
 
 **Dependencies**:
+
 ```bash
 npm install node-cache
 ```
@@ -746,29 +785,28 @@ npm install node-cache
 #### 5. **Improve Error Handling** ⏱️ 6 hours
 
 **File**: `server/middleware/errorHandler.js` (NEW)
+
 ```javascript
 export function errorHandler(err, req, res, next) {
   const errorMap = {
-    'VALIDATION_ERROR': 400,
-    'NOT_FOUND': 404,
-    'RATE_LIMIT': 429,
-    'SERVER_ERROR': 500
+    VALIDATION_ERROR: 400,
+    NOT_FOUND: 404,
+    RATE_LIMIT: 429,
+    SERVER_ERROR: 500,
   };
-  
+
   const statusCode = errorMap[err.code] || 500;
-  const message = process.env.NODE_ENV === 'production'
-    ? 'An error occurred'
-    : err.message;
-  
+  const message = process.env.NODE_ENV === 'production' ? 'An error occurred' : err.message;
+
   req.log.error({
     error: err.message,
     stack: err.stack,
-    code: err.code
+    code: err.code,
   });
-  
+
   res.status(statusCode).json({
     error: err.code || 'SERVER_ERROR',
-    message
+    message,
   });
 }
 ```
@@ -780,18 +818,21 @@ Create `server/__tests__/integration.test.js` (see Test Coverage section)
 ### Next Quarter Actions
 
 #### 7. **Performance Optimization** ⏱️ 16 hours
+
 - Implement caching strategy
 - Add virtual scrolling for large lists
 - Optimize chart rendering
 - Add service worker for offline support
 
 #### 8. **Cash & Benchmarks Feature** ⏱️ 40 hours
+
 - Follow AGENTS.md implementation plan
 - Complete all phases (0-6)
 - Comprehensive testing
 - Documentation updates
 
 #### 9. **Scalability Improvements** ⏱️ 24 hours
+
 - Add pagination to all lists
 - Implement data archiving
 - Optimize file storage
@@ -821,6 +862,7 @@ Week 2:
 ```
 
 **Deliverables**:
+
 - [ ] All tests passing
 - [ ] Security checklist 80% complete
 - [ ] API validation on all endpoints
@@ -852,6 +894,7 @@ Week 5-6: Code Quality
 ```
 
 **Deliverables**:
+
 - [ ] 30% performance improvement
 - [ ] 95% test coverage
 - [ ] Code quality score 8.5/10
@@ -872,6 +915,7 @@ Follow AGENTS.md phases:
 ```
 
 **Deliverables**:
+
 - [ ] Daily interest accrual
 - [ ] NAV snapshots
 - [ ] Benchmark comparisons
@@ -991,6 +1035,7 @@ npm run backfill         # Backfill historical data
 ```
 
 **Recommended Tools**:
+
 - **Logging**: Pino (already in use) ✅
 - **Monitoring**: PM2 or Datadog
 - **Error Tracking**: Sentry
@@ -1002,16 +1047,17 @@ npm run backfill         # Backfill historical data
 
 ```json
 {
-  "express": "^4.18.2",          // Security updates
-  "helmet": "^8.1.0",            // Security
-  "cors": "^2.8.5",              // Security
-  "zod": "^4.1.11",              // Validation
-  "react": "^18.2.0",            // Latest stable
-  "recharts": "^2.7.2"           // Charts
+  "express": "^4.18.2", // Security updates
+  "helmet": "^8.1.0", // Security
+  "cors": "^2.8.5", // Security
+  "zod": "^4.1.11", // Validation
+  "react": "^18.2.0", // Latest stable
+  "recharts": "^2.7.2" // Charts
 }
 ```
 
 **Action**: Run weekly
+
 ```bash
 npm audit
 npm outdated
@@ -1025,6 +1071,7 @@ npm update
 ### Immediate Next Steps (Today)
 
 1. **✅ Run Test Suite** (30 min)
+
    ```bash
    npm test
    ```
@@ -1071,9 +1118,10 @@ npm update
 **Date**: October 5, 2025  
 **Author**: Portfolio Audit Team  
 **Status**: Active  
-**Next Review**: November 5, 2025  
+**Next Review**: November 5, 2025
 
 **Change Log**:
+
 - v2.0 (2025-10-05): Comprehensive audit with test, security, performance analysis
 - v1.1 (2025-10-04): Phase 1 fixes identified
 - v1.0 (2025-10-03): Initial audit
@@ -1083,16 +1131,19 @@ npm update
 ## Contacts & Resources
 
 **Documentation**:
+
 - Main README: `/README.md`
 - AGENTS Guide: `/AGENTS.md`
 - API Docs: `/docs/openapi.yaml`
 - Cash & Benchmarks: `/docs/cash-benchmarks.md`
 
 **Issue Tracking**:
+
 - Create issues at: `https://github.com/cortega26/portfolio-manager-server/issues`
 - Use labels: `bug`, `enhancement`, `security`, `performance`, `test`
 
 **Support**:
+
 - Check documentation first
 - Review existing issues
 - Create detailed bug reports with reproducible steps
@@ -1101,4 +1152,4 @@ npm update
 
 **END OF AUDIT REPORT**
 
-*This report should be reviewed and updated quarterly to track progress and identify new issues.*
+_This report should be reviewed and updated quarterly to track progress and identify new issues._

@@ -1,5 +1,5 @@
-import { describe, it } from "node:test";
-import { strict as assert } from "node:assert";
+import { describe, it } from 'node:test';
+import { strict as assert } from 'node:assert';
 import {
   buildBenchmarkOverlaySeries,
   buildRoiSeries,
@@ -7,49 +7,49 @@ import {
   mergeBenchmarkOverlaySeries,
   mergeReturnSeries,
   ROI_FALLBACK_INCOMPLETE_HISTORY,
-} from "../utils/roi.js";
+} from '../utils/roi.js';
 
 const transactions = [
-  { date: "2024-01-01", type: "DEPOSIT", amount: 500 },
-  { date: "2024-01-01", ticker: "AAPL", type: "BUY", shares: 1, amount: -100 },
-  { date: "2024-01-02", ticker: "AAPL", type: "BUY", shares: 1, amount: -110 },
+  { date: '2024-01-01', type: 'DEPOSIT', amount: 500 },
+  { date: '2024-01-01', ticker: 'AAPL', type: 'BUY', shares: 1, amount: -100 },
+  { date: '2024-01-02', ticker: 'AAPL', type: 'BUY', shares: 1, amount: -110 },
 ];
 
 const priceMap = {
   AAPL: [
-    { date: "2024-01-01", close: 100 },
-    { date: "2024-01-02", close: 120 },
-    { date: "2024-01-03", close: 140 },
+    { date: '2024-01-01', close: 100 },
+    { date: '2024-01-02', close: 120 },
+    { date: '2024-01-03', close: 140 },
   ],
   SPY: [
-    { date: "2024-01-01", close: 200 },
-    { date: "2024-01-02", close: 210 },
-    { date: "2024-01-03", close: 220 },
+    { date: '2024-01-01', close: 200 },
+    { date: '2024-01-02', close: 210 },
+    { date: '2024-01-03', close: 220 },
   ],
 };
 
-describe("ROI utilities", () => {
-  it("merges API return series into chart-friendly rows", () => {
+describe('ROI utilities', () => {
+  it('merges API return series into chart-friendly rows', () => {
     const merged = mergeReturnSeries({
       r_port: [
-        { date: "2024-01-01", value: 0 },
-        { date: "2024-01-02", value: 1.23456 },
+        { date: '2024-01-01', value: 0 },
+        { date: '2024-01-02', value: 1.23456 },
       ],
       r_spy_100: [
-        { date: "2024-01-01", value: 0.5 },
-        { date: "2024-01-02", value: 1.11119 },
+        { date: '2024-01-01', value: 0.5 },
+        { date: '2024-01-02', value: 1.11119 },
       ],
       r_bench_blended: [
-        { date: "2024-01-01", value: 0.25 },
-        { date: "2024-01-02", value: 0.98765 },
+        { date: '2024-01-01', value: 0.25 },
+        { date: '2024-01-02', value: 0.98765 },
       ],
-      r_ex_cash: [{ date: "2024-01-02", value: 1.55555 }],
-      r_cash: [{ date: "2024-01-01", value: 0.02 }],
+      r_ex_cash: [{ date: '2024-01-02', value: 1.55555 }],
+      r_cash: [{ date: '2024-01-01', value: 0.02 }],
     });
 
     assert.deepEqual(merged, [
       {
-        date: "2024-01-01",
+        date: '2024-01-01',
         portfolio: 0,
         spy: 0.5,
         blended: 0.25,
@@ -57,7 +57,7 @@ describe("ROI utilities", () => {
         cash: 0.02,
       },
       {
-        date: "2024-01-02",
+        date: '2024-01-02',
         portfolio: 1.2346,
         spy: 1.1112,
         blended: 0.9877,
@@ -67,11 +67,11 @@ describe("ROI utilities", () => {
     ]);
   });
 
-  it("guards against malformed API payloads", () => {
-    const merged = mergeReturnSeries({ r_port: [{ date: "2024-01-01" }] });
+  it('guards against malformed API payloads', () => {
+    const merged = mergeReturnSeries({ r_port: [{ date: '2024-01-01' }] });
     assert.deepEqual(merged, [
       {
-        date: "2024-01-01",
+        date: '2024-01-01',
         portfolio: 0,
         spy: 0,
         blended: 0,
@@ -81,26 +81,26 @@ describe("ROI utilities", () => {
     ]);
   });
 
-  it("merges canonical ROI payloads into chart-friendly rows", () => {
+  it('merges canonical ROI payloads into chart-friendly rows', () => {
     const merged = mergeDailyRoiSeries({
       portfolio: [
-        { date: "2024-01-01", value: 0 },
-        { date: "2024-01-02", value: 10.123456 },
+        { date: '2024-01-01', value: 0 },
+        { date: '2024-01-02', value: 10.123456 },
       ],
       portfolioTwr: [
-        { date: "2024-01-01", value: 0 },
-        { date: "2024-01-02", value: 4.321098 },
+        { date: '2024-01-01', value: 0 },
+        { date: '2024-01-02', value: 4.321098 },
       ],
-      spy: [{ date: "2024-01-02", value: 5.678912 }],
-      qqq: [{ date: "2024-01-02", value: 6.543219 }],
-      bench: [{ date: "2024-01-02", value: 3.333391 }],
-      exCash: [{ date: "2024-01-02", value: 6.444499 }],
-      cash: [{ date: "2024-01-01", value: 0.02 }],
+      spy: [{ date: '2024-01-02', value: 5.678912 }],
+      qqq: [{ date: '2024-01-02', value: 6.543219 }],
+      bench: [{ date: '2024-01-02', value: 3.333391 }],
+      exCash: [{ date: '2024-01-02', value: 6.444499 }],
+      cash: [{ date: '2024-01-01', value: 0.02 }],
     });
 
     assert.deepEqual(merged, [
       {
-        date: "2024-01-01",
+        date: '2024-01-01',
         portfolio: 0,
         portfolioTwr: 0,
         spy: null,
@@ -110,7 +110,7 @@ describe("ROI utilities", () => {
         cash: 0.02,
       },
       {
-        date: "2024-01-02",
+        date: '2024-01-02',
         portfolio: 10.123456,
         portfolioTwr: 4.321098,
         spy: 5.678912,
@@ -122,11 +122,11 @@ describe("ROI utilities", () => {
     ]);
   });
 
-  it("preserves missing canonical benchmark values as null instead of flattening them to zero", () => {
+  it('preserves missing canonical benchmark values as null instead of flattening them to zero', () => {
     const merged = mergeDailyRoiSeries({
       portfolio: [
-        { date: "2024-01-01", value: 1.5 },
-        { date: "2024-01-02", value: 2.5 },
+        { date: '2024-01-01', value: 1.5 },
+        { date: '2024-01-02', value: 2.5 },
       ],
       spy: [],
       bench: [],
@@ -134,7 +134,7 @@ describe("ROI utilities", () => {
 
     assert.deepEqual(merged, [
       {
-        date: "2024-01-01",
+        date: '2024-01-01',
         portfolio: 1.5,
         portfolioTwr: null,
         spy: null,
@@ -144,7 +144,7 @@ describe("ROI utilities", () => {
         cash: null,
       },
       {
-        date: "2024-01-02",
+        date: '2024-01-02',
         portfolio: 2.5,
         portfolioTwr: null,
         spy: null,
@@ -156,44 +156,44 @@ describe("ROI utilities", () => {
     ]);
   });
 
-  it("builds and merges a Nasdaq benchmark overlay from price history", () => {
+  it('builds and merges a Nasdaq benchmark overlay from price history', () => {
     const roiData = [
-      { date: "2024-01-01", portfolio: 0, spy: 0 },
-      { date: "2024-01-02", portfolio: 6, spy: 5 },
-      { date: "2024-01-03", portfolio: 14, spy: 10 },
+      { date: '2024-01-01', portfolio: 0, spy: 0 },
+      { date: '2024-01-02', portfolio: 6, spy: 5 },
+      { date: '2024-01-03', portfolio: 14, spy: 10 },
     ];
     const overlay = buildBenchmarkOverlaySeries(roiData, [
-      { date: "2024-01-01", close: 300 },
-      { date: "2024-01-02", close: 315 },
-      { date: "2024-01-03", close: 330 },
+      { date: '2024-01-01', close: 300 },
+      { date: '2024-01-02', close: 315 },
+      { date: '2024-01-03', close: 330 },
     ]);
-    const merged = mergeBenchmarkOverlaySeries(roiData, overlay, "qqq");
+    const merged = mergeBenchmarkOverlaySeries(roiData, overlay, 'qqq');
 
     assert.deepEqual(merged, [
-      { date: "2024-01-01", portfolio: 0, spy: 0, qqq: 0 },
-      { date: "2024-01-02", portfolio: 6, spy: 5, qqq: 5 },
-      { date: "2024-01-03", portfolio: 14, spy: 10, qqq: 10 },
+      { date: '2024-01-01', portfolio: 0, spy: 0, qqq: 0 },
+      { date: '2024-01-02', portfolio: 6, spy: 5, qqq: 5 },
+      { date: '2024-01-03', portfolio: 14, spy: 10, qqq: 10 },
     ]);
   });
 
-  it("builds ROI series relative to SPY", async () => {
+  it('builds ROI series relative to SPY', async () => {
     const fetcher = async (symbol) => priceMap[symbol.toUpperCase()];
     const series = await buildRoiSeries(transactions, fetcher);
 
     assert.equal(series.length, 3);
     assert.deepEqual(series, [
-      { date: "2024-01-01", portfolio: 0, spy: 0 },
-      { date: "2024-01-02", portfolio: 6, spy: 5 },
-      { date: "2024-01-03", portfolio: 14, spy: 10 },
+      { date: '2024-01-01', portfolio: 0, spy: 0 },
+      { date: '2024-01-02', portfolio: 6, spy: 5 },
+      { date: '2024-01-03', portfolio: 14, spy: 10 },
     ]);
   });
 
   it("starts fallback ROI at the portfolio's first operation instead of the benchmark's oldest history", async () => {
     const fetcher = async (symbol) => {
-      if (symbol.toUpperCase() === "SPY") {
+      if (symbol.toUpperCase() === 'SPY') {
         return [
-          { date: "2005-01-03", close: 100 },
-          { date: "2005-01-04", close: 101 },
+          { date: '2005-01-03', close: 100 },
+          { date: '2005-01-04', close: 101 },
           ...priceMap.SPY,
         ];
       }
@@ -202,64 +202,63 @@ describe("ROI utilities", () => {
 
     const series = await buildRoiSeries(transactions, fetcher);
 
-    assert.deepEqual(series.map((point) => point.date), [
-      "2024-01-01",
-      "2024-01-02",
-      "2024-01-03",
-    ]);
+    assert.deepEqual(
+      series.map((point) => point.date),
+      ['2024-01-01', '2024-01-02', '2024-01-03']
+    );
   });
 
-  it("returns an empty series when transactions are missing", async () => {
+  it('returns an empty series when transactions are missing', async () => {
     const fetcher = async () => priceMap.AAPL;
     const series = await buildRoiSeries([], fetcher);
     assert.deepEqual(series, []);
   });
 
-  it("returns an empty series when SPY data is unavailable", async () => {
-    const fetcher = async (symbol) => (symbol === "spy" ? [] : priceMap.AAPL);
+  it('returns an empty series when SPY data is unavailable', async () => {
+    const fetcher = async (symbol) => (symbol === 'spy' ? [] : priceMap.AAPL);
     const series = await buildRoiSeries(transactions, fetcher);
     assert.deepEqual(series, []);
   });
 
-  it("ignores unfunded buys to prevent artificial gains", async () => {
+  it('ignores unfunded buys to prevent artificial gains', async () => {
     const fetcher = async (symbol) => priceMap[symbol.toUpperCase()] ?? [];
     const series = await buildRoiSeries(
       [
-        { date: "2024-01-02", ticker: "AAPL", type: "BUY", shares: 10, amount: -1000 },
-        { date: "2024-01-03", ticker: "AAPL", type: "BUY", shares: 5, amount: -500 },
+        { date: '2024-01-02', ticker: 'AAPL', type: 'BUY', shares: 10, amount: -1000 },
+        { date: '2024-01-03', ticker: 'AAPL', type: 'BUY', shares: 5, amount: -500 },
       ],
-      fetcher,
+      fetcher
     );
     assert.deepEqual(series, [
-      { date: "2024-01-02", portfolio: 0, spy: 0 },
-      { date: "2024-01-03", portfolio: 0, spy: 4.762 },
+      { date: '2024-01-02', portfolio: 0, spy: 0 },
+      { date: '2024-01-03', portfolio: 0, spy: 4.762 },
     ]);
   });
 
-  it("ignores oversells that exceed current holdings", async () => {
+  it('ignores oversells that exceed current holdings', async () => {
     const fetcher = async (symbol) => priceMap[symbol.toUpperCase()] ?? [];
     const series = await buildRoiSeries(
       [
-        { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
-        { date: "2024-01-01", ticker: "AAPL", type: "BUY", shares: 5, amount: -500 },
-        { date: "2024-01-02", ticker: "AAPL", type: "SELL", shares: 10, amount: 2000 },
+        { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+        { date: '2024-01-01', ticker: 'AAPL', type: 'BUY', shares: 5, amount: -500 },
+        { date: '2024-01-02', ticker: 'AAPL', type: 'SELL', shares: 10, amount: 2000 },
       ],
-      fetcher,
+      fetcher
     );
     assert.deepEqual(series, [
-      { date: "2024-01-01", portfolio: 0, spy: 0 },
-      { date: "2024-01-02", portfolio: 10, spy: 5 },
-      { date: "2024-01-03", portfolio: 20, spy: 10 },
+      { date: '2024-01-01', portfolio: 0, spy: 0 },
+      { date: '2024-01-02', portfolio: 10, spy: 5 },
+      { date: '2024-01-03', portfolio: 20, spy: 10 },
     ]);
   });
 
-  it("omits benchmark-only series when falling back to local ROI", async () => {
+  it('omits benchmark-only series when falling back to local ROI', async () => {
     const fetcher = async (symbol) => {
       const upper = symbol.toUpperCase();
-      if (upper === "AAPL") {
+      if (upper === 'AAPL') {
         return priceMap.AAPL;
       }
-      if (upper === "SPY") {
+      if (upper === 'SPY') {
         return priceMap.SPY;
       }
       return [];
@@ -268,30 +267,30 @@ describe("ROI utilities", () => {
     const series = await buildRoiSeries(transactions, fetcher);
     assert.ok(series.length > 0);
     for (const point of series) {
-      assert.equal("portfolio" in point, true);
-      assert.equal("spy" in point, true);
-      assert.equal("blended" in point, false);
-      assert.equal("exCash" in point, false);
-      assert.equal("cash" in point, false);
+      assert.equal('portfolio' in point, true);
+      assert.equal('spy' in point, true);
+      assert.equal('blended' in point, false);
+      assert.equal('exCash' in point, false);
+      assert.equal('cash' in point, false);
     }
   });
 
-  it("falls back to the previous close when a ticker lacks data for a date", async () => {
+  it('falls back to the previous close when a ticker lacks data for a date', async () => {
     const extendedTransactions = [
       ...transactions,
       {
-        date: "2024-01-03",
-        ticker: "AAPL",
-        type: "SELL",
+        date: '2024-01-03',
+        ticker: 'AAPL',
+        type: 'SELL',
         shares: 1,
         amount: 130,
       },
     ];
     const fetcher = async (symbol) => {
-      if (symbol.toUpperCase() === "AAPL") {
+      if (symbol.toUpperCase() === 'AAPL') {
         return [
-          { date: "2024-01-01", close: 100 },
-          { date: "2024-01-03", close: 140 },
+          { date: '2024-01-01', close: 100 },
+          { date: '2024-01-03', close: 140 },
         ];
       }
 
@@ -300,45 +299,43 @@ describe("ROI utilities", () => {
 
     const series = await buildRoiSeries(extendedTransactions, fetcher);
     assert.deepEqual(series, [
-      { date: "2024-01-01", portfolio: 0, spy: 0 },
-      { date: "2024-01-02", portfolio: -2, spy: 5 },
-      { date: "2024-01-03", portfolio: 12, spy: 10 },
+      { date: '2024-01-01', portfolio: 0, spy: 0 },
+      { date: '2024-01-02', portfolio: -2, spy: 5 },
+      { date: '2024-01-03', portfolio: 12, spy: 10 },
     ]);
   });
 
-  it("uses zero pricing when a ticker series is empty", async () => {
-    const fetcher = async (symbol) =>
-      symbol.toUpperCase() === "AAPL" ? [] : priceMap.SPY;
+  it('uses zero pricing when a ticker series is empty', async () => {
+    const fetcher = async (symbol) => (symbol.toUpperCase() === 'AAPL' ? [] : priceMap.SPY);
     const series = await buildRoiSeries(transactions, fetcher);
     assert.equal(series.length, 3);
     assert.equal(series[1].portfolio, 0);
   });
 
-  it("fails fast when strict fallback coverage is requested and a holding lacks history", async () => {
-    const fetcher = async (symbol) =>
-      symbol.toUpperCase() === "AAPL" ? [] : priceMap.SPY;
+  it('fails fast when strict fallback coverage is requested and a holding lacks history', async () => {
+    const fetcher = async (symbol) => (symbol.toUpperCase() === 'AAPL' ? [] : priceMap.SPY);
 
     await assert.rejects(
       () => buildRoiSeries(transactions, fetcher, { requireCompleteHistory: true }),
       (error) => {
         assert.equal(error?.code, ROI_FALLBACK_INCOMPLETE_HISTORY);
-        assert.deepEqual(error?.missingSymbols, ["AAPL"]);
+        assert.deepEqual(error?.missingSymbols, ['AAPL']);
         return true;
-      },
+      }
     );
   });
 
-  it("accounts for deposits and dividends when computing fallback ROI", async () => {
+  it('accounts for deposits and dividends when computing fallback ROI', async () => {
     const scenarioTransactions = [
-      { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
+      { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
       {
-        date: "2024-01-01",
-        ticker: "AAPL",
-        type: "BUY",
+        date: '2024-01-01',
+        ticker: 'AAPL',
+        type: 'BUY',
         shares: 5,
         amount: -500,
       },
-      { date: "2024-01-02", type: "DIVIDEND", amount: 10 },
+      { date: '2024-01-02', type: 'DIVIDEND', amount: 10 },
     ];
     const fetcher = async (symbol) => priceMap[symbol.toUpperCase()];
 
@@ -346,29 +343,29 @@ describe("ROI utilities", () => {
 
     assert.equal(series.length, 3);
     assert.equal(series[0].portfolio, 0);
-    const secondDay = series.find((point) => point.date === "2024-01-02");
+    const secondDay = series.find((point) => point.date === '2024-01-02');
     assert.ok(secondDay);
     assert.equal(secondDay.portfolio, 11);
   });
 
-  it("parses numeric transaction fields provided as strings", async () => {
+  it('parses numeric transaction fields provided as strings', async () => {
     const stringTransactions = [
-      { date: "2024-01-01", type: "DEPOSIT", amount: "1000" },
+      { date: '2024-01-01', type: 'DEPOSIT', amount: '1000' },
       {
-        date: "2024-01-02",
-        ticker: "AAPL",
-        type: "BUY",
-        shares: "1",
-        amount: "-120",
+        date: '2024-01-02',
+        ticker: 'AAPL',
+        type: 'BUY',
+        shares: '1',
+        amount: '-120',
       },
       {
-        date: "2024-01-03",
-        ticker: "AAPL",
-        type: "BUY",
-        shares: "1",
-        amount: "-140",
+        date: '2024-01-03',
+        ticker: 'AAPL',
+        type: 'BUY',
+        shares: '1',
+        amount: '-140',
       },
-      { date: "2024-01-04", type: "DIVIDEND", amount: "10" },
+      { date: '2024-01-04', type: 'DIVIDEND', amount: '10' },
     ];
 
     const fetcher = async (symbol) => priceMap[symbol.toUpperCase()];
@@ -380,37 +377,35 @@ describe("ROI utilities", () => {
     assert.ok(lastPoint.portfolio > 0);
   });
 
-  it("treats withdrawals as external cash flows without fabricating losses", async () => {
+  it('treats withdrawals as external cash flows without fabricating losses', async () => {
     const withdrawalScenario = [
-      { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
+      { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
       {
-        date: "2024-01-01",
-        ticker: "AAPL",
-        type: "BUY",
+        date: '2024-01-01',
+        ticker: 'AAPL',
+        type: 'BUY',
         shares: 5,
         amount: -500,
       },
-      { date: "2024-01-02", type: "WITHDRAWAL", amount: 500 },
+      { date: '2024-01-02', type: 'WITHDRAWAL', amount: 500 },
     ];
 
     const fetcher = async (symbol) => priceMap[symbol.toUpperCase()];
     const series = await buildRoiSeries(withdrawalScenario, fetcher);
 
-    const secondDay = series.find((point) => point.date === "2024-01-02");
+    const secondDay = series.find((point) => point.date === '2024-01-02');
     assert.ok(secondDay);
     assert.equal(secondDay.portfolio, 10);
   });
 
-  it("aligns weekend cash flows with the next available trading date", async () => {
-    const weekendTransactions = [
-      { date: "2024-01-06", type: "DEPOSIT", amount: 1000 },
-    ];
+  it('aligns weekend cash flows with the next available trading date', async () => {
+    const weekendTransactions = [{ date: '2024-01-06', type: 'DEPOSIT', amount: 1000 }];
     const spyOnlyFetcher = async (symbol) => {
       const upper = symbol.toUpperCase();
-      if (upper === "SPY") {
+      if (upper === 'SPY') {
         return [
-          { date: "2024-01-05", close: 200 },
-          { date: "2024-01-08", close: 200 },
+          { date: '2024-01-05', close: 200 },
+          { date: '2024-01-08', close: 200 },
         ];
       }
       return [];
@@ -418,26 +413,23 @@ describe("ROI utilities", () => {
 
     const series = await buildRoiSeries(weekendTransactions, spyOnlyFetcher);
 
-    assert.deepEqual(
-      series,
-      [{ date: "2024-01-08", portfolio: 0, spy: 0 }],
-    );
+    assert.deepEqual(series, [{ date: '2024-01-08', portfolio: 0, spy: 0 }]);
   });
 
-  it("skips price fetches for transactions without tickers", async () => {
+  it('skips price fetches for transactions without tickers', async () => {
     const calls = [];
     const mixedTransactions = [
       ...transactions,
-      { date: "2024-01-03", type: "DEPOSIT", amount: 500 },
-      { date: "2024-01-04", ticker: " ", type: "BUY", shares: 2, amount: -240 },
+      { date: '2024-01-03', type: 'DEPOSIT', amount: 500 },
+      { date: '2024-01-04', ticker: ' ', type: 'BUY', shares: 2, amount: -240 },
     ];
     const fetcher = async (symbol) => {
       calls.push(symbol);
       const upper = symbol?.toUpperCase();
-      if (upper === "AAPL") {
+      if (upper === 'AAPL') {
         return priceMap.AAPL;
       }
-      if (upper === "SPY") {
+      if (upper === 'SPY') {
         return priceMap.SPY;
       }
       return [];
@@ -446,9 +438,12 @@ describe("ROI utilities", () => {
     await buildRoiSeries(mixedTransactions, fetcher);
 
     assert.deepEqual(
-      calls.filter((symbol) => typeof symbol !== "string" || symbol.trim().length === 0),
-      [],
+      calls.filter((symbol) => typeof symbol !== 'string' || symbol.trim().length === 0),
+      []
     );
-    assert.deepEqual(new Set(calls.map((symbol) => symbol.toUpperCase())), new Set(["AAPL", "SPY"]));
+    assert.deepEqual(
+      new Set(calls.map((symbol) => symbol.toUpperCase())),
+      new Set(['AAPL', 'SPY'])
+    );
   });
 });

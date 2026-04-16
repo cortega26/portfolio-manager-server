@@ -1,4 +1,4 @@
-import Decimal from "decimal.js";
+import Decimal from 'decimal.js';
 
 const ZERO = new Decimal(0);
 
@@ -6,18 +6,18 @@ export const SIGNAL_DEFAULT_PCT = 3;
 export const SIGNAL_MAX_PRICE_DEVIATION_MULTIPLIER = new Decimal(1.25);
 
 export const SIGNAL_STATUS = Object.freeze({
-  BUY_ZONE: "BUY_ZONE",
-  TRIM_ZONE: "TRIM_ZONE",
-  HOLD: "HOLD",
-  NO_DATA: "NO_DATA",
+  BUY_ZONE: 'BUY_ZONE',
+  TRIM_ZONE: 'TRIM_ZONE',
+  HOLD: 'HOLD',
+  NO_DATA: 'NO_DATA',
 });
 
 export function normalizeTickerSymbol(value) {
-  return typeof value === "string" ? value.trim().toUpperCase() : "";
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
 }
 
 function toDecimalOrNull(value) {
-  if (value === null || value === undefined || value === "") {
+  if (value === null || value === undefined || value === '') {
     return null;
   }
   try {
@@ -57,18 +57,18 @@ function resolveTransactionPrice(transaction) {
 }
 
 function compareTransactions(left, right) {
-  const leftDate = typeof left?.date === "string" ? left.date : "";
-  const rightDate = typeof right?.date === "string" ? right.date : "";
+  const leftDate = typeof left?.date === 'string' ? left.date : '';
+  const rightDate = typeof right?.date === 'string' ? right.date : '';
   if (leftDate !== rightDate) {
     return leftDate.localeCompare(rightDate);
   }
 
   const leftCreatedAt =
-    typeof left?.createdAt === "number" && Number.isFinite(left.createdAt)
+    typeof left?.createdAt === 'number' && Number.isFinite(left.createdAt)
       ? left.createdAt
       : Number.MAX_SAFE_INTEGER;
   const rightCreatedAt =
-    typeof right?.createdAt === "number" && Number.isFinite(right.createdAt)
+    typeof right?.createdAt === 'number' && Number.isFinite(right.createdAt)
       ? right.createdAt
       : Number.MAX_SAFE_INTEGER;
   if (leftCreatedAt !== rightCreatedAt) {
@@ -76,11 +76,9 @@ function compareTransactions(left, right) {
   }
 
   const leftSeq =
-    typeof left?.seq === "number" && Number.isFinite(left.seq)
-      ? left.seq
-      : Number.MAX_SAFE_INTEGER;
+    typeof left?.seq === 'number' && Number.isFinite(left.seq) ? left.seq : Number.MAX_SAFE_INTEGER;
   const rightSeq =
-    typeof right?.seq === "number" && Number.isFinite(right.seq)
+    typeof right?.seq === 'number' && Number.isFinite(right.seq)
       ? right.seq
       : Number.MAX_SAFE_INTEGER;
   if (leftSeq !== rightSeq) {
@@ -88,17 +86,17 @@ function compareTransactions(left, right) {
   }
 
   const leftUid =
-    typeof left?.uid === "string" && left.uid.trim()
+    typeof left?.uid === 'string' && left.uid.trim()
       ? left.uid.trim()
-      : typeof left?.id === "string"
+      : typeof left?.id === 'string'
         ? left.id
-        : "";
+        : '';
   const rightUid =
-    typeof right?.uid === "string" && right.uid.trim()
+    typeof right?.uid === 'string' && right.uid.trim()
       ? right.uid.trim()
-      : typeof right?.id === "string"
+      : typeof right?.id === 'string'
         ? right.id
-        : "";
+        : '';
   return leftUid.localeCompare(rightUid);
 }
 
@@ -109,20 +107,20 @@ export function resolveSignalWindow(signals, ticker, defaultPct = SIGNAL_DEFAULT
 
   const normalizedTicker = normalizeTickerSymbol(ticker);
   const candidate =
-    signals[ticker]
-    ?? signals[normalizedTicker]
-    ?? signals[normalizedTicker.toLowerCase?.() ?? ""]
-    ?? null;
+    signals[ticker] ??
+    signals[normalizedTicker] ??
+    signals[normalizedTicker.toLowerCase?.() ?? ''] ??
+    null;
 
   const value =
-    candidate && typeof candidate === "object"
-      ? candidate.pct ?? candidate.percent ?? candidate.windowPct ?? candidate.window
+    candidate && typeof candidate === 'object'
+      ? (candidate.pct ?? candidate.percent ?? candidate.windowPct ?? candidate.window)
       : candidate;
 
   const parsed =
-    typeof value === "number"
+    typeof value === 'number'
       ? value
-      : typeof value === "string"
+      : typeof value === 'string'
         ? Number.parseFloat(value)
         : Number.NaN;
 
@@ -137,10 +135,10 @@ export function deriveLastSignalReference(transactions, ticker) {
 
   const candidates = transactions
     .filter((transaction) => {
-      const type = typeof transaction?.type === "string" ? transaction.type.toUpperCase() : "";
+      const type = typeof transaction?.type === 'string' ? transaction.type.toUpperCase() : '';
       return (
-        normalizeTickerSymbol(transaction?.ticker) === normalizedTicker
-        && (type === "BUY" || type === "SELL")
+        normalizeTickerSymbol(transaction?.ticker) === normalizedTicker &&
+        (type === 'BUY' || type === 'SELL')
       );
     })
     .sort(compareTransactions);
@@ -164,11 +162,7 @@ export function deriveLastSignalReference(transactions, ticker) {
 }
 
 function normalizeSignalReference(referenceInput) {
-  if (
-    referenceInput
-    && typeof referenceInput === "object"
-    && !Array.isArray(referenceInput)
-  ) {
+  if (referenceInput && typeof referenceInput === 'object' && !Array.isArray(referenceInput)) {
     const price = toDecimalOrNull(referenceInput.price ?? referenceInput.referencePrice);
     if (!price || !price.gt(0)) {
       return null;
@@ -209,7 +203,7 @@ export function evaluateSignalRow({
     return {
       ticker: normalizedTicker,
       pctWindow:
-        typeof pctWindow === "number"
+        typeof pctWindow === 'number'
           ? pctWindow
           : Number.isFinite(Number(pctWindow))
             ? Number(pctWindow)

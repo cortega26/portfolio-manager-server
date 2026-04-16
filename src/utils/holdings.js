@@ -1,4 +1,4 @@
-import Decimal from "decimal.js";
+import Decimal from 'decimal.js';
 
 import {
   deriveLastSignalReference,
@@ -6,8 +6,8 @@ import {
   resolveSignalWindow as resolveSignalWindowRaw,
   SIGNAL_DEFAULT_PCT,
   SIGNAL_STATUS,
-} from "../../shared/signals.js";
-import { formatCurrency } from "./format.js";
+} from '../../shared/signals.js';
+import { formatCurrency } from './format.js';
 
 /**
  * Build holdings from transaction history.
@@ -18,14 +18,14 @@ import { formatCurrency } from "./format.js";
  * - Handles floating-point dust with tolerance
  */
 const ZERO = new Decimal(0);
-const SHARE_EPSILON = new Decimal("0.0000000005");
+const SHARE_EPSILON = new Decimal('0.0000000005');
 const SHARE_DISPLAY_DECIMALS = 9;
 function normalizeTicker(rawTicker) {
-  return rawTicker?.trim().toUpperCase() ?? "";
+  return rawTicker?.trim().toUpperCase() ?? '';
 }
 
 function toDecimalOrNull(value) {
-  if (value === null || value === undefined || value === "") {
+  if (value === null || value === undefined || value === '') {
     return null;
   }
   try {
@@ -43,7 +43,7 @@ function toDecimalOrZero(value) {
 function toShareLabel(decimal) {
   const normalized = toDecimalOrZero(decimal);
   if (normalized.abs().lte(SHARE_EPSILON)) {
-    return "0";
+    return '0';
   }
   return normalized.toFixed(SHARE_DISPLAY_DECIMALS);
 }
@@ -103,7 +103,7 @@ function normaliseShareBook(holding) {
 }
 
 function emitWarning(handler, payload) {
-  if (typeof handler !== "function") {
+  if (typeof handler !== 'function') {
     return;
   }
   handler({ ...payload });
@@ -113,7 +113,7 @@ function buildOversellWarning({ ticker, transaction, holding, sharesToSell }) {
   return {
     ticker,
     date: transaction.date,
-    issue: "oversell",
+    issue: 'oversell',
     attempted: transaction.shares.toNumber(),
     available: holding.shares.toNumber(),
     clipped: sharesToSell.toNumber(),
@@ -135,7 +135,7 @@ function applySell(holding, transaction, { ticker, warnings, onWarning }) {
     const warning = buildOversellWarning({ ticker, transaction, holding, sharesToSell });
     warnings.push(warning);
     emitWarning(onWarning, {
-      type: "oversell",
+      type: 'oversell',
       warning,
       message: formatOversellMessage({ ticker, transaction, holding, sharesToSell }),
     });
@@ -155,7 +155,7 @@ function applyTransactionToMap(map, transaction, context) {
     return null;
   }
 
-  if (transaction.type !== "BUY" && transaction.type !== "SELL") {
+  if (transaction.type !== 'BUY' && transaction.type !== 'SELL') {
     return null;
   }
 
@@ -176,7 +176,7 @@ function applyTransactionToMap(map, transaction, context) {
   const previous = map.has(ticker) ? cloneHoldingRecord(map.get(ticker)) : null;
   const holding = getOrCreateHolding(map, ticker);
 
-  if (transaction.type === "BUY") {
+  if (transaction.type === 'BUY') {
     applyBuy(holding, normalizedTransaction);
   } else {
     applySell(holding, normalizedTransaction, { ticker, warnings, onWarning });
@@ -197,7 +197,7 @@ function buildHoldingsStateInternal(transactions, { logSummary, onWarning }) {
 
   if (logSummary && warnings.length > 0) {
     emitWarning(onWarning, {
-      type: "summary",
+      type: 'summary',
       count: warnings.length,
       warnings: [...warnings],
     });
@@ -264,9 +264,9 @@ export function deriveHoldingStats(holding, currentPrice) {
     unrealised: unrealised?.toNumber() ?? null,
     priceAvailable: hasMarketPrice,
     avgCostLabel: formatCurrency(avgCost.toNumber()),
-    valueLabel: hasMarketPrice ? formatCurrency(value.toNumber()) : "—",
-    unrealisedLabel: hasMarketPrice ? formatCurrency(unrealised.toNumber()) : "—",
-    priceLabel: hasMarketPrice ? formatCurrency(marketPrice.toNumber()) : "—",
+    valueLabel: hasMarketPrice ? formatCurrency(value.toNumber()) : '—',
+    unrealisedLabel: hasMarketPrice ? formatCurrency(unrealised.toNumber()) : '—',
+    priceLabel: hasMarketPrice ? formatCurrency(marketPrice.toNumber()) : '—',
     realisedLabel: formatCurrency(realised.toNumber()),
   };
 }
@@ -308,19 +308,19 @@ export function deriveSignalRow(holding, currentPrice, pctWindow, referenceInput
   });
   const signal =
     row.status === SIGNAL_STATUS.BUY_ZONE
-      ? "BUY zone"
+      ? 'BUY zone'
       : row.status === SIGNAL_STATUS.TRIM_ZONE
-        ? "TRIM zone"
+        ? 'TRIM zone'
         : row.status === SIGNAL_STATUS.HOLD
-          ? "HOLD"
-          : "NO DATA";
+          ? 'HOLD'
+          : 'NO DATA';
 
   return {
     ticker: row.ticker,
     pctWindow: row.pctWindow ?? pctWindow,
-    price: row.currentPrice !== null ? formatCurrency(row.currentPrice) : "—",
-    lower: row.lowerBound !== null ? formatCurrency(row.lowerBound) : "—",
-    upper: row.upperBound !== null ? formatCurrency(row.upperBound) : "—",
+    price: row.currentPrice !== null ? formatCurrency(row.currentPrice) : '—',
+    lower: row.lowerBound !== null ? formatCurrency(row.lowerBound) : '—',
+    upper: row.upperBound !== null ? formatCurrency(row.upperBound) : '—',
     signal,
     status: row.status,
     currentPriceValue: row.currentPrice,
@@ -347,7 +347,9 @@ export function computeDashboardMetrics(holdings, currentPrices) {
       acc.totalCost = acc.totalCost.plus(cost);
       acc.holdingsCount += 1;
 
-      const price = toDecimalOrNull(resolveHoldingValuationPrice(holding, currentPrices?.[holding.ticker]));
+      const price = toDecimalOrNull(
+        resolveHoldingValuationPrice(holding, currentPrices?.[holding.ticker])
+      );
       if (!price || !price.gt(0)) {
         acc.unpricedHoldingsCount += 1;
         return acc;
@@ -367,7 +369,7 @@ export function computeDashboardMetrics(holdings, currentPrices) {
       holdingsCount: 0,
       pricedHoldingsCount: 0,
       unpricedHoldingsCount: 0,
-    },
+    }
   );
   return {
     ...summary,

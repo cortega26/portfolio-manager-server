@@ -1,9 +1,9 @@
-import assert from "node:assert/strict";
-import { afterEach, test } from "node:test";
-import { cleanup, render, screen } from "@testing-library/react";
-import { act } from "react-dom/test-utils";
-import { useEffect, useState } from "react";
-import useDebouncedValue from "../hooks/useDebouncedValue.js";
+import assert from 'node:assert/strict';
+import { afterEach, test } from 'node:test';
+import { cleanup, render, screen } from '@testing-library/react';
+import { act } from 'react-dom/test-utils';
+import { useEffect, useState } from 'react';
+import useDebouncedValue from '../hooks/useDebouncedValue.js';
 
 afterEach(() => {
   cleanup();
@@ -13,7 +13,7 @@ test('useDebouncedValue delays updates until the timeout elapses', async (t) => 
   t.mock.timers.enable({ advance: false });
 
   const Harness = ({ delay, onReady }) => {
-    const [value, setValue] = useState("initial");
+    const [value, setValue] = useState('initial');
     const debounced = useDebouncedValue(value, delay);
 
     useEffect(() => {
@@ -30,7 +30,7 @@ test('useDebouncedValue delays updates until the timeout elapses', async (t) => 
       onReady={(setter) => {
         updateValue = setter;
       }}
-    />, 
+    />
   );
 
   const readValue = () => screen.getByTestId('debounced-value').textContent;

@@ -2,7 +2,7 @@ import {
   getRuntimeConfigSync,
   loadRuntimeConfig,
   RUNTIME_CONFIG_DEFAULTS,
-} from "./runtimeConfig.js";
+} from './runtimeConfig.js';
 
 /**
  * @typedef {import('./runtimeConfig.js').RuntimeConfig} RuntimeConfig
@@ -19,7 +19,7 @@ import {
  * @property {number} [timeoutMs]
  */
 
-export const API_VERSION_ROUTES = [{ id: "v1", prefix: "/api/v1" }];
+export const API_VERSION_ROUTES = [{ id: 'v1', prefix: '/api/v1' }];
 
 let cachedBaseUrl = null;
 let resolvingBaseUrlPromise = null;
@@ -32,7 +32,7 @@ function normalizeBaseUrlCandidate(value) {
   if (!trimmed) {
     return undefined;
   }
-  return trimmed.replace(/\/+$/u, "");
+  return trimmed.replace(/\/+$/u, '');
 }
 
 function computeBaseUrl(runtimeConfig) {
@@ -41,17 +41,17 @@ function computeBaseUrl(runtimeConfig) {
     return runtimeCandidate;
   }
   const envCandidate = normalizeBaseUrlCandidate(
-    typeof import.meta !== "undefined" && import.meta.env
-      ? import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE
-      : undefined,
+    typeof import.meta !== 'undefined' && import.meta.env
+      ? (import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE)
+      : undefined
   );
   if (envCandidate) {
     return envCandidate;
   }
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return normalizeBaseUrlCandidate(window.location.origin) ?? "";
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return normalizeBaseUrlCandidate(window.location.origin) ?? '';
   }
-  return "http://localhost:3000";
+  return 'http://localhost:3000';
 }
 
 function syncCachedBaseUrlFromRuntimeConfig() {
@@ -68,15 +68,15 @@ function syncCachedBaseUrlFromRuntimeConfig() {
 }
 
 function computeTimeout(runtimeConfig, optionsTimeout) {
-  if (typeof optionsTimeout === "number" && optionsTimeout > 0) {
+  if (typeof optionsTimeout === 'number' && optionsTimeout > 0) {
     return optionsTimeout;
   }
   const runtimeTimeout = runtimeConfig?.REQUEST_TIMEOUT_MS;
-  if (typeof runtimeTimeout === "number" && runtimeTimeout > 0) {
+  if (typeof runtimeTimeout === 'number' && runtimeTimeout > 0) {
     return runtimeTimeout;
   }
   const envTimeout =
-    typeof import.meta !== "undefined" && import.meta.env
+    typeof import.meta !== 'undefined' && import.meta.env
       ? Number(import.meta.env.VITE_API_TIMEOUT ?? import.meta.env.VITE_FETCH_TIMEOUT)
       : undefined;
   if (Number.isFinite(envTimeout) && envTimeout > 0) {
@@ -86,33 +86,33 @@ function computeTimeout(runtimeConfig, optionsTimeout) {
 }
 
 function normalizePath(path) {
-  if (typeof path !== "string" || path.length === 0) {
-    throw new Error("Path must be a non-empty string");
+  if (typeof path !== 'string' || path.length === 0) {
+    throw new Error('Path must be a non-empty string');
   }
-  return path.startsWith("/") ? path : `/${path}`;
+  return path.startsWith('/') ? path : `/${path}`;
 }
 
 function createHeaders(headers) {
   const next = new Headers(headers ?? {});
-  if (!next.has("accept")) {
-    next.set("Accept", "application/json");
+  if (!next.has('accept')) {
+    next.set('Accept', 'application/json');
   }
   return next;
 }
 
 function applySessionAuthHeader(headers, runtimeConfig) {
   const token =
-    typeof runtimeConfig?.API_SESSION_TOKEN === "string"
+    typeof runtimeConfig?.API_SESSION_TOKEN === 'string'
       ? runtimeConfig.API_SESSION_TOKEN.trim()
-      : "";
+      : '';
   if (!token) {
     return headers;
   }
   const headerName =
-    typeof runtimeConfig?.SESSION_AUTH_HEADER === "string"
-      && runtimeConfig.SESSION_AUTH_HEADER.trim().length > 0
+    typeof runtimeConfig?.SESSION_AUTH_HEADER === 'string' &&
+    runtimeConfig.SESSION_AUTH_HEADER.trim().length > 0
       ? runtimeConfig.SESSION_AUTH_HEADER.trim()
-      : "X-Session-Token";
+      : 'X-Session-Token';
   if (!headers.has(headerName)) {
     headers.set(headerName, token);
   }
@@ -120,8 +120,8 @@ function applySessionAuthHeader(headers, runtimeConfig) {
 }
 
 function extractRequestId(response) {
-  const requestId = response.headers.get("X-Request-ID");
-  if (typeof requestId !== "string") {
+  const requestId = response.headers.get('X-Request-ID');
+  if (typeof requestId !== 'string') {
     return undefined;
   }
   const trimmed = requestId.trim();
@@ -129,15 +129,15 @@ function extractRequestId(response) {
 }
 
 function normalizeAbortError(reason, timeoutMs) {
-  if (reason instanceof DOMException && reason.name === "AbortError") {
+  if (reason instanceof DOMException && reason.name === 'AbortError') {
     return reason;
   }
-  if (reason instanceof Error && reason.name === "AbortError") {
+  if (reason instanceof Error && reason.name === 'AbortError') {
     return reason;
   }
   const error = new DOMException(
     `Request aborted after ${timeoutMs}ms`,
-    timeoutMs ? "TimeoutError" : "AbortError",
+    timeoutMs ? 'TimeoutError' : 'AbortError'
   );
   return error;
 }
@@ -148,15 +148,13 @@ function buildTimeoutController(timeoutMs, externalSignal) {
   }
   const controller = new AbortController();
   const timer = setTimeout(() => {
-    controller.abort(
-      new DOMException(`Request timed out after ${timeoutMs}ms`, "TimeoutError"),
-    );
+    controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, 'TimeoutError'));
   }, timeoutMs);
 
   const cleanup = () => {
     clearTimeout(timer);
     if (externalSignal) {
-      externalSignal.removeEventListener("abort", onExternalAbort);
+      externalSignal.removeEventListener('abort', onExternalAbort);
     }
   };
 
@@ -168,17 +166,17 @@ function buildTimeoutController(timeoutMs, externalSignal) {
     if (externalSignal.aborted) {
       onExternalAbort();
     } else {
-      externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true });
     }
   }
 
-  controller.signal.addEventListener("abort", cleanup, { once: true });
+  controller.signal.addEventListener('abort', cleanup, { once: true });
 
   return { signal: controller.signal, cleanup };
 }
 
 export function trimTrailingSlash(value) {
-  return value.replace(/\/+$/u, "");
+  return value.replace(/\/+$/u, '');
 }
 
 export async function resolveApiBaseUrl() {
@@ -222,7 +220,7 @@ export function invalidateApiBaseUrlCache() {
 export class ApiClientError extends Error {
   constructor(message, metadata) {
     super(message);
-    this.name = "ApiError";
+    this.name = 'ApiError';
     Object.assign(this, metadata);
   }
 }
@@ -237,9 +235,9 @@ async function buildApiError({ response, requestId, version, method, url, path }
       url,
       method: method.toUpperCase(),
       requestId,
-    },
+    }
   );
-  let rawBody = "";
+  let rawBody = '';
   try {
     rawBody = await response.text();
   } catch (readError) {
@@ -260,23 +258,14 @@ async function buildApiError({ response, requestId, version, method, url, path }
 }
 
 export async function requestApi(path, options = {}) {
-  const {
-    method = "GET",
-    headers,
-    body,
-    signal,
-    timeoutMs,
-  } = options;
+  const { method = 'GET', headers, body, signal, timeoutMs } = options;
   const normalizedPath = normalizePath(path);
   const baseUrl = trimTrailingSlash(await resolveApiBaseUrl());
   const versions = API_VERSION_ROUTES;
 
   const runtimeConfig = getRuntimeConfigSync();
   const resolvedTimeout = computeTimeout(runtimeConfig, timeoutMs);
-  const { signal: requestSignal, cleanup } = buildTimeoutController(
-    resolvedTimeout,
-    signal,
-  );
+  const { signal: requestSignal, cleanup } = buildTimeoutController(resolvedTimeout, signal);
 
   try {
     for (const { id, prefix } of versions) {
@@ -319,7 +308,7 @@ async function parseJson(response, { allowEmptyObject = false, requestId, versio
     if (allowEmptyObject) {
       return {};
     }
-    const error = new Error("Failed to parse JSON response");
+    const error = new Error('Failed to parse JSON response');
     error.cause = parseError;
     if (requestId) {
       error.requestId = requestId;
@@ -334,7 +323,7 @@ async function parseJson(response, { allowEmptyObject = false, requestId, versio
 export async function requestJson(path, options = {}) {
   const { allowEmptyObject = false, onRequestMetadata, ...requestOptions } = options;
   const { response, requestId, version } = await requestApi(path, requestOptions);
-  if (typeof onRequestMetadata === "function") {
+  if (typeof onRequestMetadata === 'function') {
     onRequestMetadata({ requestId, version });
   }
   const data = await parseJson(response, { allowEmptyObject, requestId, version });

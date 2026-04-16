@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-const STORAGE_KEY = "dashboard.benchmarkSelection.v1";
+const STORAGE_KEY = 'dashboard.benchmarkSelection.v1';
 
 function readStoredSelection() {
-  if (typeof window === "undefined" || !window.localStorage) {
+  if (typeof window === 'undefined' || !window.localStorage) {
     return null;
   }
   try {
@@ -15,9 +15,7 @@ function readStoredSelection() {
     if (!Array.isArray(parsed)) {
       return null;
     }
-    return parsed
-      .map((value) => String(value))
-      .filter((value) => value.trim().length > 0);
+    return parsed.map((value) => String(value)).filter((value) => value.trim().length > 0);
   } catch (error) {
     console.error(error);
     return null;
@@ -29,8 +27,8 @@ function sanitizeSelection(selection, availableSet, fallback) {
     new Set(
       (Array.isArray(selection) ? selection : [])
         .map((value) => String(value))
-        .filter((value) => availableSet.has(value)),
-    ),
+        .filter((value) => availableSet.has(value))
+    )
   );
   if (deduped.length > 0) {
     return deduped;
@@ -47,7 +45,7 @@ function sanitizeSelection(selection, availableSet, fallback) {
 export function usePersistentBenchmarkSelection(availableIds, defaultSelection) {
   const availableSet = useMemo(
     () => new Set((availableIds ?? []).map((value) => String(value))),
-    [availableIds],
+    [availableIds]
   );
   const [selection, setSelection] = useState(() => {
     const stored = readStoredSelection();
@@ -65,7 +63,7 @@ export function usePersistentBenchmarkSelection(availableIds, defaultSelection) 
   }, [availableSet, defaultSelection]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.localStorage) {
+    if (typeof window === 'undefined' || !window.localStorage) {
       return;
     }
     try {
@@ -78,11 +76,11 @@ export function usePersistentBenchmarkSelection(availableIds, defaultSelection) 
   const setSelectionSafe = useCallback(
     (nextValue) => {
       setSelection((prev) => {
-        const resolved = typeof nextValue === "function" ? nextValue(prev) : nextValue;
+        const resolved = typeof nextValue === 'function' ? nextValue(prev) : nextValue;
         return sanitizeSelection(resolved, availableSet, defaultSelection);
       });
     },
-    [availableSet, defaultSelection],
+    [availableSet, defaultSelection]
   );
 
   return [selection, setSelectionSafe];

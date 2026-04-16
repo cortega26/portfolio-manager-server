@@ -8,11 +8,7 @@ import TransactionsTab from '../components/TransactionsTab.jsx';
 test('shows validation errors then submits when fixed', async () => {
   const onSubmit = vi.fn();
   renderWithProviders(
-    <TransactionsTab
-      transactions={[]}
-      onAddTransaction={onSubmit}
-      onDeleteTransaction={vi.fn()}
-    />,
+    <TransactionsTab transactions={[]} onAddTransaction={onSubmit} onDeleteTransaction={vi.fn()} />
   );
 
   const forms = screen.getAllByRole('form', { name: /add transaction/i });
@@ -31,14 +27,8 @@ test('shows validation errors then submits when fixed', async () => {
 
   await userEvent.type(screen.getByLabelText(/date/i), '2024-01-01');
   await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
-  await userEvent.type(
-    screen.getByRole('spinbutton', { name: /^Amount$/i }),
-    '1500',
-  );
-  await userEvent.type(
-    within(form).getByPlaceholderText(/0\.349861261/i),
-    '10',
-  );
+  await userEvent.type(screen.getByRole('spinbutton', { name: /^Amount$/i }), '1500');
+  await userEvent.type(within(form).getByPlaceholderText(/0\.349861261/i), '10');
 
   const finalSubmitButton = within(form).getByRole('button', { name: /add transaction/i });
   await userEvent.click(finalSubmitButton);
@@ -61,11 +51,7 @@ test('shows validation errors then submits when fixed', async () => {
 test('derives price from amount and 9-decimal shares for manual equity trades', async () => {
   const onSubmit = vi.fn();
   renderWithProviders(
-    <TransactionsTab
-      transactions={[]}
-      onAddTransaction={onSubmit}
-      onDeleteTransaction={vi.fn()}
-    />,
+    <TransactionsTab transactions={[]} onAddTransaction={onSubmit} onDeleteTransaction={vi.fn()} />
   );
 
   const forms = screen.getAllByRole('form', { name: /add transaction/i });
@@ -105,11 +91,7 @@ test('derives price from amount and 9-decimal shares for manual equity trades', 
 test('allows cash-only transactions without price information', async () => {
   const onSubmit = vi.fn();
   renderWithProviders(
-    <TransactionsTab
-      transactions={[]}
-      onAddTransaction={onSubmit}
-      onDeleteTransaction={vi.fn()}
-    />,
+    <TransactionsTab transactions={[]} onAddTransaction={onSubmit} onDeleteTransaction={vi.fn()} />
   );
 
   const forms = screen.getAllByRole('form', { name: /add transaction/i });

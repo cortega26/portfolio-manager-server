@@ -57,7 +57,7 @@ test('renders tracked holding and benchmark prices and supports manual refresh',
       lastUpdatedAt="2024-03-01T15:30:00.000Z"
       requestId="req-prices-001"
       version="v1"
-    />,
+    />
   );
 
   expect(screen.getByRole('heading', { name: /tracked prices/i })).toBeVisible();

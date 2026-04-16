@@ -1,17 +1,17 @@
-import { useMemo } from "react";
-import Decimal from "decimal.js";
+import { useMemo } from 'react';
+import Decimal from 'decimal.js';
 
-const CASH_IN_TYPES = new Set(["DEPOSIT", "DIVIDEND", "INTEREST"]);
-const CASH_OUT_TYPES = new Set(["WITHDRAWAL", "FEE"]);
-const STOCK_BUY_TYPES = new Set(["BUY"]);
-const STOCK_SELL_TYPES = new Set(["SELL"]);
-const EXTERNAL_IN_TYPES = new Set(["DEPOSIT"]);
-const EXTERNAL_OUT_TYPES = new Set(["WITHDRAWAL"]);
-const INCOME_IN_TYPES = new Set(["DIVIDEND", "INTEREST"]);
-const INCOME_OUT_TYPES = new Set(["FEE"]);
+const CASH_IN_TYPES = new Set(['DEPOSIT', 'DIVIDEND', 'INTEREST']);
+const CASH_OUT_TYPES = new Set(['WITHDRAWAL', 'FEE']);
+const STOCK_BUY_TYPES = new Set(['BUY']);
+const STOCK_SELL_TYPES = new Set(['SELL']);
+const EXTERNAL_IN_TYPES = new Set(['DEPOSIT']);
+const EXTERNAL_OUT_TYPES = new Set(['WITHDRAWAL']);
+const INCOME_IN_TYPES = new Set(['DIVIDEND', 'INTEREST']);
+const INCOME_OUT_TYPES = new Set(['FEE']);
 
 function normalizeType(value) {
-  return typeof value === "string" ? value.trim().toUpperCase() : "";
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
 }
 
 function safeNumber(value) {
@@ -20,7 +20,7 @@ function safeNumber(value) {
 }
 
 function readOptionalNumber(entry, key) {
-  if (!entry || typeof entry !== "object" || !Object.prototype.hasOwnProperty.call(entry, key)) {
+  if (!entry || typeof entry !== 'object' || !Object.prototype.hasOwnProperty.call(entry, key)) {
     return null;
   }
   const numeric = Number(entry[key]);
@@ -48,10 +48,10 @@ export function computeCashBalance(transactions = []) {
     const type = normalizeType(transaction.type);
     const amount = toDecimal(transaction.amount);
 
-    if (type === "BUY") {
+    if (type === 'BUY') {
       return runningBalance.minus(amount.abs());
     }
-    if (type === "SELL") {
+    if (type === 'SELL') {
       return runningBalance.plus(amount.abs());
     }
     if (CASH_IN_TYPES.has(type)) {
@@ -104,7 +104,7 @@ export function summarizePortfolioFlows(transactions = []) {
       netIncome: new Decimal(0),
       grossBuys: new Decimal(0),
       grossSells: new Decimal(0),
-    },
+    }
   );
 }
 
@@ -114,21 +114,21 @@ export function resolveLatestRoiSnapshot(roiData = []) {
     if (!entry) {
       continue;
     }
-    const portfolio = readOptionalNumber(entry, "portfolio");
-    const portfolioTwr = readOptionalNumber(entry, "portfolioTwr");
-    const spy = readOptionalNumber(entry, "spy");
-    const qqq = readOptionalNumber(entry, "qqq");
-    const blended = readOptionalNumber(entry, "blended");
-    const exCash = readOptionalNumber(entry, "exCash");
-    const cash = readOptionalNumber(entry, "cash");
+    const portfolio = readOptionalNumber(entry, 'portfolio');
+    const portfolioTwr = readOptionalNumber(entry, 'portfolioTwr');
+    const spy = readOptionalNumber(entry, 'spy');
+    const qqq = readOptionalNumber(entry, 'qqq');
+    const blended = readOptionalNumber(entry, 'blended');
+    const exCash = readOptionalNumber(entry, 'exCash');
+    const cash = readOptionalNumber(entry, 'cash');
     if (
-      Number.isFinite(portfolio)
-      || Number.isFinite(portfolioTwr)
-      || Number.isFinite(spy)
-      || Number.isFinite(qqq)
-      || Number.isFinite(blended)
-      || Number.isFinite(exCash)
-      || Number.isFinite(cash)
+      Number.isFinite(portfolio) ||
+      Number.isFinite(portfolioTwr) ||
+      Number.isFinite(spy) ||
+      Number.isFinite(qqq) ||
+      Number.isFinite(blended) ||
+      Number.isFinite(exCash) ||
+      Number.isFinite(cash)
     ) {
       return { portfolio, portfolioTwr, spy, qqq, blended, exCash, cash };
     }
@@ -155,13 +155,8 @@ export function deriveDashboardMetrics({ metrics, transactions, roiData } = {}) 
   const pricingComplete = unpricedHoldingsCount === 0;
 
   const cashBalance = computeCashBalance(transactions);
-  const {
-    netContributions,
-    netStockPurchases,
-    netIncome,
-    grossBuys,
-    grossSells,
-  } = summarizePortfolioFlows(transactions);
+  const { netContributions, netStockPurchases, netIncome, grossBuys, grossSells } =
+    summarizePortfolioFlows(transactions);
   const totalValue = pricingComplete ? rawTotalValue : null;
   const totalUnrealised = pricingComplete ? rawTotalUnrealised : null;
   const historicalChange = pricingComplete
@@ -227,6 +222,6 @@ export function deriveDashboardMetrics({ metrics, transactions, roiData } = {}) 
 export function usePortfolioMetrics({ metrics, transactions, roiData } = {}) {
   return useMemo(
     () => deriveDashboardMetrics({ metrics, transactions, roiData }),
-    [metrics, transactions, roiData],
+    [metrics, transactions, roiData]
   );
 }

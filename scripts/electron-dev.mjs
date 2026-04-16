@@ -1,24 +1,25 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
-import { loadProjectEnv } from "../server/runtime/loadProjectEnv.js";
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+import { loadProjectEnv } from '../server/runtime/loadProjectEnv.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, "..");
-const viteCli = path.join(projectRoot, "node_modules", "vite", "bin", "vite.js");
-const electronCli = path.join(projectRoot, "node_modules", "electron", "cli.js");
+const projectRoot = path.resolve(__dirname, '..');
+const viteCli = path.join(projectRoot, 'node_modules', 'vite', 'bin', 'vite.js');
+const electronCli = path.join(projectRoot, 'node_modules', 'electron', 'cli.js');
 
 loadProjectEnv();
 
-const viteHost = process.env.ELECTRON_VITE_HOST ?? "127.0.0.1";
-const vitePort = Number.parseInt(process.env.ELECTRON_VITE_PORT ?? "5173", 10);
+const viteHost = process.env.ELECTRON_VITE_HOST ?? '127.0.0.1';
+const vitePort = Number.parseInt(process.env.ELECTRON_VITE_PORT ?? '5173', 10);
 const startUrl = `http://${viteHost}:${vitePort}`;
 
 function buildElectronDevCsp(host) {
-  const normalizedHost = typeof host === "string" && host.trim().length > 0 ? host.trim() : "127.0.0.1";
+  const normalizedHost =
+    typeof host === 'string' && host.trim().length > 0 ? host.trim() : '127.0.0.1';
   return [
     "default-src 'self'",
     "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'",
@@ -29,14 +30,14 @@ function buildElectronDevCsp(host) {
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-  ].join("; ");
+  ].join('; ');
 }
 
 function spawnNodeProcess(scriptPath, args, env) {
   return spawn(process.execPath, [scriptPath, ...args], {
     cwd: projectRoot,
     env,
-    stdio: "inherit",
+    stdio: 'inherit',
   });
 }
 
@@ -61,7 +62,7 @@ function terminate(child) {
   if (!child || child.exitCode !== null || child.killed) {
     return;
   }
-  child.kill("SIGTERM");
+  child.kill('SIGTERM');
 }
 
 async function main() {
@@ -74,8 +75,8 @@ async function main() {
 
   const viteProcess = spawnNodeProcess(
     viteCli,
-    ["--host", viteHost, "--port", String(vitePort), "--strictPort"],
-    sharedEnv,
+    ['--host', viteHost, '--port', String(vitePort), '--strictPort'],
+    sharedEnv
   );
 
   const cleanup = () => {
@@ -86,16 +87,16 @@ async function main() {
     terminate(viteProcess);
   };
 
-  process.on("SIGINT", () => {
+  process.on('SIGINT', () => {
     cleanup();
     process.exit(130);
   });
-  process.on("SIGTERM", () => {
+  process.on('SIGTERM', () => {
     cleanup();
     process.exit(143);
   });
 
-  viteProcess.once("exit", (code) => {
+  viteProcess.once('exit', (code) => {
     if (shuttingDown) {
       return;
     }
@@ -105,16 +106,12 @@ async function main() {
 
   await waitForUrl(startUrl);
 
-  const electronProcess = spawnNodeProcess(
-    electronCli,
-    ["electron"],
-    {
-      ...sharedEnv,
-      ELECTRON_START_URL: startUrl,
-    },
-  );
+  const electronProcess = spawnNodeProcess(electronCli, ['electron'], {
+    ...sharedEnv,
+    ELECTRON_START_URL: startUrl,
+  });
 
-  electronProcess.once("exit", (code) => {
+  electronProcess.once('exit', (code) => {
     cleanup();
     process.exit(code ?? 0);
   });

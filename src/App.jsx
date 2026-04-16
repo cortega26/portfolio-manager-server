@@ -1,6 +1,6 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from 'react-router-dom';
 
-import PortfolioManagerApp from "./PortfolioManagerApp.jsx";
+import PortfolioManagerApp from './PortfolioManagerApp.jsx';
 
 export default function App() {
   return (

@@ -33,7 +33,7 @@ test('renders backend-driven signals in a dedicated tab surface and allows windo
         },
       ]}
       onSignalChange={onSignalChange}
-    />,
+    />
   );
 
   expect(screen.getByRole('heading', { name: /signals workspace/i })).toBeVisible();

@@ -1,73 +1,71 @@
-import { getDefaultBenchmarkConfig } from "../../shared/benchmarks.js";
+import { getDefaultBenchmarkConfig } from '../../shared/benchmarks.js';
 
 const SERIES_META_FALLBACK = Object.freeze([
   {
-    id: "spy",
-    dataKey: "spy",
-    label: "S&P 500",
-    description: "Cumulative benchmark return for the S&P 500 over the loaded timeline",
-    color: "#2563eb",
+    id: 'spy',
+    dataKey: 'spy',
+    label: 'S&P 500',
+    description: 'Cumulative benchmark return for the S&P 500 over the loaded timeline',
+    color: '#2563eb',
   },
   {
-    id: "qqq",
-    dataKey: "qqq",
-    label: "Nasdaq-100",
-    description: "Cumulative benchmark return for the Nasdaq-100 over the loaded timeline",
-    color: "#f97316",
+    id: 'qqq',
+    dataKey: 'qqq',
+    label: 'Nasdaq-100',
+    description: 'Cumulative benchmark return for the Nasdaq-100 over the loaded timeline',
+    color: '#f97316',
   },
   {
-    id: "blended",
-    dataKey: "blended",
-    label: "Cash-Matched S&P 500",
+    id: 'blended',
+    dataKey: 'blended',
+    label: 'Cash-Matched S&P 500',
     description: "S&P 500 return adjusted for your portfolio's cash allocation on each day.",
-    color: "#8b5cf6",
+    color: '#8b5cf6',
   },
   {
-    id: "exCash",
-    dataKey: "exCash",
-    label: "Risk sleeve (ex-cash)",
-    description: "Portfolio performance excluding the cash sleeve",
-    color: "#ec4899",
+    id: 'exCash',
+    dataKey: 'exCash',
+    label: 'Risk sleeve (ex-cash)',
+    description: 'Portfolio performance excluding the cash sleeve',
+    color: '#ec4899',
   },
   {
-    id: "cash",
-    dataKey: "cash",
-    label: "Cash yield",
-    description: "Isolated cash performance with accrued interest",
-    color: "#0ea5e9",
+    id: 'cash',
+    dataKey: 'cash',
+    label: 'Cash yield',
+    description: 'Isolated cash performance with accrued interest',
+    color: '#0ea5e9',
   },
 ]);
 
-const SERIES_META_BY_ID = new Map(
-  SERIES_META_FALLBACK.map((entry) => [entry.id, entry]),
-);
+const SERIES_META_BY_ID = new Map(SERIES_META_FALLBACK.map((entry) => [entry.id, entry]));
 const FALLBACK_CHART_PALETTE = Object.freeze([
-  "#6366f1",
-  "#0f766e",
-  "#f97316",
-  "#ec4899",
-  "#0ea5e9",
-  "#f59e0b",
-  "#14b8a6",
-  "#8b5cf6",
+  '#6366f1',
+  '#0f766e',
+  '#f97316',
+  '#ec4899',
+  '#0ea5e9',
+  '#f59e0b',
+  '#14b8a6',
+  '#8b5cf6',
 ]);
 
 function createFallbackSeriesMeta(entry, index) {
-  const id = typeof entry?.id === "string" ? entry.id : `benchmark-${index + 1}`;
+  const id = typeof entry?.id === 'string' ? entry.id : `benchmark-${index + 1}`;
   return {
     id,
     dataKey: id,
-    label: typeof entry?.label === "string" && entry.label.trim().length > 0 ? entry.label : id,
+    label: typeof entry?.label === 'string' && entry.label.trim().length > 0 ? entry.label : id,
     description:
-      typeof entry?.ticker === "string" && entry.ticker.trim().length > 0
+      typeof entry?.ticker === 'string' && entry.ticker.trim().length > 0
         ? `Historical benchmark overlay for ${entry.ticker.trim().toUpperCase()}`
-        : typeof entry?.label === "string" && entry.label.trim().length > 0
+        : typeof entry?.label === 'string' && entry.label.trim().length > 0
           ? entry.label
           : id,
     color: FALLBACK_CHART_PALETTE[index % FALLBACK_CHART_PALETTE.length],
-    kind: entry?.kind ?? "market",
+    kind: entry?.kind ?? 'market',
     ticker:
-      typeof entry?.ticker === "string" && entry.ticker.trim().length > 0
+      typeof entry?.ticker === 'string' && entry.ticker.trim().length > 0
         ? entry.ticker.trim().toUpperCase()
         : undefined,
   };
@@ -89,29 +87,31 @@ export function normalizeBenchmarkCatalogResponse(payload) {
   const fallback = getFallbackBenchmarkCatalog();
   const available = Array.isArray(payload?.available)
     ? payload.available
-        .filter((entry) => entry && typeof entry === "object")
+        .filter((entry) => entry && typeof entry === 'object')
         .map((entry) => ({
-          id: String(entry.id ?? "").trim(),
-          ticker: String(entry.ticker ?? "").trim().toUpperCase(),
-          label: String(entry.label ?? "").trim(),
-          kind: "market",
+          id: String(entry.id ?? '').trim(),
+          ticker: String(entry.ticker ?? '')
+            .trim()
+            .toUpperCase(),
+          label: String(entry.label ?? '').trim(),
+          kind: 'market',
         }))
         .filter((entry) => entry.id && entry.ticker && entry.label)
     : fallback.available;
   const availableIds = new Set(available.map((entry) => entry.id));
   const derived = Array.isArray(payload?.derived)
     ? payload.derived
-        .filter((entry) => entry && typeof entry === "object")
+        .filter((entry) => entry && typeof entry === 'object')
         .map((entry) => ({
-          id: String(entry.id ?? "").trim(),
-          label: String(entry.label ?? "").trim(),
-          kind: "derived",
+          id: String(entry.id ?? '').trim(),
+          label: String(entry.label ?? '').trim(),
+          kind: 'derived',
         }))
         .filter((entry) => entry.id && entry.label)
     : fallback.derived;
   const defaults = Array.isArray(payload?.defaults)
     ? payload.defaults
-        .map((entry) => String(entry ?? "").trim())
+        .map((entry) => String(entry ?? '').trim())
         .filter((entry) => availableIds.has(entry))
     : [];
   const fallbackDefaults = fallback.defaults.filter((entry) => availableIds.has(entry));
@@ -139,7 +139,7 @@ export function buildBenchmarkSeriesMeta(catalog) {
         ...known,
         label: entry.label || known.label,
         ticker: entry.ticker,
-        kind: "market",
+        kind: 'market',
       };
     }
     return createFallbackSeriesMeta(entry, index);
@@ -148,22 +148,22 @@ export function buildBenchmarkSeriesMeta(catalog) {
 }
 
 const SERIES_SOURCE_KEYS = {
-  portfolio: "r_port",
-  spy: "r_spy_100",
-  qqq: "r_qqq_100",
-  blended: "r_bench_blended",
-  exCash: "r_ex_cash",
-  cash: "r_cash",
+  portfolio: 'r_port',
+  spy: 'r_spy_100',
+  qqq: 'r_qqq_100',
+  blended: 'r_bench_blended',
+  exCash: 'r_ex_cash',
+  cash: 'r_cash',
 };
 
 const ROI_SERIES_SOURCE_KEYS = {
-  portfolio: "portfolio",
-  portfolioTwr: "portfolioTwr",
-  spy: "spy",
-  qqq: "qqq",
-  blended: "bench",
-  exCash: "exCash",
-  cash: "cash",
+  portfolio: 'portfolio',
+  portfolioTwr: 'portfolioTwr',
+  spy: 'spy',
+  qqq: 'qqq',
+  blended: 'bench',
+  exCash: 'exCash',
+  cash: 'cash',
 };
 
 const TYPE_ORDER = {
@@ -176,10 +176,10 @@ const TYPE_ORDER = {
   FEE: 7,
 };
 
-const CASH_IN_TYPES = new Set(["DEPOSIT"]);
-const CASH_OUT_TYPES = new Set(["WITHDRAWAL", "FEE"]);
-const INCOME_TYPES = new Set(["DIVIDEND", "INTEREST"]);
-const SHARE_TYPES = new Set(["BUY", "SELL"]);
+const CASH_IN_TYPES = new Set(['DEPOSIT']);
+const CASH_OUT_TYPES = new Set(['WITHDRAWAL', 'FEE']);
+const INCOME_TYPES = new Set(['DIVIDEND', 'INTEREST']);
+const SHARE_TYPES = new Set(['BUY', 'SELL']);
 const SHARE_EPSILON = 1e-8;
 
 function toFiniteNumber(value) {
@@ -191,12 +191,12 @@ function toFiniteNumber(value) {
 }
 
 function toComparableTimestamp(value) {
-  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
     return Math.trunc(value);
   }
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const trimmed = value.trim();
-    if (trimmed === "") {
+    if (trimmed === '') {
       return 0;
     }
     const parsed = Number.parseInt(trimmed, 10);
@@ -206,12 +206,12 @@ function toComparableTimestamp(value) {
 }
 
 function toComparableSeq(value) {
-  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
     return value;
   }
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const trimmed = value.trim();
-    if (trimmed === "") {
+    if (trimmed === '') {
       return 0;
     }
     const parsed = Number.parseInt(trimmed, 10);
@@ -221,15 +221,15 @@ function toComparableSeq(value) {
 }
 
 function normalizeTransaction(raw) {
-  if (!raw || typeof raw !== "object") {
+  if (!raw || typeof raw !== 'object') {
     return null;
   }
-  const date = typeof raw.date === "string" ? raw.date.trim() : "";
+  const date = typeof raw.date === 'string' ? raw.date.trim() : '';
   if (!date) {
     return null;
   }
-  const type = String(raw.type ?? "").toUpperCase();
-  const ticker = typeof raw.ticker === "string" ? raw.ticker.trim().toUpperCase() : "";
+  const type = String(raw.type ?? '').toUpperCase();
+  const ticker = typeof raw.ticker === 'string' ? raw.ticker.trim().toUpperCase() : '';
   const shares = Math.abs(toFiniteNumber(raw.shares));
   const amount = toFiniteNumber(raw.amount);
   return {
@@ -258,8 +258,7 @@ function sortTransactions(transactions) {
       return orderA - orderB;
     }
 
-    const createdDiff =
-      toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
+    const createdDiff = toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
     if (createdDiff !== 0) {
       return createdDiff;
     }
@@ -269,12 +268,12 @@ function sortTransactions(transactions) {
       return seqDiff;
     }
 
-    const idDiff = String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    const idDiff = String(a.id ?? '').localeCompare(String(b.id ?? ''));
     if (idDiff !== 0) {
       return idDiff;
     }
 
-    return String(a.uid ?? "").localeCompare(String(b.uid ?? ""));
+    return String(a.uid ?? '').localeCompare(String(b.uid ?? ''));
   });
 }
 
@@ -284,7 +283,7 @@ function normalizePriceSeries(rawSeries) {
   }
   const entries = [];
   for (const point of rawSeries) {
-    const date = typeof point?.date === "string" ? point.date.trim() : "";
+    const date = typeof point?.date === 'string' ? point.date.trim() : '';
     if (!date) {
       continue;
     }
@@ -341,14 +340,6 @@ function toNumeric(value) {
   return Math.round((number + Number.EPSILON) * 10_000) / 10_000;
 }
 
-function toNullableNumeric(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) {
-    return null;
-  }
-  return Math.round((number + Number.EPSILON) * 10_000) / 10_000;
-}
-
 function toCanonicalNullableNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
@@ -358,9 +349,7 @@ export function mergeReturnSeries(series = {}) {
   const entriesByDate = new Map();
 
   for (const [targetKey, sourceKey] of Object.entries(SERIES_SOURCE_KEYS)) {
-    const sourceSeries = Array.isArray(series?.[sourceKey])
-      ? series[sourceKey]
-      : [];
+    const sourceSeries = Array.isArray(series?.[sourceKey]) ? series[sourceKey] : [];
     for (const point of sourceSeries) {
       const date = point?.date;
       if (!date) {
@@ -373,7 +362,7 @@ export function mergeReturnSeries(series = {}) {
   }
 
   const sortedDates = Array.from(entriesByDate.keys()).sort((a, b) =>
-    String(a).localeCompare(String(b)),
+    String(a).localeCompare(String(b))
   );
 
   return sortedDates.map((date) => {
@@ -386,7 +375,7 @@ export function mergeReturnSeries(series = {}) {
       exCash: toNumeric(entry.exCash),
       cash: toNumeric(entry.cash),
     };
-    if (Object.prototype.hasOwnProperty.call(entry, "qqq")) {
+    if (Object.prototype.hasOwnProperty.call(entry, 'qqq')) {
       row.qqq = toNumeric(entry.qqq);
     }
     return row;
@@ -439,7 +428,7 @@ export function buildBenchmarkOverlaySeries(roiData = [], rawSeries = []) {
   let baseline = null;
 
   return roiData.map((point) => {
-    const date = typeof point?.date === "string" ? point.date : "";
+    const date = typeof point?.date === 'string' ? point.date : '';
     const price = date ? cursor.advanceTo(date) : 0;
     if (baseline === null && price > 0) {
       baseline = price;
@@ -464,8 +453,8 @@ export function mergeBenchmarkOverlaySeries(roiData = [], overlaySeries = [], da
 
   const overlayMap = new Map(
     overlaySeries
-      .filter((point) => typeof point?.date === "string")
-      .map((point) => [point.date, point.value]),
+      .filter((point) => typeof point?.date === 'string')
+      .map((point) => [point.date, point.value])
   );
 
   return roiData.map((point) => ({
@@ -474,7 +463,7 @@ export function mergeBenchmarkOverlaySeries(roiData = [], overlaySeries = [], da
   }));
 }
 
-export const ROI_FALLBACK_INCOMPLETE_HISTORY = "ROI_FALLBACK_INCOMPLETE_HISTORY";
+export const ROI_FALLBACK_INCOMPLETE_HISTORY = 'ROI_FALLBACK_INCOMPLETE_HISTORY';
 
 /**
  * Builds a daily ROI series from transactions and a price fetcher.
@@ -490,15 +479,13 @@ export const ROI_FALLBACK_INCOMPLETE_HISTORY = "ROI_FALLBACK_INCOMPLETE_HISTORY"
 export async function buildRoiSeries(
   transactions,
   priceFetcher,
-  { requireCompleteHistory = false } = {},
+  { requireCompleteHistory = false } = {}
 ) {
   if (!Array.isArray(transactions) || transactions.length === 0) {
     return [];
   }
 
-  const normalizedTransactions = transactions
-    .map((tx) => normalizeTransaction(tx))
-    .filter(Boolean);
+  const normalizedTransactions = transactions.map((tx) => normalizeTransaction(tx)).filter(Boolean);
 
   if (normalizedTransactions.length === 0) {
     return [];
@@ -506,7 +493,7 @@ export async function buildRoiSeries(
 
   const firstTransactionDate = normalizedTransactions
     .map((tx) => tx.date)
-    .filter((date) => typeof date === "string" && date.length > 0)
+    .filter((date) => typeof date === 'string' && date.length > 0)
     .sort((left, right) => left.localeCompare(right))[0];
   if (!firstTransactionDate) {
     return [];
@@ -516,16 +503,16 @@ export async function buildRoiSeries(
     ...new Set(
       normalizedTransactions
         .filter((tx) => tx.ticker && SHARE_TYPES.has(tx.type))
-        .map((tx) => tx.ticker),
+        .map((tx) => tx.ticker)
     ),
   ];
 
-  const symbols = [...tickers, "spy"];
-  if (priceFetcher && typeof priceFetcher.prefetch === "function") {
+  const symbols = [...tickers, 'spy'];
+  if (priceFetcher && typeof priceFetcher.prefetch === 'function') {
     try {
       await priceFetcher.prefetch(symbols);
     } catch (error) {
-      console.error("Failed to prefetch price series", error);
+      console.error('Failed to prefetch price series', error);
     }
   }
 
@@ -544,26 +531,26 @@ export async function buildRoiSeries(
         console.error(error);
         return [symbol.toUpperCase(), []];
       }
-    }),
+    })
   );
 
   const priceMap = new Map(
-    priceMapEntries.map(([symbol, series]) => [symbol, normalizePriceSeries(series)]),
+    priceMapEntries.map(([symbol, series]) => [symbol, normalizePriceSeries(series)])
   );
   const missingSymbols = tickers
     .filter((ticker) => (priceMap.get(ticker) ?? []).length === 0)
     .sort((left, right) => left.localeCompare(right));
   if (requireCompleteHistory && missingSymbols.length > 0) {
     const error = new Error(
-      `Fallback ROI is missing historical prices for: ${missingSymbols.join(", ")}`,
+      `Fallback ROI is missing historical prices for: ${missingSymbols.join(', ')}`
     );
     error.code = ROI_FALLBACK_INCOMPLETE_HISTORY;
     error.missingSymbols = missingSymbols;
     throw error;
   }
 
-  const spySeries = (priceMap.get("SPY") ?? priceMap.get("spy") ?? []).filter(
-    (point) => typeof point?.date === "string" && point.date >= firstTransactionDate,
+  const spySeries = (priceMap.get('SPY') ?? priceMap.get('spy') ?? []).filter(
+    (point) => typeof point?.date === 'string' && point.date >= firstTransactionDate
   );
   if (spySeries.length === 0) {
     return [];
@@ -610,27 +597,26 @@ export async function buildRoiSeries(
           continue;
         }
         const previousShares = holdings.get(tx.ticker) ?? 0;
-        const sharesDelta = tx.type === "BUY" ? tx.shares : -tx.shares;
-        if (tx.type === "BUY") {
+        const sharesDelta = tx.type === 'BUY' ? tx.shares : -tx.shares;
+        if (tx.type === 'BUY') {
           const tradeCash = Math.abs(amount);
           if (tradeCash > cashBalance + SHARE_EPSILON) {
             continue;
           }
           cashBalance -= tradeCash;
         }
-        if (tx.type === "SELL" && previousShares + SHARE_EPSILON < tx.shares) {
+        if (tx.type === 'SELL' && previousShares + SHARE_EPSILON < tx.shares) {
           continue;
         }
         const rawNextShares = previousShares + sharesDelta;
-        const nextShares =
-          Math.abs(rawNextShares) < SHARE_EPSILON ? 0 : rawNextShares;
+        const nextShares = Math.abs(rawNextShares) < SHARE_EPSILON ? 0 : rawNextShares;
         holdings.set(tx.ticker, nextShares);
         if (Math.abs(nextShares) < SHARE_EPSILON) {
           activeTickers.delete(tx.ticker);
         } else {
           activeTickers.add(tx.ticker);
         }
-        if (tx.type === "SELL") {
+        if (tx.type === 'SELL') {
           const tradeCash = Math.abs(amount);
           if (tradeCash > 0) {
             cashBalance += tradeCash;
@@ -711,9 +697,7 @@ export async function buildRoiSeries(
     }
     const spyBaseline = initialSpyPrice ?? spyClose;
     const spyReturn =
-      spyBaseline && spyBaseline !== 0
-        ? ((spyClose - spyBaseline) / spyBaseline) * 100
-        : 0;
+      spyBaseline && spyBaseline !== 0 ? ((spyClose - spyBaseline) / spyBaseline) * 100 : 0;
 
     results.push({
       date,

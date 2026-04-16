@@ -49,8 +49,8 @@ describe('formatShortDate', () => {
   });
 
   test('handles null/undefined gracefully', () => {
-    expect(formatShortDate(null as any)).toBe('');
-    expect(formatShortDate(undefined as any)).toBe('');
+    expect(formatShortDate(null as unknown as string)).toBe('');
+    expect(formatShortDate(undefined as unknown as string)).toBe('');
   });
 });
 
@@ -132,7 +132,7 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     const storageKey = getBenchmarkStorageKey();
@@ -170,7 +170,7 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getAllByText(/TWR vs Benchmarks/i).length).toBeGreaterThanOrEqual(1);
@@ -198,7 +198,7 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getByText('+77.94%')).toBeInTheDocument();
@@ -216,14 +216,14 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.queryByText(/Arrastre por caja/i)).not.toBeInTheDocument();
     expect(screen.getByText(/MWR inversionista/i)).toBeInTheDocument();
     expect(screen.getByText(/MWR 1A \+12[.,]34%/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/SPY \+10[.,]12% · QQQ \+9[.,]87% con tus mismos flujos/i),
+      screen.getByText(/SPY \+10[.,]12% · QQQ \+9[.,]87% con tus mismos flujos/i)
     ).toBeInTheDocument();
   });
 
@@ -242,13 +242,11 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.queryByText(/MWR 1A/i)).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Ventana parcial desde/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Ventana parcial desde/i)).toBeInTheDocument();
   });
 
   test('keeps rendering the dashboard context when benchmark summary data is missing', () => {
@@ -270,7 +268,7 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getByText(/MWR inversionista/i)).toBeInTheDocument();
@@ -284,11 +282,11 @@ describe('DashboardTab benchmark controls', () => {
         metrics={metricsFixture}
         roiData={roiFixture}
         benchmarkSummary={benchmarkSummaryFixture}
-        returnsSummary={{ r_port: 0.50, annualized_r_port: 0.2247 }}
+        returnsSummary={{ r_port: 0.5, annualized_r_port: 0.2247 }}
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getByText(/ann\./i)).toBeInTheDocument();
@@ -301,11 +299,11 @@ describe('DashboardTab benchmark controls', () => {
         metrics={metricsFixture}
         roiData={roiFixture}
         benchmarkSummary={benchmarkSummaryFixture}
-        returnsSummary={{ r_port: 0.10 }}
+        returnsSummary={{ r_port: 0.1 }}
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.queryByText(/ann\./i)).not.toBeInTheDocument();
@@ -320,7 +318,7 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.queryByText(/ann\./i)).not.toBeInTheDocument();
@@ -335,13 +333,13 @@ describe('DashboardTab benchmark controls', () => {
         roiData={roiFixture}
         benchmarkSummary={benchmarkSummaryFixture}
         returnsSummary={{
-          r_port: 0.50,
+          r_port: 0.5,
           max_drawdown: { value: -0.12, peak_date: '2024-03-15', trough_date: '2024-06-20' },
         }}
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getByText(/Max Drawdown/i)).toBeInTheDocument();
@@ -355,11 +353,11 @@ describe('DashboardTab benchmark controls', () => {
         metrics={metricsFixture}
         roiData={roiFixture}
         benchmarkSummary={benchmarkSummaryFixture}
-        returnsSummary={{ r_port: 0.10, max_drawdown: null }}
+        returnsSummary={{ r_port: 0.1, max_drawdown: null }}
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getByText(/Max Drawdown/i)).toBeInTheDocument();
@@ -376,7 +374,7 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getByText(/Total NAV/i)).toBeInTheDocument();
@@ -397,13 +395,13 @@ describe('DashboardTab benchmark controls', () => {
         roiData={roiFixture}
         benchmarkSummary={benchmarkSummaryFixture}
         returnsSummary={{
-          r_port: 0.20,
+          r_port: 0.2,
           max_drawdown: { value: -0.05, peak_date: '2024-02-01', trough_date: '2024-03-01' },
         }}
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getAllByText(/Portfolio ROI/i).length).toBeGreaterThanOrEqual(1);
@@ -431,7 +429,7 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getByText(/NAV Growth/i)).toBeInTheDocument();
@@ -447,7 +445,7 @@ describe('DashboardTab benchmark controls', () => {
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.getByText(/NAV Growth/i)).toBeInTheDocument();
@@ -465,7 +463,7 @@ describe('DashboardTab benchmark controls', () => {
         onRefreshRoi={() => {}}
         roiSource="fallback"
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     const badge = screen.getByTestId('approximate-badge');
@@ -482,7 +480,7 @@ describe('DashboardTab benchmark controls', () => {
         onRefreshRoi={() => {}}
         roiSource="api"
         benchmarkCatalog={benchmarkCatalogFixture}
-      />,
+      />
     );
 
     expect(screen.queryByTestId('approximate-badge')).not.toBeInTheDocument();

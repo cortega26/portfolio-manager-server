@@ -1,9 +1,11 @@
 <!-- markdownlint-disable -->
+
 # AI Code Assistant Prompt Pack
 
 Use these prompts to align any AI helper with the current repository state, audit findings, and guardrails. Each block can be pasted directly into an AI session before sharing follow-up instructions or diffs.
 
 ## 1. Phase 5 Completion Context Sync
+
 ```
 You are contributing to cortega26/portfolio-manager-server (React + Vite frontend, Express backend).
 Baseline: Phases 1–5 from comprehensive_audit_v3.md are merged on main (security hardening, documentation refresh, observability, virtualization, API versioning, dashboard benchmark toggles, KPI refresh, frontend operations playbook, testing/CI hardening).
@@ -13,6 +15,7 @@ Follow repository guardrails: keep coverage ≥90% on touched files, avoid shell
 ```
 
 ## 2. P5-TEST-1 Frontend Coverage Regression Prompt
+
 ```
 Use when modifying dashboard React components or their tests.
 Files: src/components/*.jsx (dashboard/tabs/forms), src/__tests__/, shared test utilities.
@@ -24,6 +27,7 @@ Always run npm run lint, npm test -- --coverage, and npm run build before finali
 ```
 
 ## 3. P5-TEST-2 Performance Harness Maintenance Prompt
+
 ```
 Use when adjusting ledger/holdings performance code or synthetic load tooling.
 Focus files: tools/perf harness scripts, server/finance modules exercised by the harness, npm scripts.
@@ -33,6 +37,7 @@ Run npm run lint, npm test -- --coverage, npm run test:perf, and npm run build (
 ```
 
 ## 4. P5-CI-1 End-to-End & CI Reliability Prompt
+
 ```
 Use when modifying Playwright smoke tests, CI orchestration, or related fixtures.
 Touch points: e2e/ directory, Playwright configuration, npm run test:e2e script, GitHub Actions workflow definitions, README/scoreboard documentation.
@@ -43,6 +48,7 @@ Steps:
 ```
 
 ## 5. PR Completion Checklist Prompt
+
 ```
 Before final response:
 - Provide diffs with citations.

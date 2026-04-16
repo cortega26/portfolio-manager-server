@@ -1,7 +1,7 @@
 const DISPLAY_CURRENCY_REGEX = /^[A-Za-z]{3}$/u;
 
 function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function deepMerge(target, source) {
@@ -40,7 +40,7 @@ function coerceNumber(value, fallback, { min = null, max = null } = {}) {
 }
 
 function normalizeCurrency(value, fallback) {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return fallback;
   }
   const normalized = value.trim().toUpperCase();
@@ -64,7 +64,7 @@ export function createDefaultSettings() {
       hideBalances: false,
     },
     display: {
-      currency: "USD",
+      currency: 'USD',
       refreshInterval: 15,
       compactTables: false,
     },
@@ -94,7 +94,7 @@ export function normalizeSettings(rawSettings) {
   merged.alerts.drawdownThreshold = coerceNumber(
     merged.alerts.drawdownThreshold,
     defaults.alerts.drawdownThreshold,
-    { min: 1, max: 50 },
+    { min: 1, max: 50 }
   );
   merged.alerts.marketStatus = Boolean(merged.alerts.marketStatus);
   merged.alerts.roiFallback = Boolean(merged.alerts.roiFallback);
@@ -107,14 +107,11 @@ export function normalizeSettings(rawSettings) {
   if (!isPlainObject(merged.display)) {
     merged.display = { ...defaults.display };
   }
-  merged.display.currency = normalizeCurrency(
-    merged.display.currency,
-    defaults.display.currency,
-  );
+  merged.display.currency = normalizeCurrency(merged.display.currency, defaults.display.currency);
   merged.display.refreshInterval = coerceNumber(
     merged.display.refreshInterval,
     defaults.display.refreshInterval,
-    { min: 1, max: 60 },
+    { min: 1, max: 60 }
   );
   merged.display.compactTables = Boolean(merged.display.compactTables);
 

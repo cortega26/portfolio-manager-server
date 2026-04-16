@@ -1,37 +1,35 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const path = require("path");
-const { randomBytes } = require("crypto");
+const path = require('path');
+const { randomBytes } = require('crypto');
 
-const { app, BrowserWindow, ipcMain } = require("electron");
-const pino = require("pino");
+const { app, BrowserWindow, ipcMain } = require('electron');
+const pino = require('pino');
 
-const HOST = "127.0.0.1";
-const DEFAULT_ACTIVE_PORTFOLIO_ID = "desktop";
+const HOST = '127.0.0.1';
+const DEFAULT_ACTIVE_PORTFOLIO_ID = 'desktop';
 const IPC_CHANNELS = Object.freeze({
-  LIST_PORTFOLIOS: "portfolio-desktop:list-portfolios",
-  SETUP_PIN: "portfolio-desktop:setup-pin",
-  UNLOCK_SESSION: "portfolio-desktop:unlock-session",
+  LIST_PORTFOLIOS: 'portfolio-desktop:list-portfolios',
+  SETUP_PIN: 'portfolio-desktop:setup-pin',
+  UNLOCK_SESSION: 'portfolio-desktop:unlock-session',
 });
-const rootLogger = pino({ base: { module: "electron" } });
+const rootLogger = pino({ base: { module: 'electron' } });
 const isSmokeTest =
-  typeof process.env.ELECTRON_SMOKE_TEST === "string" &&
+  typeof process.env.ELECTRON_SMOKE_TEST === 'string' &&
   process.env.ELECTRON_SMOKE_TEST.trim().length > 0;
 
 let desktopModulesPromise = null;
 
 function createSessionToken() {
-  return randomBytes(32).toString("hex");
+  return randomBytes(32).toString('hex');
 }
 
 function resolveStaticDir() {
-  return path.resolve(__dirname, "../dist");
+  return path.resolve(__dirname, '../dist');
 }
 
 function resolveRendererUrl(baseUrl) {
   const startUrl =
-    typeof process.env.ELECTRON_START_URL === "string"
-      ? process.env.ELECTRON_START_URL.trim()
-      : "";
+    typeof process.env.ELECTRON_START_URL === 'string' ? process.env.ELECTRON_START_URL.trim() : '';
   if (startUrl) {
     return startUrl;
   }
@@ -52,7 +50,7 @@ function createWindow({ rendererUrl }) {
     height: 960,
     minWidth: 1080,
     minHeight: 720,
-    backgroundColor: "#0f172a",
+    backgroundColor: '#0f172a',
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -60,15 +58,15 @@ function createWindow({ rendererUrl }) {
       nodeIntegration: false,
       sandbox: false,
       additionalArguments:
-        typeof process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG === "string" &&
+        typeof process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG === 'string' &&
         process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG.trim().length > 0
           ? [process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG]
           : [],
-      preload: path.resolve(__dirname, "./preload.cjs"),
+      preload: path.resolve(__dirname, './preload.cjs'),
     },
   });
   if (!isSmokeTest) {
-    browserWindow.once("ready-to-show", () => {
+    browserWindow.once('ready-to-show', () => {
       browserWindow.show();
     });
   }
@@ -79,41 +77,43 @@ function createWindow({ rendererUrl }) {
 async function loadDesktopModules() {
   if (!desktopModulesPromise) {
     desktopModulesPromise = Promise.all([
-      import("./runtimeConfig.js"),
-      import("../server/runtime/startServer.js"),
-      import("../server/middleware/sessionAuth.js"),
-      import("../server/migrations/index.js"),
-      import("../server/data/portfolioState.js"),
-      import("../server/auth/localPinAuth.js"),
-    ]).then(([
-      runtimeConfigModule,
-      serverRuntimeModule,
-      sessionAuthModule,
-      migrationsModule,
-      portfolioStateModule,
-      localPinAuthModule,
-    ]) => ({
-      ...runtimeConfigModule,
-      ...serverRuntimeModule,
-      ...sessionAuthModule,
-      ...migrationsModule,
-      ...portfolioStateModule,
-      ...localPinAuthModule,
-    }));
+      import('./runtimeConfig.js'),
+      import('../server/runtime/startServer.js'),
+      import('../server/middleware/sessionAuth.js'),
+      import('../server/migrations/index.js'),
+      import('../server/data/portfolioState.js'),
+      import('../server/auth/localPinAuth.js'),
+    ]).then(
+      ([
+        runtimeConfigModule,
+        serverRuntimeModule,
+        sessionAuthModule,
+        migrationsModule,
+        portfolioStateModule,
+        localPinAuthModule,
+      ]) => ({
+        ...runtimeConfigModule,
+        ...serverRuntimeModule,
+        ...sessionAuthModule,
+        ...migrationsModule,
+        ...portfolioStateModule,
+        ...localPinAuthModule,
+      })
+    );
   }
   return desktopModulesPromise;
 }
 
-function normalizeDesktopBridgeError(error, fallbackCode = "DESKTOP_SESSION_ERROR") {
+function normalizeDesktopBridgeError(error, fallbackCode = 'DESKTOP_SESSION_ERROR') {
   return {
     code:
-      typeof error?.code === "string" && error.code.trim().length > 0
+      typeof error?.code === 'string' && error.code.trim().length > 0
         ? error.code.trim()
         : fallbackCode,
     message:
-      typeof error?.message === "string" && error.message.trim().length > 0
+      typeof error?.message === 'string' && error.message.trim().length > 0
         ? error.message.trim()
-        : "Desktop session request failed.",
+        : 'Desktop session request failed.',
   };
 }
 
@@ -145,24 +145,22 @@ function registerDesktopSessionHandlers({
   const listKnownPortfolios = async () => {
     const states = await listPortfolioStates(storage);
     const ids = new Set(
-      states
-        .map((row) => (typeof row?.id === "string" ? row.id.trim() : ""))
-        .filter(Boolean),
+      states.map((row) => (typeof row?.id === 'string' ? row.id.trim() : '')).filter(Boolean)
     );
     ids.add(preferredPortfolioId);
     const entries = await Promise.all(
       Array.from(ids).map(async (id) => ({
         id,
         hasPin: await hasPin(storage, id),
-      })),
+      }))
     );
     const portfolios = sortPortfolioEntries(entries, preferredPortfolioId);
     return {
       portfolios,
       defaultPortfolioId:
-        portfolios.find((entry) => entry.id === preferredPortfolioId)?.id
-        ?? portfolios[0]?.id
-        ?? preferredPortfolioId,
+        portfolios.find((entry) => entry.id === preferredPortfolioId)?.id ??
+        portfolios[0]?.id ??
+        preferredPortfolioId,
     };
   };
 
@@ -179,17 +177,16 @@ function registerDesktopSessionHandlers({
   });
 
   const resolvePortfolioId = async (rawPortfolioId) => {
-    const requestedId =
-      typeof rawPortfolioId === "string" ? rawPortfolioId.trim() : "";
+    const requestedId = typeof rawPortfolioId === 'string' ? rawPortfolioId.trim() : '';
     if (!requestedId) {
-      const error = new Error("Select a portfolio before continuing.");
-      error.code = "PORTFOLIO_REQUIRED";
+      const error = new Error('Select a portfolio before continuing.');
+      error.code = 'PORTFOLIO_REQUIRED';
       throw error;
     }
     const { portfolios } = await listKnownPortfolios();
     if (!portfolios.some((entry) => entry.id === requestedId)) {
-      const error = new Error("Selected portfolio is not provisioned yet.");
-      error.code = "PORTFOLIO_NOT_FOUND";
+      const error = new Error('Selected portfolio is not provisioned yet.');
+      error.code = 'PORTFOLIO_NOT_FOUND';
       throw error;
     }
     return requestedId;
@@ -215,8 +212,8 @@ function registerDesktopSessionHandlers({
     try {
       const portfolioId = await resolvePortfolioId(payload?.portfolioId);
       if (await hasPin(storage, portfolioId)) {
-        const error = new Error("A PIN already exists for this portfolio.");
-        error.code = "PIN_ALREADY_SET";
+        const error = new Error('A PIN already exists for this portfolio.');
+        error.code = 'PIN_ALREADY_SET';
         throw error;
       }
       await setPin(storage, portfolioId, payload?.pin);
@@ -238,8 +235,8 @@ function registerDesktopSessionHandlers({
       const portfolioId = await resolvePortfolioId(payload?.portfolioId);
       const isValid = await verifyPin(storage, portfolioId, payload?.pin);
       if (!isValid) {
-        const error = new Error("The PIN does not match the selected portfolio.");
-        error.code = "INVALID_PIN";
+        const error = new Error('The PIN does not match the selected portfolio.');
+        error.code = 'INVALID_PIN';
         throw error;
       }
       return {
@@ -314,7 +311,7 @@ async function runSmokeProbe(mainWindow) {
       }
     })();
   `);
-  process.stdout.write(`${JSON.stringify({ smoke: "electron", ...probe })}\n`);
+  process.stdout.write(`${JSON.stringify({ smoke: 'electron', ...probe })}\n`);
 }
 
 async function bootstrapDesktopShell() {
@@ -335,14 +332,12 @@ async function bootstrapDesktopShell() {
   const sessionToken = createSessionToken();
   const sessionAuthHeader = DEFAULT_SESSION_AUTH_HEADER;
   const startUrl =
-    typeof process.env.ELECTRON_START_URL === "string"
-      ? process.env.ELECTRON_START_URL.trim()
-      : "";
+    typeof process.env.ELECTRON_START_URL === 'string' ? process.env.ELECTRON_START_URL.trim() : '';
   const rendererOrigin = startUrl ? resolveRendererOrigin(startUrl) : null;
   const desktopConfig = buildServerConfig({
     env: process.env,
     auth: {
-      mode: "session",
+      mode: 'session',
       sessionToken,
       headerName: sessionAuthHeader,
     },
@@ -353,22 +348,21 @@ async function bootstrapDesktopShell() {
       : null,
   });
   const preferredPortfolioId =
-    typeof process.env.PORTFOLIO_ACTIVE_ID === "string" &&
+    typeof process.env.PORTFOLIO_ACTIVE_ID === 'string' &&
     process.env.PORTFOLIO_ACTIVE_ID.trim().length > 0
       ? process.env.PORTFOLIO_ACTIVE_ID.trim()
       : DEFAULT_ACTIVE_PORTFOLIO_ID;
   const storage = await runMigrations({
     dataDir: desktopConfig.dataDir,
-    logger: rootLogger.child({ module: "desktop-auth" }),
+    logger: rootLogger.child({ module: 'desktop-auth' }),
   });
 
-  const isDevShell =
-    startUrl.length > 0;
+  const isDevShell = startUrl.length > 0;
   const staticDir = isDevShell ? null : resolveStaticDir();
   const embeddedServer = await startServer({
     host: HOST,
     port: 0,
-    logger: rootLogger.child({ module: "server" }),
+    logger: rootLogger.child({ module: 'server' }),
     config: desktopConfig,
     startScheduler: false,
     staticDir,
@@ -395,8 +389,7 @@ async function bootstrapDesktopShell() {
   });
   const encodedRuntimeConfig = encodeDesktopRuntimeConfig(runtimeConfig);
   process.env[DESKTOP_RUNTIME_CONFIG_ENV] = encodedRuntimeConfig;
-  process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG =
-    buildDesktopRuntimeConfigArg(runtimeConfig);
+  process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG = buildDesktopRuntimeConfigArg(runtimeConfig);
 
   const rendererUrl = startUrl || resolveRendererUrl(embeddedServer.baseUrl);
   const mainWindow = createWindow({ rendererUrl });
@@ -410,8 +403,8 @@ async function bootstrapDesktopShell() {
       try {
         await embeddedServer.close();
       } catch (error) {
-        if (error?.message !== "Server is not running.") {
-          rootLogger.warn({ error: error.message }, "embedded_server_close_failed");
+        if (error?.message !== 'Server is not running.') {
+          rootLogger.warn({ error: error.message }, 'embedded_server_close_failed');
         }
       }
     })();
@@ -422,10 +415,10 @@ async function bootstrapDesktopShell() {
     }
   };
 
-  app.on("before-quit", () => {
+  app.on('before-quit', () => {
     void shutdown();
   });
-  mainWindow.on("closed", () => {
+  mainWindow.on('closed', () => {
     ipcMain.removeHandler(IPC_CHANNELS.LIST_PORTFOLIOS);
     ipcMain.removeHandler(IPC_CHANNELS.SETUP_PIN);
     ipcMain.removeHandler(IPC_CHANNELS.UNLOCK_SESSION);
@@ -433,7 +426,7 @@ async function bootstrapDesktopShell() {
     delete process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG;
   });
   if (isSmokeTest) {
-    mainWindow.webContents.once("did-finish-load", async () => {
+    mainWindow.webContents.once('did-finish-load', async () => {
       try {
         await runSmokeProbe(mainWindow);
       } finally {
@@ -447,13 +440,13 @@ async function bootstrapDesktopShell() {
 async function main() {
   await app.whenReady();
   await bootstrapDesktopShell();
-  app.on("activate", () => {
+  app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       void bootstrapDesktopShell();
     }
   });
-  app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") {
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
       app.quit();
     }
   });

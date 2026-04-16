@@ -1,9 +1,6 @@
-import {
-  createDefaultSettings,
-  normalizeSettings,
-} from "../../shared/settings.js";
+import { createDefaultSettings, normalizeSettings } from '../../shared/settings.js';
 
-const STORAGE_KEY = "portfolio-manager-settings";
+const STORAGE_KEY = 'portfolio-manager-settings';
 
 export { createDefaultSettings, normalizeSettings };
 
@@ -33,8 +30,7 @@ export function mergeSettings(current, incoming) {
 }
 
 export function loadSettingsFromStorage(storage = null) {
-  const localStorageRef =
-    storage ?? (typeof window !== "undefined" ? window.localStorage : null);
+  const localStorageRef = storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
   if (!localStorageRef) {
     return createDefaultSettings();
   }
@@ -48,14 +44,13 @@ export function loadSettingsFromStorage(storage = null) {
     const parsed = JSON.parse(raw);
     return normalizeSettings(parsed);
   } catch (error) {
-    console.error("Failed to load user settings", error);
+    console.error('Failed to load user settings', error);
     return createDefaultSettings();
   }
 }
 
 export function persistSettingsToStorage(settings, storage = null) {
-  const localStorageRef =
-    storage ?? (typeof window !== "undefined" ? window.localStorage : null);
+  const localStorageRef = storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
   if (!localStorageRef) {
     return false;
   }
@@ -65,7 +60,7 @@ export function persistSettingsToStorage(settings, storage = null) {
     localStorageRef.setItem(STORAGE_KEY, JSON.stringify(normalized));
     return true;
   } catch (error) {
-    console.error("Failed to persist user settings", error);
+    console.error('Failed to persist user settings', error);
     return false;
   }
 }
@@ -75,7 +70,7 @@ export function updateSetting(settings, path, value) {
     return settings;
   }
 
-  const segments = path.split(".");
+  const segments = path.split('.');
   const next = { ...settings };
   let cursor = next;
 

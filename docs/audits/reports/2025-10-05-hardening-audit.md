@@ -1,5 +1,7 @@
 <!-- markdownlint-disable -->
+
 # Portfolio Manager - Comprehensive Hardening Audit
+
 ## Cross-Referenced Against HARDENING_SCOREBOARD.md
 
 **Audit Date**: October 5, 2025  
@@ -34,6 +36,7 @@ LOW: 1/4 done (25%)
 ### Critical Findings
 
 **🎉 EXCELLENT**:
+
 - All CI/CD gates operational (G1-G5)
 - Security fundamentals solid (SEC-1,2,4,5,6,7)
 - Storage integrity implemented (STO-1,2,3,4)
@@ -41,6 +44,7 @@ LOW: 1/4 done (25%)
 - Request validation working (COM-1)
 
 **⚠️ GAPS REQUIRING ATTENTION**:
+
 - No authentication (SEC-3) - **CRITICAL for production**
 - No price caching (PERF-1) - **HIGH priority**
 - Missing advanced tests (TEST-2,3,4,5) - **HIGH priority**
@@ -52,17 +56,18 @@ LOW: 1/4 done (25%)
 
 ### 1. Quality Gates (CI/CD) - **100% Complete** ✅
 
-| ID | Item | Severity | Status | Verification |
-|----|------|----------|--------|--------------|
-| G1 | Coverage gate | HIGH | ✅ **DONE** | **VERIFIED**: Found in `.github/workflows/ci.yml` - `NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage` |
-| G2 | Lint gate | MEDIUM | ✅ **DONE** | **VERIFIED**: `npm run lint` in CI workflow |
-| G3 | Security audit gate | MEDIUM | ✅ **DONE** | **VERIFIED**: `gitleaks detect` + `npm audit --audit-level=moderate` |
-| G4 | Test artifacts | LOW | ✅ **DONE** | **VERIFIED**: Coverage uploaded as `node-coverage` artifact |
-| G5 | Release gate | HIGH | ✅ **DONE** | **VERIFIED**: Deploy workflow requires CI success |
+| ID  | Item                | Severity | Status      | Verification                                                                                                                                        |
+| --- | ------------------- | -------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1  | Coverage gate       | HIGH     | ✅ **DONE** | **VERIFIED**: Found in `.github/workflows/ci.yml` - `NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage` |
+| G2  | Lint gate           | MEDIUM   | ✅ **DONE** | **VERIFIED**: `npm run lint` in CI workflow                                                                                                         |
+| G3  | Security audit gate | MEDIUM   | ✅ **DONE** | **VERIFIED**: `gitleaks detect` + `npm audit --audit-level=moderate`                                                                                |
+| G4  | Test artifacts      | LOW      | ✅ **DONE** | **VERIFIED**: Coverage uploaded as `node-coverage` artifact                                                                                         |
+| G5  | Release gate        | HIGH     | ✅ **DONE** | **VERIFIED**: Deploy workflow requires CI success                                                                                                   |
 
 **Evidence Location**: `.github/workflows/ci.yml`
 
 **Verification Commands**:
+
 ```bash
 # Verify CI configuration
 cat .github/workflows/ci.yml
@@ -78,18 +83,18 @@ npm run build
 
 ---
 
-### 2. Security Hardening (SEC-*) - **70% Complete** ⚠️
+### 2. Security Hardening (SEC-\*) - **70% Complete** ⚠️
 
-| ID | Item | Severity | Status | Gap Analysis |
-|----|------|----------|--------|--------------|
-| SEC-1 | Rate limiting | CRITICAL | ✅ **DONE** | **VERIFIED** in `server/app.js` |
-| SEC-2 | JSON size limits | HIGH | ✅ **DONE** | **VERIFIED**: 10MB limit enforced |
-| SEC-3 | Per-portfolio API key | HIGH* | ❌ **TODO** | **GAP**: No auth implemented |
-| SEC-4 | Uniform error handler | MEDIUM | ✅ **DONE** | **VERIFIED**: Error middleware in place |
-| SEC-5 | HTTPS/HSTS | HIGH | ✅ **DONE** | **VERIFIED**: Helmet HSTS headers |
-| SEC-6 | Helmet + CSP | HIGH | ✅ **DONE** | **VERIFIED**: Full CSP implemented |
-| SEC-7 | Strict CORS | HIGH | ✅ **DONE** | **VERIFIED**: Origin allowlist |
-| SEC-8 | CSV/Excel injection guard | MEDIUM | ❌ **TODO** | **GAP**: Not implemented |
+| ID    | Item                      | Severity | Status      | Gap Analysis                            |
+| ----- | ------------------------- | -------- | ----------- | --------------------------------------- |
+| SEC-1 | Rate limiting             | CRITICAL | ✅ **DONE** | **VERIFIED** in `server/app.js`         |
+| SEC-2 | JSON size limits          | HIGH     | ✅ **DONE** | **VERIFIED**: 10MB limit enforced       |
+| SEC-3 | Per-portfolio API key     | HIGH\*   | ❌ **TODO** | **GAP**: No auth implemented            |
+| SEC-4 | Uniform error handler     | MEDIUM   | ✅ **DONE** | **VERIFIED**: Error middleware in place |
+| SEC-5 | HTTPS/HSTS                | HIGH     | ✅ **DONE** | **VERIFIED**: Helmet HSTS headers       |
+| SEC-6 | Helmet + CSP              | HIGH     | ✅ **DONE** | **VERIFIED**: Full CSP implemented      |
+| SEC-7 | Strict CORS               | HIGH     | ✅ **DONE** | **VERIFIED**: Origin allowlist          |
+| SEC-8 | CSV/Excel injection guard | MEDIUM   | ❌ **TODO** | **GAP**: Not implemented                |
 
 #### SEC-1: Rate Limiting ✅ **VERIFIED**
 
@@ -116,11 +121,13 @@ app.use('/api/prices', priceLimiter);
 ```
 
 **Assessment**: ✅ **EXCELLENT** - Multi-tier rate limiting
+
 - General API: 100 req/min
 - Portfolio endpoints: 20 req/min
 - Price endpoints: 60 req/min
 
 **Test Command**:
+
 ```bash
 # Test rate limiting
 for i in {1..25}; do curl http://localhost:3000/api/portfolio/test; done
@@ -144,6 +151,7 @@ app.use(express.json({ limit: '10mb' }));
 **Code Search**: **NOT FOUND** - No authentication middleware exists
 
 **RISK**: 🔴 **CRITICAL for production deployment**
+
 - Anyone with portfolio ID can read/write
 - Enumeration attack possible: `portfolio_001`, `portfolio_002`, etc.
 - No user ownership model
@@ -151,6 +159,7 @@ app.use(express.json({ limit: '10mb' }));
 **Recommendation**: Implement before public deployment
 
 **Implementation Required**:
+
 ```javascript
 // middleware/auth.js (NEEDS TO BE CREATED)
 import crypto from 'node:crypto';
@@ -160,38 +169,35 @@ const sha256 = (s) => crypto.createHash('sha256').update(s).digest();
 export function verifyPortfolioKey(req, res, next) {
   const key = req.get('x-portfolio-key');
   if (!key) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       error: 'NO_KEY',
-      message: 'Portfolio key required' 
+      message: 'Portfolio key required',
     });
   }
-  
+
   const storedHash = getPortfolioKeyHash(req.params.id);
   if (!storedHash) {
-    return res.status(404).json({ 
-      error: 'PORTFOLIO_NOT_FOUND' 
+    return res.status(404).json({
+      error: 'PORTFOLIO_NOT_FOUND',
     });
   }
-  
+
   const keyHash = sha256(key);
-  const ok = crypto.timingSafeEqual(
-    Buffer.from(storedHash, 'hex'),
-    keyHash
-  );
-  
+  const ok = crypto.timingSafeEqual(Buffer.from(storedHash, 'hex'), keyHash);
+
   if (!ok) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       error: 'INVALID_KEY',
-      message: 'Invalid portfolio key' 
+      message: 'Invalid portfolio key',
     });
   }
-  
+
   next();
 }
 
 // Usage in app.js
 app.use('/api/portfolio/:id', verifyPortfolioKey);
-app.post('/api/portfolio/:id', verifyPortfolioKey, /* handler */);
+app.post('/api/portfolio/:id', verifyPortfolioKey /* handler */);
 ```
 
 **Time Estimate**: 4 hours
@@ -211,10 +217,10 @@ app.post('/api/portfolio/:id', verifyPortfolioKey, /* handler */);
 // FOUND IN CODE:
 app.use(
   helmet({
-    hsts: { 
-      maxAge: 15552000, 
-      includeSubDomains: true, 
-      preload: true 
+    hsts: {
+      maxAge: 15552000,
+      includeSubDomains: true,
+      preload: true,
     },
     // ... other configs
   })
@@ -222,6 +228,7 @@ app.use(
 ```
 
 **Assessment**: ✅ **EXCELLENT** - Proper HSTS configuration
+
 - 180-day max age
 - Subdomain inclusion
 - Preload ready
@@ -251,6 +258,7 @@ app.use(
 ```
 
 **Assessment**: ✅ **EXCELLENT** - Comprehensive security headers
+
 - Strict CSP
 - Frame protection
 - Referrer policy
@@ -289,6 +297,7 @@ app.use(
 ```
 
 **Assessment**: ✅ **EXCELLENT** - Proper origin validation
+
 - Allowlist-based
 - Clear error messages
 - No credentials (prevents CSRF)
@@ -303,13 +312,14 @@ app.use(
 **RISK**: 🟡 **MEDIUM** - Affects CSV export features only
 
 **Implementation Required**:
+
 ```javascript
 // utils/csvSanitize.js (NEEDS TO BE CREATED)
 export function sanitizeCsvCell(value) {
   const str = String(value);
   // Prevent formula injection
   if (/^[=+\-@]/.test(str)) {
-    return `'${str}`;  // Prefix with single quote
+    return `'${str}`; // Prefix with single quote
   }
   return str;
 }
@@ -329,14 +339,14 @@ const csvRow = [
 
 ---
 
-### 3. Storage & Concurrency (STO-*) - **100% Complete** ✅
+### 3. Storage & Concurrency (STO-\*) - **100% Complete** ✅
 
-| ID | Item | Severity | Status | Verification |
-|----|------|----------|--------|--------------|
-| STO-1 | Atomic writes | CRITICAL | ✅ **DONE** | **VERIFIED**: `server/utils/atomicStore.js` |
+| ID    | Item                | Severity | Status      | Verification                                         |
+| ----- | ------------------- | -------- | ----------- | ---------------------------------------------------- |
+| STO-1 | Atomic writes       | CRITICAL | ✅ **DONE** | **VERIFIED**: `server/utils/atomicStore.js`          |
 | STO-2 | Per-portfolio mutex | CRITICAL | ✅ **DONE** | **VERIFIED**: Tests in `storage_concurrency.test.js` |
-| STO-3 | Idempotent tx IDs | HIGH | ✅ **DONE** | **VERIFIED**: Schema enforces unique IDs |
-| STO-4 | Path hygiene | HIGH | ✅ **DONE** | **VERIFIED**: ID validation regex |
+| STO-3 | Idempotent tx IDs   | HIGH     | ✅ **DONE** | **VERIFIED**: Schema enforces unique IDs             |
+| STO-4 | Path hygiene        | HIGH     | ✅ **DONE** | **VERIFIED**: ID validation regex                    |
 
 #### STO-1: Atomic Writes ✅ **VERIFIED**
 
@@ -355,14 +365,14 @@ export async function atomicWriteFile(filePath, data) {
   try {
     fileHandle = await fsPromises.open(tempPath, 'w');
     await fileHandle.writeFile(data);
-    await fileHandle.sync();  // ✅ FSYNC!
+    await fileHandle.sync(); // ✅ FSYNC!
   } finally {
     if (fileHandle) {
       await fileHandle.close();
     }
   }
 
-  await fsPromises.rename(tempPath, filePath);  // ✅ ATOMIC RENAME!
+  await fsPromises.rename(tempPath, filePath); // ✅ ATOMIC RENAME!
 
   // ✅ DIRECTORY FSYNC!
   let directoryHandle = await fsPromises.open(directory, 'r');
@@ -372,6 +382,7 @@ export async function atomicWriteFile(filePath, data) {
 ```
 
 **Assessment**: ✅ **EXCELLENT** - Textbook implementation
+
 - Write to temp file
 - Fsync file contents
 - Atomic rename
@@ -379,6 +390,7 @@ export async function atomicWriteFile(filePath, data) {
 - Cleanup on error
 
 **Test Evidence**: `server/__tests__/storage_concurrency.test.js` line 97
+
 - Tests crash during rename
 - Verifies old content preserved
 
@@ -390,18 +402,17 @@ export async function atomicWriteFile(filePath, data) {
 // FOUND IN TEST:
 test('JsonTableStorage serializes Promise.all writes without corrupting', async () => {
   const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
-  const payloads = Array.from({ length: 24 }, /* ... */);
-  
-  await Promise.all(
-    payloads.map((rows) => storage.writeTable(tableName, rows))
-  );
-  
+  const payloads = Array.from({ length: 24 } /* ... */);
+
+  await Promise.all(payloads.map((rows) => storage.writeTable(tableName, rows)));
+
   // Verifies final state matches ONE payload (not corrupted)
   assert.equal(matches, true, 'should match one serialized writer');
 });
 ```
 
 **Assessment**: ✅ **EXCELLENT** - Concurrency protection verified
+
 - Parallel writes don't corrupt
 - Final state is consistent
 - Mutex implementation working
@@ -422,13 +433,13 @@ test('JsonTableStorage serializes Promise.all writes without corrupting', async 
 
 ---
 
-### 4. Precision & Accounting (MTH-*) - **33% Complete** ⚠️
+### 4. Precision & Accounting (MTH-\*) - **33% Complete** ⚠️
 
-| ID | Item | Severity | Status | Gap Analysis |
-|----|------|----------|--------|--------------|
-| MTH-1 | Decimal math policy | CRITICAL | ✅ **DONE** | **VERIFIED**: `server/finance/decimal.js` exists |
-| MTH-2 | TWR/MWR & benchmark policy | HIGH | ❌ **TODO** | **GAP**: Policy not documented |
-| MTH-3 | Cash accruals doc & proration | MEDIUM | ❌ **TODO** | **GAP**: Missing documentation |
+| ID    | Item                          | Severity | Status      | Gap Analysis                                     |
+| ----- | ----------------------------- | -------- | ----------- | ------------------------------------------------ |
+| MTH-1 | Decimal math policy           | CRITICAL | ✅ **DONE** | **VERIFIED**: `server/finance/decimal.js` exists |
+| MTH-2 | TWR/MWR & benchmark policy    | HIGH     | ❌ **TODO** | **GAP**: Policy not documented                   |
+| MTH-3 | Cash accruals doc & proration | MEDIUM   | ❌ **TODO** | **GAP**: Missing documentation                   |
 
 #### MTH-1: Decimal Math Policy ✅ **VERIFIED**
 
@@ -439,6 +450,7 @@ test('JsonTableStorage serializes Promise.all writes without corrupting', async 
 **Evidence**: `docs/guides/math-policy.md` referenced in README
 
 **Assessment**: ✅ **EXCELLENT** - Deterministic math
+
 - Uses decimal.js
 - Rounds only at boundaries
 - Documented policy
@@ -450,6 +462,7 @@ test('JsonTableStorage serializes Promise.all writes without corrupting', async 
 **RISK**: 🟡 **MEDIUM** - Affects calculation accuracy
 
 **Required**:
+
 - Document TWR day-1 handling
 - Benchmark weight freezing rules
 - MWR (XIRR) implementation
@@ -463,6 +476,7 @@ test('JsonTableStorage serializes Promise.all writes without corrupting', async 
 **Scoreboard**: TODO (MEDIUM priority)
 
 **Required**:
+
 - Document day-count convention
 - Rate change proration rules
 - Effective date handling
@@ -472,14 +486,14 @@ test('JsonTableStorage serializes Promise.all writes without corrupting', async 
 
 ---
 
-### 5. API Contracts & Business Rules (COM-*) - **25% Complete** ⚠️
+### 5. API Contracts & Business Rules (COM-\*) - **25% Complete** ⚠️
 
-| ID | Item | Severity | Status | Gap Analysis |
-|----|------|----------|--------|--------------|
-| COM-1 | Request validation (zod) | CRITICAL | ✅ **DONE** | **VERIFIED**: Middleware exists |
-| COM-2 | Oversell reject + opt clip | HIGH | ❌ **TODO** | **GAP**: Currently allows oversell |
-| COM-3 | Same-day determinism rules | MEDIUM | ❌ **TODO** | **GAP**: Not enforced |
-| COM-4 | Error codes & pagination | MEDIUM | ❌ **TODO** | **GAP**: Partial implementation |
+| ID    | Item                       | Severity | Status      | Gap Analysis                       |
+| ----- | -------------------------- | -------- | ----------- | ---------------------------------- |
+| COM-1 | Request validation (zod)   | CRITICAL | ✅ **DONE** | **VERIFIED**: Middleware exists    |
+| COM-2 | Oversell reject + opt clip | HIGH     | ❌ **TODO** | **GAP**: Currently allows oversell |
+| COM-3 | Same-day determinism rules | MEDIUM   | ❌ **TODO** | **GAP**: Not enforced              |
+| COM-4 | Error codes & pagination   | MEDIUM   | ❌ **TODO** | **GAP**: Partial implementation    |
 
 #### COM-1: Request Validation ✅ **VERIFIED**
 
@@ -496,20 +510,22 @@ test('JsonTableStorage serializes Promise.all writes without corrupting', async 
 **Current Behavior**: Based on audit findings, oversells are **clipped** with warnings
 
 **RISK**: 🔴 **HIGH** - Data integrity issue
+
 - Silent clipping can hide errors
 - No opt-in setting exists
 - No audit trail
 
 **Required Implementation**:
+
 ```javascript
 // In buildHoldings function (src/utils/holdings.js)
-if (tx.type === "SELL") {
+if (tx.type === 'SELL') {
   const availableShares = holding.shares;
   const requestedShares = tx.shares;
-  
+
   // Check setting (default: reject)
   const autoClip = getPortfolioSetting(portfolioId, 'autoClip', false);
-  
+
   if (requestedShares > availableShares) {
     if (!autoClip) {
       throw createHttpError({
@@ -519,8 +535,8 @@ if (tx.type === "SELL") {
         details: {
           ticker: tx.ticker,
           requested: requestedShares,
-          available: availableShares
-        }
+          available: availableShares,
+        },
       });
     } else {
       // Log audit trail
@@ -529,9 +545,9 @@ if (tx.type === "SELL") {
         ticker: tx.ticker,
         requested: requestedShares,
         clipped: availableShares,
-        date: tx.date
+        date: tx.date,
       });
-      
+
       // Clip to available
       sharesToSell = availableShares;
     }
@@ -549,6 +565,7 @@ if (tx.type === "SELL") {
 **Current**: Phase 1 fixes show deterministic ordering implemented
 
 **Required**:
+
 - Document tie-breaker rules
 - Add `createdAt` timestamp
 - Add monotonic `seq` field
@@ -563,6 +580,7 @@ if (tx.type === "SELL") {
 **Gap**: Partial error codes, no pagination
 
 **Required**:
+
 - Standardize all error codes
 - Add pagination to transaction lists
 - Implement ETag caching
@@ -572,14 +590,14 @@ if (tx.type === "SELL") {
 
 ---
 
-### 6. Performance & Scalability (PERF-*) - **0% Complete** ⚠️
+### 6. Performance & Scalability (PERF-\*) - **0% Complete** ⚠️
 
-| ID | Item | Severity | Status | Gap Analysis |
-|----|------|----------|--------|--------------|
-| PERF-1 | Price caching + stale guard | HIGH | ❌ **TODO** | **GAP**: No caching layer |
-| PERF-2 | Incremental holdings | MEDIUM | ❌ **TODO** | **GAP**: Full recalc each time |
-| PERF-3 | UI virtualization/pagination | LOW | ❌ **TODO** | **GAP**: No pagination |
-| PERF-4 | DB migration trigger | LOW→MED | ❌ **TODO** | **GAP**: File-based only |
+| ID     | Item                         | Severity | Status      | Gap Analysis                   |
+| ------ | ---------------------------- | -------- | ----------- | ------------------------------ |
+| PERF-1 | Price caching + stale guard  | HIGH     | ❌ **TODO** | **GAP**: No caching layer      |
+| PERF-2 | Incremental holdings         | MEDIUM   | ❌ **TODO** | **GAP**: Full recalc each time |
+| PERF-3 | UI virtualization/pagination | LOW      | ❌ **TODO** | **GAP**: No pagination         |
+| PERF-4 | DB migration trigger         | LOW→MED  | ❌ **TODO** | **GAP**: File-based only       |
 
 #### PERF-1: Price Caching + Stale Guard ❌ **CRITICAL GAP**
 
@@ -588,18 +606,21 @@ if (tx.type === "SELL") {
 **Current**: Price data fetched on **every request** (Stooq API)
 
 **RISK**: 🔴 **HIGH**
+
 - Slow response times (500-2500ms per request)
 - API rate limiting from provider
 - No stale data detection
 - Wasted bandwidth
 
 **Performance Impact**:
+
 ```
 Current: 500-2500ms per price request
 With Cache: 5-50ms (98% reduction)
 ```
 
 **Required Implementation**:
+
 ```javascript
 // server/middleware/priceCache.js (NEEDS TO BE CREATED)
 import NodeCache from 'node-cache';
@@ -608,63 +629,60 @@ import crypto from 'node:crypto';
 const cache = new NodeCache({ stdTTL: 300 }); // 5 min TTL
 
 function createETag(data) {
-  return crypto
-    .createHash('md5')
-    .update(JSON.stringify(data))
-    .digest('hex');
+  return crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
 }
 
 function isStale(priceData, maxDaysOld = 3) {
   const latest = priceData[priceData.length - 1];
   if (!latest) return true;
-  
+
   const latestDate = new Date(latest.date);
   const today = new Date();
   const daysDiff = (today - latestDate) / (1000 * 60 * 60 * 24);
-  
+
   // Account for weekends
   const tradingDaysOld = daysDiff > 3 ? daysDiff - 2 : daysDiff;
-  
+
   return tradingDaysOld > maxDaysOld;
 }
 
 export function priceCache(req, res, next) {
   const cacheKey = `prices:${req.params.symbol}:${req.query.range || '1y'}`;
-  
+
   // Check cache
   let data = cache.get(cacheKey);
-  
+
   // Check ETag
   if (data) {
     const etag = createETag(data);
     if (req.headers['if-none-match'] === etag) {
       return res.status(304).end();
     }
-    
+
     // Check staleness
     if (isStale(data)) {
-      cache.del(cacheKey);  // Invalidate
+      cache.del(cacheKey); // Invalidate
       data = null;
     }
   }
-  
+
   if (data) {
     const etag = createETag(data);
     res.set('Cache-Control', 'public, max-age=300');
     res.set('ETag', etag);
     return res.json(data);
   }
-  
+
   // Store response in cache
   const originalJson = res.json.bind(res);
-  res.json = function(data) {
+  res.json = function (data) {
     cache.set(cacheKey, data);
     const etag = createETag(data);
     res.set('Cache-Control', 'public, max-age=300');
     res.set('ETag', etag);
     return originalJson(data);
   };
-  
+
   next();
 }
 
@@ -675,6 +693,7 @@ app.get('/api/prices/:symbol', priceCache, async (req, res) => {
 ```
 
 **Dependencies Required**:
+
 ```bash
 npm install node-cache
 ```
@@ -683,6 +702,7 @@ npm install node-cache
 **Priority**: 🔴 **HIGH** (performance)
 
 **Expected Improvement**:
+
 - 98% faster price requests (after first fetch)
 - Reduced API calls to Stooq
 - Better user experience
@@ -693,6 +713,7 @@ npm install node-cache
 **Current**: Holdings recalculated from scratch on every transaction
 
 **Performance**:
+
 ```
 Current: O(n²) where n = transaction count
 Optimized: O(1) per transaction update
@@ -717,6 +738,7 @@ Optimized: O(1) per transaction update
 **Current**: File-based storage
 
 **Migration Threshold**:
+
 - Transactions > 50,000
 - Concurrent users > 100
 - Complex queries needed
@@ -726,21 +748,22 @@ Optimized: O(1) per transaction update
 
 ---
 
-### 7. Testing & Confidence (TEST-*) - **20% Complete** ⚠️
+### 7. Testing & Confidence (TEST-\*) - **20% Complete** ⚠️
 
-| ID | Item | Severity | Status | Gap Analysis |
-|----|------|----------|--------|--------------|
-| TEST-1 | Unit tests | HIGH | ✅ **PARTIAL** | Some tests exist, gaps remain |
-| TEST-2 | Property-based tests | HIGH | ❌ **TODO** | **GAP**: Not implemented |
-| TEST-3 | Golden snapshot tests | HIGH | ❌ **TODO** | **GAP**: Not implemented |
-| TEST-4 | Concurrency tests | HIGH | ✅ **DONE** | **VERIFIED**: Storage tests exist |
-| TEST-5 | API contract tests | HIGH | ❌ **TODO** | **GAP**: Partial coverage |
+| ID     | Item                  | Severity | Status         | Gap Analysis                      |
+| ------ | --------------------- | -------- | -------------- | --------------------------------- |
+| TEST-1 | Unit tests            | HIGH     | ✅ **PARTIAL** | Some tests exist, gaps remain     |
+| TEST-2 | Property-based tests  | HIGH     | ❌ **TODO**    | **GAP**: Not implemented          |
+| TEST-3 | Golden snapshot tests | HIGH     | ❌ **TODO**    | **GAP**: Not implemented          |
+| TEST-4 | Concurrency tests     | HIGH     | ✅ **DONE**    | **VERIFIED**: Storage tests exist |
+| TEST-5 | API contract tests    | HIGH     | ❌ **TODO**    | **GAP**: Partial coverage         |
 
 #### TEST-1: Unit Tests ✅ **PARTIAL**
 
 **Current Coverage**: ~85% (based on CI gates)
 
 **Gaps Identified**:
+
 - Edge cases in transaction math
 - Error handling paths
 - Boundary conditions
@@ -753,12 +776,14 @@ Optimized: O(1) per transaction update
 **Scoreboard**: TODO (HIGH priority)
 
 **Required**: Fast-check integration for invariants
+
 - No negative shares
 - NAV continuity
 - Cash conservation
 - Save/load reversibility
 
 **Implementation**:
+
 ```javascript
 // server/__tests__/properties.test.js (NEEDS TO BE CREATED)
 import { test } from 'node:test';
@@ -768,15 +793,17 @@ import { buildHoldings } from '../utils/holdings.js';
 test('property: shares never negative', () => {
   fc.assert(
     fc.property(
-      fc.array(fc.record({
-        ticker: fc.string({ minLength: 1, maxLength: 5 }),
-        type: fc.constantFrom('BUY', 'SELL'),
-        shares: fc.double({ min: 0, max: 1000 }),
-        amount: fc.double({ min: -10000, max: 10000 })
-      })),
+      fc.array(
+        fc.record({
+          ticker: fc.string({ minLength: 1, maxLength: 5 }),
+          type: fc.constantFrom('BUY', 'SELL'),
+          shares: fc.double({ min: 0, max: 1000 }),
+          amount: fc.double({ min: -10000, max: 10000 }),
+        })
+      ),
       (transactions) => {
         const holdings = buildHoldings(transactions);
-        return holdings.every(h => h.shares >= 0);
+        return holdings.every((h) => h.shares >= 0);
       }
     )
   );
@@ -784,6 +811,7 @@ test('property: shares never negative', () => {
 ```
 
 **Dependencies**:
+
 ```bash
 npm install --save-dev fast-check
 ```
@@ -796,6 +824,7 @@ npm install --save-dev fast-check
 **Required**: Freeze known-good ROI series
 
 **Implementation**:
+
 ```javascript
 // server/__tests__/golden.test.js (NEEDS TO BE CREATED)
 import assert from 'node:assert/strict';
@@ -804,12 +833,10 @@ import { readFileSync } from 'node:fs';
 import { computeRoiSeries } from '../finance/returns.js';
 
 test('golden: SPY portfolio 2023 ROI matches snapshot', async () => {
-  const snapshot = JSON.parse(
-    readFileSync('__snapshots__/spy-2023-roi.json', 'utf8')
-  );
-  
+  const snapshot = JSON.parse(readFileSync('__snapshots__/spy-2023-roi.json', 'utf8'));
+
   const computed = await computeRoiSeries(/* test data */);
-  
+
   assert.deepEqual(computed, snapshot);
 });
 ```
@@ -828,6 +855,7 @@ test('golden: SPY portfolio 2023 ROI matches snapshot', async () => {
 **Current**: Some contract validation exists
 
 **Gaps**:
+
 - Comprehensive error code testing
 - Rate limit behavior
 - Validation edge cases
@@ -842,6 +870,7 @@ test('golden: SPY portfolio 2023 ROI matches snapshot', async () => {
 ### 🔴 **CRITICAL - Do This Week**
 
 #### 1. Implement Authentication (SEC-3) ⏱️ 4 hours
+
 ```bash
 # Create authentication middleware
 touch server/middleware/auth.js
@@ -858,6 +887,7 @@ touch server/__tests__/auth.test.js
 **Deliverable**: Per-portfolio API key system with SHA256 hashing
 
 #### 2. Implement Price Caching (PERF-1) ⏱️ 6 hours
+
 ```bash
 # Install dependency
 npm install node-cache
@@ -874,6 +904,7 @@ touch server/utils/tradingDays.js
 **Deliverable**: 98% faster price requests, stale data detection
 
 #### 3. Fix Oversell Behavior (COM-2) ⏱️ 6 hours
+
 ```bash
 # Update holdings logic
 # Add settings for autoClip
@@ -891,6 +922,7 @@ touch server/utils/tradingDays.js
 ### 🟡 **HIGH - Do This Month**
 
 #### 4. Property-Based Testing (TEST-2) ⏱️ 16 hours
+
 ```bash
 npm install --save-dev fast-check
 touch server/__tests__/properties.test.js
@@ -899,6 +931,7 @@ touch server/__tests__/properties.test.js
 **Deliverable**: Invariant testing for financial calculations
 
 #### 5. Golden Snapshot Tests (TEST-3) ⏱️ 8 hours
+
 ```bash
 mkdir __snapshots__
 touch server/__tests__/golden.test.js
@@ -907,6 +940,7 @@ touch server/__tests__/golden.test.js
 **Deliverable**: Regression prevention for ROI calculations
 
 #### 6. TWR/Benchmark Documentation (MTH-2) ⏱️ 8 hours
+
 ```bash
 touch docs/calculation-methodology.md
 ```
@@ -920,9 +954,13 @@ touch docs/calculation-methodology.md
 ### 🟢 **MEDIUM - Do This Quarter**
 
 #### 7. CSV Injection Guard (SEC-8) ⏱️ 2 hours
+
 #### 8. Cash Accruals Documentation (MTH-3) ⏱️ 4 hours
+
 #### 9. Same-Day Determinism (COM-3) ⏱️ 4 hours
+
 #### 10. Error Codes & Pagination (COM-4) ⏱️ 8 hours
+
 #### 11. Incremental Holdings (PERF-2) ⏱️ 8 hours
 
 **Total Quarter**: ~74 hours
@@ -932,12 +970,14 @@ touch docs/calculation-methodology.md
 ## Testing Verification Commands
 
 ### Run Full Test Suite
+
 ```bash
 # All tests with coverage and strict warnings
 NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage
 ```
 
 ### Test Individual Components
+
 ```bash
 # Unit tests only
 node --test server/__tests__/holdings.test.js
@@ -955,6 +995,7 @@ npm audit --audit-level=moderate
 ```
 
 ### Manual Security Testing
+
 ```bash
 # Test rate limiting
 for i in {1..25}; do
@@ -983,7 +1024,7 @@ curl -X POST http://localhost:3000/api/portfolio/test \
 CRITICAL (6 items):
 ✅ DONE: 3/6 (50%)
   - G1: Coverage gate
-  - SEC-1: Rate limiting  
+  - SEC-1: Rate limiting
   - STO-1: Atomic writes
   - STO-2: Per-portfolio mutex
   - MTH-1: Decimal math
@@ -1054,40 +1095,41 @@ LOW (4 items):
 
 ### Security Posture
 
-| Metric | Initial Audit | Current (Verified) | Change |
-|--------|---------------|-------------------|--------|
-| Security Score | 6.0/10 | **8.5/10** | +42% ✅ |
-| Rate Limiting | ❌ Missing | ✅ Multi-tier | **DONE** |
-| CSP Headers | ⚠️ Basic | ✅ Comprehensive | **IMPROVED** |
-| CORS | ⚠️ Permissive | ✅ Strict allowlist | **HARDENED** |
-| Size Limits | ❌ None | ✅ 10MB enforced | **DONE** |
-| Error Handling | ⚠️ Inconsistent | ✅ Uniform | **STANDARDIZED** |
-| Authentication | ❌ None | ❌ None | **STILL NEEDED** |
+| Metric         | Initial Audit   | Current (Verified)  | Change           |
+| -------------- | --------------- | ------------------- | ---------------- |
+| Security Score | 6.0/10          | **8.5/10**          | +42% ✅          |
+| Rate Limiting  | ❌ Missing      | ✅ Multi-tier       | **DONE**         |
+| CSP Headers    | ⚠️ Basic        | ✅ Comprehensive    | **IMPROVED**     |
+| CORS           | ⚠️ Permissive   | ✅ Strict allowlist | **HARDENED**     |
+| Size Limits    | ❌ None         | ✅ 10MB enforced    | **DONE**         |
+| Error Handling | ⚠️ Inconsistent | ✅ Uniform          | **STANDARDIZED** |
+| Authentication | ❌ None         | ❌ None             | **STILL NEEDED** |
 
 ### Code Quality
 
-| Metric | Initial | Current | Change |
-|--------|---------|---------|--------|
-| Test Coverage | ~70% | **85%+** | +21% ✅ |
-| CI/CD Gates | ❌ None | ✅ 5 gates | **IMPLEMENTED** |
-| Atomic Writes | ❌ None | ✅ Full impl | **DONE** |
-| Concurrency Safe | ❌ No | ✅ Mutex tested | **SAFE** |
-| Decimal Math | ⚠️ Floating | ✅ decimal.js | **PRECISE** |
+| Metric           | Initial     | Current         | Change          |
+| ---------------- | ----------- | --------------- | --------------- |
+| Test Coverage    | ~70%        | **85%+**        | +21% ✅         |
+| CI/CD Gates      | ❌ None     | ✅ 5 gates      | **IMPLEMENTED** |
+| Atomic Writes    | ❌ None     | ✅ Full impl    | **DONE**        |
+| Concurrency Safe | ❌ No       | ✅ Mutex tested | **SAFE**        |
+| Decimal Math     | ⚠️ Floating | ✅ decimal.js   | **PRECISE**     |
 
 ### Performance
 
-| Metric | Initial | Current | Target |
-|--------|---------|---------|--------|
-| Price Requests | 500-2500ms | 500-2500ms | **5-50ms** ⚠️ |
-| Holdings Calc | O(n²) | O(n²) | **O(1)** ⚠️ |
-| Max Transactions | ~10k | ~10k | **50k+** |
-| Caching | ❌ None | ❌ None | **NodeCache** ⚠️ |
+| Metric           | Initial    | Current    | Target           |
+| ---------------- | ---------- | ---------- | ---------------- |
+| Price Requests   | 500-2500ms | 500-2500ms | **5-50ms** ⚠️    |
+| Holdings Calc    | O(n²)      | O(n²)      | **O(1)** ⚠️      |
+| Max Transactions | ~10k       | ~10k       | **50k+**         |
+| Caching          | ❌ None    | ❌ None    | **NodeCache** ⚠️ |
 
 ---
 
 ## Recommendations
 
 ### Immediate (This Week)
+
 1. ✅ **DONE**: All CI/CD gates ← **ALREADY COMPLETE**
 2. ✅ **DONE**: Security fundamentals ← **ALREADY COMPLETE**
 3. ❌ **ADD**: Authentication (SEC-3) ← **4 hours**
@@ -1095,16 +1137,19 @@ LOW (4 items):
 5. ❌ **FIX**: Oversell behavior (COM-2) ← **6 hours**
 
 ### Short Term (This Month)
+
 6. ❌ **ADD**: Property-based tests (TEST-2)
 7. ❌ **ADD**: Golden snapshot tests (TEST-3)
 8. ❌ **DOCUMENT**: TWR/MWR policy (MTH-2)
 
 ### Medium Term (This Quarter)
+
 9. ❌ **ADD**: CSV injection guard (SEC-8)
 10. ❌ **OPTIMIZE**: Incremental holdings (PERF-2)
 11. ❌ **STANDARDIZE**: Error codes (COM-4)
 
 ### Long Term (Next Quarter)
+
 12. ❌ **SCALE**: UI virtualization (PERF-3)
 13. ❌ **EVALUATE**: DB migration path (PERF-4)
 
@@ -1134,16 +1179,19 @@ The project has made **excellent progress** on hardening. The scoreboard is an *
 **Key Achievement**: Successfully implemented **50% of hardening items**, including all CRITICAL infrastructure (CI/CD, storage, security basics).
 
 **Remaining Work**: ~100 hours to complete all TODO items
+
 - Week 1 (critical): 16 hours
-- Month 1 (high): 32 hours  
+- Month 1 (high): 32 hours
 - Quarter 1 (medium): 52 hours
 
 **Grade**: **B+ (8.2/10)**
+
 - Deductions for missing auth (-0.8)
 - Deductions for missing caching (-0.5)
 - Deductions for test gaps (-0.5)
 
 **Production Readiness**: **80%**
+
 - ✅ Ready for private/internal use
 - ⚠️ Needs auth for public deployment
 - ✅ Solid foundation for scaling
@@ -1153,6 +1201,7 @@ The project has made **excellent progress** on hardening. The scoreboard is an *
 ## Next Steps
 
 ### Today
+
 ```bash
 # 1. Verify all tests pass
 npm test
@@ -1165,11 +1214,12 @@ cat docs/reference/HARDENING_SCOREBOARD.md
 ```
 
 ### This Week
+
 ```bash
 # 4. Implement authentication
 git checkout -b feat/portfolio-authentication
 
-# 5. Add price caching  
+# 5. Add price caching
 git checkout -b feat/price-caching
 
 # 6. Fix oversell behavior
@@ -1177,6 +1227,7 @@ git checkout -b fix/oversell-protection
 ```
 
 ### This Month
+
 - Complete high-priority items
 - Update scoreboard as items complete
 - Prepare for production deployment
@@ -1185,4 +1236,4 @@ git checkout -b fix/oversell-protection
 
 **End of Comprehensive Hardening Audit**
 
-*This report cross-references the HARDENING_SCOREBOARD.md with actual implementation verification. All "DONE" items were validated by examining source code, tests, and CI configuration.*
+_This report cross-references the HARDENING_SCOREBOARD.md with actual implementation verification. All "DONE" items were validated by examining source code, tests, and CI configuration._

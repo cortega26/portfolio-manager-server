@@ -1,24 +1,24 @@
-const DEFAULT_MARKET_TICKERS = Object.freeze(["SPY", "QQQ"]);
-const DEFAULT_SELECTION = Object.freeze(["spy", "qqq"]);
+const DEFAULT_MARKET_TICKERS = Object.freeze(['SPY', 'QQQ']);
+const DEFAULT_SELECTION = Object.freeze(['spy', 'qqq']);
 
 const KNOWN_MARKET_BENCHMARKS = Object.freeze({
   SPY: Object.freeze({
-    id: "spy",
-    ticker: "SPY",
-    label: "S&P 500",
+    id: 'spy',
+    ticker: 'SPY',
+    label: 'S&P 500',
   }),
   QQQ: Object.freeze({
-    id: "qqq",
-    ticker: "QQQ",
-    label: "Nasdaq-100",
+    id: 'qqq',
+    ticker: 'QQQ',
+    label: 'Nasdaq-100',
   }),
 });
 
 const DERIVED_BENCHMARKS = Object.freeze([
   Object.freeze({
-    id: "blended",
-    label: "Cash-Matched S&P 500",
-    kind: "derived",
+    id: 'blended',
+    label: 'Cash-Matched S&P 500',
+    kind: 'derived',
   }),
 ]);
 
@@ -26,17 +26,17 @@ function slugifyBenchmarkId(value) {
   return String(value)
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 export function normalizeBenchmarkTicker(value) {
-  if (typeof value !== "string") {
-    return "";
+  if (typeof value !== 'string') {
+    return '';
   }
   const normalized = value.trim().toUpperCase();
   if (!/^[A-Z0-9._/-]{1,32}$/u.test(normalized)) {
-    return "";
+    return '';
   }
   return normalized;
 }
@@ -50,7 +50,7 @@ export function buildMarketBenchmarkDefinition(ticker) {
   if (known) {
     return {
       ...known,
-      kind: "market",
+      kind: 'market',
     };
   }
   const generatedId = slugifyBenchmarkId(normalizedTicker);
@@ -61,16 +61,12 @@ export function buildMarketBenchmarkDefinition(ticker) {
     id: generatedId,
     ticker: normalizedTicker,
     label: normalizedTicker,
-    kind: "market",
+    kind: 'market',
   };
 }
 
 export function normalizeBenchmarkTickers(values) {
-  const list = Array.isArray(values)
-    ? values
-    : typeof values === "string"
-      ? values.split(",")
-      : [];
+  const list = Array.isArray(values) ? values : typeof values === 'string' ? values.split(',') : [];
   const seen = new Set();
   const result = [];
   for (const value of list) {
@@ -91,14 +87,14 @@ export function sanitizeBenchmarkSelection(selection, availableIds, fallback = D
       : new Set(
           (Array.isArray(availableIds) ? availableIds : [])
             .map((value) => String(value))
-            .filter(Boolean),
+            .filter(Boolean)
         );
   const deduped = Array.from(
     new Set(
       (Array.isArray(selection) ? selection : [])
         .map((value) => String(value).trim())
-        .filter((value) => availableSet.has(value)),
-    ),
+        .filter((value) => availableSet.has(value))
+    )
   );
   if (deduped.length > 0) {
     return deduped;
@@ -107,8 +103,8 @@ export function sanitizeBenchmarkSelection(selection, availableIds, fallback = D
     new Set(
       (Array.isArray(fallback) ? fallback : [])
         .map((value) => String(value).trim())
-        .filter((value) => availableSet.has(value)),
-    ),
+        .filter((value) => availableSet.has(value))
+    )
   );
   if (normalizedFallback.length > 0) {
     return normalizedFallback;
@@ -118,9 +114,7 @@ export function sanitizeBenchmarkSelection(selection, availableIds, fallback = D
 
 export function normalizeBenchmarkConfig(raw = {}) {
   const tickers = normalizeBenchmarkTickers(raw?.tickers);
-  const available = tickers
-    .map((ticker) => buildMarketBenchmarkDefinition(ticker))
-    .filter(Boolean);
+  const available = tickers.map((ticker) => buildMarketBenchmarkDefinition(ticker)).filter(Boolean);
   const availableIds = new Set(available.map((entry) => entry.id));
   const defaults = sanitizeBenchmarkSelection(raw?.defaultSelection, availableIds);
   return {

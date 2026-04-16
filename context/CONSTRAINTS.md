@@ -72,8 +72,11 @@ Al detenerse, reportar:
 Al cerrar un bloque relevante, usar:
 
 ### Qué verifiqué
+
 ### Qué cambié
+
 ### Qué validé
+
 ### Estado
 
 Estados permitidos:
