@@ -4,7 +4,7 @@ Actualizar este archivo en tiempo real durante la ejecución.
 Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 **Fecha inicio:** 2026-04-17
-**Última actualización:** 2026-04-18
+**Última actualización:** 2026-04-17 (políticas de rendimiento y robustez agregadas)
 **Fase actual:** Fase 1 — completada
 
 ---
@@ -14,7 +14,7 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 | Fase               | Estado | Fecha inicio | Fecha fin  |
 | ------------------ | ------ | ------------ | ---------- |
 | 0 — Tooling        | [x]    | 2026-04-17   | 2026-04-17 |
-| 1 — Domain types   | [x]    | 2026-04-17   | 2026-04-18 |
+| 1 — Domain types   | [x]    | 2026-04-17   | 2026-04-17 |
 | 2 — Fastify shadow | [ ]    |              |            |
 | 3 — Test migration | [ ]    |              |            |
 | 4 — Cutover        | [ ]    |              |            |
@@ -96,54 +96,64 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 ## Fase 2 — App Fastify (shadow)
 
+### Pre-infraestructura
+
+- [x] 2.0 — Resolver límite `shared/`: actualizar `tsconfig.server.json` para incluir `shared/` en `paths` o mover `rootDir` al root del repo y eliminar las constantes inlineadas de `server/config.ts`
+
 ### Infraestructura
 
-- [ ] 2.1 — Crear `server/plugins/requestContext.ts`
-- [ ] 2.2 — Crear `server/plugins/sessionAuth.ts`
-- [ ] 2.3 — Crear `server/plugins/etagHandler.ts`
-- [ ] 2.4 — Crear `server/plugins/spaFallback.ts`
-- [ ] 2.5 — Crear `server/app.fastify.ts` (factory vacío, sin rutas aún)
-- [ ] 2.6 — `verify:typecheck:server` pasa
+- [x] 2.1 — Crear `server/plugins/requestContext.ts`
+- [x] 2.2 — Crear `server/plugins/sessionAuth.ts`
+- [x] 2.3 — Crear `server/plugins/etagHandler.ts`
+- [x] 2.4 — Crear `server/plugins/spaFallback.ts`
+- [x] 2.5 — Crear `server/app.fastify.ts` (factory vacío, sin rutas aún; incluye graceful shutdown: `closeGracefully()` drena requests en vuelo y cierra SQLite antes de exit)
+- [x] 2.6 — `verify:typecheck:server` pasa
+- [x] 2.6a — Crear `server/types/errors.ts` (`AppError`, `NotFoundError`, `ValidationError`, `AuthError`) — dominio de errores unificado para todos los handlers
+- [ ] 2.6b — Crear `server/cache/computeCache.ts` (memoización de `computeDailyStates` y `computeDailyReturnRows` por `portfolioId + lastTxTimestamp`)
+- [x] 2.6c — Configurar `@fastify/compress` con threshold `1024` bytes en `app.fastify.ts` (evitar overhead de gzip en respuestas pequeñas)
 
 ### Rutas — Grupo público (sin auth)
 
-- [ ] 2.7 — Crear `server/routes/benchmarks.ts`
+- [x] 2.7 — Crear `server/routes/benchmarks.ts`
 - [ ] 2.8 — Tests de benchmarks pasan contra Fastify
-- [ ] 2.9 — Crear `server/routes/cache.ts` (`/api/cache/stats`)
+- [x] 2.9 — Crear `server/routes/cache.ts` (`/api/cache/stats`)
 - [ ] 2.10 — Tests de cache pasan
-- [ ] 2.11 — Crear `server/routes/monitoring.ts`
+- [x] 2.11 — Crear `server/routes/monitoring.ts`
 - [ ] 2.12 — Tests de monitoring pasan
-- [ ] 2.13 — Crear `server/routes/prices.ts` (`GET /api/prices/:symbol`)
+- [x] 2.13 — Crear `server/routes/prices.ts` (`GET /api/prices/:symbol`)
 - [ ] 2.14 — Tests de prices (single) pasan, ETag funciona
-- [ ] 2.15 — Agregar `GET /api/prices/bulk` a `routes/prices.ts`
+- [x] 2.15 — Agregar `GET /api/prices/bulk` a `routes/prices.ts`
 - [ ] 2.16 — Tests de bulk prices pasan
+- [ ] 2.16a — Definir `FetchPolicy` en `server/types/providers.ts` (`maxRetries: number`, `backoffMs: number`) y aplicar en el handler de prices (reintentos con backoff exponencial antes de declarar proveedor fallido)
 
 ### Rutas — Portfolio (con auth)
 
-- [ ] 2.17 — Crear `server/routes/portfolio.ts` (`GET/POST /api/portfolio/:id`)
+- [x] 2.17 — Crear `server/routes/portfolio.ts` (`GET/POST /api/portfolio/:id`)
 - [ ] 2.18 — Tests de portfolio base pasan
-- [ ] 2.19 — Agregar `GET/POST /api/portfolio/:id/transactions`
+- [x] 2.19 — Agregar `GET/POST /api/portfolio/:id/transactions`
 - [ ] 2.20 — Tests de transactions pasan, paginación cursor funciona
-- [ ] 2.21 — Agregar `GET /api/portfolio/:id/performance`
+- [x] 2.21 — Agregar `GET /api/portfolio/:id/performance`
 - [ ] 2.22 — Tests de performance (MWR, drawdown) pasan
-- [ ] 2.23 — Agregar `GET /api/portfolio/:id/holdings`
+- [x] 2.23 — Agregar `GET /api/portfolio/:id/holdings`
 - [ ] 2.24 — Tests de holdings pasan
-- [ ] 2.25 — Agregar `GET/POST /api/portfolio/:id/cashRates`
+- [x] 2.25 — Agregar `GET/POST /api/portfolio/:id/cashRates`
 - [ ] 2.26 — Tests de cashRates pasan
 
 ### Rutas — Auth y operaciones
 
-- [ ] 2.27 — Crear `server/routes/signals.ts` (`POST /api/signals`)
+- [x] 2.27 — Crear `server/routes/signals.ts` (`POST /api/signals`)
 - [ ] 2.28 — Tests de signals pasan
-- [ ] 2.29 — Crear `server/routes/import.ts` (`POST /api/import/csv`)
+- [x] 2.29 — Crear `server/routes/import.ts` (`POST /api/import/csv`)
 - [ ] 2.30 — Tests de import/csv pasan
 
 ### Cierre Fase 2
 
-- [ ] 2.31 — Error handler global implementado con mismo formato de respuesta que Express
-- [ ] 2.32 — `verify:typecheck:server` sin errores
-- [ ] 2.33 — `npm test` verde (tests aún apuntan a Express — eso está bien)
-- [ ] 2.34 — Commit: `feat(fastify): add shadow fastify app with all routes typed`
+- [x] 2.31 — Error handler global implementado con mismo formato de respuesta que Express; usa `server/types/errors.ts` para mapear `AppError` a códigos HTTP
+- [x] 2.31a — **Gate Serialización**: verificar que todas las rutas declaran `response` schema Zod (Política de Serialización) — `grep -r 'response:' server/routes/` debe cubrir el 100% de handlers GET
+- [x] 2.31b — **Gate DB Write**: verificar que todos los handlers con >1 escritura SQLite usan `db.transaction()` (Política DB Write) — revisar `import.ts`, `portfolio.ts` POST, `cashRates.ts` POST
+- [x] 2.32 — `verify:typecheck:server` sin errores
+- [x] 2.33 — `npm test` verde (tests aún apuntan a Express — eso está bien)
+- [x] 2.34 — Commit: `feat(fastify): add shadow fastify app with all routes typed`
 
 ---
 
@@ -208,6 +218,7 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 - [ ] 5.6 — Activar schemas de response Zod en todas las rutas (validación de output)
 - [ ] 5.7 — `npm test` verde con response validation activa
 - [ ] 5.8 — Eliminar todos los `any` explícitos — reemplazar por tipos precisos
+- [ ] 5.8a — **Gate `catch (e: unknown)`**: grep audit — `grep -rn 'catch (e: any)\|catch(e: any)' server/**/*.ts` debe retornar 0 resultados antes de continuar
 - [ ] 5.9 — Ejecutar `codacy_cli_analyze` (seguridad y calidad)
 - [ ] 5.10 — Ejecutar `npm run leaks:repo` (gitleaks)
 - [ ] 5.11 — `npm audit --audit-level=moderate`
