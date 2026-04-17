@@ -1,6 +1,6 @@
 # ADR-002: Use SQLite as the sole persistence layer
 
-- **Status**: Accepted
+- **Status**: Superseded by ADR-008
 - **Date**: 2024-01-01
 - **Deciders**: Carlos / portfolio-manager-unified team
 
@@ -11,6 +11,10 @@ cloud dependency. All portfolio data — transactions, prices, benchmarks, signa
 and notifications — must survive process restarts and be portable as a single
 file. The user base is a single local user per machine; there is no concurrent
 multi-user write requirement.
+
+> Historical note: this ADR captures the persistence boundary decision.
+> The live storage engine and `JsonTableStorage` abstraction are now described more
+> precisely in ADR-008.
 
 ## Decision
 

@@ -9,6 +9,8 @@ index when you need supporting material.
 - [`docs/reference/HARDENING_SCOREBOARD.md`](reference/HARDENING_SCOREBOARD.md) — current
   implementation status with evidence links.
 - [`docs/reference/openapi.yaml`](reference/openapi.yaml) — canonical API specification.
+- [`docs/reference/QUALITY_GATES.md`](reference/QUALITY_GATES.md) — stable record of the
+  quality gates that are actually enforced today.
 - [`docs/reference/VALIDATION_MATRIX.md`](reference/VALIDATION_MATRIX.md) — stable contract
   for local validation commands and what each one proves.
 - [`docs/reference/SECURITY.md`](reference/SECURITY.md) — incident response, API key policy,

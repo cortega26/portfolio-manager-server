@@ -21,6 +21,7 @@ Este archivo es el hub canónico de contexto. No es una wiki.
 - Invariantes confirmados del proyecto: `context/KNOWN_INVARIANTS.md`
 - Boundaries y flujos del sistema (con diagrama): `context/ARCHITECTURE.md`
 - Mapa de módulos y entrypoints: `context/MODULE_INDEX.md`
+- Atajos por tipo de tarea: `context/TASK_ENTRYPOINTS.md`
 - Trabajo activo, hipótesis y verificación: `context/runtime/ACTIVE_TASK.md`
 - Decisiones de arquitectura: `docs/adr/`
 - Estado amplio y backlog: `docs/reference/portfolio-manager-unified-status.md` y `docs/backlog/portfolio-manager-unified-next-steps.md`
@@ -38,9 +39,10 @@ Carga solo lo que el tipo de tarea necesite.
 6. `context/CONSTRAINTS.md`
 7. `context/ARCHITECTURE.md`
 8. `context/MODULE_INDEX.md`
-9. `context/runtime/ACTIVE_TASK.md`
-10. `docs/reference/portfolio-manager-unified-status.md`
-11. `docs/backlog/portfolio-manager-unified-next-steps.md`
+9. `context/TASK_ENTRYPOINTS.md`
+10. `context/runtime/ACTIVE_TASK.md`
+11. `docs/reference/portfolio-manager-unified-status.md`
+12. `docs/backlog/portfolio-manager-unified-next-steps.md`
 
 Reglas de resolución:
 
@@ -60,6 +62,7 @@ Reglas de resolución:
 - `context/KNOWN_INVARIANTS.md`
 - `context/ARCHITECTURE.md`
 - `context/MODULE_INDEX.md`
+- `context/TASK_ENTRYPOINTS.md` si necesitas aterrizar rápido por tipo de flujo antes de buscar
 - `context/runtime/ACTIVE_TASK.md` solo si ya existe trabajo en curso relacionado
 - `docs/reference/portfolio-manager-unified-status.md` y `docs/backlog/portfolio-manager-unified-next-steps.md` solo si la feature depende del estado actual o de una fase abierta
 
@@ -68,6 +71,7 @@ Reglas de resolución:
 - `context/CONSTRAINTS.md`
 - `context/KNOWN_INVARIANTS.md`
 - `context/MODULE_INDEX.md`
+- `context/TASK_ENTRYPOINTS.md`
 - `context/runtime/ACTIVE_TASK.md`
 - `context/ARCHITECTURE.md` solo si el bug cruza Electron, auth, storage o boundaries de proceso
 
@@ -76,6 +80,7 @@ Reglas de resolución:
 - `context/CONSTRAINTS.md`
 - `context/ARCHITECTURE.md`
 - `context/MODULE_INDEX.md`
+- `context/TASK_ENTRYPOINTS.md`
 - `context/KNOWN_INVARIANTS.md` solo si toca finanzas, importación, auth, storage o contratos críticos
 
 ### Auditorías
@@ -84,6 +89,7 @@ Reglas de resolución:
 - `context/KNOWN_INVARIANTS.md`
 - `context/ARCHITECTURE.md`
 - `context/MODULE_INDEX.md`
+- `context/TASK_ENTRYPOINTS.md` si la auditoría necesita starting points por flujo
 - `context/runtime/ACTIVE_TASK.md` solo si la auditoría está acotada a un incidente o cambio activo
 
 ## Reglas mínimas
@@ -110,7 +116,7 @@ Reglas de resolución:
 <claude-mem-context>
 # Memory Context
 
-# [portafolio-unificado] recent context, 2026-04-16 8:47pm GMT-4
+# [portafolio-unificado] recent context, 2026-04-16 9:01pm GMT-4
 
 No previous sessions found.
 </claude-mem-context>

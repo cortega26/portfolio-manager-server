@@ -4,14 +4,19 @@ This guide documents how the portfolio manager project validates quality across 
 
 ## Goals and Quality Gates
 
-- **Global coverage:** ≥ 80% statements/lines across the repository on every test run.
-- **Touched files coverage:** ≥ 90% statements/lines for any file modified in a pull request.
-- **Branch coverage:** ≥ 70% for critical control paths (enforced via Vitest configuration).
-- **Zero tolerance for noisy logs:** Any `console.warn`/`console.error` emitted during tests fails the run. Fix the underlying issue instead of muting output.
-- **Deterministic reproducibility:** Runs must be reproducible via `TEST_SHUFFLE_SEED` and Fast-Check seeds captured in CI logs.
+The canonical record of currently enforced gates lives in
+[`docs/reference/QUALITY_GATES.md`](../../reference/QUALITY_GATES.md).
+This playbook explains strategy and targets around those gates.
 
-Coverage thresholds are enforced by the test runners that are actually wired in the
-repo today. Pull requests that lower coverage or introduce warnings must not merge.
+Current reality:
+
+- **Enforced today:** bootstrap/doc checks, lint, type compatibility, buildability,
+  smoke boot, baseline tests, and the Vitest coverage run itself.
+- **Target, not yet hard gate:** repository-wide coverage thresholds above the
+  current baseline.
+- **Target, not yet hard gate:** fully silent stderr across every test suite.
+- **Deterministic reproducibility:** runs should remain reproducible via
+  `TEST_SHUFFLE_SEED` and Fast-Check seeds captured in logs.
 
 ## Test Layers
 
@@ -81,7 +86,11 @@ Regressions should be triaged by comparing the structured logs over time. When e
 
 ## Console Warning Policy
 
-Tests fail fast on console warnings/errors via `setupTests` hooks (`server/__tests__/setup/global.js` and `src/setupTests.ts`). When third-party packages emit unavoidable warnings, isolate them with targeted spies and document the rationale inline. Never mute project warnings globally.
+Tests still aim to fail fast on project-owned console warnings/errors via setup
+hooks (`server/__tests__/setup/global.js` and `src/setupTests.ts`), but the repo
+still carries a small number of known stderr emissions from third-party rendering
+and intentional network-fallback scenarios. Treat new warnings as regressions and
+shrink the existing exceptions over time instead of normalizing more noise.
 
 ## Commands Reference
 

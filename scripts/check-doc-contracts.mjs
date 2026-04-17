@@ -10,6 +10,7 @@ const ACTIVE_DOCS = [
   'SETUP.md',
   'AGENTS_QUICKSTART.md',
   'docs/README.md',
+  'docs/reference/QUALITY_GATES.md',
   'docs/reference/VALIDATION_MATRIX.md',
   'docs/operations/playbooks/testing-strategy.md',
   'docs/adr/README.md',
