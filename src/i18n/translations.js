@@ -95,9 +95,9 @@ export const translations = {
     'dashboard.roi.loading': 'Loading ROI data…',
     'dashboard.roi.empty':
       'ROI data becomes available after fetching benchmark series and holdings pricing.',
-    'dashboard.roi.title': 'TWR vs Benchmarks',
+    'dashboard.roi.title': 'ROI vs Benchmarks',
     'dashboard.roi.chartEmpty': 'Add transactions to see comparative performance.',
-    'dashboard.roi.chartAria': 'Portfolio TWR comparison chart',
+    'dashboard.roi.chartAria': 'Portfolio ROI comparison chart',
     'dashboard.roi.benchmarkNotice':
       'Canonical benchmark data is still being rebuilt for: {benchmarks}. Missing series stay hidden until the backend repair completes.',
     'dashboard.roi.approximate': '\u2248 Approximate',
@@ -105,6 +105,7 @@ export const translations = {
       'Using client-side approximation. Values may differ from the canonical server calculation by a few basis points.',
     'dashboard.series.portfolio': 'Portfolio ROI',
     'dashboard.series.portfolioTwr': 'Portfolio TWR',
+    'dashboard.series.portfolioRoi': 'Portfolio ROI',
     'dashboard.context.title': 'Performance context',
     'dashboard.context.subtitle':
       'Use ROI for total gain on contributed capital, then compare TWR against benchmarks in the chart.',
@@ -151,12 +152,20 @@ export const translations = {
     'dashboard.metrics.historicalChange': 'Equity Price Gain',
     'dashboard.metrics.historicalChange.description':
       'Current market value of open equity positions minus their total purchase cost.',
+    'dashboard.metrics.historicalChange.estimated':
+      'Using the latest usable market prices for all open holdings.',
+    'dashboard.metrics.historicalChange.partial':
+      'Based on {priced} of {total} open holdings with usable prices.',
     'dashboard.metrics.historicalChange.unavailable':
       'Waiting for current market prices to calculate the change',
     'dashboard.metrics.historicalChange.title':
       'Current market value of open equity positions minus their total purchase cost. Does not include dividends, interest, or realised gains.',
     'dashboard.metrics.nav': 'Total NAV',
     'dashboard.metrics.nav.description': 'Equities {equity} · Cash {cash} ({cashPct})',
+    'dashboard.metrics.nav.estimated':
+      'Equities {equity} · Cash {cash} ({cashPct}) · Estimated from latest usable prices for {priced}/{total} holdings',
+    'dashboard.metrics.nav.partial':
+      'Equities {equity} · Cash {cash} · Partial coverage {priced}/{total} holdings{missing}',
     'dashboard.metrics.nav.unavailable': 'Cash balance {cash} · awaiting market prices',
     'dashboard.metrics.nav.title':
       'NAV equals risk assets plus cash. Cash definitions follow docs/guides/cash-benchmarks.md.',
@@ -166,10 +175,16 @@ export const translations = {
     'dashboard.metrics.return': 'Total Return',
     'dashboard.metrics.return.description':
       'Realised {realised} · Unrealised {unrealised} · Net income {income} · Simple ROI {roi}',
+    'dashboard.metrics.return.estimated':
+      'Realised {realised} · Unrealised {unrealised} · Net income {income} · Simple ROI {roi}',
+    'dashboard.metrics.return.partial':
+      'Realised {realised} · Unrealised {unrealised} · Net income {income} · Partial coverage {priced}/{total} holdings',
     'dashboard.metrics.return.title':
       'Simple return on net contributed capital. Does not weight for timing of deposits/withdrawals. See TWR and MWR for time-adjusted and cash-flow-adjusted returns.',
     'dashboard.metrics.return.unavailable':
       'Waiting for current market prices before computing return and ROI',
+    'dashboard.metrics.valuation.estimatedBadge': '≈ Approximate',
+    'dashboard.metrics.valuation.partialBadge': 'Partial coverage',
     'dashboard.allocation.title': 'Asset Allocation',
     'dashboard.allocation.empty': 'Add holdings and prices to see the allocation chart.',
     'dashboard.allocation.aria': 'Portfolio asset allocation donut chart',
@@ -349,6 +364,9 @@ export const translations = {
     'alerts.price.refreshFailed.detail':
       'Unable to update prices for {tickers}. Showing last known values until the next successful refresh.',
     'alerts.price.refreshFailed.detailFallback': 'selected holdings',
+    'alerts.price.noFresh.title': 'No fresh market prices available',
+    'alerts.price.noFresh.detail':
+      'Unable to value {tickers} because no fresh live or official close data is currently available within the freshness window.',
     'alerts.price.degraded.title': 'Live quotes temporarily unavailable',
     'alerts.price.degraded.detail':
       'Showing the latest official close for {tickers} while the live pricing provider recovers.',
@@ -710,9 +728,9 @@ export const translations = {
     'dashboard.roi.loading': 'Cargando datos de ROI…',
     'dashboard.roi.empty':
       'Los datos de ROI aparecen después de obtener precios de posiciones y referencias.',
-    'dashboard.roi.title': 'TWR vs Referencias',
+    'dashboard.roi.title': 'ROI vs Referencias',
     'dashboard.roi.chartEmpty': 'Agrega transacciones para ver el rendimiento comparativo.',
-    'dashboard.roi.chartAria': 'Gráfico comparativo del TWR del portafolio',
+    'dashboard.roi.chartAria': 'Gráfico comparativo del ROI del portafolio',
     'dashboard.roi.benchmarkNotice':
       'Los datos canónicos de benchmark todavía se están reconstruyendo para: {benchmarks}. Las series faltantes permanecen ocultas hasta que termine la reparación del backend.',
     'dashboard.roi.approximate': '\u2248 Aproximado',
@@ -720,6 +738,7 @@ export const translations = {
       'Usando aproximación del lado del cliente. Los valores pueden diferir del cálculo canónico del servidor por algunos puntos base.',
     'dashboard.series.portfolio': 'ROI del portafolio',
     'dashboard.series.portfolioTwr': 'TWR del portafolio',
+    'dashboard.series.portfolioRoi': 'ROI del portafolio',
     'dashboard.context.title': 'Contexto de rendimiento',
     'dashboard.context.subtitle':
       'Usa el ROI para la ganancia total sobre capital aportado y compara el TWR contra referencias en el gráfico.',
@@ -769,12 +788,20 @@ export const translations = {
     'dashboard.metrics.historicalChange': 'Ganancia de precio en acciones',
     'dashboard.metrics.historicalChange.description':
       'Valor de mercado actual de posiciones abiertas menos su costo total de compra.',
+    'dashboard.metrics.historicalChange.estimated':
+      'Usando los últimos precios de mercado utilizables para todas las posiciones abiertas.',
+    'dashboard.metrics.historicalChange.partial':
+      'Basado en {priced} de {total} posiciones abiertas con precios utilizables.',
     'dashboard.metrics.historicalChange.unavailable':
       'Esperando precios de mercado para calcular la variación',
     'dashboard.metrics.historicalChange.title':
       'Valor de mercado actual de posiciones abiertas menos su costo total de compra. No incluye dividendos, intereses ni ganancias realizadas.',
     'dashboard.metrics.nav': 'NAV total',
     'dashboard.metrics.nav.description': 'Acciones {equity} · Efectivo {cash} ({cashPct})',
+    'dashboard.metrics.nav.estimated':
+      'Acciones {equity} · Efectivo {cash} ({cashPct}) · Estimado con los últimos precios utilizables para {priced}/{total} posiciones',
+    'dashboard.metrics.nav.partial':
+      'Acciones {equity} · Efectivo {cash} · Cobertura parcial {priced}/{total} posiciones{missing}',
     'dashboard.metrics.nav.unavailable': 'Saldo en efectivo {cash} · esperando precios de mercado',
     'dashboard.metrics.nav.title':
       'El NAV equivale a activos de riesgo más efectivo. Las definiciones de efectivo siguen docs/guides/cash-benchmarks.md.',
@@ -784,10 +811,16 @@ export const translations = {
     'dashboard.metrics.return': 'Rendimiento total',
     'dashboard.metrics.return.description':
       'Realizado {realised} · No realizado {unrealised} · Ingresos netos {income} · ROI Simple {roi}',
+    'dashboard.metrics.return.estimated':
+      'Realizado {realised} · No realizado {unrealised} · Ingresos netos {income} · ROI Simple {roi}',
+    'dashboard.metrics.return.partial':
+      'Realizado {realised} · No realizado {unrealised} · Ingresos netos {income} · Cobertura parcial {priced}/{total} posiciones',
     'dashboard.metrics.return.title':
       'Retorno simple sobre el capital neto aportado. No pondera el momento de depósitos/retiros. Ver TWR y MWR para retornos ajustados por tiempo y flujos.',
     'dashboard.metrics.return.unavailable':
       'Esperando precios de mercado antes de calcular rendimiento y ROI',
+    'dashboard.metrics.valuation.estimatedBadge': '≈ Estimado',
+    'dashboard.metrics.valuation.partialBadge': 'Cobertura parcial',
     'dashboard.allocation.title': 'Asignación de activos',
     'dashboard.allocation.empty': 'Agrega posiciones y precios para ver el gráfico de asignación.',
     'dashboard.allocation.aria': 'Gráfico de dona de asignación de activos del portafolio',
@@ -978,6 +1011,9 @@ export const translations = {
     'alerts.price.refreshFailed.detail':
       'No se pudieron actualizar los precios de {tickers}. Se mostrarán los últimos valores conocidos hasta la próxima actualización exitosa.',
     'alerts.price.refreshFailed.detailFallback': 'las posiciones seleccionadas',
+    'alerts.price.noFresh.title': 'No hay precios frescos de mercado disponibles',
+    'alerts.price.noFresh.detail':
+      'No se pudo valorizar {tickers} porque no hay datos frescos de mercado en vivo ni del último cierre oficial dentro de la ventana de frescura.',
     'alerts.price.degraded.title': 'Cotizaciones en vivo temporalmente no disponibles',
     'alerts.price.degraded.detail':
       'Mostrando el último cierre oficial para {tickers} mientras se recupera el proveedor de precios en vivo.',

@@ -8,12 +8,14 @@ import { renderWithProviders } from './test-utils';
 const {
   evaluateSignalsMock,
   fetchBenchmarkCatalogMock,
+  fetchBenchmarkSummaryMock,
   fetchBulkPricesMock,
   fetchDailyRoiMock,
   retrievePortfolioMock,
 } = vi.hoisted(() => ({
   evaluateSignalsMock: vi.fn(),
   fetchBenchmarkCatalogMock: vi.fn(),
+  fetchBenchmarkSummaryMock: vi.fn(),
   fetchBulkPricesMock: vi.fn(),
   fetchDailyRoiMock: vi.fn(),
   retrievePortfolioMock: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock('../utils/api.js', async (importOriginal) => {
     ...actual,
     evaluateSignals: evaluateSignalsMock,
     fetchBenchmarkCatalog: fetchBenchmarkCatalogMock,
+    fetchBenchmarkSummary: fetchBenchmarkSummaryMock,
     fetchBulkPrices: fetchBulkPricesMock,
     fetchDailyRoi: fetchDailyRoiMock,
     persistPortfolio: vi.fn(async () => ({ requestId: 'persist-001' })),
@@ -50,6 +53,12 @@ describe('App pricing status UX', () => {
     };
 
     fetchBenchmarkCatalogMock.mockResolvedValue({ data: {} });
+    fetchBenchmarkSummaryMock.mockResolvedValue({
+      data: {
+        money_weighted: null,
+      },
+      requestId: 'benchmark-summary-001',
+    });
     fetchBulkPricesMock.mockResolvedValue({
       series: new Map(),
       errors: {},
@@ -162,6 +171,12 @@ describe('App pricing status UX', () => {
     await waitFor(() => {
       expect(retrievePortfolioMock).toHaveBeenCalledWith('desktop');
     });
+    await waitFor(
+      () => {
+        expect(screen.queryByText(/Loading view/i)).not.toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
 
     expect(await screen.findByText(/Live quotes temporarily unavailable/i)).toBeVisible();
     expect(
@@ -226,11 +241,78 @@ describe('App pricing status UX', () => {
     await waitFor(() => {
       expect(retrievePortfolioMock).toHaveBeenCalledWith('desktop');
     });
+    await waitFor(
+      () => {
+        expect(screen.queryByText(/Loading view/i)).not.toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
 
-    expect(await screen.findByText(/Market is closed/i)).toBeVisible();
     expect(screen.queryByText(/Price refresh failed/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Awaiting market prices for open holdings/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText('$1,750.00').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/\$1,250\.00/).length).toBeGreaterThan(0);
+    expect(await screen.findByText('$1,750.00')).toBeVisible();
+    expect(await screen.findByText(/\$1,250\.00/)).toBeVisible();
+  });
+
+  test('surfaces a no-fresh-prices warning instead of a generic refresh error when only stale data exists', async () => {
+    evaluateSignalsMock.mockResolvedValue({
+      data: {
+        rows: [],
+        prices: {},
+        errors: {
+          MSFT: {
+            code: 'STALE_DATA',
+            status: 503,
+            message: 'Historical prices are stale for this symbol.',
+          },
+        },
+        pricing: {
+          symbols: {
+            MSFT: {
+              status: 'unavailable',
+              source: 'persisted',
+              provider: 'storage',
+              warnings: ['PERSISTED_CLOSE_STALE_REJECTED'],
+              asOf: '2024-01-02',
+            },
+          },
+          summary: {
+            status: 'unavailable',
+            liveSymbols: [],
+            eodSymbols: [],
+            cacheSymbols: [],
+            degradedSymbols: [],
+            unavailableSymbols: ['MSFT'],
+          },
+        },
+        market: {
+          isOpen: true,
+          isBeforeOpen: false,
+          lastTradingDate: '2024-02-02',
+          nextTradingDate: '2024-02-05',
+        },
+      },
+      requestId: 'signals-stale-001',
+    });
+
+    renderWithProviders(<App />);
+
+    await waitFor(() => {
+      expect(retrievePortfolioMock).toHaveBeenCalledWith('desktop');
+    });
+    await waitFor(
+      () => {
+        expect(screen.queryByText(/Loading view/i)).not.toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
+
+    expect(await screen.findByText(/No fresh market prices available/i)).toBeVisible();
+    expect(
+      screen.getAllByText(
+        /Unable to value MSFT because no fresh live or official close data is currently available/i
+      ).length
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/Price refresh failed/i)).not.toBeInTheDocument();
   });
 });

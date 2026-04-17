@@ -20,6 +20,8 @@ import { formatCurrency } from './format.js';
 const ZERO = new Decimal(0);
 const SHARE_EPSILON = new Decimal('0.0000000005');
 const SHARE_DISPLAY_DECIMALS = 9;
+const LIVE_PRICE_STATUSES = new Set(['live']);
+const ESTIMATED_PRICE_STATUSES = new Set(['eod_fresh', 'cache_fresh', 'degraded']);
 function normalizeTicker(rawTicker) {
   return rawTicker?.trim().toUpperCase() ?? '';
 }
@@ -334,6 +336,8 @@ export function deriveSignalRow(holding, currentPrice, pctWindow, referenceInput
 }
 
 export function computeDashboardMetrics(holdings, currentPrices) {
+  const valuationByTicker =
+    arguments.length > 2 && arguments[2] && typeof arguments[2] === 'object' ? arguments[2] : {};
   const summary = holdings.reduce(
     (acc, holding) => {
       const shares = toDecimalOrNull(holding?.shares) ?? new Decimal(0);
@@ -347,32 +351,66 @@ export function computeDashboardMetrics(holdings, currentPrices) {
       acc.totalCost = acc.totalCost.plus(cost);
       acc.holdingsCount += 1;
 
+      const ticker = normalizeTicker(holding?.ticker);
+      const valuation = ticker ? (valuationByTicker[ticker] ?? null) : null;
       const price = toDecimalOrNull(
         resolveHoldingValuationPrice(holding, currentPrices?.[holding.ticker])
       );
-      if (!price || !price.gt(0)) {
+      const normalizedStatus =
+        typeof valuation?.status === 'string' ? valuation.status.trim().toLowerCase() : '';
+      const effectiveStatus =
+        normalizedStatus || (price && price.gt(0) ? 'cache_fresh' : 'unavailable');
+      const hasUsableStatus =
+        LIVE_PRICE_STATUSES.has(effectiveStatus) || ESTIMATED_PRICE_STATUSES.has(effectiveStatus);
+
+      if (!price || !price.gt(0) || !hasUsableStatus) {
         acc.unpricedHoldingsCount += 1;
+        if (ticker) {
+          acc.missingTickers.push(ticker);
+        }
         return acc;
       }
 
       const value = shares.times(price);
       acc.pricedHoldingsCount += 1;
       acc.totalValue = acc.totalValue.plus(value);
+      acc.valuedCostBasis = acc.valuedCostBasis.plus(cost);
       acc.totalUnrealised = acc.totalUnrealised.plus(value.minus(cost));
+      if (LIVE_PRICE_STATUSES.has(effectiveStatus)) {
+        acc.liveHoldingsCount += 1;
+      } else {
+        acc.estimatedHoldingsCount += 1;
+      }
       return acc;
     },
     {
       totalValue: new Decimal(0),
       totalCost: new Decimal(0),
+      valuedCostBasis: new Decimal(0),
       totalRealised: new Decimal(0),
       totalUnrealised: new Decimal(0),
       holdingsCount: 0,
       pricedHoldingsCount: 0,
       unpricedHoldingsCount: 0,
+      liveHoldingsCount: 0,
+      estimatedHoldingsCount: 0,
+      missingTickers: [],
     }
   );
+  const valuationStatus =
+    summary.pricedHoldingsCount === 0
+      ? 'unavailable'
+      : summary.unpricedHoldingsCount > 0
+        ? 'partial_estimated'
+        : summary.estimatedHoldingsCount > 0
+          ? 'complete_estimated'
+          : 'complete_live';
   return {
     ...summary,
     pricingComplete: summary.unpricedHoldingsCount === 0,
+    valuationStatus,
+    valuationCoverage:
+      summary.holdingsCount > 0 ? summary.pricedHoldingsCount / summary.holdingsCount : 0,
+    estimated: valuationStatus !== 'complete_live' && summary.pricedHoldingsCount > 0,
   };
 }

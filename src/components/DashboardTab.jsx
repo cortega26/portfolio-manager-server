@@ -20,7 +20,11 @@ import { ROI_DETAIL_PERCENT_DIGITS, ROI_PRIMARY_PERCENT_DIGITS } from '../../sha
 import { useI18n } from '../i18n/I18nProvider.jsx';
 import { usePersistentBenchmarkSelection } from '../hooks/usePersistentBenchmarkSelection.js';
 import { usePortfolioMetrics } from '../hooks/usePortfolioMetrics.js';
-import { buildBenchmarkSeriesMeta } from '../utils/roi.js';
+import {
+  buildBenchmarkSeriesMeta,
+  buildFlowMatchedBenchmarkSeries,
+  mergeBenchmarkOverlaySeries,
+} from '../utils/roi.js';
 const PORTFOLIO_COLOR = '#16a34a';
 const NAV_CONTRIBUTIONS_COLOR = '#6366f1';
 const NAV_MARKET_GAIN_COLOR = '#22c55e';
@@ -107,6 +111,24 @@ function MetricCard({ label, value, description, title }) {
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
       )}
     </div>
+  );
+}
+
+function MetricCardBadge({ label, tone = 'default' }) {
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium',
+        tone === 'warning' &&
+          'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/20 dark:text-amber-200',
+        tone === 'info' &&
+          'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-700/60 dark:bg-sky-950/20 dark:text-sky-200',
+        tone === 'default' &&
+          'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+      )}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -482,14 +504,14 @@ function RoiChart({
   t,
   formatPercent,
 }) {
-  const formatBenchmarkLabel = (label) => `${label} TWR`;
+  const formatBenchmarkLabel = (label) => `${label} ROI`;
   const legendPayload = useMemo(() => {
     const base = [
       {
-        value: t('dashboard.series.portfolioTwr'),
+        value: t('dashboard.series.portfolioRoi'),
         type: 'line',
         color: PORTFOLIO_COLOR,
-        id: 'portfolioTwr',
+        id: 'portfolio',
       },
     ];
     selectedBenchmarks.forEach((id) => {
@@ -572,8 +594,8 @@ function RoiChart({
               <Legend payload={legendPayload} />
               <Line
                 type="monotone"
-                dataKey="portfolioTwr"
-                name={t('dashboard.series.portfolioTwr')}
+                dataKey="portfolio"
+                name={t('dashboard.series.portfolioRoi')}
                 stroke={PORTFOLIO_COLOR}
                 dot={false}
                 strokeWidth={2}
@@ -582,7 +604,7 @@ function RoiChart({
                 <Line
                   key={option.id}
                   type="monotone"
-                  dataKey={option.dataKey}
+                  dataKey={option.chartDataKey ?? option.dataKey}
                   name={formatBenchmarkLabel(option.label)}
                   stroke={option.color}
                   strokeWidth={2}
@@ -719,22 +741,47 @@ export default function DashboardTab({
       totalNav,
       totalRoiPct,
       cashBalance,
-      pricingComplete,
+      holdingsCount,
+      pricedHoldingsCount,
+      valuationStatus,
+      missingTickers,
     },
     percentages: { cashAllocationPct, spyDeltaPct, qqqDeltaPct },
     latest,
   } = portfolioMetrics;
 
+  const roiChartData = useMemo(() => {
+    const baseData = Array.isArray(roiData) ? roiData.map((entry) => ({ ...entry })) : [];
+    if (baseData.length === 0) {
+      return [];
+    }
+
+    return ['spy', 'qqq', 'blended', 'exCash', 'cash'].reduce((nextData, dataKey) => {
+      const overlaySeries = buildFlowMatchedBenchmarkSeries(roiData, transactions, dataKey);
+      return mergeBenchmarkOverlaySeries(nextData, overlaySeries, `${dataKey}Roi`);
+    }, baseData);
+  }, [roiData, transactions]);
+
   const benchmarkOptions = useMemo(() => {
-    const safeRoiData = Array.isArray(roiData) ? roiData : [];
+    const safeRoiData = Array.isArray(roiChartData) ? roiChartData : [];
     const catalogMeta = buildBenchmarkSeriesMeta(benchmarkCatalog);
     return catalogMeta
-      .filter((option) =>
-        safeRoiData.some(
+      .map((option) => {
+        const roiDataKey = `${option.dataKey}Roi`;
+        const hasFlowMatchedSeries = safeRoiData.some(
+          (point) => typeof point?.[roiDataKey] === 'number' && Number.isFinite(point[roiDataKey])
+        );
+        const hasFallbackSeries = safeRoiData.some(
           (point) =>
             typeof point?.[option.dataKey] === 'number' && Number.isFinite(point[option.dataKey])
-        )
-      )
+        );
+        return {
+          ...option,
+          chartDataKey: hasFlowMatchedSeries ? roiDataKey : option.dataKey,
+          hasSeries: hasFlowMatchedSeries || hasFallbackSeries,
+        };
+      })
+      .filter((option) => option.hasSeries)
       .map((option) => ({
         ...option,
         label: (() => {
@@ -748,7 +795,7 @@ export default function DashboardTab({
           return translated === key ? option.description : translated;
         })(),
       }));
-  }, [benchmarkCatalog, roiData, t]);
+  }, [benchmarkCatalog, roiChartData, t]);
   const benchmarkOptionIds = useMemo(
     () => benchmarkOptions.map((option) => option.id),
     [benchmarkOptions]
@@ -794,38 +841,95 @@ export default function DashboardTab({
   }, [normalizedDefaultSelection, selectedBenchmarks]);
 
   const cashPct =
-    pricingComplete && totalNav !== 0 ? formatPercent((cashBalance / totalNav) * 100, 1) : '—';
+    Number.isFinite(cashAllocationPct) && totalNav !== 0
+      ? formatPercent(cashAllocationPct, 1)
+      : '—';
+  const valuationBadge =
+    valuationStatus === 'complete_estimated'
+      ? {
+          label: t('dashboard.metrics.valuation.estimatedBadge'),
+          tone: 'warning',
+        }
+      : valuationStatus === 'partial_estimated'
+        ? {
+            label: t('dashboard.metrics.valuation.partialBadge'),
+            tone: 'info',
+          }
+        : null;
+  const missingTickersSummary =
+    Array.isArray(missingTickers) && missingTickers.length > 0
+      ? ` (${missingTickers.join(', ')})`
+      : '';
   const metricCards = [
     {
       label: t('dashboard.metrics.nav'),
       value: formatNullableCurrency(formatCurrency, totalNav),
-      description: pricingComplete
-        ? t('dashboard.metrics.nav.description', {
-            equity: formatCurrency(totalValue ?? 0),
-            cash: formatCurrency(cashBalance),
-            cashPct,
-          })
-        : t('dashboard.metrics.nav.unavailable', {
-            cash: formatCurrency(cashBalance),
-          }),
+      description:
+        valuationStatus === 'complete_live'
+          ? t('dashboard.metrics.nav.description', {
+              equity: formatCurrency(totalValue ?? 0),
+              cash: formatCurrency(cashBalance),
+              cashPct,
+            })
+          : valuationStatus === 'complete_estimated'
+            ? t('dashboard.metrics.nav.estimated', {
+                equity: formatCurrency(totalValue ?? 0),
+                cash: formatCurrency(cashBalance),
+                cashPct,
+                priced: pricedHoldingsCount,
+                total: holdingsCount,
+              })
+            : valuationStatus === 'partial_estimated'
+              ? t('dashboard.metrics.nav.partial', {
+                  equity: formatCurrency(totalValue ?? 0),
+                  cash: formatCurrency(cashBalance),
+                  priced: pricedHoldingsCount,
+                  total: holdingsCount,
+                  missing: missingTickersSummary,
+                })
+              : t('dashboard.metrics.nav.unavailable', {
+                  cash: formatCurrency(cashBalance),
+                }),
       title: t('dashboard.metrics.nav.title'),
+      badge: valuationBadge,
     },
     {
       label: t('dashboard.metrics.return'),
       value: formatNullableCurrency(formatCurrency, totalReturn),
-      description: pricingComplete
-        ? t('dashboard.metrics.return.description', {
-            realised: formatCurrency(totalRealised),
-            unrealised: formatCurrency(totalUnrealised),
-            income: formatCurrency(netIncome),
-            roi: formatNullablePercent(
-              formatSignedPercent,
-              totalRoiPct,
-              ROI_PRIMARY_PERCENT_DIGITS
-            ),
-          })
-        : t('dashboard.metrics.return.unavailable'),
+      description:
+        valuationStatus === 'complete_live'
+          ? t('dashboard.metrics.return.description', {
+              realised: formatCurrency(totalRealised),
+              unrealised: formatCurrency(totalUnrealised),
+              income: formatCurrency(netIncome),
+              roi: formatNullablePercent(
+                formatSignedPercent,
+                totalRoiPct,
+                ROI_PRIMARY_PERCENT_DIGITS
+              ),
+            })
+          : valuationStatus === 'complete_estimated'
+            ? t('dashboard.metrics.return.estimated', {
+                realised: formatCurrency(totalRealised),
+                unrealised: formatCurrency(totalUnrealised),
+                income: formatCurrency(netIncome),
+                roi: formatNullablePercent(
+                  formatSignedPercent,
+                  totalRoiPct,
+                  ROI_PRIMARY_PERCENT_DIGITS
+                ),
+              })
+            : valuationStatus === 'partial_estimated'
+              ? t('dashboard.metrics.return.partial', {
+                  realised: formatCurrency(totalRealised),
+                  unrealised: formatCurrency(totalUnrealised),
+                  income: formatCurrency(netIncome),
+                  priced: pricedHoldingsCount,
+                  total: holdingsCount,
+                })
+              : t('dashboard.metrics.return.unavailable'),
       title: t('dashboard.metrics.return.title'),
+      badge: valuationBadge,
     },
     {
       label: t('dashboard.metrics.externalContributions'),
@@ -839,10 +943,19 @@ export default function DashboardTab({
     {
       label: t('dashboard.metrics.historicalChange'),
       value: formatNullableCurrency(formatCurrency, historicalChange),
-      description: pricingComplete
-        ? t('dashboard.metrics.historicalChange.description')
-        : t('dashboard.metrics.historicalChange.unavailable'),
+      description:
+        valuationStatus === 'complete_live'
+          ? t('dashboard.metrics.historicalChange.description')
+          : valuationStatus === 'complete_estimated'
+            ? t('dashboard.metrics.historicalChange.estimated')
+            : valuationStatus === 'partial_estimated'
+              ? t('dashboard.metrics.historicalChange.partial', {
+                  priced: pricedHoldingsCount,
+                  total: holdingsCount,
+                })
+              : t('dashboard.metrics.historicalChange.unavailable'),
       title: t('dashboard.metrics.historicalChange.title'),
+      badge: valuationBadge,
     },
   ];
 
@@ -850,13 +963,17 @@ export default function DashboardTab({
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {metricCards.map((card) => (
-          <MetricCard
-            key={card.label}
-            label={card.label}
-            value={card.value}
-            description={card.description}
-            title={card.title}
-          />
+          <div key={card.label} className="space-y-2">
+            <MetricCard
+              label={card.label}
+              value={card.value}
+              description={card.description}
+              title={card.title}
+            />
+            {card.badge ? (
+              <MetricCardBadge label={card.badge.label} tone={card.badge.tone} />
+            ) : null}
+          </div>
         ))}
       </div>
       <QuickActions onRefresh={onRefreshRoi} roiSource={roiSource} t={t} />
@@ -873,7 +990,7 @@ export default function DashboardTab({
         formatDate={formatDate}
       />
       <RoiChart
-        data={roiData}
+        data={roiChartData}
         loading={loadingRoi}
         benchmarkHealth={roiMeta?.benchmarkHealth ?? null}
         benchmarkOptions={benchmarkOptions}

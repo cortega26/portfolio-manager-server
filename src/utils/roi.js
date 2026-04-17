@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import { getDefaultBenchmarkConfig } from '../../shared/benchmarks.js';
 
 const SERIES_META_FALLBACK = Object.freeze([
@@ -181,6 +182,7 @@ const CASH_OUT_TYPES = new Set(['WITHDRAWAL', 'FEE']);
 const INCOME_TYPES = new Set(['DIVIDEND', 'INTEREST']);
 const SHARE_TYPES = new Set(['BUY', 'SELL']);
 const SHARE_EPSILON = 1e-8;
+const EXTERNAL_FLOW_TYPES = new Set(['DEPOSIT', 'WITHDRAWAL']);
 
 function toFiniteNumber(value) {
   if (value === null || value === undefined) {
@@ -343,6 +345,155 @@ function toNumeric(value) {
 function toCanonicalNullableNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function toDecimal(value) {
+  try {
+    const decimal = new Decimal(value ?? 0);
+    return decimal.isFinite() ? decimal : new Decimal(0);
+  } catch {
+    return new Decimal(0);
+  }
+}
+
+function roundCanonicalPercent(value) {
+  try {
+    const decimal = value instanceof Decimal ? value : new Decimal(value ?? 0);
+    return decimal.isFinite() ? decimal.toDecimalPlaces(6).toNumber() : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildExternalFlowMap(transactions = []) {
+  const flows = new Map();
+  const normalizedTransactions = Array.isArray(transactions)
+    ? transactions.map((transaction) => normalizeTransaction(transaction)).filter(Boolean)
+    : [];
+  const sortedTransactions = sortTransactions(normalizedTransactions);
+
+  for (const transaction of sortedTransactions) {
+    if (!EXTERNAL_FLOW_TYPES.has(transaction.type)) {
+      continue;
+    }
+
+    const amount = toDecimal(transaction.amount);
+    const signedAmount = transaction.type === 'WITHDRAWAL' ? amount.abs().negated() : amount;
+    const currentAmount = flows.get(transaction.date) ?? new Decimal(0);
+    flows.set(transaction.date, currentAmount.plus(signedAmount));
+  }
+
+  return flows;
+}
+
+function buildCumulativeExternalFlowMap(dates = [], transactions = []) {
+  const rawFlows = Array.from(buildExternalFlowMap(transactions).entries()).sort((left, right) =>
+    left[0].localeCompare(right[0])
+  );
+  const running = new Map();
+  let total = new Decimal(0);
+  let flowIndex = 0;
+  const sortedDates = [...dates].sort((left, right) => String(left).localeCompare(String(right)));
+
+  for (const date of sortedDates) {
+    while (flowIndex < rawFlows.length && rawFlows[flowIndex][0] <= date) {
+      total = total.plus(rawFlows[flowIndex][1] ?? 0);
+      flowIndex += 1;
+    }
+    running.set(date, total);
+  }
+
+  return running;
+}
+
+function buildDailyReturnLookupFromCumulativeSeries(roiData = [], dataKey) {
+  const sortedRows = Array.isArray(roiData)
+    ? [...roiData]
+        .filter((row) => typeof row?.date === 'string' && row.date.trim().length > 0)
+        .sort((left, right) => left.date.localeCompare(right.date))
+    : [];
+  const dailyReturns = new Map();
+  let previousGrowth = null;
+
+  for (const row of sortedRows) {
+    const cumulativePct = toCanonicalNullableNumber(row?.[dataKey]);
+    if (cumulativePct === null) {
+      continue;
+    }
+
+    const currentGrowth = new Decimal(cumulativePct).div(100).plus(1);
+    if (!currentGrowth.isFinite() || currentGrowth.lte(0)) {
+      previousGrowth = null;
+      continue;
+    }
+
+    if (previousGrowth === null || previousGrowth.lte(0)) {
+      dailyReturns.set(row.date, new Decimal(0));
+      previousGrowth = currentGrowth;
+      continue;
+    }
+
+    dailyReturns.set(row.date, currentGrowth.div(previousGrowth).minus(1));
+    previousGrowth = currentGrowth;
+  }
+
+  return dailyReturns;
+}
+
+export function buildFlowMatchedBenchmarkSeries(roiData = [], transactions = [], dataKey) {
+  if (!dataKey || !Array.isArray(roiData) || roiData.length === 0) {
+    return [];
+  }
+
+  const sortedRows = [...roiData]
+    .filter((row) => typeof row?.date === 'string' && row.date.trim().length > 0)
+    .sort((left, right) => left.date.localeCompare(right.date));
+  if (sortedRows.length === 0) {
+    return [];
+  }
+
+  const dates = sortedRows.map((row) => row.date);
+  const cumulativeFlows = buildCumulativeExternalFlowMap(dates, transactions);
+  const dailyReturnLookup = buildDailyReturnLookupFromCumulativeSeries(sortedRows, dataKey);
+
+  let syntheticNav = null;
+  let previousContributions = new Decimal(0);
+  const series = [];
+
+  for (const row of sortedRows) {
+    const date = row.date;
+    const netContributions = cumulativeFlows.get(date) ?? new Decimal(0);
+
+    if (syntheticNav === null) {
+      previousContributions = netContributions;
+      if (netContributions.lte(0)) {
+        series.push({ date, value: null });
+        continue;
+      }
+      syntheticNav = netContributions;
+      series.push({ date, value: 0 });
+      continue;
+    }
+
+    const flow = netContributions.minus(previousContributions);
+    const dailyReturn = dailyReturnLookup.get(date) ?? new Decimal(0);
+    syntheticNav = syntheticNav.times(new Decimal(1).plus(dailyReturn)).plus(flow);
+    previousContributions = netContributions;
+
+    if (netContributions.lte(0)) {
+      series.push({ date, value: null });
+      continue;
+    }
+
+    series.push({
+      date,
+      value: roundCanonicalPercent(
+        syntheticNav.minus(netContributions).div(netContributions).times(100)
+      ),
+    });
+  }
+
+  return series;
 }
 
 export function mergeReturnSeries(series = {}) {

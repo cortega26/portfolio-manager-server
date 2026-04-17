@@ -302,6 +302,50 @@ function normalizePricingStatusSummary(symbolMeta = {}, errors = {}) {
   return summary;
 }
 
+function appendPricingWarning(meta, warning) {
+  if (!meta || typeof meta !== "object" || typeof warning !== "string" || warning.length === 0) {
+    return meta;
+  }
+  const warnings = Array.isArray(meta.warnings)
+    ? Array.from(new Set([...meta.warnings, warning]))
+    : [warning];
+  return {
+    ...meta,
+    warnings,
+  };
+}
+
+function logLatestPriceResolution(logger, symbol, meta, {
+  tradingDayAge = null,
+  staleRejected = false,
+} = {}) {
+  if (!logger?.info || !meta || typeof meta !== "object") {
+    return;
+  }
+
+  const warnings = Array.isArray(meta.warnings) ? meta.warnings : [];
+  logger.info(
+    {
+      symbol,
+      status: meta.status ?? "unavailable",
+      source: meta.source ?? "none",
+      provider: meta.provider ?? null,
+      warnings,
+      latest_quote_attempted: Boolean(meta.latestQuoteAttempted),
+      attempted_live: Boolean(meta.latestQuoteAttempted),
+      attempted_historical_close:
+        meta.source === "historical"
+        || meta.source === "persisted"
+        || warnings.includes("HISTORICAL_CLOSE_FETCH_FAILED"),
+      used_persisted_close: meta.source === "persisted",
+      used_cache: meta.source === "cache",
+      stale_rejected: Boolean(staleRejected),
+      trading_days_age: Number.isFinite(tradingDayAge) ? tradingDayAge : null,
+    },
+    "latest_price_resolution",
+  );
+}
+
 function computeEtag(serializedBody) {
   return createHash("sha256").update(serializedBody).digest("base64url");
 }
@@ -541,6 +585,51 @@ export function createApp({
     const record = snapshot.get(normalizedSymbol);
     return record ? { ...record } : null;
   }
+  async function persistHistoricalLatestClose(symbol, result) {
+    if (!result?.resolution || result.resolution.source !== "historical") {
+      return;
+    }
+
+    const latest = Array.isArray(result.prices)
+      ? result.prices[result.prices.length - 1]
+      : null;
+    const date = typeof latest?.date === "string" ? latest.date.trim() : "";
+    const close = Number.parseFloat(latest?.close ?? latest?.adjClose);
+    if (!date || !Number.isFinite(close) || close <= 0) {
+      return;
+    }
+
+    try {
+      const storage = await getStorage();
+      await storage.ensureTable("prices", []);
+      await storage.upsertRow(
+        "prices",
+        {
+          ticker: symbol,
+          date,
+          adj_close: close,
+          updated_at: new Date().toISOString(),
+        },
+        ["ticker", "date"],
+      );
+      if (persistedLatestCloseSnapshot.bySymbol instanceof Map) {
+        const current = persistedLatestCloseSnapshot.bySymbol.get(symbol);
+        if (!current || date >= current.date) {
+          persistedLatestCloseSnapshot.bySymbol.set(symbol, {
+            ticker: symbol,
+            date,
+            adj_close: close,
+          });
+        }
+        persistedLatestCloseSnapshot.loadedAt = Date.now();
+      }
+    } catch (error) {
+      log.warn("persist_historical_latest_close_failed", {
+        symbol,
+        error: error.message,
+      });
+    }
+  }
   if (latestQuoteProviderInstance?.providerKey) {
     const providerMeta = {
       provider: latestQuoteProviderInstance.providerKey,
@@ -556,6 +645,7 @@ export function createApp({
     persistedLatestCloseLookup: getPersistedLatestClose,
     logger: log,
     marketClock,
+    maxStaleTradingDays,
     cachePolicy: {
       liveOpenTtlSeconds: priceCacheLiveOpenTtlSeconds,
       liveClosedTtlSeconds: priceCacheLiveClosedTtlSeconds,
@@ -936,10 +1026,14 @@ export function createApp({
     }
     const normalizedSymbol = symbol.trim().toUpperCase();
     try {
-      return await historicalPriceLoader.fetchSeries(normalizedSymbol, {
+      const result = await historicalPriceLoader.fetchSeries(normalizedSymbol, {
         range,
         latestOnly,
       });
+      if (latestOnly) {
+        await persistHistoricalLatestClose(normalizedSymbol, result);
+      }
+      return result;
     } catch (error) {
       if (error.name === "AbortError") {
         const timeoutError = createHttpError({
@@ -994,6 +1088,9 @@ export function createApp({
           status: error?.status ?? error?.statusCode ?? 502,
           message: error?.message ?? "Failed to fetch historical prices.",
         };
+        logLatestPriceResolution(log, symbol, metadata[symbol], {
+          staleRejected: error?.code === "STALE_DATA",
+        });
         continue;
       }
 
@@ -1009,16 +1106,25 @@ export function createApp({
       const latestDate = latest?.date ?? null;
       const tradingDayAge = computeTradingDayAge(latestDate);
       if (!latestDate || tradingDayAge > maxStaleTradingDays) {
-        metadata[symbol] = {
-          ...(metadata[symbol] ?? {}),
-          status: "unavailable",
-          asOf: latestDate,
-        };
+        metadata[symbol] = appendPricingWarning(
+          {
+            ...(metadata[symbol] ?? {}),
+            status: "unavailable",
+            asOf: latestDate,
+          },
+          metadata[symbol]?.source === "persisted"
+            ? "PERSISTED_CLOSE_STALE_REJECTED"
+            : "",
+        );
         errors[symbol] = {
           code: "STALE_DATA",
           status: 503,
           message: "Historical prices are stale for this symbol.",
         };
+        logLatestPriceResolution(log, symbol, metadata[symbol], {
+          tradingDayAge,
+          staleRejected: true,
+        });
         continue;
       }
 
@@ -1039,11 +1145,15 @@ export function createApp({
           status: 502,
           message: "Failed to fetch historical prices.",
         };
+        logLatestPriceResolution(log, symbol, metadata[symbol]);
         continue;
       }
 
       prices[symbol] = rawClose;
       asOf[symbol] = latestDate;
+      logLatestPriceResolution(log, symbol, metadata[symbol], {
+        tradingDayAge,
+      });
     }
 
     return {
@@ -1242,11 +1352,16 @@ export function createApp({
             prices.length > 0 ? prices[prices.length - 1].date : null;
           const tradingDayAge = computeTradingDayAge(latestDate);
           if (!latestDate || tradingDayAge > maxStaleTradingDays) {
-            symbolMeta[symbol] = {
-              ...(symbolMeta[symbol] ?? {}),
-              status: "unavailable",
-              asOf: latestDate,
-            };
+            symbolMeta[symbol] = appendPricingWarning(
+              {
+                ...(symbolMeta[symbol] ?? {}),
+                status: "unavailable",
+                asOf: latestDate,
+              },
+              symbolMeta[symbol]?.source === "persisted"
+                ? "PERSISTED_CLOSE_STALE_REJECTED"
+                : "",
+            );
             errors[symbol] = {
               code: "STALE_DATA",
               status: 503,
@@ -1260,6 +1375,10 @@ export function createApp({
             if (!cacheHit) {
               allHits = false;
             }
+            logLatestPriceResolution(log, symbol, symbolMeta[symbol], {
+              tradingDayAge,
+              staleRejected: true,
+            });
             continue;
           }
           series[symbol] = prices;
@@ -1268,6 +1387,9 @@ export function createApp({
           if (!cacheHit) {
             allHits = false;
           }
+          logLatestPriceResolution(log, symbol, symbolMeta[symbol], {
+            tradingDayAge,
+          });
         } else {
           const { symbol, error } = entry;
           symbolMeta[symbol] = {
@@ -1282,6 +1404,9 @@ export function createApp({
             status: error?.status ?? error?.statusCode ?? 502,
             message: error?.message ?? "Failed to fetch historical prices.",
           };
+          logLatestPriceResolution(log, symbol, symbolMeta[symbol], {
+            staleRejected: error?.code === "STALE_DATA",
+          });
         }
       }
       for (const symbol of normalizedSymbols) {

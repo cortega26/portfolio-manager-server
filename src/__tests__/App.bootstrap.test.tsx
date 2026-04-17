@@ -2,7 +2,7 @@ import React from 'react';
 import { cleanup } from '@testing-library/react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import App from '../App.jsx';
 import { ApiClientError } from '../lib/apiClient.js';
@@ -156,6 +156,11 @@ describe('App desktop bootstrap', () => {
         SESSION_AUTH_HEADER: 'X-Session-Token',
       },
     });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
   });
 
   test('bootstraps the active desktop portfolio from runtime config', async () => {

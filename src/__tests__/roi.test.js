@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   buildBenchmarkOverlaySeries,
+  buildFlowMatchedBenchmarkSeries,
   buildRoiSeries,
   mergeDailyRoiSeries,
   mergeBenchmarkOverlaySeries,
@@ -173,6 +174,27 @@ describe('ROI utilities', () => {
       { date: '2024-01-01', portfolio: 0, spy: 0, qqq: 0 },
       { date: '2024-01-02', portfolio: 6, spy: 5, qqq: 5 },
       { date: '2024-01-03', portfolio: 14, spy: 10, qqq: 10 },
+    ]);
+  });
+
+  it('builds a flow-matched benchmark ROI series that respects contribution and withdrawal timing', () => {
+    const overlay = buildFlowMatchedBenchmarkSeries(
+      [
+        { date: '2024-01-01', spy: 0 },
+        { date: '2024-01-02', spy: 10 },
+        { date: '2024-01-03', spy: 21 },
+      ],
+      [
+        { date: '2024-01-01', type: 'DEPOSIT', amount: 100 },
+        { date: '2024-01-03', type: 'WITHDRAWAL', amount: 50 },
+      ],
+      'spy'
+    );
+
+    assert.deepEqual(overlay, [
+      { date: '2024-01-01', value: 0 },
+      { date: '2024-01-02', value: 10 },
+      { date: '2024-01-03', value: 42 },
     ]);
   });
 
