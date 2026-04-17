@@ -4,7 +4,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "./server-dist",
-    "rootDir": "./server",
+    "rootDir": ".",
     "strict": true,
     "noUncheckedIndexedAccess": false,
     "exactOptionalPropertyTypes": false,

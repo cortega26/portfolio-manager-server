@@ -237,6 +237,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     env['PRICE_CACHE_CHECK_PERIOD'],
     DEFAULT_PRICE_CACHE_CHECK_PERIOD_SECONDS as number,
   );
+  const sessionAuthToken = parseOptionalString(env['PORTFOLIO_SESSION_TOKEN']);
+  const sessionAuthHeaderName = parseOptionalString(env['SESSION_AUTH_HEADER'], 'x-session-token');
   const bruteForceMaxAttempts = parseNumber(env['BRUTE_FORCE_MAX_ATTEMPTS'], 5);
   const bruteForceAttemptWindowSeconds = parseNumber(
     env['BRUTE_FORCE_ATTEMPT_WINDOW_SECONDS'],
@@ -410,6 +412,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       },
     },
     security: {
+      auth: {
+        sessionToken: sessionAuthToken,
+        headerName: sessionAuthHeaderName,
+      },
       bruteForce: {
         maxAttempts: bruteForceMaxAttempts,
         attemptWindowSeconds: bruteForceAttemptWindowSeconds,

@@ -107,7 +107,13 @@ export interface AuditLogConfig {
   maxEvents: number;
 }
 
+export interface AuthConfig {
+  sessionToken: string;
+  headerName: string;
+}
+
 export interface SecurityConfig {
+  auth?: AuthConfig;
   bruteForce: BruteForceConfig;
   auditLog: AuditLogConfig;
 }
