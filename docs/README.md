@@ -18,15 +18,15 @@ index when you need supporting material.
 
 ## Playbooks
 
-- [`docs/playbooks/testing-strategy.md`](playbooks/testing-strategy.md) — quality gates and
+- [`docs/operations/playbooks/testing-strategy.md`](operations/playbooks/testing-strategy.md) — quality gates and
   test execution guidance.
-- [`docs/playbooks/frontend-operations.md`](playbooks/frontend-operations.md) — Phase 4 UI
+- [`docs/operations/playbooks/frontend-operations.md`](operations/playbooks/frontend-operations.md) — Phase 4 UI
   deployment and incident procedures.
-- [`docs/playbooks/SEVERITY_PLAYBOOK.md`](playbooks/SEVERITY_PLAYBOOK.md) — severity scoring
+- [`docs/operations/playbooks/severity-playbook.md`](operations/playbooks/severity-playbook.md) — severity scoring
   and remediation workflow.
-- [`docs/playbooks/codex-speedup-playbook.md`](playbooks/codex-speedup-playbook.md) — FAST vs
+- [`docs/operations/playbooks/codex-speedup-playbook.md`](operations/playbooks/codex-speedup-playbook.md) — FAST vs
   HEAVY execution modes for automation.
-- [`docs/playbooks/p5-test-1-rescue.md`](playbooks/p5-test-1-rescue.md) — recovery checklist
+- [`docs/operations/playbooks/p5-test-1-rescue.md`](operations/playbooks/p5-test-1-rescue.md) — recovery checklist
   for Phase 5 regression guardrails.
 
 ## Guides
@@ -36,22 +36,24 @@ index when you need supporting material.
 - [`docs/guides/math-policy.md`](guides/math-policy.md) — decimal precision and accounting
   standards enforced across the project.
 
-## Roadmaps
+## Backlog
 
-- [`docs/roadmap/per-portfolio-cash-interest-roadmap.md`](roadmap/per-portfolio-cash-interest-roadmap.md)
+- [`docs/backlog/per-portfolio-cash-interest-roadmap.md`](backlog/per-portfolio-cash-interest-roadmap.md)
   — cash interest rollout plan.
-- [`docs/roadmap/professionalization-top5.md`](roadmap/professionalization-top5.md) — top
+- [`docs/backlog/portfolio-manager-unified-next-steps.md`](backlog/portfolio-manager-unified-next-steps.md) — open
+  phases and next-step backlog.
+- [`docs/backlog/professionalization-top-priorities.md`](backlog/professionalization-top-priorities.md) — top
   strategic initiatives for operational maturity.
 
 ## Audits
 
-- [`docs/audits/portfolio_full_audit-3.md`](audits/portfolio_full_audit-3.md) — most recent
+- [`docs/audits/reports/2025-10-05-portfolio-full-audit-v3.md`](audits/reports/2025-10-05-portfolio-full-audit-v3.md) — most recent
   comprehensive audit report (v3).
-- [`docs/audits/hardening_audit_report.md`](audits/hardening_audit_report.md) — security
+- [`docs/audits/reports/2025-10-05-hardening-audit.md`](audits/reports/2025-10-05-hardening-audit.md) — security
   hardening verification aligned with the scoreboard.
 
-## Archive
+## Legacy
 
 Historical prompts, superseded audits, and planning documents live under
-[`docs/archive/`](archive/). Use these for context only; they are no longer part of the
+[`docs/legacy/`](legacy/). Use these for context only; they are no longer part of the
 active workflow.
