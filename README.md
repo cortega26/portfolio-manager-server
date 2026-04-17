@@ -50,7 +50,7 @@ flowchart LR
 - **Backend**: Express 4, Pino logging, Zod validation, node-cache
 - **Storage**: SQLite persisted through the repo's `JsonTableStorage` layer (`server/data/storage.js`)
 - **Testing**: Vitest, @testing-library, fast-check, node:test
-- **CI**: GitHub Actions (lint → typecheck → test:coverage → gitleaks → npm audit)
+- **CI**: GitHub Actions (`verify:docs` → `verify:smoke` → `test:coverage` → gitleaks → npm audit)
 
 ## Quick Start
 
@@ -87,6 +87,9 @@ npm test
 
 # Check active docs against package scripts and known contracts
 npm run docs:check
+
+# Check that quality-gate docs, scripts, and CI stay aligned
+npm run quality:gates
 
 # Backend only (node:test)
 npm run test:node
