@@ -132,21 +132,17 @@ import type { ServerConfig } from './types/config.js';
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+const _BOOLEAN_MAP = new Map<string, boolean>([
+  ['1', true], ['true', true], ['yes', true], ['on', true],
+  ['0', false], ['false', false], ['no', false], ['off', false],
+]);
+
 function parseBoolean(value: unknown, defaultValue = false): boolean {
-  if (value === undefined) {
-    return defaultValue;
-  }
-  if (typeof value === 'boolean') {
-    return value;
-  }
+  if (value === undefined) return defaultValue;
+  if (typeof value === 'boolean') return value;
   const normalized = String(value).trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-    return true;
-  }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
-    return false;
-  }
-  return defaultValue;
+  const mapped = _BOOLEAN_MAP.get(normalized);
+  return mapped !== undefined ? mapped : defaultValue;
 }
 
 function parseNumber(value: unknown, defaultValue: number): number {
