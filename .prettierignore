@@ -1,5 +1,6 @@
 server/**
 .github/**
+.codacy/**
 index.html
 tailwind.config.js
 vite.config.js
@@ -12,4 +13,3 @@ build-history-logs/**
 *.csv
 *.sqlite
 *.lock
-

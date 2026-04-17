@@ -10,21 +10,22 @@ Use this file to answer two questions quickly:
 
 ## Enforced Today
 
-| Gate                    | Command                    | Enforced in CI                       | Purpose                                                                          |
-| ----------------------- | -------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-| Bootstrap assumptions   | `npm run doctor`           | Yes, via `npm run verify:docs`       | Verifies required files, runtime assumptions, and canonical entrypoints exist.   |
-| Documentation contracts | `npm run docs:check`       | Yes, via `npm run verify:docs`       | Fails when active docs reference missing scripts or stale implementation claims. |
-| Quality-gate contract   | `npm run quality:gates`    | Yes, via `npm run verify:docs`       | Verifies that this contract, package scripts, and CI workflow stay aligned.      |
-| Lint                    | `npm run verify:lint`      | Yes, via `npm run verify:smoke`      | Runs ESLint with zero warnings allowed.                                          |
-| Type compatibility      | `npm run verify:typecheck` | Yes, via `npm run verify:smoke`      | Runs the repo TypeScript compatibility pass.                                     |
-| Buildability            | `npm run verify:build`     | Yes, via `npm run verify:smoke`      | Confirms the renderer build still completes.                                     |
-| Smoke boot              | `npm run smoke:test`       | Yes, via `npm run verify:smoke`      | Confirms the app shell still mounts.                                             |
-| Baseline tests          | `npm test`                 | Indirectly, split across CI commands | Runs the default local baseline: shuffled `node:test` plus Vitest.               |
-| Frontend coverage run   | `npm run test:coverage`    | Yes                                  | Produces the current Vitest coverage artifact.                                   |
+| Gate                    | Command                    | Enforced in CI                       | Purpose                                                                                               |
+| ----------------------- | -------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Bootstrap assumptions   | `npm run doctor`           | Yes, via `npm run verify:docs`       | Verifies required files, runtime assumptions, and canonical entrypoints exist.                        |
+| Documentation contracts | `npm run docs:check`       | Yes, via `npm run verify:docs`       | Fails when active docs reference missing scripts, missing repo paths, or stale implementation claims. |
+| Quality-gate contract   | `npm run quality:gates`    | Yes, via `npm run verify:docs`       | Verifies that this contract, package scripts, and CI workflow stay aligned.                           |
+| Lint                    | `npm run verify:lint`      | Yes, via `npm run verify:smoke`      | Runs ESLint with zero warnings allowed.                                                               |
+| Type compatibility      | `npm run verify:typecheck` | Yes, via `npm run verify:smoke`      | Runs the repo TypeScript compatibility pass.                                                          |
+| Buildability            | `npm run verify:build`     | Yes, via `npm run verify:smoke`      | Confirms the renderer build still completes.                                                          |
+| Smoke boot              | `npm run smoke:test`       | Yes, via `npm run verify:smoke`      | Confirms the app shell still mounts.                                                                  |
+| Baseline tests          | `npm test`                 | Indirectly, split across CI commands | Runs the default local baseline: shuffled `node:test` plus Vitest.                                    |
+| Frontend coverage run   | `npm run test:coverage`    | Yes                                  | Produces the current Vitest coverage artifact.                                                        |
 
 ## Observed Baseline
 
-Baseline last verified locally on `2026-04-16`:
+Historical snapshot of the intended green baseline.
+For the current checkout status, check `context/runtime/BASELINE_STATUS.md` first.
 
 - `npm run test:node`: `341` pass, `0` fail, `1` skip
 - `vitest run`: `83` pass, `0` fail

@@ -106,6 +106,7 @@ npm run test:e2e          # Playwright end-to-end
 Stop and report before making any code changes if:
 
 - `npm test` is already failing on the unmodified checkout
+- `context/runtime/BASELINE_STATUS.md` says the baseline is currently broken
 - Any invariant in `context/KNOWN_INVARIANTS.md` would be violated
 - A migration would change already-reconciled position data
 
