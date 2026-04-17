@@ -10,7 +10,9 @@ operational commands. See `AGENTS.md` for the full context-load policy.
 ## Minimum cycle (FAST lane)
 
 ```bash
+npm run doctor                           # bootstrap assumptions + key files
 npm ci                                    # install / verify lockfile
+npm run docs:check                        # active docs must match package scripts
 npm run lint                              # ESLint --max-warnings=0
 NO_NETWORK_TESTS=1 npm run test:fast      # unit tests, no coverage
 ```

@@ -48,7 +48,7 @@ flowchart LR
 - **Shell**: Electron (contextIsolation, no nodeIntegration)
 - **Frontend**: React 18, Vite 7, TailwindCSS, Recharts, react-window
 - **Backend**: Express 4, Pino logging, Zod validation, node-cache
-- **Storage**: better-sqlite3 via `JsonTableStorage`
+- **Storage**: SQLite persisted through the repo's `JsonTableStorage` layer (`server/data/storage.js`)
 - **Testing**: Vitest, @testing-library, fast-check, node:test
 - **CI**: GitHub Actions (lint → typecheck → test:coverage → gitleaks → npm audit)
 
@@ -56,7 +56,7 @@ flowchart LR
 
 ### Prerequisites
 
-- Node.js 20.19.x (use `.nvmrc` or the bundled `.tools/node-v20.19.0-linux-x64/`)
+- Node.js 20.19.x (use `.nvmrc`)
 - npm 10+
 
 ### Development
@@ -64,6 +64,9 @@ flowchart LR
 ```bash
 # Install dependencies
 npm ci --no-fund --no-audit
+
+# Verify local bootstrap assumptions
+npm run doctor
 
 # Copy environment template
 cp .env.example .env
@@ -81,6 +84,9 @@ npm run dev      # Vite on :5173
 ```bash
 # Full test suite (matches CI)
 npm test
+
+# Check active docs against package scripts and known contracts
+npm run docs:check
 
 # Backend only (node:test)
 npm run test:node

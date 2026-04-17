@@ -4,7 +4,9 @@
   "description": "Desktop portfolio tracker with server-side storage, signal alerts, and ROI analytics",
   "main": "server/index.js",
   "scripts": {
+    "doctor": "node scripts/doctor.mjs",
     "dev": "vite",
+    "docs:check": "node scripts/check-doc-contracts.mjs",
     "build": "vite build",
     "postbuild": "node scripts/write-commit-stamp.mjs dist/commit.txt",
     "analyze": "cross-env ANALYZE=true npm run build",
@@ -30,6 +32,7 @@
     "test:mutation": "npm run mutate",
     "backfill": "node server/cli/backfill.js",
     "verify:deps": "npm ci --no-fund --no-audit",
+    "verify:docs": "npm run doctor && npm run docs:check",
     "verify:lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
     "verify:typecheck": "tsc --pretty false --project tsconfig.typecheck.json",
     "verify:build": "npm run build",

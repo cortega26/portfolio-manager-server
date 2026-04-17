@@ -106,3 +106,11 @@ Reglas de resolución:
 - No guardar historial conversacional en documentos estables.
 - No convertir `ACTIVE_TASK.md` en backlog ni changelog.
 - Usar `status` y `backlog` como contexto amplio, no como autoload universal.
+
+<claude-mem-context>
+# Memory Context
+
+# [portafolio-unificado] recent context, 2026-04-16 8:47pm GMT-4
+
+No previous sessions found.
+</claude-mem-context>
