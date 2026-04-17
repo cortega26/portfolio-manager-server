@@ -40,7 +40,7 @@ function normalizeLogger(logger, bindings = {}) {
   };
 }
 
-function createNoDataError(symbol) {
+export function createNoDataError(symbol) {
   const error = new Error(`No price data available for ${symbol}`);
   error.code = 'PRICE_NOT_FOUND';
   error.status = 404;
