@@ -101,7 +101,7 @@ describe('DashboardTab metrics derivation', () => {
     assert.equal(Math.round(derived.totals.totalNav), 1345);
     assert.equal(derived.totals.netContributions, 950);
     assert.equal(derived.totals.netStockPurchases, 200);
-    assert.equal(derived.totals.historicalChange, 400);
+    assert.equal(derived.totals.historicalChange, 100);
     assert.equal(derived.totals.positionCost, 500);
     assert.equal(derived.totals.netIncome, -5);
     assert.equal(Math.round(derived.percentages.returnPct), 15);
@@ -215,7 +215,7 @@ describe('DashboardTab metrics derivation', () => {
     assert.ok(screen.getByText('Gap vs Nasdaq-100'));
     assert.ok(screen.getByText('-2.50%'));
     assert.ok(screen.getByText('Equity Price Gain'));
-    assert.ok(screen.getAllByText('$400.00').length >= 1);
+    assert.ok(screen.getAllByText('$100.00').length >= 1);
     assert.ok(screen.getByText('Total NAV'));
     assert.ok(screen.getByText('Cash balance $745.00'));
     assert.ok(screen.getByText('Net External Contributions'));

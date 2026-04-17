@@ -162,21 +162,25 @@ describe('DashboardTab benchmark controls', () => {
     expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '[]')).toEqual(['spy', 'qqq']);
   });
 
-  test('renders the comparative chart as TWR vs benchmarks with explicit labels', () => {
+  test('renders the comparative chart as ROI vs benchmarks with explicit labels', () => {
     renderWithProviders(
       <DashboardTab
         metrics={metricsFixture}
         roiData={roiFixture}
+        transactions={[
+          { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+          { date: '2024-01-02', type: 'WITHDRAWAL', amount: 100 },
+        ]}
         loadingRoi={false}
         onRefreshRoi={() => {}}
         benchmarkCatalog={benchmarkCatalogFixture}
       />
     );
 
-    expect(screen.getAllByText(/TWR vs Benchmarks/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/^Portfolio TWR$/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/^S&P 500 TWR$/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/^Nasdaq-100 TWR$/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/ROI vs Benchmarks/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/^Portfolio ROI$/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/^S&P 500 ROI$/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/^Nasdaq-100 ROI$/i).length).toBeGreaterThanOrEqual(1);
   });
 
   test('formats principal ROI with 2 decimals and chart detail with 4 decimals', () => {

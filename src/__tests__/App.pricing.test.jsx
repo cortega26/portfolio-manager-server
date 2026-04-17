@@ -144,6 +144,12 @@ vi.mock('../utils/api.js', async (importOriginal) => {
       return buildDefaultSignalResponse(payload);
     }),
     fetchBenchmarkCatalog: vi.fn(async () => ({ data: {} })),
+    fetchBenchmarkSummary: vi.fn(async () => ({
+      data: {
+        money_weighted: null,
+      },
+      requestId: 'benchmark-summary-001',
+    })),
     fetchBulkPrices: vi.fn(async (symbols, options = {}) => {
       const list = Array.isArray(symbols) ? symbols : [];
       const normalized = list
@@ -345,6 +351,11 @@ describe('App price refresh degradations', () => {
     assert.ok(await screen.findByText('Price refresh failed'), 'alerts when pricing request fails');
     assert.ok(screen.getByText(/Unable to update prices for AAPL. Showing last known values/));
     assert.ok(screen.getByText(/Request IDs?: price-fail-001/i));
+    assert.equal(
+      screen.queryByText(/Waiting for current market prices before computing return and ROI/i),
+      null
+    );
+    assert.ok(screen.getAllByText(/≈ Approximate/i).length > 0);
 
     await userEvent.click(screen.getByRole('button', { name: /holdings/i }));
 

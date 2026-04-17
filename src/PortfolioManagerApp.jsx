@@ -193,6 +193,39 @@ function normalizeTickerSymbol(symbol) {
   return trimmed.length > 0 ? trimmed.toUpperCase() : '';
 }
 
+function normalizePricingResolutionStatus(status) {
+  if (typeof status !== 'string') {
+    return '';
+  }
+  return status.trim().toLowerCase();
+}
+
+function isUsablePricingResolution(status) {
+  return ['live', 'eod_fresh', 'cache_fresh', 'degraded'].includes(
+    normalizePricingResolutionStatus(status)
+  );
+}
+
+function mergePricingSymbolMetadata(...sources) {
+  const merged = {};
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') {
+      continue;
+    }
+    for (const [ticker, meta] of Object.entries(source)) {
+      const normalizedTicker = normalizeTickerSymbol(ticker);
+      if (!normalizedTicker || !meta || typeof meta !== 'object') {
+        continue;
+      }
+      merged[normalizedTicker] = {
+        ...(merged[normalizedTicker] ?? {}),
+        ...meta,
+      };
+    }
+  }
+  return merged;
+}
+
 function shiftDateKey(dateKey, deltaDays) {
   if (typeof dateKey !== 'string' || dateKey.trim().length === 0) {
     return null;
@@ -419,6 +452,9 @@ export default function PortfolioManagerApp() {
   const [signalRows, setSignalRows] = useState([]);
   const [currentPrices, setCurrentPrices] = useState({});
   const currentPricesRef = useRef({});
+  const trackedPricesRefreshInFlightRef = useRef(false);
+  const [trackedPriceRefreshReady, setTrackedPriceRefreshReady] = useState(false);
+  const [signalPricingMeta, setSignalPricingMeta] = useState({});
   const lastGoodRoiDataRef = useRef([]);
   const lastGoodBenchmarkSummaryRef = useRef(null);
   const [roiData, setRoiData] = useState([]);
@@ -555,10 +591,6 @@ export default function PortfolioManagerApp() {
     [desktopBridge, pushToast, t]
   );
 
-  const metrics = useMemo(
-    () => computeDashboardMetrics(holdings, currentPrices),
-    [holdings, currentPrices]
-  );
   const openHoldings = useMemo(() => filterOpenHoldings(holdings), [holdings]);
   const debouncedOpenHoldings = useDebouncedValue(openHoldings, 200);
 
@@ -578,10 +610,6 @@ export default function PortfolioManagerApp() {
     [transactions, locale, formatCurrency, formatNumber, t, formatDate]
   );
 
-  const metricCards = useMemo(
-    () => buildMetricCards(metrics, { translate: t, formatCurrency, formatPercent }),
-    [metrics, t, formatCurrency, formatPercent]
-  );
   const signalPriceAsOfByTicker = useMemo(
     () =>
       Object.fromEntries(
@@ -590,6 +618,46 @@ export default function PortfolioManagerApp() {
           .map((row) => [row.ticker.trim().toUpperCase(), row.currentPriceAsOf ?? null])
       ),
     [signalRows]
+  );
+  const holdingValuationByTicker = useMemo(() => {
+    const latestSymbols = pricesTabState.metadata?.symbols ?? {};
+    const mergedMeta = mergePricingSymbolMetadata(signalPricingMeta, latestSymbols);
+    return Object.fromEntries(
+      openHoldings
+        .map((holding) => normalizeTickerSymbol(holding?.ticker))
+        .filter(Boolean)
+        .map((ticker) => {
+          const meta = mergedMeta[ticker] ?? null;
+          const price = Number(currentPrices?.[ticker]);
+          const status = normalizePricingResolutionStatus(meta?.status);
+          const usableStatus = isUsablePricingResolution(status);
+          const hasPrice = Number.isFinite(price) && price > 0;
+          return [
+            ticker,
+            {
+              price: hasPrice ? price : null,
+              asOf: meta?.asOf ?? signalPriceAsOfByTicker[ticker] ?? null,
+              status: status || (hasPrice ? 'cache_fresh' : 'unavailable'),
+              available: hasPrice && (usableStatus || !status),
+              estimated: status ? status !== 'live' : hasPrice,
+            },
+          ];
+        })
+    );
+  }, [
+    currentPrices,
+    openHoldings,
+    pricesTabState.metadata,
+    signalPriceAsOfByTicker,
+    signalPricingMeta,
+  ]);
+  const metrics = useMemo(
+    () => computeDashboardMetrics(holdings, currentPrices, holdingValuationByTicker),
+    [currentPrices, holdingValuationByTicker, holdings]
+  );
+  const metricCards = useMemo(
+    () => buildMetricCards(metrics, { translate: t, formatCurrency, formatPercent }),
+    [metrics, t, formatCurrency, formatPercent]
   );
   const trackedPriceSymbols = useMemo(() => {
     const holdingsSymbols = openHoldings
@@ -707,6 +775,8 @@ export default function PortfolioManagerApp() {
 
     setSignalRows([]);
     setCurrentPrices({});
+    setTrackedPriceRefreshReady(false);
+    setSignalPricingMeta({});
     setPriceAlert(null);
     setRoiMeta(null);
     signalRowsRef.current = new Map();
@@ -719,6 +789,7 @@ export default function PortfolioManagerApp() {
 
     async function loadSignalPreview() {
       if (debouncedOpenHoldings.length === 0) {
+        setTrackedPriceRefreshReady(false);
         return;
       }
 
@@ -730,8 +801,11 @@ export default function PortfolioManagerApp() {
         ),
       ];
       if (uniqueTickers.length === 0) {
+        setTrackedPriceRefreshReady(false);
         return;
       }
+
+      setTrackedPriceRefreshReady(false);
 
       const formatMarketDate = (dateKey) => {
         if (typeof dateKey !== 'string' || dateKey.length === 0) {
@@ -786,6 +860,10 @@ export default function PortfolioManagerApp() {
         responseData?.prices && typeof responseData.prices === 'object' ? responseData.prices : {};
       const responseErrors =
         responseData?.errors && typeof responseData.errors === 'object' ? responseData.errors : {};
+      const responsePricingSymbols =
+        responseData?.pricing?.symbols && typeof responseData.pricing.symbols === 'object'
+          ? responseData.pricing.symbols
+          : {};
       const pricingSummary =
         responseData?.pricing?.summary && typeof responseData.pricing.summary === 'object'
           ? responseData.pricing.summary
@@ -807,11 +885,18 @@ export default function PortfolioManagerApp() {
 
       setSignalRows(responseRows);
       setCurrentPrices(nextPrices);
+      setSignalPricingMeta((previous) =>
+        Object.keys(responsePricingSymbols).length > 0
+          ? mergePricingSymbolMetadata(previous, responsePricingSymbols)
+          : previous
+      );
 
       const failures = Object.entries(responseErrors).map(([ticker, error]) => ({
         ticker,
         error,
       }));
+      const staleOnlyFailures =
+        failures.length > 0 && failures.every((entry) => entry?.error?.code === 'STALE_DATA');
       const successfulTickers = uniqueTickers.filter((ticker) =>
         Number.isFinite(responsePrices[ticker])
       );
@@ -857,6 +942,19 @@ export default function PortfolioManagerApp() {
         } else {
           setPriceAlert(null);
         }
+      } else if (staleOnlyFailures) {
+        setPriceAlert({
+          id: 'price-no-fresh',
+          type: 'warning',
+          message: t('alerts.price.noFresh.title'),
+          detail: t('alerts.price.noFresh.detail', {
+            tickers:
+              impactedList.length > 0
+                ? impactedList.join(', ')
+                : t('alerts.price.refreshFailed.detailFallback'),
+          }),
+          requestIds,
+        });
       } else if (failures.length > 0 || previewError) {
         setPriceAlert({
           id: 'price-fetch',
@@ -937,6 +1035,7 @@ export default function PortfolioManagerApp() {
 
       signalRowsRef.current = nextRows;
       signalNotificationsReadyRef.current = true;
+      setTrackedPriceRefreshReady(true);
     }
 
     void loadSignalPreview();
@@ -1095,12 +1194,13 @@ export default function PortfolioManagerApp() {
 
     async function loadBenchmarkSummary() {
       try {
-        const { data } = await fetchBenchmarkSummary({
+        const response = await fetchBenchmarkSummary({
           portfolioId,
           from: benchmarkSummaryWindow.from,
           to: benchmarkSummaryWindow.to,
           signal: controller.signal,
         });
+        const data = response?.data ?? null;
         if (cancelled) {
           return;
         }
@@ -1168,24 +1268,33 @@ export default function PortfolioManagerApp() {
         return;
       }
 
+      if (trackedPricesRefreshInFlightRef.current) {
+        return;
+      }
+
+      trackedPricesRefreshInFlightRef.current = true;
       setPricesTabState((previous) => ({ ...previous, loading: true }));
       try {
-        const { series, errors, metadata, requestId, version } = await fetchBulkPrices(
-          trackedPriceSymbols,
-          {
-            latestOnly: true,
-            signal,
-          }
-        );
+        const response = await fetchBulkPrices(trackedPriceSymbols, {
+          latestOnly: true,
+          signal,
+        });
+        const {
+          series = new Map(),
+          errors = {},
+          metadata = {},
+          requestId = null,
+          version = null,
+        } = response ?? {};
         const nextQuotes = extractQuotesState(series, trackedPriceSymbols);
 
         setPricesTabState({
           loading: false,
           quotes: nextQuotes,
-          errors: errors ?? {},
-          metadata: metadata ?? {},
-          requestId: requestId ?? null,
-          version: version ?? null,
+          errors,
+          metadata,
+          requestId,
+          version,
           lastUpdatedAt: new Date().toISOString(),
         });
 
@@ -1217,14 +1326,51 @@ export default function PortfolioManagerApp() {
               ? error.version.trim()
               : previous.version,
         }));
+      } finally {
+        trackedPricesRefreshInFlightRef.current = false;
       }
     },
     [openHoldings, trackedPriceSymbols]
   );
 
   useEffect(() => {
+    if (
+      !trackedPriceRefreshReady ||
+      trackedPriceSymbols.length === 0 ||
+      !Number.isFinite(refreshIntervalMinutes) ||
+      refreshIntervalMinutes <= 0
+    ) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const intervalMs = Math.max(1, refreshIntervalMinutes) * 60 * 1000;
+
+    const refreshDuringLiveSession = () => {
+      const market = getMarketClock();
+      if (!market.isOpen && !market.isExtendedHours) {
+        return;
+      }
+      void refreshTrackedPrices({ signal: controller.signal });
+    };
+
+    refreshDuringLiveSession();
+    const timerId = setInterval(refreshDuringLiveSession, intervalMs);
+
+    return () => {
+      controller.abort();
+      clearInterval(timerId);
+    };
+  }, [
+    refreshIntervalMinutes,
+    refreshTrackedPrices,
+    trackedPriceRefreshReady,
+    trackedPriceSymbols.length,
+  ]);
+
+  useEffect(() => {
     const market = getMarketClock();
-    if (market.isOpen || trackedPriceSymbols.length === 0) {
+    if (market.isOpen || market.isExtendedHours || trackedPriceSymbols.length === 0) {
       return undefined;
     }
 
@@ -1232,13 +1378,17 @@ export default function PortfolioManagerApp() {
 
     async function preloadAfterHoursQuotes() {
       try {
-        const { series, errors, metadata, requestId, version } = await fetchBulkPrices(
-          trackedPriceSymbols,
-          {
-            latestOnly: true,
-            signal: controller.signal,
-          }
-        );
+        const response = await fetchBulkPrices(trackedPriceSymbols, {
+          latestOnly: true,
+          signal: controller.signal,
+        });
+        const {
+          series = new Map(),
+          errors = {},
+          metadata = {},
+          requestId = null,
+          version = null,
+        } = response ?? {};
         if (controller.signal.aborted) {
           return;
         }
@@ -1248,8 +1398,8 @@ export default function PortfolioManagerApp() {
         setPricesTabState((previous) => ({
           ...previous,
           quotes: Object.keys(nextQuotes).length > 0 ? nextQuotes : previous.quotes,
-          errors: errors ?? previous.errors,
-          metadata: metadata ?? previous.metadata,
+          errors,
+          metadata,
           requestId: requestId ?? previous.requestId,
           version: version ?? previous.version,
           lastUpdatedAt: new Date().toISOString(),

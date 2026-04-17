@@ -87,7 +87,7 @@ describe('Dashboard summary metrics', () => {
     expect(derived.totals.positionCost).toBe(500);
     expect(derived.totals.netContributions).toBe(950);
     expect(derived.totals.netStockPurchases).toBe(200);
-    expect(derived.totals.historicalChange).toBe(400);
+    expect(derived.totals.historicalChange).toBe(100);
     expect(derived.totals.netIncome).toBe(-5);
     expect(derived.totals.totalRoiPct).toBeCloseTo(41.5789, 4);
     expect(Math.round(derived.percentages.returnPct)).toBe(15);
@@ -124,7 +124,7 @@ describe('Dashboard summary metrics', () => {
 
     // Equity Price Gain card
     expect(screen.getByText('Equity Price Gain')).toBeInTheDocument();
-    expect(screen.getAllByText('$400.00').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('$100.00').length).toBeGreaterThan(0);
   });
 
   it('shows pricing unavailable states on NAV and return cards when holdings are unpriced', () => {
@@ -151,6 +151,72 @@ describe('Dashboard summary metrics', () => {
     // Return card shows pricing unavailable
     expect(
       screen.getByText('Waiting for current market prices before computing return and ROI')
+    ).toBeInTheDocument();
+  });
+
+  it('shows approximate valuation when all holdings are priced from fallback quotes', () => {
+    renderWithProviders(
+      <DashboardTab
+        metrics={{
+          totalValue: 500,
+          totalCost: 500,
+          valuedCostBasis: 500,
+          totalRealised: 0,
+          totalUnrealised: 0,
+          holdingsCount: 1,
+          pricedHoldingsCount: 1,
+          unpricedHoldingsCount: 0,
+          estimatedHoldingsCount: 1,
+          valuationStatus: 'complete_estimated',
+        }}
+        roiData={ROI_FIXTURE}
+        transactions={TRANSACTION_FIXTURE}
+        loadingRoi={false}
+        onRefreshRoi={() => {}}
+      />
+    );
+
+    expect(screen.getAllByText('≈ Approximate').length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        'Equities $500.00 · Cash $745.00 (59.8%) · Estimated from latest usable prices for 1/1 holdings'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText('$1,245.00')).toBeInTheDocument();
+  });
+
+  it('shows partial coverage when only some holdings have usable prices', () => {
+    renderWithProviders(
+      <DashboardTab
+        metrics={{
+          totalValue: 400,
+          totalCost: 500,
+          valuedCostBasis: 350,
+          totalRealised: 50,
+          totalUnrealised: 50,
+          holdingsCount: 2,
+          pricedHoldingsCount: 1,
+          unpricedHoldingsCount: 1,
+          estimatedHoldingsCount: 1,
+          valuationStatus: 'partial_estimated',
+          missingTickers: ['MSFT'],
+        }}
+        roiData={ROI_FIXTURE}
+        transactions={TRANSACTION_FIXTURE}
+        loadingRoi={false}
+        onRefreshRoi={() => {}}
+      />
+    );
+
+    expect(screen.getAllByText('Partial coverage').length).toBeGreaterThan(0);
+    expect(
+      screen.getByText('Equities $400.00 · Cash $745.00 · Partial coverage 1/2 holdings (MSFT)')
+    ).toBeInTheDocument();
+    expect(screen.getByText('$1,145.00')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Realised $50.00 · Unrealised $50.00 · Net income -$5.00 · Partial coverage 1/2 holdings'
+      )
     ).toBeInTheDocument();
   });
 });

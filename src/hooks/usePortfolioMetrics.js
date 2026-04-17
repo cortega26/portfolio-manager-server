@@ -145,41 +145,95 @@ export function resolveLatestRoiSnapshot(roiData = []) {
 }
 
 export function deriveDashboardMetrics({ metrics, transactions, roiData } = {}) {
+  const hasMetricKey = (key) =>
+    Boolean(
+      metrics && typeof metrics === 'object' && Object.prototype.hasOwnProperty.call(metrics, key)
+    );
   const rawTotalValue = safeNumber(metrics?.totalValue);
   const positionCost = safeNumber(metrics?.totalCost);
-  const totalRealised = safeNumber(metrics?.totalRealised);
   const rawTotalUnrealised = safeNumber(metrics?.totalUnrealised);
+  const valuedCostBasis = hasMetricKey('valuedCostBasis')
+    ? safeNumber(metrics?.valuedCostBasis)
+    : Number.isFinite(rawTotalValue) && Number.isFinite(rawTotalUnrealised)
+      ? new Decimal(rawTotalValue).minus(rawTotalUnrealised).toNumber()
+      : 0;
+  const totalRealised = safeNumber(metrics?.totalRealised);
   const holdingsCount = Math.max(0, Math.trunc(safeNumber(metrics?.holdingsCount)));
-  const pricedHoldingsCount = Math.max(0, Math.trunc(safeNumber(metrics?.pricedHoldingsCount)));
-  const unpricedHoldingsCount = Math.max(0, Math.trunc(safeNumber(metrics?.unpricedHoldingsCount)));
+  const explicitPricedHoldingsCount = hasMetricKey('pricedHoldingsCount')
+    ? Math.max(0, Math.trunc(safeNumber(metrics?.pricedHoldingsCount)))
+    : null;
+  const explicitUnpricedHoldingsCount = hasMetricKey('unpricedHoldingsCount')
+    ? Math.max(0, Math.trunc(safeNumber(metrics?.unpricedHoldingsCount)))
+    : null;
+  const pricedHoldingsCount =
+    explicitPricedHoldingsCount !== null
+      ? explicitPricedHoldingsCount
+      : explicitUnpricedHoldingsCount !== null
+        ? Math.max(0, holdingsCount - explicitUnpricedHoldingsCount)
+        : holdingsCount;
+  const unpricedHoldingsCount =
+    explicitUnpricedHoldingsCount !== null
+      ? explicitUnpricedHoldingsCount
+      : Math.max(0, holdingsCount - pricedHoldingsCount);
+  const liveHoldingsCount = Math.max(0, Math.trunc(safeNumber(metrics?.liveHoldingsCount)));
+  const estimatedHoldingsCount = Math.max(
+    0,
+    Math.trunc(safeNumber(metrics?.estimatedHoldingsCount))
+  );
+  const valuationStatus =
+    typeof metrics?.valuationStatus === 'string' && metrics.valuationStatus.trim().length > 0
+      ? metrics.valuationStatus.trim()
+      : unpricedHoldingsCount === holdingsCount
+        ? 'unavailable'
+        : unpricedHoldingsCount > 0
+          ? 'partial_estimated'
+          : estimatedHoldingsCount > 0
+            ? 'complete_estimated'
+            : 'complete_live';
+  const valuationCoverage =
+    typeof metrics?.valuationCoverage === 'number' && Number.isFinite(metrics.valuationCoverage)
+      ? metrics.valuationCoverage
+      : holdingsCount > 0
+        ? pricedHoldingsCount / holdingsCount
+        : 0;
+  const estimated =
+    typeof metrics?.estimated === 'boolean'
+      ? metrics.estimated
+      : valuationStatus !== 'complete_live' && pricedHoldingsCount > 0;
   const pricingComplete = unpricedHoldingsCount === 0;
+  const pricingAvailable = pricedHoldingsCount > 0;
+  const missingTickers = Array.isArray(metrics?.missingTickers)
+    ? metrics.missingTickers
+        .map((ticker) => (typeof ticker === 'string' ? ticker.trim().toUpperCase() : ''))
+        .filter((ticker) => ticker.length > 0)
+    : [];
 
   const cashBalance = computeCashBalance(transactions);
   const { netContributions, netStockPurchases, netIncome, grossBuys, grossSells } =
     summarizePortfolioFlows(transactions);
-  const totalValue = pricingComplete ? rawTotalValue : null;
-  const totalUnrealised = pricingComplete ? rawTotalUnrealised : null;
-  const historicalChange = pricingComplete
-    ? new Decimal(rawTotalValue).minus(netStockPurchases).toNumber()
+  const totalValue = pricingAvailable ? rawTotalValue : null;
+  const totalUnrealised = pricingAvailable ? rawTotalUnrealised : null;
+  const historicalChange = pricingAvailable
+    ? new Decimal(rawTotalValue).minus(valuedCostBasis).toNumber()
     : null;
-  const totalReturn = pricingComplete
+  const totalReturn = pricingAvailable
     ? new Decimal(totalRealised).plus(rawTotalUnrealised).plus(netIncome).toNumber()
     : null;
-  const totalNav = pricingComplete ? rawTotalValue + cashBalance : null;
+  const totalNav = pricingAvailable ? rawTotalValue + cashBalance : null;
   const returnPct =
-    !pricingComplete || netContributions.isZero()
+    !pricingAvailable || netContributions.isZero()
       ? null
       : new Decimal(totalReturn).div(netContributions).times(100).toNumber();
   const latest = resolveLatestRoiSnapshot(roiData);
   const totalRoiPctFallback =
-    !pricingComplete || netContributions.isZero()
+    !pricingAvailable || netContributions.isZero()
       ? null
       : new Decimal(totalNav).minus(netContributions).div(netContributions).times(100).toNumber();
   const totalRoiPct = totalRoiPctFallback;
   const hasTwr = Number.isFinite(latest.portfolioTwr);
   const comparisonBasePct = hasTwr ? latest.portfolioTwr : null;
   const cashAllocationPct =
-    pricingComplete && totalNav !== 0 ? (cashBalance / totalNav) * 100 : null;
+    pricingAvailable && totalNav !== 0 ? (cashBalance / totalNav) * 100 : null;
   const cashDragPct = differenceOrNull(latest.spy, latest.blended);
   const spyDeltaPct = hasTwr ? differenceOrNull(comparisonBasePct, latest.spy) : null;
   const qqqDeltaPct = hasTwr ? differenceOrNull(comparisonBasePct, latest.qqq) : null;
@@ -205,7 +259,15 @@ export function deriveDashboardMetrics({ metrics, transactions, roiData } = {}) 
       holdingsCount,
       pricedHoldingsCount,
       unpricedHoldingsCount,
+      liveHoldingsCount,
+      estimatedHoldingsCount,
       pricingComplete,
+      pricingAvailable,
+      valuationStatus,
+      valuationCoverage,
+      estimated,
+      missingTickers,
+      valuedCostBasis,
     },
     percentages: {
       returnPct,
