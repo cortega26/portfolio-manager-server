@@ -7,7 +7,7 @@ For feature/architecture context see `AGENTS.md`.
 
 | Tool    | Version | How to install                                                          |
 | ------- | ------- | ----------------------------------------------------------------------- |
-| Node.js | 20.19.x | `nvm use` (reads `.nvmrc`) or use `tools/node-v20.19.0-linux-x64/`      |
+| Node.js | 20.19.x | `nvm use` (reads `.nvmrc`)                                              |
 | npm     | ≥ 10.x  | bundled with Node 20                                                    |
 | xvfb    | any     | Linux only — required for `npm run electron:smoke` (`apt install xvfb`) |
 
@@ -17,6 +17,7 @@ For feature/architecture context see `AGENTS.md`.
 
 ```bash
 npm ci
+npm run doctor
 ```
 
 This installs all dependencies including Prettier, ESLint, Vitest, Playwright, and
@@ -85,6 +86,9 @@ After a successful import, reconciled positions must exactly match the values in
 ```bash
 # Minimum required after any code change
 npm test
+
+# Bootstrap + active-doc sanity checks
+npm run verify:docs
 
 # Full pre-push gate (deps → lint → typecheck → build → smoke)
 npm run verify:smoke

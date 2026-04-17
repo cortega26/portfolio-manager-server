@@ -9,6 +9,8 @@ index when you need supporting material.
 - [`docs/reference/HARDENING_SCOREBOARD.md`](reference/HARDENING_SCOREBOARD.md) — current
   implementation status with evidence links.
 - [`docs/reference/openapi.yaml`](reference/openapi.yaml) — canonical API specification.
+- [`docs/reference/VALIDATION_MATRIX.md`](reference/VALIDATION_MATRIX.md) — stable contract
+  for local validation commands and what each one proves.
 - [`docs/reference/SECURITY.md`](reference/SECURITY.md) — incident response, API key policy,
   and security controls.
 - [`docs/reference/scoreboard.csv`](reference/scoreboard.csv) /
@@ -57,3 +59,7 @@ index when you need supporting material.
 Historical prompts, superseded audits, and planning documents live under
 [`docs/legacy/`](legacy/). Use these for context only; they are no longer part of the
 active workflow.
+
+## Architecture Decisions
+
+- [`docs/adr/README.md`](adr/README.md) — index of active ADRs and when to add a new one.

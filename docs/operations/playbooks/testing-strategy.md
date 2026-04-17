@@ -10,7 +10,8 @@ This guide documents how the portfolio manager project validates quality across 
 - **Zero tolerance for noisy logs:** Any `console.warn`/`console.error` emitted during tests fails the run. Fix the underlying issue instead of muting output.
 - **Deterministic reproducibility:** Runs must be reproducible via `TEST_SHUFFLE_SEED` and Fast-Check seeds captured in CI logs.
 
-Coverage thresholds are enforced through `c8`/Vitest reporters in CI. Pull requests that lower coverage or introduce warnings must not merge.
+Coverage thresholds are enforced by the test runners that are actually wired in the
+repo today. Pull requests that lower coverage or introduce warnings must not merge.
 
 ## Test Layers
 
@@ -55,9 +56,17 @@ npm run test:mutation
 
 Review `reports/mutation/mutation.html` for surviving mutants and update assertions accordingly.
 
-## Stress and Order Sensitivity Testing
+## Order Sensitivity Testing
 
-`npm run test:stress` executes the full Vitest suite five consecutive times without coverage. This surfaces hidden order dependencies and race conditions. Ensure the command finishes cleanly before merging large refactors or flaky-test fixes.
+When you need to investigate order dependence in the backend harness, repeat the
+custom runner directly:
+
+```bash
+npm run test:node -- --repeat=5
+```
+
+This reuses the shuffled `node:test` runner under `tools/run-tests.mjs` and is the
+currently supported way to probe order-sensitive failures.
 
 ## Performance Regression Harness
 
@@ -78,12 +87,12 @@ Tests fail fast on console warnings/errors via `setupTests` hooks (`server/__tes
 
 Use the following commands during local development and CI:
 
-| Command                 | Purpose                                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `npm test`              | Runs the Vitest suite once with coverage enforcement, warning promotion, and deterministic shuffling.               |
-| `npm run test:stress`   | Executes the suite five times without coverage to detect flakiness.                                                 |
-| `npm run test:perf`     | Generates a 12k+ transaction ledger and ensures holdings projection completes under 1 000 ms while logging metrics. |
-| `npm run test:mutation` | Invokes StrykerJS against targeted math modules and reports the mutation score.                                     |
+| Command                           | Purpose                                                                                                             |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                        | Runs the default repository baseline: the shuffled `node:test` harness plus `vitest run`.                           |
+| `npm run test:node -- --repeat=5` | Repeats the backend/shared harness five times to investigate order-sensitive failures.                              |
+| `npm run test:perf`               | Generates a 12k+ transaction ledger and ensures holdings projection completes under 1 000 ms while logging metrics. |
+| `npm run test:mutation`           | Invokes StrykerJS against targeted math modules and reports the mutation score.                                     |
 
 For strict deprecation/warning checks, run:
 
