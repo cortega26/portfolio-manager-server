@@ -4,6 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { loadProjectEnv } from '../server/runtime/loadProjectEnv.js';
+import { buildElectronDevCsp } from './lib/electronDevCsp.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,22 +17,6 @@ loadProjectEnv();
 const viteHost = process.env.ELECTRON_VITE_HOST ?? '127.0.0.1';
 const vitePort = Number.parseInt(process.env.ELECTRON_VITE_PORT ?? '5173', 10);
 const startUrl = `http://${viteHost}:${vitePort}`;
-
-function buildElectronDevCsp(host) {
-  const normalizedHost =
-    typeof host === 'string' && host.trim().length > 0 ? host.trim() : '127.0.0.1';
-  return [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
-    "font-src 'self' data:",
-    `connect-src 'self' http://${normalizedHost}:* ws://${normalizedHost}:* https://www.tooltician.com https://api.tooltician.com`,
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join('; ');
-}
 
 function spawnNodeProcess(scriptPath, args, env) {
   return spawn(process.execPath, [scriptPath, ...args], {
@@ -69,7 +54,10 @@ async function main() {
   const sharedEnv = {
     ...process.env,
     PATH: process.env.PATH,
-    VITE_APP_CSP: process.env.VITE_APP_CSP || buildElectronDevCsp(viteHost),
+    VITE_APP_CSP: buildElectronDevCsp({
+      host: viteHost,
+      baseCsp: process.env.VITE_APP_CSP,
+    }),
   };
   delete sharedEnv.ELECTRON_RUN_AS_NODE;
 
