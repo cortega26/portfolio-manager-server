@@ -114,6 +114,52 @@ No reemplaza la inspección del código real.
   - `src/__tests__/Transactions.integration.test.jsx`
   - `src/__tests__/HoldingsTable.test.tsx`
 
+### Scripts y automatización
+
+- `scripts/import-csv-portfolio.mjs`
+  - CLI de importación (ver también `server/import/csvPortfolioImport.js`)
+- `scripts/electron-dev.mjs`
+  - dev server Electron con hot-reload de renderer
+- `scripts/run-electron.mjs`
+  - launcher de producción y smoke test de Electron
+- `scripts/write-commit-stamp.mjs`
+  - postbuild: escribe `dist/commit.txt` con el hash actual
+- `scripts/bisect-build.sh` / `scripts/bisect-smoke.sh`
+  - bisect de regresiones de build/smoke por commit
+
+### Módulos compartidos (renderer + backend)
+
+- `shared/benchmarks.js`
+  - metadata de benchmarks usada por ambos lados del boundary
+- `shared/constants.js`
+  - constantes compartidas
+- `shared/precision.js`
+  - utilidades de precisión numérica compartidas
+- `shared/settings.js`
+  - esquema de settings compartido
+- `shared/signals.js`
+  - definiciones de señales compartidas
+
+### Tests E2E
+
+- `playwright.config.ts`
+  - configuración de Playwright; corre con `npm run test:e2e`
+- `tests/e2e/dashboard-smoke.spec.ts`
+  - smoke de dashboard
+- `tests/e2e/bootstrap-auth-recovery.spec.ts`
+  - auth y recuperación de sesión
+
+### Herramientas internas
+
+- `tools/run-tests.mjs`
+  - runner de `node:test` con cobertura opcional (usado por `npm run test:node`)
+- `tools/perf/run-perf-suite.mjs`
+  - suite de rendimiento (usado por `npm run test:perf`)
+- `tools/perf/syntheticLedger.js`
+  - generador de datos sintéticos para tests de perf
+- `tools/gitleaks/`
+  - binario de gitleaks para `npm run leaks:repo`
+
 ## Regla de mantenimiento
 
 - Mantener este archivo en nivel módulo/entrypoint.

@@ -61,3 +61,17 @@ See `context/CONSTRAINTS.md § Stop conditions`. When stopping, report:
 - cause
 - affected file/test/contract
 - minimum reasonable fix
+
+## Expected baseline
+
+After `npm test` on a clean checkout both runners must pass with zero failures.
+Update these counts whenever the suite intentionally grows.
+
+| Runner    | Command             | Pass | Fail | Skip |
+| --------- | ------------------- | ---- | ---- | ---- |
+| node:test | `npm run test:node` | ~330 | 0    | ≤1   |
+| vitest    | `vitest run`        | ~79  | 0    | 0    |
+
+If your changes cause either fail count to increase, stop and investigate before
+continuing. The exact counts after the current sprint are in
+`context/runtime/ACTIVE_TASK.md § Confirmed facts`.
