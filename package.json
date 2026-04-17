@@ -6,7 +6,7 @@
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
     "dev": "vite",
-    "docs:check": "node scripts/check-doc-contracts.mjs",
+    "docs:check": "node scripts/check-doc-contracts.mjs && node scripts/check-doc-paths.mjs",
     "quality:gates": "node scripts/check-quality-gates.mjs",
     "build": "vite build",
     "postbuild": "node scripts/write-commit-stamp.mjs dist/commit.txt",

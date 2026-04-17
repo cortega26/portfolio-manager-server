@@ -12,7 +12,7 @@ operational commands. See `AGENTS.md` for the full context-load policy.
 ```bash
 npm run doctor                           # bootstrap assumptions + key files
 npm ci                                    # install / verify lockfile
-npm run docs:check                        # active docs must match package scripts
+npm run docs:check                        # active docs must match scripts, paths, and known contracts
 npm run lint                              # ESLint --max-warnings=0
 NO_NETWORK_TESTS=1 npm run test:fast      # unit tests, no coverage
 ```
@@ -24,6 +24,7 @@ NO_NETWORK_TESTS=1 npm run test:fast      # unit tests, no coverage
 3. Read `context/KNOWN_INVARIANTS.md` if the task touches finance, auth, storage, or Electron.
 4. Check `context/MODULE_INDEX.md` to locate the right file before searching.
 5. Check `context/runtime/ACTIVE_TASK.md` if there is in-progress work.
+6. Check `context/runtime/BASELINE_STATUS.md` if present before assuming the checkout is green.
 
 ## After touching any file
 
@@ -66,8 +67,9 @@ See `context/CONSTRAINTS.md § Stop conditions`. When stopping, report:
 
 ## Expected baseline
 
-After `npm test` on a clean checkout both runners must pass with zero failures.
-Update these counts whenever the suite intentionally grows.
+Check `context/runtime/BASELINE_STATUS.md` first for current repo health.
+If it says `BROKEN`, treat the counts below as the intended target, not the current state.
+Update these counts whenever the suite intentionally grows and the baseline is green again.
 
 | Runner    | Command             | Pass | Fail | Skip |
 | --------- | ------------------- | ---- | ---- | ---- |
