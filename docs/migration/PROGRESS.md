@@ -4,8 +4,8 @@ Actualizar este archivo en tiempo real durante la ejecución.
 Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 **Fecha inicio:** 2026-04-17
-**Última actualización:** 2026-04-17
-**Fase actual:** Fase 0 — completada
+**Última actualización:** 2026-04-18
+**Fase actual:** Fase 1 — completada
 
 ---
 
@@ -14,7 +14,7 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 | Fase               | Estado | Fecha inicio | Fecha fin  |
 | ------------------ | ------ | ------------ | ---------- |
 | 0 — Tooling        | [x]    | 2026-04-17   | 2026-04-17 |
-| 1 — Domain types   | [ ]    |              |            |
+| 1 — Domain types   | [x]    | 2026-04-17   | 2026-04-18 |
 | 2 — Fastify shadow | [ ]    |              |            |
 | 3 — Test migration | [ ]    |              |            |
 | 4 — Cutover        | [ ]    |              |            |
@@ -41,56 +41,56 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 ### Tipos compartidos
 
-- [ ] 1.0 — Crear `server/types/domain.ts` (tipos financieros base)
-- [ ] 1.1 — Crear `server/types/config.ts` (tipos del config)
-- [ ] 1.2 — Crear `server/types/providers.ts` (interfaces de price providers)
+- [x] 1.0 — Crear `server/types/domain.ts` (tipos financieros base)
+- [x] 1.1 — Crear `server/types/config.ts` (tipos del config)
+- [x] 1.2 — Crear `server/types/providers.ts` (interfaces de price providers)
 
 ### config.js
 
-- [ ] 1.3 — Crear `server/config.ts` con tipos completos
-- [ ] 1.4 — `verify:typecheck:server` pasa
-- [ ] 1.5 — `npm test` verde
+- [x] 1.3 — Crear `server/config.ts` con tipos completos
+- [x] 1.4 — `verify:typecheck:server` pasa
+- [x] 1.5 — `npm test` verde
 
 ### finance/decimal.js
 
-- [ ] 1.6 — Crear `server/finance/decimal.ts`
-- [ ] 1.7 — `verify:typecheck:server` pasa
-- [ ] 1.8 — `npm test` verde
+- [x] 1.6 — Crear `server/finance/decimal.ts`
+- [x] 1.7 — `verify:typecheck:server` pasa
+- [x] 1.8 — `npm test` verde
 
 ### finance/cash.js
 
-- [ ] 1.9 — Crear `server/finance/cash.ts`
-- [ ] 1.10 — `verify:typecheck:server` pasa
-- [ ] 1.11 — `npm test` verde
+- [x] 1.9 — Crear `server/finance/cash.ts`
+- [x] 1.10 — `verify:typecheck:server` pasa
+- [x] 1.11 — `npm test` verde
 
 ### finance/portfolio.js
 
-- [ ] 1.12 — Crear `server/finance/portfolio.ts`
-- [ ] 1.13 — `verify:typecheck:server` pasa
-- [ ] 1.14 — `npm test` verde
+- [x] 1.12 — Crear `server/finance/portfolio.ts`
+- [x] 1.13 — `verify:typecheck:server` pasa
+- [x] 1.14 — `npm test` verde
 
 ### finance/returns.js
 
-- [ ] 1.15 — Crear `server/finance/returns.ts`
-- [ ] 1.16 — `verify:typecheck:server` pasa
-- [ ] 1.17 — `npm test` verde
+- [x] 1.15 — Crear `server/finance/returns.ts`
+- [x] 1.16 — `verify:typecheck:server` pasa
+- [x] 1.17 — `npm test` verde
 
 ### auth/localPinAuth.js
 
-- [ ] 1.18 — Crear `server/auth/localPinAuth.ts`
-- [ ] 1.19 — `verify:typecheck:server` pasa
-- [ ] 1.20 — `npm test` verde
+- [x] 1.18 — Crear `server/auth/localPinAuth.ts`
+- [x] 1.19 — `verify:typecheck:server` pasa
+- [x] 1.20 — `npm test` verde
 
 ### cache/priceCache.js
 
-- [ ] 1.21 — Crear `server/cache/priceCache.ts`
-- [ ] 1.22 — `verify:typecheck:server` pasa
-- [ ] 1.23 — `npm test` verde
+- [x] 1.21 — Crear `server/cache/priceCache.ts`
+- [x] 1.22 — `verify:typecheck:server` pasa
+- [x] 1.23 — `npm test` verde
 
 ### Cierre Fase 1
 
-- [ ] 1.24 — `npm run lint` sin warnings
-- [ ] 1.25 — Commit: `feat(types): add domain type layer for server modules`
+- [x] 1.24 — `npm run lint` sin warnings
+- [x] 1.25 — Commit: `feat(types): add domain type layer for server modules`
 
 ---
 
