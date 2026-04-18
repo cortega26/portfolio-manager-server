@@ -417,3 +417,39 @@ test("requeueSignalNotificationEmailDelivery moves exhausted rows back to pendin
   assert.equal(notifications[0].id, "exhausted-1");
   assert.equal(notifications[0].delivery.email.status, "pending");
 });
+
+test("processPendingSignalNotificationEmails is a no-op when delivery_status is disabled", async () => {
+  await storage.upsertRow(
+    "signal_notifications",
+    buildNotification({ id: "disabled-1", deliveryStatus: "disabled" }),
+    ["id"],
+  );
+
+  const attempted = [];
+  const result = await processPendingSignalNotificationEmails({
+    storage,
+    logger: noopLogger,
+    now: "2024-01-03T12:00:00.000Z",
+    mailer: {
+      enabled: true,
+      configured: true,
+      async sendSignalNotification(notification) {
+        attempted.push(notification.id);
+        return { messageId: "should-not-be-called" };
+      },
+    },
+  });
+
+  assert.deepEqual(attempted, []);
+  assert.deepEqual(result, {
+    attempted: 0,
+    delivered: 0,
+    failed: 0,
+    exhausted: 0,
+    skipped: null,
+  });
+
+  const notifications = await storage.readTable("signal_notifications");
+  // delivery_status remains disabled — the row is untouched
+  assert.equal(notifications[0].delivery.email.status, "disabled");
+});

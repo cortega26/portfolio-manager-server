@@ -1443,12 +1443,12 @@ components:
             isOpen:
               type: boolean
             isBeforeOpen:
-              type: boolean
+              type: [boolean, 'null']
             lastTradingDate:
-              type: string
+              type: [string, 'null']
               format: date
             nextTradingDate:
-              type: string
+              type: [string, 'null']
               format: date
     PriceBulkResponse:
       type: object
