@@ -186,10 +186,10 @@ const signalsRoutes: FastifyPluginAsyncZod<SignalsRouteContext> = async (app, op
           summary: normalizePricingStatusSummary(symbolMeta, pricingErrors),
         },
         market: {
-          isOpen: market.isOpen,
-          isBeforeOpen: (market as Record<string, unknown>)['isBeforeOpen'] as boolean | undefined,
-          lastTradingDate: (market as Record<string, unknown>)['lastTradingDate'] as string | null | undefined,
-          nextTradingDate: (market as Record<string, unknown>)['nextTradingDate'] as string | null | undefined,
+          isOpen: market.isOpen ?? false,
+          isBeforeOpen: (market as Record<string, unknown>)['isBeforeOpen'] as boolean | null ?? null,
+          lastTradingDate: ((market as Record<string, unknown>)['lastTradingDate'] as string | null | undefined) ?? null,
+          nextTradingDate: ((market as Record<string, unknown>)['nextTradingDate'] as string | null | undefined) ?? null,
         },
       });
     },

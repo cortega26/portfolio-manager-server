@@ -33,6 +33,7 @@ import { createFastifyApp } from '../../app.fastify.js';
 import { createConfiguredPriceProvider, createConfiguredLatestQuoteProvider } from '../../data/priceProviderFactory.js';
 import createHistoricalPriceLoader from '../../services/historicalPriceLoader.js';
 import JsonTableStorage from '../../data/storage.js';
+import { normalizeBenchmarkConfig } from '../../../shared/benchmarks.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -173,7 +174,17 @@ function buildTestConfig(partial) {
     },
   };
 
-  return deepMerge(defaults, partial ?? {});
+  const merged = deepMerge(defaults, partial ?? {});
+  // Re-derive available/derived/priceSymbols from tickers when tickers are provided,
+  // since the Fastify benchmarks route reads config.benchmarks.available directly.
+  if (Array.isArray(merged.benchmarks?.tickers) && merged.benchmarks.tickers.length > 0) {
+    const normalized = normalizeBenchmarkConfig({
+      tickers: merged.benchmarks.tickers,
+      defaultSelection: merged.benchmarks.defaultSelection ?? [],
+    });
+    merged.benchmarks = { ...merged.benchmarks, ...normalized };
+  }
+  return merged;
 }
 
 function deepMerge(target, source) {

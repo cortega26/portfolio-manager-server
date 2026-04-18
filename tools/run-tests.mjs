@@ -159,7 +159,7 @@ async function main() {
       .relative(PROJECT_ROOT, SETUP_MODULE)
       .split(path.sep)
       .join('/')}`;
-    const nodeArgs = ['--import', setupSpecifier, '--test', ...order];
+    const nodeArgs = ['--import', 'tsx/esm', '--import', setupSpecifier, '--test', ...order];
     let command = process.execPath;
     let args = nodeArgs;
     if (options.coverage) {
