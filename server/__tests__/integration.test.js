@@ -4,14 +4,14 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import request from 'supertest';
+import pino from 'pino';
 
 import JsonTableStorage from '../data/storage.js';
 import { readPortfolioState } from '../data/portfolioState.js';
 import { runDailyClose } from '../jobs/daily_close.js';
-import { createSessionTestApp, withSession } from './sessionTestUtils.js';
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const silentLogger = pino({ level: 'silent' });
 const API_BASES = ['/api', '/api/v1'];
 
 let dataDir;
@@ -19,7 +19,7 @@ let buildApp;
 
 beforeEach(() => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-int-'));
-  buildApp = (overrides = {}) => {
+  buildApp = async (overrides = {}) => {
     const baseConfig = {
       featureFlags: { cashBenchmarks: true },
       cors: { allowedOrigins: [] },
@@ -49,7 +49,7 @@ beforeEach(() => {
     };
     return createSessionTestApp({
       dataDir,
-      logger: noopLogger,
+      logger: silentLogger,
       config: mergedConfig,
       ...rest,
     });
@@ -62,7 +62,7 @@ afterEach(() => {
 
 for (const basePath of API_BASES) {
   test(`portfolio lifecycle persists transactions and signals with session auth (${basePath})`, async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const portfolioId = 'life-' + randomUUID();
     const withBase = (suffix) => `${basePath}${suffix}`;
 
@@ -128,17 +128,18 @@ for (const basePath of API_BASES) {
     assert.deepEqual(fetched.body.signals, { SPY: { pct: 42 } });
     assert.deepEqual(fetched.body.settings, updatePayload.settings);
 
-    const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+    const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
     const persisted = await readPortfolioState(storage, portfolioId);
     assert.equal(persisted.transactions.length, 2);
     assert.ok(persisted.transactions.every((tx) => typeof tx.uid === 'string' && tx.uid.length > 0));
     assert.deepEqual(persisted.settings, updatePayload.settings);
+    await closeApp(app);
   });
 }
 
 for (const basePath of API_BASES) {
   test(`concurrent portfolio modifications remain consistent (${basePath})`, async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const portfolioId = 'con-' + randomUUID();
     const withBase = (suffix) => `${basePath}${suffix}`;
 
@@ -196,12 +197,13 @@ for (const basePath of API_BASES) {
       ? {}
       : { NVDA: { pct: 10 } };
     assert.deepEqual(final.body.signals, expectedSignals);
+    await closeApp(app);
   });
 }
 
 for (const basePath of API_BASES) {
   test(`session auth rejects missing and invalid desktop tokens (${basePath})`, async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const withBase = (suffix) => `${basePath}${suffix}`;
 
     const missing = await request(app).get(withBase('/portfolio/' + randomUUID()));
@@ -214,6 +216,7 @@ for (const basePath of API_BASES) {
     );
     assert.equal(invalid.status, 403);
     assert.equal(invalid.body.error, 'INVALID_SESSION_TOKEN');
+    await closeApp(app);
   });
 }
 
@@ -224,7 +227,7 @@ for (const basePath of API_BASES) {
     yesterday.setDate(today.getDate() - 1);
     const todayKey = today.toISOString().slice(0, 10);
     const yesterdayKey = yesterday.toISOString().slice(0, 10);
-    const app = buildApp({
+    const app = await buildApp({
       priceProvider: {
         async getDailyAdjustedClose(symbol) {
           return [
@@ -269,15 +272,16 @@ for (const basePath of API_BASES) {
       sanityRejected: false,
     });
 
-    const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+    const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
     const persisted = await readPortfolioState(storage, "signals-preview");
     assert.equal(persisted, null);
+    await closeApp(app);
   });
 }
 
 for (const basePath of API_BASES) {
   test(`signal preview rejects invalid draft payloads (${basePath})`, async () => {
-    const app = buildApp();
+    const app = await buildApp();
 
     const response = await withSession(
       request(app)
@@ -292,12 +296,13 @@ for (const basePath of API_BASES) {
 
     assert.equal(response.status, 400);
     assert.equal(response.body.error, "VALIDATION_ERROR");
+    await closeApp(app);
   });
 }
 
 for (const basePath of API_BASES) {
   test(`portfolio signal notifications expose persisted backend alerts (${basePath})`, async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const portfolioId = 'alerts-' + randomUUID();
     const withBase = (suffix) => `${basePath}${suffix}`;
 
@@ -323,7 +328,7 @@ for (const basePath of API_BASES) {
 
     await runDailyClose({
       dataDir,
-      logger: noopLogger,
+      logger: silentLogger,
       date: new Date('2024-01-03T00:00:00Z'),
       priceProvider: {
         async getDailyAdjustedClose(symbol, from, to) {
@@ -355,12 +360,13 @@ for (const basePath of API_BASES) {
     assert.equal(response.body.data[0].ticker, 'AAPL');
     assert.equal(response.body.data[0].status, 'BUY_ZONE');
     assert.equal(response.body.data[0].delivery.email.status, 'pending');
+    await closeApp(app);
   });
 }
 
 for (const basePath of API_BASES) {
   test(`portfolio signal notification requeue reuses the persisted row (${basePath})`, async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const portfolioId = 'alerts-requeue-' + randomUUID();
     const withBase = (suffix) => `${basePath}${suffix}`;
 
@@ -386,7 +392,7 @@ for (const basePath of API_BASES) {
 
     await runDailyClose({
       dataDir,
-      logger: noopLogger,
+      logger: silentLogger,
       date: new Date('2024-01-03T00:00:00Z'),
       priceProvider: {
         async getDailyAdjustedClose(symbol, from, to) {
@@ -410,7 +416,7 @@ for (const basePath of API_BASES) {
       },
     });
 
-    const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+    const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
     const notifications = await storage.readTable('signal_notifications');
     assert.equal(notifications.length, 1);
     const [notification] = notifications;
@@ -456,17 +462,19 @@ for (const basePath of API_BASES) {
     assert.equal(refreshed[0].id, notification.id);
     assert.equal(refreshed[0].delivery.email.status, 'pending');
     assert.equal(refreshed[0].delivery.email.exhaustedAt, null);
+    await closeApp(app);
   });
 }
 
 for (const basePath of API_BASES) {
   test(`incoming request id header is normalized and echoed (${basePath})`, async () => {
-    const app = buildApp();
+    const app = await buildApp();
     const paddedId = 'x'.repeat(140);
     const response = await request(app)
       .get(`${basePath}/monitoring`)
       .set('X-Request-ID', `  ${paddedId}  `);
     assert.equal(response.status, 200);
     assert.equal(response.headers['x-request-id'], 'x'.repeat(128));
+    await closeApp(app);
   });
 }

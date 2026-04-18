@@ -29,7 +29,8 @@ const sessionAuthPlugin: FastifyPluginAsync<SessionAuthOptions> = async (app, op
     const incoming = request.headers[opts.headerName.toLowerCase()];
 
     if (!incoming || typeof incoming !== 'string') {
-      return reply.code(401).send({ error: 'UNAUTHORIZED', message: 'Missing session token' });
+      // Match Express error code for missing token
+      return reply.code(401).send({ error: 'NO_SESSION_TOKEN', message: 'Session token required.' });
     }
 
     // Hash both sides with SHA256 to ensure equal-length buffers for timingSafeEqual.
@@ -42,7 +43,8 @@ const sessionAuthPlugin: FastifyPluginAsync<SessionAuthOptions> = async (app, op
     );
 
     if (expectedBuf.length !== incomingBuf.length || !timingSafeEqual(expectedBuf, incomingBuf)) {
-      return reply.code(401).send({ error: 'UNAUTHORIZED', message: 'Invalid session token' });
+      // Match Express error code and status for invalid token
+      return reply.code(403).send({ error: 'INVALID_SESSION_TOKEN', message: 'Invalid session token.' });
     }
   });
 };

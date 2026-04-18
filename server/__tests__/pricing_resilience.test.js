@@ -4,14 +4,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 
-import request from "supertest";
+import pino from "pino";
 
 import JsonTableStorage from "../data/storage.js";
 import { createProviderHealthMonitor } from "../data/providerHealth.js";
 import { createConfiguredPriceProvider } from "../data/priceProviderFactory.js";
-import { createSessionTestApp, withSession } from "./sessionTestUtils.js";
+import { createSessionTestApp, withSession, closeApp, request } from "./helpers/fastifyTestApp.js";
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const silentLogger = pino({ level: "silent" });
 
 let dataDir;
 
@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 async function seedLatestClose(rows) {
-  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
   await storage.ensureTable("prices", []);
   await storage.writeTable("prices", rows);
 }
@@ -33,9 +33,9 @@ test("signals preview degrades to fresh EOD prices when alpaca live quotes fail 
   const today = new Date().toISOString().slice(0, 10);
   let latestQuoteCalls = 0;
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl: async (url) => {
       const value = String(url);
       if (!value.startsWith("https://data.alpaca.markets/v2/stocks/")) {
@@ -108,6 +108,7 @@ test("signals preview degrades to fresh EOD prices when alpaca live quotes fail 
   assert.equal(second.body.pricing.symbols.MSFT.status, "cache_fresh");
   assert.equal(latestQuoteCalls, 1, "misconfigured live provider should be skipped after auth failure");
   assert.equal(historicalCalls, 1, "freshly cached EOD prices should avoid redundant upstream fetches");
+  await closeApp(app);
 });
 
 test("signals preview prefers a fresh historical close over a persisted close after a live quote failure during market hours", async () => {
@@ -118,9 +119,9 @@ test("signals preview prefers a fresh historical close over a persisted close af
 
   let latestQuoteCalls = 0;
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl: async (url) => {
       const value = String(url);
       if (!value.startsWith("https://data.alpaca.markets/v2/stocks/")) {
@@ -183,6 +184,7 @@ test("signals preview prefers a fresh historical close over a persisted close af
   assert.ok(response.body.pricing.symbols.MSFT.warnings.includes("LATEST_QUOTE_UNAVAILABLE"));
   assert.equal(latestQuoteCalls, 1);
   assert.equal(historicalCalls, 1);
+  await closeApp(app);
 });
 
 test("signals preview prefers a fresh historical close over an older persisted close when the market is closed", async () => {
@@ -192,9 +194,9 @@ test("signals preview prefers a fresh historical close over an older persisted c
   ]);
 
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     priceProvider: {
       async getDailyAdjustedClose() {
         historicalCalls += 1;
@@ -239,7 +241,7 @@ test("signals preview prefers a fresh historical close over an older persisted c
   assert.equal(response.body.pricing.symbols.MSFT.latestQuoteAttempted, false);
   assert.equal(historicalCalls, 1);
 
-  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
   const prices = await storage.readTable("prices");
   const latestPersisted = prices
     .filter((row) => row?.ticker === "MSFT")
@@ -247,6 +249,7 @@ test("signals preview prefers a fresh historical close over an older persisted c
     .at(-1);
   assert.equal(latestPersisted?.date, today);
   assert.equal(latestPersisted?.adj_close, 315.25);
+  await closeApp(app);
 });
 
 test("signals preview falls back to the persisted last close after a historical close fetch failure when the market is closed", async () => {
@@ -256,9 +259,9 @@ test("signals preview falls back to the persisted last close after a historical 
   ]);
 
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     priceProvider: {
       async getDailyAdjustedClose() {
         historicalCalls += 1;
@@ -304,13 +307,14 @@ test("signals preview falls back to the persisted last close after a historical 
   assert.ok(response.body.pricing.symbols.MSFT.warnings.includes("HISTORICAL_CLOSE_FETCH_FAILED"));
   assert.equal(response.body.pricing.symbols.MSFT.latestQuoteAttempted, false);
   assert.equal(historicalCalls, 1);
+  await closeApp(app);
 });
 
 test("bulk latest pricing returns degraded metadata instead of hard errors when alpaca fails but EOD fallback succeeds", async () => {
   const today = new Date().toISOString().slice(0, 10);
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl: async (url) => {
       const value = String(url);
       if (!value.startsWith("https://data.alpaca.markets/v2/stocks/")) {
@@ -362,6 +366,7 @@ test("bulk latest pricing returns degraded metadata instead of hard errors when 
   assert.ok(response.body.metadata.symbols.MSFT.warnings.includes("LATEST_QUOTE_UNAVAILABLE"));
   assert.equal(response.body.metadata.summary.status, "degraded");
   assert.deepEqual(response.body.metadata.summary.degradedSymbols, ["MSFT"]);
+  await closeApp(app);
 });
 
 test("bulk latest pricing prefers a fresh historical close over a persisted close after a live quote failure during market hours", async () => {
@@ -371,9 +376,9 @@ test("bulk latest pricing prefers a fresh historical close over a persisted clos
   ]);
 
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl: async (url) => {
       const value = String(url);
       if (!value.startsWith("https://data.alpaca.markets/v2/stocks/")) {
@@ -425,6 +430,7 @@ test("bulk latest pricing prefers a fresh historical close over a persisted clos
   assert.equal(response.body.metadata.symbols.MSFT.source, "historical");
   assert.ok(response.body.metadata.symbols.MSFT.warnings.includes("LATEST_QUOTE_UNAVAILABLE"));
   assert.equal(historicalCalls, 1);
+  await closeApp(app);
 });
 
 test("bulk latest pricing prefers a fresh historical close over an older persisted close when the market is unavailable", async () => {
@@ -434,9 +440,9 @@ test("bulk latest pricing prefers a fresh historical close over an older persist
   ]);
 
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     priceProvider: {
       async getDailyAdjustedClose() {
         historicalCalls += 1;
@@ -469,6 +475,7 @@ test("bulk latest pricing prefers a fresh historical close over an older persist
   assert.equal(response.body.metadata.symbols.MSFT.source, "historical");
   assert.equal(response.body.metadata.summary.status, "eod_fresh");
   assert.equal(historicalCalls, 1);
+  await closeApp(app);
 });
 
 test("bulk latest pricing falls back to the persisted last close after a historical close fetch failure", async () => {
@@ -478,9 +485,9 @@ test("bulk latest pricing falls back to the persisted last close after a histori
   ]);
 
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     priceProvider: {
       async getDailyAdjustedClose() {
         historicalCalls += 1;
@@ -515,15 +522,16 @@ test("bulk latest pricing falls back to the persisted last close after a histori
   assert.ok(response.body.metadata.symbols.MSFT.warnings.includes("HISTORICAL_CLOSE_FETCH_FAILED"));
   assert.equal(response.body.metadata.summary.status, "eod_fresh");
   assert.equal(historicalCalls, 1);
+  await closeApp(app);
 });
 
 test("bulk latest pricing skips alpaca outside market hours and serves EOD without live attempt", async () => {
   const today = new Date().toISOString().slice(0, 10);
   let latestQuoteCalls = 0;
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl: async (url) => {
       latestQuoteCalls += 1;
       throw new Error(`Unexpected upstream call: ${String(url)}`);
@@ -565,13 +573,14 @@ test("bulk latest pricing skips alpaca outside market hours and serves EOD witho
   assert.equal(response.body.metadata.symbols.SPY.status, "eod_fresh");
   assert.equal(response.body.metadata.symbols.SPY.latestQuoteAttempted, false);
   assert.equal(response.body.metadata.summary.status, "eod_fresh");
+  await closeApp(app);
 });
 
 test("alpaca symbol-level no data falls back to EOD without marking the provider unhealthy", async () => {
   const today = new Date().toISOString().slice(0, 10);
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl: async (url) => {
       const value = String(url);
       if (!value.startsWith("https://data.alpaca.markets/v2/stocks/")) {
@@ -619,6 +628,7 @@ test("alpaca symbol-level no data falls back to EOD without marking the provider
   assert.deepEqual(second.body.errors, {});
   assert.equal(first.body.metadata.symbols.SPY.status, "degraded");
   assert.equal(second.body.metadata.symbols.QQQ.status, "degraded");
+  await closeApp(app);
 });
 
 test("bulk latest pricing still rejects stale persisted closes beyond the freshness window", async () => {
@@ -627,9 +637,9 @@ test("bulk latest pricing still rejects stale persisted closes beyond the freshn
   ]);
 
   let historicalCalls = 0;
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     priceProvider: {
       async getDailyAdjustedClose() {
         historicalCalls += 1;
@@ -665,12 +675,13 @@ test("bulk latest pricing still rejects stale persisted closes beyond the freshn
     response.body.metadata.symbols.MSFT.warnings.includes("PERSISTED_CLOSE_STALE_REJECTED"),
   );
   assert.equal(historicalCalls, 1);
+  await closeApp(app);
 });
 
 test("configured provider health skips yahoo after repeated upstream failures and prefers stooq", async () => {
   let yahooCalls = 0;
   let stooqCalls = 0;
-  const healthMonitor = createProviderHealthMonitor({ logger: noopLogger });
+  const healthMonitor = createProviderHealthMonitor({ logger: silentLogger });
   const provider = createConfiguredPriceProvider({
     config: {
       prices: {
@@ -680,7 +691,7 @@ test("configured provider health skips yahoo after repeated upstream failures an
         },
       },
     },
-    logger: noopLogger,
+    logger: silentLogger,
     healthMonitor,
     fetchImpl: async (url) => {
       const value = String(url);

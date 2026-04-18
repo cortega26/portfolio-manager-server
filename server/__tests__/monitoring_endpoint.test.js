@@ -3,9 +3,8 @@ import { afterEach, beforeEach, describe, test } from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import request from 'supertest';
 
-import { createApp } from '../app.js';
+import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestApp.js';
 import { flushPriceCache } from '../cache/priceCache.js';
 import { getPerformanceMetrics } from '../metrics/performanceMetrics.js';
 import { resetLockMetrics, withLock } from '../utils/locks.js';
@@ -16,6 +15,12 @@ class SilentLogger {
   warn() {}
 
   error() {}
+
+  debug() {}
+
+  trace() {}
+
+  fatal() {}
 
   child() {
     return this;
@@ -34,21 +39,18 @@ describe('performance monitoring endpoint', () => {
   let dataDir;
   let app;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-monitoring-'));
     resetLockMetrics();
     flushPriceCache();
-    app = createApp({
+    app = await createSessionTestApp({
       dataDir,
       logger: new SilentLogger(),
-      config: {
-        featureFlags: { cashBenchmarks: true },
-        cors: { allowedOrigins: [] },
-      },
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await closeApp(app);
     rmSync(dataDir, { recursive: true, force: true });
     resetLockMetrics();
     flushPriceCache();

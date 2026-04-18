@@ -4,12 +4,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import request from "supertest";
-
-import { createApp } from "../app.js";
+import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestApp.js';
 import JsonTableStorage from "../data/storage.js";
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const noopLogger = { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {}, child() { return this; } };
 
 let dataDir;
 let storage;
@@ -65,11 +63,10 @@ test("benchmarks summary exposes matched-flow money weighted benchmarks and mark
     { ticker: "QQQ", date: "2024-06-28", adj_close: 252 },
   ]);
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: {
-      featureFlags: { cashBenchmarks: true },
       freshness: { maxStaleTradingDays: 4000 },
     },
   });
@@ -87,6 +84,7 @@ test("benchmarks summary exposes matched-flow money weighted benchmarks and mark
   assert.equal(typeof response.body.money_weighted.portfolio, "number");
   assert.equal(typeof response.body.money_weighted.benchmarks.spy, "number");
   assert.equal(typeof response.body.money_weighted.benchmarks.qqq, "number");
+  await closeApp(app);
 });
 
 test("benchmarks summary returns null when a matched-flow benchmark cannot be calculated", async () => {
@@ -123,11 +121,10 @@ test("benchmarks summary returns null when a matched-flow benchmark cannot be ca
     { ticker: "QQQ", date: "2025-01-10", adj_close: 250 },
   ]);
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: {
-      featureFlags: { cashBenchmarks: true },
       freshness: { maxStaleTradingDays: 4000 },
     },
   });
@@ -140,6 +137,7 @@ test("benchmarks summary returns null when a matched-flow benchmark cannot be ca
   assert.equal(response.body.money_weighted.partial, false);
   assert.equal(typeof response.body.money_weighted.benchmarks.spy, "number");
   assert.equal(response.body.money_weighted.benchmarks.qqq, null);
+  await closeApp(app);
 });
 
 test("benchmarks summary includes annualized returns when period >= 365 days", async () => {
@@ -175,11 +173,10 @@ test("benchmarks summary includes annualized returns when period >= 365 days", a
     { ticker: "SPY", date: "2025-01-10", adj_close: 112 },
   ]);
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: {
-      featureFlags: { cashBenchmarks: true },
       freshness: { maxStaleTradingDays: 4000 },
     },
   });
@@ -192,6 +189,7 @@ test("benchmarks summary includes annualized returns when period >= 365 days", a
   assert.equal(typeof response.body.summary.annualized_r_port, "number");
   assert.equal(typeof response.body.summary.annualized_r_spy_100, "number");
   assert.equal(typeof response.body.summary.annualized_r_bench_blended, "number");
+  await closeApp(app);
 });
 
 test("benchmarks summary does NOT include annualized returns when period < 365 days", async () => {
@@ -227,11 +225,10 @@ test("benchmarks summary does NOT include annualized returns when period < 365 d
     { ticker: "SPY", date: "2024-06-28", adj_close: 121 },
   ]);
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: {
-      featureFlags: { cashBenchmarks: true },
       freshness: { maxStaleTradingDays: 4000 },
     },
   });
@@ -243,6 +240,7 @@ test("benchmarks summary does NOT include annualized returns when period < 365 d
   assert.equal(response.status, 200);
   assert.equal(response.body.summary.annualized_r_port, undefined);
   assert.equal(response.body.summary.annualized_r_spy_100, undefined);
+  await closeApp(app);
 });
 
 test("benchmarks summary includes max_drawdown with value, peak_date, and trough_date", async () => {
@@ -287,11 +285,10 @@ test("benchmarks summary includes max_drawdown with value, peak_date, and trough
     { ticker: "SPY", date: "2024-01-04", adj_close: 95 },
   ]);
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: {
-      featureFlags: { cashBenchmarks: true },
       freshness: { maxStaleTradingDays: 4000 },
     },
   });
@@ -306,4 +303,5 @@ test("benchmarks summary includes max_drawdown with value, peak_date, and trough
   assert.ok(response.body.max_drawdown.value < 0, "max_drawdown value should be negative");
   assert.equal(typeof response.body.max_drawdown.peak_date, "string");
   assert.equal(typeof response.body.max_drawdown.trough_date, "string");
+  await closeApp(app);
 });

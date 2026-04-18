@@ -3,14 +3,16 @@ import { afterEach, beforeEach, test } from "node:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import request from "supertest";
 
-import { createApp } from "../app.js";
+import { buildFastifyApp, request, closeApp } from './helpers/fastifyTestApp.js';
 
 const noopLogger = {
   info() {},
   warn() {},
   error() {},
+  debug() {},
+  trace() {},
+  fatal() {},
   child() {
     return this;
   },
@@ -24,6 +26,14 @@ function withSession(requestBuilder, token = SESSION_TOKEN, headerName = "X-Sess
   return requestBuilder.set(headerName, token);
 }
 
+function buildApp(configOverride) {
+  return buildFastifyApp({
+    dataDir,
+    logger: noopLogger,
+    config: configOverride,
+  });
+}
+
 beforeEach(() => {
   dataDir = mkdtempSync(path.join(tmpdir(), "session-auth-"));
 });
@@ -33,17 +43,11 @@ afterEach(() => {
 });
 
 test("session auth mode requires the configured desktop session token", async () => {
-  const app = createApp({
-    dataDir,
-    logger: noopLogger,
-    config: {
-      featureFlags: { cashBenchmarks: true },
-      cors: { allowedOrigins: [] },
-      security: {
-        auth: {
-          mode: "session",
-          sessionToken: SESSION_TOKEN,
-        },
+  const app = await buildApp({
+    security: {
+      auth: {
+        mode: "session",
+        sessionToken: SESSION_TOKEN,
       },
     },
   });
@@ -58,20 +62,15 @@ test("session auth mode requires the configured desktop session token", async ()
     "wrong-token",
   ).expect(403);
   assert.equal(invalid.body.error, "INVALID_SESSION_TOKEN");
+  await closeApp(app);
 });
 
 test("session auth mode persists and retrieves portfolios without portfolio keys", async () => {
-  const app = createApp({
-    dataDir,
-    logger: noopLogger,
-    config: {
-      featureFlags: { cashBenchmarks: true },
-      cors: { allowedOrigins: [] },
-      security: {
-        auth: {
-          mode: "session",
-          sessionToken: SESSION_TOKEN,
-        },
+  const app = await buildApp({
+    security: {
+      auth: {
+        mode: "session",
+        sessionToken: SESSION_TOKEN,
       },
     },
   });
@@ -88,21 +87,16 @@ test("session auth mode persists and retrieves portfolios without portfolio keys
 
   assert.equal(response.body.transactions.length, 1);
   assert.equal(response.body.transactions[0].type, "DEPOSIT");
+  await closeApp(app);
 });
 
 test("session auth mode supports custom header names", async () => {
-  const app = createApp({
-    dataDir,
-    logger: noopLogger,
-    config: {
-      featureFlags: { cashBenchmarks: true },
-      cors: { allowedOrigins: [] },
-      security: {
-        auth: {
-          mode: "session",
-          sessionToken: SESSION_TOKEN,
-          headerName: "X-Desktop-Auth",
-        },
+  const app = await buildApp({
+    security: {
+      auth: {
+        mode: "session",
+        sessionToken: SESSION_TOKEN,
+        headerName: "X-Desktop-Auth",
       },
     },
   });
@@ -117,4 +111,5 @@ test("session auth mode supports custom header names", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, { status: "ok" });
+  await closeApp(app);
 });

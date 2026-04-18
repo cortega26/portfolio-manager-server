@@ -4,20 +4,21 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import request from 'supertest';
+import pino from 'pino';
 
 import { computeDailyStates, projectStateUntil } from '../finance/portfolio.js';
-import { createSessionTestApp, withSession } from './sessionTestUtils.js';
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const silentLogger = pino({ level: 'silent' });
 
-function withTempApp(run) {
+async function withTempApp(run) {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-edge-'));
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
   });
-  return run({ app, dataDir }).finally(() => {
+  return run({ app, dataDir }).finally(async () => {
+    await closeApp(app);
     rmSync(dataDir, { recursive: true, force: true });
   });
 }

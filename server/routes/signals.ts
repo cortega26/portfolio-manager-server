@@ -1,11 +1,14 @@
 // server/routes/signals.ts
 // POST /api/signals — evaluate signal preview for a portfolio body
-import { z } from 'zod';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import type { FastifyPluginOptions } from 'fastify';
 import { portfolioBodySchema } from './_schemas.js';
 import { computeTradingDayAge } from '../utils/calendar.js';
 import type { HistoricalPriceLoader } from './prices.js';
+import { buildPortfolioSignalRows } from '../services/signalNotifications.js';
+import { sortTransactions, projectStateUntil } from '../finance/portfolio.js';
+import { isOpenSignalHolding } from '../../shared/signals.js';
+import { ensureTransactionUids } from '../services/portfolioTransactions.js';
 
 export interface SignalsRouteContext extends FastifyPluginOptions {
   historicalPriceLoader: HistoricalPriceLoader;
@@ -15,33 +18,62 @@ export interface SignalsRouteContext extends FastifyPluginOptions {
   marketClock?: () => { isOpen: boolean; isBeforeOpen?: boolean; lastTradingDate?: string | null; nextTradingDate?: string | null };
 }
 
-const SignalRowSchema = z.object({
-  type: z.string(),
-  ticker: z.string().optional(),
-  message: z.string(),
-  severity: z.enum(['INFO', 'WARNING', 'ALERT']),
-});
+type PriceMeta = {
+  status: string;
+  source?: string | null;
+  provider?: string | null;
+  warnings?: string[];
+  asOf?: string | null;
+};
 
-const SignalsResponseSchema = z.object({
-  signals: z.array(SignalRowSchema),
-  prices: z.record(z.string(), z.number()),
-  errors: z.record(z.string(), z.unknown()),
-  pricing: z.object({
-    symbols: z.record(z.string(), z.unknown()),
-    summary: z.unknown(),
-  }),
-  market: z.object({
-    isOpen: z.boolean(),
-    isBeforeOpen: z.boolean().optional(),
-    lastTradingDate: z.string().nullable().optional(),
-    nextTradingDate: z.string().nullable().optional(),
-  }),
-});
+function normalizePricingStatusSummary(
+  symbolMeta: Record<string, PriceMeta>,
+  errors: Record<string, unknown>,
+): Record<string, unknown> {
+  const summary: {
+    status: string;
+    liveSymbols: string[];
+    eodSymbols: string[];
+    cacheSymbols: string[];
+    degradedSymbols: string[];
+    unavailableSymbols: string[];
+  } = {
+    status: 'unavailable',
+    liveSymbols: [],
+    eodSymbols: [],
+    cacheSymbols: [],
+    degradedSymbols: [],
+    unavailableSymbols: [],
+  };
 
-// Inline the open-holding check (equivalent to shared/signals.js isOpenSignalHolding)
-function isOpenSignalHolding(quantity: unknown): boolean {
-  const n = typeof quantity === 'number' ? quantity : Number(quantity);
-  return Number.isFinite(n) && n > 0;
+  for (const [symbol, meta] of Object.entries(symbolMeta)) {
+    const status = typeof meta?.status === 'string' ? meta.status : 'unavailable';
+    if (status === 'live') { summary.liveSymbols.push(symbol); continue; }
+    if (status === 'eod_fresh') { summary.eodSymbols.push(symbol); continue; }
+    if (status === 'cache_fresh') { summary.cacheSymbols.push(symbol); continue; }
+    if (status === 'degraded') { summary.degradedSymbols.push(symbol); continue; }
+    summary.unavailableSymbols.push(symbol);
+  }
+
+  for (const symbol of Object.keys(errors)) {
+    if (!summary.unavailableSymbols.includes(symbol)) {
+      summary.unavailableSymbols.push(symbol);
+    }
+  }
+
+  if (summary.unavailableSymbols.length > 0) {
+    summary.status = 'unavailable';
+  } else if (summary.degradedSymbols.length > 0) {
+    summary.status = 'degraded';
+  } else if (summary.liveSymbols.length > 0) {
+    summary.status = 'live';
+  } else if (summary.eodSymbols.length > 0) {
+    summary.status = 'eod_fresh';
+  } else if (summary.cacheSymbols.length > 0) {
+    summary.status = 'cache_fresh';
+  }
+
+  return summary;
 }
 
 const signalsRoutes: FastifyPluginAsyncZod<SignalsRouteContext> = async (app, opts) => {
@@ -54,90 +86,105 @@ const signalsRoutes: FastifyPluginAsyncZod<SignalsRouteContext> = async (app, op
       preHandler: app.requireAuth,
       schema: {
         body: portfolioBodySchema,
-        response: {
-          200: SignalsResponseSchema,
-        },
       },
     },
     async (request, reply) => {
       const { transactions = [], signals = {} } = request.body;
 
-      // Derive open tickers from transaction history (simplified projection)
-      const holdingsMap = new Map<string, number>();
-      for (const tx of transactions) {
-        const ticker = (tx as Record<string, unknown>)['ticker'] as string | undefined;
-        if (!ticker || ticker === 'CASH') continue;
-        const shares = Math.abs(Number((tx as Record<string, unknown>)['shares'] ?? 0));
-        const type = (tx as Record<string, unknown>)['type'] as string;
-        const current = holdingsMap.get(ticker) ?? 0;
-        if (type === 'BUY') {
-          holdingsMap.set(ticker, current + shares);
-        } else if (type === 'SELL') {
-          holdingsMap.set(ticker, Math.max(0, current - shares));
-        }
-      }
-
-      const openTickers = Array.from(holdingsMap.entries())
-        .filter(([, qty]) => isOpenSignalHolding(qty))
-        .map(([ticker]) => ticker)
+      const normalizedTransactions = ensureTransactionUids(transactions as never[], 'signals-preview') as unknown[];
+      const sortedTransactions = sortTransactions(normalizedTransactions as never[]);
+      const lastTransactionDate =
+        sortedTransactions.length > 0
+          ? (sortedTransactions[sortedTransactions.length - 1] as Record<string, string>)['date']
+          : null;
+      const projectedState = lastTransactionDate
+        ? projectStateUntil(sortedTransactions, lastTransactionDate)
+        : { holdings: new Map<string, unknown>() };
+      const openTickers = Array.from((projectedState.holdings as Map<string, unknown>).entries())
+        .filter(([, quantity]) => isOpenSignalHolding(quantity))
+        .map(([ticker]) => ticker as string)
         .sort((a, b) => a.localeCompare(b));
 
       // Fetch latest prices for open tickers
       const prices: Record<string, number> = {};
+      const asOfMap: Record<string, string | null> = {};
       const pricingErrors: Record<string, unknown> = {};
-      const symbolMeta: Record<string, unknown> = {};
+      const symbolMeta: Record<string, PriceMeta> = {};
 
       await Promise.all(
         openTickers.map(async (symbol) => {
           try {
             const result = await historicalPriceLoader.fetchSeries(symbol, { range: '1y', latestOnly: true });
-            const latest = result.prices[result.prices.length - 1];
-            if (latest) {
-              const latestDate = latest.date;
-              const tradingDayAge = computeTradingDayAge(latestDate) ?? 0;
-              if (tradingDayAge <= maxStaleTradingDays) {
-                prices[symbol] = latest.close ?? latest.adjClose ?? 0;
-                symbolMeta[symbol] = result.resolution ?? { status: 'eod_fresh' };
-              } else {
-                pricingErrors[symbol] = { code: 'STALE_DATA', status: 503 };
-                symbolMeta[symbol] = { status: 'unavailable' };
-              }
+            symbolMeta[symbol] = (result.resolution as PriceMeta) ?? {
+              status: 'unavailable',
+              source: 'none',
+              provider: null,
+              warnings: [],
+              asOf: null,
+            };
+            const latest = Array.isArray(result.prices) ? result.prices[result.prices.length - 1] : null;
+            const latestDate = (latest as Record<string, string> | null)?.['date'] ?? null;
+            const tradingDayAge = computeTradingDayAge(latestDate);
+            if (!latestDate || (tradingDayAge !== null && tradingDayAge > maxStaleTradingDays)) {
+              const existingMeta = symbolMeta[symbol];
+              const existingWarnings = Array.isArray(existingMeta?.warnings) ? existingMeta.warnings : [];
+              const warning = existingMeta?.source === 'persisted' ? 'PERSISTED_CLOSE_STALE_REJECTED' : '';
+              symbolMeta[symbol] = {
+                ...existingMeta,
+                status: 'unavailable',
+                asOf: latestDate,
+                ...(warning ? { warnings: Array.from(new Set([...existingWarnings, warning])) } : {}),
+              };
+              pricingErrors[symbol] = { code: 'STALE_DATA', status: 503, message: 'Historical prices are stale for this symbol.' };
+              return;
             }
-          } catch {
-            pricingErrors[symbol] = { code: 'PRICE_FETCH_FAILED', status: 502 };
-            symbolMeta[symbol] = { status: 'unavailable' };
+            const rawClose = Number.isFinite((latest as Record<string, unknown>)?.['close'])
+              ? (latest as unknown as Record<string, number>)['close']
+              : Number.isFinite((latest as Record<string, unknown>)?.['adjClose'])
+                ? (latest as unknown as Record<string, number>)['adjClose']
+                : null;
+            if (!Number.isFinite(rawClose)) {
+              symbolMeta[symbol] = { ...symbolMeta[symbol], status: 'unavailable', asOf: latestDate };
+              pricingErrors[symbol] = { code: 'PRICE_FETCH_FAILED', status: 502, message: 'Failed to fetch historical prices.' };
+              return;
+            }
+            prices[symbol] = rawClose as number;
+            asOfMap[symbol] = latestDate;
+          } catch (error) {
+            const err = error as { code?: string; status?: number; statusCode?: number; message?: string };
+            symbolMeta[symbol] = { status: 'unavailable', source: 'none', provider: null, warnings: [], asOf: null };
+            pricingErrors[symbol] = {
+              code: err?.code ?? 'PRICE_FETCH_FAILED',
+              status: err?.status ?? err?.statusCode ?? 502,
+              message: err?.message ?? 'Failed to fetch historical prices.',
+            };
           }
         }),
       );
 
-      // Evaluate signals against current prices
-      const signalRows: z.infer<typeof SignalRowSchema>[] = [];
-      for (const [ticker, qty] of holdingsMap.entries()) {
-        if (!isOpenSignalHolding(qty)) continue;
-        const tickerSignals = (signals as Record<string, unknown>)[ticker] as Record<string, unknown> | undefined;
-        if (!tickerSignals) continue;
+      const priceSnapshots = new Map<string, { price: number | null; asOf: string | null }>(
+        openTickers.map((ticker) => [
+          ticker,
+          { price: prices[ticker] ?? null, asOf: asOfMap[ticker] ?? null },
+        ]),
+      );
 
-        const price = prices[ticker] ?? null;
-        if (price === null) continue;
-
-        const buyThreshold = typeof tickerSignals['buyThreshold'] === 'number' ? tickerSignals['buyThreshold'] : null;
-        const sellThreshold = typeof tickerSignals['sellThreshold'] === 'number' ? tickerSignals['sellThreshold'] : null;
-
-        if (buyThreshold !== null && price <= buyThreshold) {
-          signalRows.push({ type: 'BUY', ticker, message: `${ticker} is at or below buy threshold ($${buyThreshold})`, severity: 'ALERT' });
-        }
-        if (sellThreshold !== null && price >= sellThreshold) {
-          signalRows.push({ type: 'SELL', ticker, message: `${ticker} is at or above sell threshold ($${sellThreshold})`, severity: 'ALERT' });
-        }
-      }
+      const rows = buildPortfolioSignalRows({
+        transactions: normalizedTransactions as never[],
+        signals,
+        priceSnapshots,
+      });
 
       const market = opts.marketClock?.() ?? { isOpen: false };
 
       return reply.code(200).send({
-        signals: signalRows,
+        rows,
         prices,
         errors: pricingErrors,
-        pricing: { symbols: symbolMeta, summary: null },
+        pricing: {
+          symbols: symbolMeta,
+          summary: normalizePricingStatusSummary(symbolMeta, pricingErrors),
+        },
         market: {
           isOpen: market.isOpen,
           isBeforeOpen: (market as Record<string, unknown>)['isBeforeOpen'] as boolean | undefined,

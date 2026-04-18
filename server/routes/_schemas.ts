@@ -39,21 +39,33 @@ export const transactionTypeSchema = z.enum([
   'SPLIT',
 ]);
 
-// Input schema accepts 'WITHDRAW' (legacy) and normalizes it to 'WITHDRAWAL'
-export const inputTransactionTypeSchema = transactionTypeSchema.or(
-  z.literal('WITHDRAW').transform(() => 'WITHDRAWAL' as const),
-);
+// Input schema accepts lowercase and 'WITHDRAW' (legacy), normalizes to uppercase
+export const inputTransactionTypeSchema = z.preprocess((value) => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toUpperCase();
+    return normalized === 'WITHDRAW' ? 'WITHDRAWAL' : normalized;
+  }
+  return value;
+}, transactionTypeSchema);
 
 export const transactionSchema = z.object({
   id: z.string().optional(),
+  uid: z.string().optional(),
+  createdAt: z.number().int().nonnegative().optional(),
+  seq: z.number().int().min(0).optional(),
   date: isoDateSchema,
   type: inputTransactionTypeSchema,
   ticker: tickerSchema.optional(),
   shares: z.number().optional(),
+  price: z.number().nonnegative().optional(),
   pricePerShare: z.number().positive().optional(),
+  quantity: z.number().optional(),
   amount: z.number().finite(),
-  currency: z.literal('USD').default('USD'),
+  currency: z.literal('USD').optional(),
   notes: z.string().max(500).optional(),
+  note: z.string().max(1024).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  internal: z.boolean().optional(),
 });
 
 export const cashRateSchema = z.object({
@@ -65,7 +77,17 @@ export const cashRateSchema = z.object({
 export const portfolioBodySchema = z.object({
   transactions: z.array(transactionSchema),
   cashRates: z.array(cashRateSchema).optional().default([]),
-  signals: z.record(z.string(), z.unknown()).optional().default({}),
+  signals: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .default({})
+    .transform((value) => {
+      const result: Record<string, unknown> = {};
+      for (const [key, config] of Object.entries(value)) {
+        result[key.trim().toUpperCase()] = config;
+      }
+      return result;
+    }),
   settings: z.record(z.string(), z.unknown()).optional(),
   cash: z
     .object({

@@ -4,12 +4,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 
-import request from 'supertest';
+import pino from 'pino';
 
 import JsonTableStorage from '../data/storage.js';
-import { createSessionTestApp, withSession } from './sessionTestUtils.js';
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const silentLogger = pino({ level: 'silent' });
 
 let dataDir;
 let app;
@@ -17,18 +17,19 @@ let storage;
 
 beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'api-validation-'));
-  storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  storage = new JsonTableStorage({ dataDir, logger: silentLogger });
   await storage.ensureTable('transactions', []);
   await storage.ensureTable('cash_rates', []);
   await storage.ensureTable('returns_daily', []);
   await storage.ensureTable('nav_snapshots', []);
-  app = createSessionTestApp({
+  app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
   });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await closeApp(app);
   rmSync(dataDir, { recursive: true, force: true });
 });
 

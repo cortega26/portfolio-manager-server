@@ -1,53 +1,18 @@
-import { createApp } from "../app.js";
+import {
+  createSessionTestApp as _createSessionTestApp,
+  withSession,
+  request,
+  TEST_SESSION_TOKEN,
+  TEST_SESSION_HEADER,
+  closeApp,
+} from './helpers/fastifyTestApp.js';
 
-export const TEST_SESSION_TOKEN = "desktop-session-token";
-export const TEST_SESSION_HEADER = "X-Session-Token";
+export { TEST_SESSION_TOKEN, TEST_SESSION_HEADER, withSession, request, closeApp };
 
-function mergeSessionConfig(config = {}) {
-  const baseConfig = {
-    featureFlags: { cashBenchmarks: true },
-    cors: { allowedOrigins: [] },
-    security: {
-      auth: {
-        sessionToken: TEST_SESSION_TOKEN,
-        headerName: TEST_SESSION_HEADER,
-      },
-    },
-  };
-
-  return {
-    ...baseConfig,
-    ...config,
-    featureFlags: {
-      ...baseConfig.featureFlags,
-      ...(config.featureFlags ?? {}),
-    },
-    cors: {
-      ...baseConfig.cors,
-      ...(config.cors ?? {}),
-    },
-    security: {
-      ...baseConfig.security,
-      ...(config.security ?? {}),
-      auth: {
-        ...baseConfig.security.auth,
-        ...(config.security?.auth ?? {}),
-      },
-    },
-  };
-}
-
-export function createSessionTestApp({ config = {}, ...options } = {}) {
-  return createApp({
-    ...options,
-    config: mergeSessionConfig(config),
-  });
-}
-
-export function withSession(
-  requestBuilder,
-  token = TEST_SESSION_TOKEN,
-  headerName = TEST_SESSION_HEADER,
-) {
-  return requestBuilder.set(headerName, token);
+/**
+ * Async drop-in for the old synchronous createSessionTestApp.
+ * Returns a ready FastifyInstance (not an Express app).
+ */
+export async function createSessionTestApp(opts = {}) {
+  return _createSessionTestApp(opts);
 }

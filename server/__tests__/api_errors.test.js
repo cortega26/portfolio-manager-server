@@ -3,22 +3,25 @@ import { afterEach, beforeEach, test } from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import request from 'supertest';
+import pino from 'pino';
 
-import { createSessionTestApp, withSession } from './sessionTestUtils.js';
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
+
+const silentLogger = pino({ level: 'silent' });
 
 let dataDir;
 let app;
 
-beforeEach(() => {
+beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'portfolio-api-errors-'));
-  app = createSessionTestApp({
+  app = await createSessionTestApp({
     dataDir,
-    logger: { info() {}, warn() {}, error() {} },
+    logger: silentLogger,
   });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await closeApp(app);
   rmSync(dataDir, { recursive: true, force: true });
 });
 

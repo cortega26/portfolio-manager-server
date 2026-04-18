@@ -5,6 +5,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
     css: true,
+    maxWorkers: '50%',
+    minWorkers: 1,
     include: ['src/__tests__/**/*.{test,spec}.{ts,tsx}', 'src/__smoke__/**/*.test.tsx'],
     exclude: ['src/__tests__/**/*.test.jsx', 'src/__tests__/**/*.spec.jsx', 'server/**'],
     testTimeout: 10000,
@@ -15,7 +17,7 @@ export default defineConfig({
     unstubEnvs: true,
     coverage: {
       provider: 'v8',
-      enabled: true,
+      enabled: false,
       reporter: ['text-summary', 'lcov'],
       include: ['src/**/*.{js,jsx,ts,tsx}'],
       exclude: ['src/main.*', 'src/vite-env.d.ts'],

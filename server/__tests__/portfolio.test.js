@@ -4,19 +4,15 @@ import { randomInt } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import request from 'supertest';
+import pino from 'pino';
 
 import { isValidPortfolioId } from '../app.js';
 import { readPortfolioState } from '../data/portfolioState.js';
 import JsonTableStorage from '../data/storage.js';
 import { sortTransactions, sortTransactionsForCashAudit } from '../finance/portfolio.js';
-import { createSessionTestApp, withSession } from './sessionTestUtils.js';
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
-const noopLogger = {
-  info() {},
-  warn() {},
-  error() {},
-};
+const silentLogger = pino({ level: 'silent' });
 
 let dataDir;
 
@@ -29,35 +25,38 @@ afterEach(() => {
 });
 
 async function readPersistedPortfolio(id) {
-  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
   return readPortfolioState(storage, id);
 }
 
 test('GET /api/portfolio/:id returns an empty payload when portfolio is not provisioned', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const response = await withSession(request(app).get('/api/portfolio/demo'));
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, {});
+  await closeApp(app);
 });
 
 test('GET /api/portfolio/:id requires a desktop session token header', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const response = await request(app).get('/api/portfolio/demo');
   assert.equal(response.status, 401);
   assert.equal(response.body.error, 'NO_SESSION_TOKEN');
+  await closeApp(app);
 });
 
 test('POST /api/portfolio/:id requires a desktop session token header', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const response = await request(app)
     .post('/api/portfolio/no_auth')
     .send({ transactions: [] });
   assert.equal(response.status, 401);
   assert.equal(response.body.error, 'NO_SESSION_TOKEN');
+  await closeApp(app);
 });
 
 test('POST /api/portfolio/:id persists validated portfolio payloads', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const payload = {
     transactions: [
       {
@@ -130,10 +129,11 @@ test('POST /api/portfolio/:id persists validated portfolio payloads', async () =
     },
     autoClip: false,
   });
+  await closeApp(app);
 });
 
 test('GET /api/portfolio/:id rejects invalid session tokens after provisioning', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   await withSession(
     request(app)
       .post('/api/portfolio/auth_check')
@@ -146,10 +146,11 @@ test('GET /api/portfolio/:id rejects invalid session tokens after provisioning',
   );
   assert.equal(response.status, 403);
   assert.equal(response.body.error, 'INVALID_SESSION_TOKEN');
+  await closeApp(app);
 });
 
 test('POST /api/portfolio/:id rejects oversells when autoClip is disabled', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const payload = {
     transactions: [
       {
@@ -185,10 +186,11 @@ test('POST /api/portfolio/:id rejects oversells when autoClip is disabled', asyn
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'E_OVERSELL');
+  await closeApp(app);
 });
 
 test('POST /api/portfolio/:id clips oversells when autoClip is enabled', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const payload = {
     transactions: [
       {
@@ -239,10 +241,11 @@ test('POST /api/portfolio/:id clips oversells when autoClip is enabled', async (
   assert.equal(saved.settings.autoClip, true);
   assert.ok(sell.metadata?.system?.oversell_clipped);
   assert.equal(sell.metadata.system.oversell_clipped.delivered_shares, 20);
+  await closeApp(app);
 });
 
 test('POST /api/portfolio/:id rejects duplicate transaction uids with a 409', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const portfolioId = 'dedupe';
   const payload = {
     transactions: [
@@ -279,10 +282,11 @@ test('POST /api/portfolio/:id rejects duplicate transaction uids with a 409', as
 
   const saved = await readPersistedPortfolio(portfolioId);
   assert.equal(saved, null);
+  await closeApp(app);
 });
 
 test('concurrent POST requests to the same portfolio remain consistent', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const id = 'race';
   const payloads = Array.from({ length: 6 }, (_, index) => ({
     transactions: [
@@ -309,10 +313,11 @@ test('concurrent POST requests to the same portfolio remain consistent', async (
     payloads.some((payload) => payload.transactions[0].amount === savedAmount),
     'final write must match one of the submitted payloads',
   );
+  await closeApp(app);
 });
 
 test('rejects invalid portfolio identifiers to prevent path traversal', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const response = await request(app).get(
     '/api/portfolio/%2E%2E%2F%2E%2E%2Fetc%2Fpasswd',
   );
@@ -320,10 +325,11 @@ test('rejects invalid portfolio identifiers to prevent path traversal', async ()
   assert.equal(response.body.error, 'VALIDATION_ERROR');
   assert.ok(Array.isArray(response.body.details));
   assert.equal(response.body.details[0]?.path?.[0], undefined);
+  await closeApp(app);
 });
 
 test('rejects non-object portfolio payloads', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const response = await withSession(
     request(app)
       .post('/api/portfolio/invalid_payload')
@@ -332,6 +338,7 @@ test('rejects non-object portfolio payloads', async () => {
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');
   assert.ok(Array.isArray(response.body.details));
+  await closeApp(app);
 });
 
 test('GET /api/prices/:symbol returns parsed historical data', async () => {
@@ -341,17 +348,19 @@ test('GET /api/prices/:symbol returns parsed historical data', async () => {
     ok: true,
     text: async () => csv,
   });
-  const app = createSessionTestApp({ dataDir, logger: noopLogger, fetchImpl });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger, fetchImpl });
   const response = await request(app).get('/api/prices/AAPL');
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, [{ date: today, close: 123.45 }]);
+  await closeApp(app);
 });
 
 test('GET /api/prices/:symbol rejects invalid symbol input', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const response = await request(app).get('/api/prices/INVALID!');
   assert.equal(response.status, 400);
   assert.deepEqual(response.body, { error: 'INVALID_SYMBOL', message: 'Invalid symbol.' });
+  await closeApp(app);
 });
 
 test('GET /api/prices/:symbol handles upstream fetch failures', async () => {
@@ -359,13 +368,14 @@ test('GET /api/prices/:symbol handles upstream fetch failures', async () => {
     ok: false,
     text: async () => '',
   });
-  const app = createSessionTestApp({ dataDir, logger: noopLogger, fetchImpl });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger, fetchImpl });
   const response = await request(app).get('/api/prices/AAPL');
   assert.equal(response.status, 502);
   assert.deepEqual(response.body, {
     error: 'PRICE_FETCH_FAILED',
     message: 'Failed to fetch historical prices.',
   });
+  await closeApp(app);
 });
 
 test('isValidPortfolioId accepts generated safe identifiers', () => {
@@ -561,7 +571,7 @@ test('different dates are sorted chronologically first', () => {
 });
 
 test('POST /api/portfolio/:id assigns deterministic metadata fields', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const id = 'metadata_fields';
   const payload = {
     transactions: [
@@ -613,4 +623,5 @@ test('POST /api/portfolio/:id assigns deterministic metadata fields', async () =
   for (let index = 1; index < seqs.length; index += 1) {
     assert.equal(seqs[index], seqs[index - 1] + 1);
   }
+  await closeApp(app);
 });
