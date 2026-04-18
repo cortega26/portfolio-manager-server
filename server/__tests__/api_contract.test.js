@@ -8,12 +8,12 @@ import { tmpdir } from 'node:os';
 import SwaggerParser from '@apidevtools/swagger-parser';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import request from 'supertest';
+import pino from 'pino';
 
-import { createApp } from '../app.js';
 import JsonTableStorage from '../data/storage.js';
+import { buildFastifyApp, request } from './helpers/fastifyTestApp.js';
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const noopLogger = pino({ level: 'silent' });
 const API_PREFIXES = ['/api', '/api/v1'];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -66,8 +66,8 @@ beforeEach(async () => {
   await storage.ensureTable('nav_snapshots', []);
   await storage.ensureTable('prices', []);
   await storage.ensureTable('roi_daily', []);
-  buildApp = (overrides = {}) =>
-    createApp({
+  buildApp = async (overrides = {}) =>
+    buildFastifyApp({
       dataDir,
       logger: noopLogger,
       config: { featureFlags: { cashBenchmarks: true }, cors: { allowedOrigins: [] } },
@@ -101,7 +101,7 @@ for (const basePath of API_PREFIXES) {
       },
     ]);
 
-    const app = buildApp();
+    const app = await buildApp();
     const response = await request(app).get(
       `${basePath}/returns/daily?from=2024-01-01&to=2024-01-02&views=port,excash,spy,bench`,
     );
@@ -128,7 +128,7 @@ for (const basePath of API_PREFIXES) {
       },
     };
 
-    const app = buildApp({
+    const app = await buildApp({
       priceProvider,
       config: {
         featureFlags: { cashBenchmarks: true },
@@ -193,7 +193,7 @@ for (const basePath of API_PREFIXES) {
       },
     ]);
 
-    const app = buildApp();
+    const app = await buildApp();
     const response = await request(app).get(
       `${basePath}/roi/daily?from=2024-01-01&to=2024-01-02`,
     );
@@ -206,7 +206,7 @@ for (const basePath of API_PREFIXES) {
 
 for (const basePath of API_PREFIXES) {
   test(`GET ${basePath}/benchmarks matches the OpenAPI contract`, async () => {
-    const app = buildApp({
+    const app = await buildApp({
       config: {
         featureFlags: { cashBenchmarks: true },
         cors: { allowedOrigins: [] },
@@ -249,7 +249,7 @@ for (const basePath of API_PREFIXES) {
       },
     ]);
 
-    const app = buildApp();
+    const app = await buildApp();
     const response = await request(app).get(`${basePath}/nav/daily?from=2024-01-01&to=2024-01-02`);
 
     assert.equal(response.status, 200);
@@ -308,7 +308,7 @@ for (const basePath of API_PREFIXES) {
       { ticker: 'QQQ', date: '2024-01-02', adj_close: 204 },
     ]);
 
-    const app = buildApp();
+    const app = await buildApp();
     const response = await request(app).get(
       `${basePath}/benchmarks/summary?from=2024-01-01&to=2024-01-02`,
     );
@@ -335,7 +335,7 @@ for (const basePath of API_PREFIXES) {
       },
     };
 
-    const app = buildApp({
+    const app = await buildApp({
       priceProvider,
       config: {
         featureFlags: { cashBenchmarks: true },
@@ -367,7 +367,7 @@ for (const basePath of API_PREFIXES) {
       },
     };
 
-    const app = buildApp({
+    const app = await buildApp({
       priceProvider,
       config: {
         featureFlags: { cashBenchmarks: true },

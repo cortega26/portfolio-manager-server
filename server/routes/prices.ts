@@ -9,6 +9,58 @@ import { isoDateSchema, tickerSchema } from './_schemas.js';
 
 const MAX_BULK_PRICE_SYMBOLS = 64;
 
+function normalizePricingStatusSummary(
+  symbolMeta: Record<string, unknown>,
+  errors: Record<string, unknown>,
+): Record<string, unknown> {
+  const summary: {
+    status: string;
+    liveSymbols: string[];
+    eodSymbols: string[];
+    cacheSymbols: string[];
+    degradedSymbols: string[];
+    unavailableSymbols: string[];
+  } = {
+    status: 'unavailable',
+    liveSymbols: [],
+    eodSymbols: [],
+    cacheSymbols: [],
+    degradedSymbols: [],
+    unavailableSymbols: [],
+  };
+
+  for (const [symbol, meta] of Object.entries(symbolMeta)) {
+    const status = typeof (meta as Record<string, unknown>)?.['status'] === 'string'
+      ? (meta as Record<string, string>)['status']
+      : 'unavailable';
+    if (status === 'live') { summary.liveSymbols.push(symbol); continue; }
+    if (status === 'eod_fresh') { summary.eodSymbols.push(symbol); continue; }
+    if (status === 'cache_fresh') { summary.cacheSymbols.push(symbol); continue; }
+    if (status === 'degraded') { summary.degradedSymbols.push(symbol); continue; }
+    summary.unavailableSymbols.push(symbol);
+  }
+
+  for (const symbol of Object.keys(errors)) {
+    if (!summary.unavailableSymbols.includes(symbol)) {
+      summary.unavailableSymbols.push(symbol);
+    }
+  }
+
+  if (summary.unavailableSymbols.length > 0) {
+    summary.status = 'unavailable';
+  } else if (summary.degradedSymbols.length > 0) {
+    summary.status = 'degraded';
+  } else if (summary.liveSymbols.length > 0) {
+    summary.status = 'live';
+  } else if (summary.eodSymbols.length > 0) {
+    summary.status = 'eod_fresh';
+  } else if (summary.cacheSymbols.length > 0) {
+    summary.status = 'cache_fresh';
+  }
+
+  return summary;
+}
+
 export interface HistoricalPriceLoader {
   fetchSeries(
     symbol: string,
@@ -34,8 +86,6 @@ const PricePointSchema = z.object({
   date: z.string(),
   close: z.number(),
 });
-
-const PricesResponseSchema = z.array(PricePointSchema);
 
 const PriceBulkResponseSchema = z.object({
   series: z.record(z.string(), z.array(PricePointSchema)),
@@ -143,6 +193,11 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
               message: 'Historical prices are stale for this symbol.',
             };
             series[symbol] = [];
+            symbolMeta[symbol] = {
+              status: 'unavailable',
+              source: (result.resolution as Record<string, unknown>)?.['source'] ?? 'none',
+              warnings: ['PERSISTED_CLOSE_STALE_REJECTED'],
+            };
           } else {
             series[symbol] = prices.map((p) => ({
               date: p.date,
@@ -174,7 +229,7 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
       return {
         series,
         errors,
-        metadata: { cache: cacheMeta, etags: etagMeta, symbols: symbolMeta, summary: null },
+        metadata: { cache: cacheMeta, etags: etagMeta, symbols: symbolMeta, summary: normalizePricingStatusSummary(symbolMeta, errors) },
       };
     },
   );
@@ -184,7 +239,7 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
     '/prices/:symbol',
     {
       schema: {
-        params: z.object({ symbol: tickerSchema }),
+        params: z.object({ symbol: z.string() }),
         querystring: z.object({
           range: z.string().optional(),
           from: isoDateSchema.optional(),
@@ -192,13 +247,15 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
           latest: z.string().optional(),
           adjusted: z.coerce.boolean().default(true),
         }),
-        response: {
-          200: PricesResponseSchema,
-        },
       },
     },
     async (request, reply) => {
-      const { symbol } = request.params;
+      const { symbol: rawSymbol } = request.params;
+      const symbolResult = tickerSchema.safeParse(rawSymbol);
+      if (!symbolResult.success) {
+        return reply.code(400).send({ error: 'INVALID_SYMBOL', message: 'Invalid symbol.' });
+      }
+      const symbol = symbolResult.data;
       const { range, latest } = request.query;
       const latestOnly = latest === '1' || latest === 'true';
 
@@ -208,12 +265,8 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
           range: range ?? '1y',
           latestOnly,
         });
-      } catch (error) {
-        const err = error as { code?: string; statusCode?: number; message?: string };
-        throw Object.assign(
-          new Error(err.message ?? 'Failed to fetch historical prices.'),
-          { statusCode: err.statusCode ?? 502, code: err.code ?? 'PRICE_FETCH_FAILED' },
-        );
+      } catch {
+        return reply.code(502).send({ error: 'PRICE_FETCH_FAILED', message: 'Failed to fetch historical prices.' });
       }
 
       const { prices, etag, cacheHit } = result;
@@ -221,10 +274,8 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
       const tradingDayAge = computeTradingDayAge(latestDate);
 
       if (!latestDate || tradingDayAge > maxStaleTradingDays) {
-        throw Object.assign(
-          new Error('Historical prices are stale for this symbol.'),
-          { statusCode: 503, code: 'STALE_DATA' },
-        );
+        // Return bare { error: 'STALE_DATA' } to match Express contract (no message field)
+        return reply.code(503).send({ error: 'STALE_DATA' });
       }
 
       const clientETag = request.headers['if-none-match'];

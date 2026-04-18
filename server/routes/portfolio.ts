@@ -7,6 +7,9 @@ import type { FastifyPluginOptions } from 'fastify';
 import { portfolioIdSchema, paginationSchema, isoDateSchema, transactionTypeSchema, cashRateSchema, portfolioBodySchema } from './_schemas.js';
 import { withLock } from '../utils/locks.js';
 import { readPortfolioState, writePortfolioState } from '../data/portfolioState.js';
+import { ensureTransactionUids, enforceNonNegativeCash, enforceOversellPolicy } from '../services/portfolioTransactions.js';
+import { listPortfolioSignalNotifications } from '../services/signalNotifications.js';
+import { requeueSignalNotificationEmailDelivery } from '../services/signalNotificationEmail.js';
 
 // Minimal storage interface used by this route
 export interface StorageAdapter {
@@ -22,6 +25,7 @@ export interface PortfolioRouteContext extends FastifyPluginOptions {
     featureFlags: { cashBenchmarks: boolean };
     cache: { ttlSeconds: number };
   };
+  analyticsCache?: { flush(): void };
 }
 
 // ── Response schemas ─────────────────────────────────────────────────────────
@@ -72,7 +76,7 @@ function paginateRows<T>(rows: T[], { page = 1, perPage = 50 }: { page?: number;
 // ── Route plugin ─────────────────────────────────────────────────────────────
 
 const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app, opts) => {
-  const { getStorage } = opts;
+  const { getStorage, analyticsCache } = opts;
 
   // ── GET /portfolio/:id ───────────────────────────────────────────────────
   app.get(
@@ -114,17 +118,61 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
     async (request, reply) => {
       const { id } = request.params;
       const payload = request.body;
+      const autoClip = Boolean((payload.settings as Record<string, unknown> | undefined)?.['autoClip']);
+      const logger = {
+        info: (msg: string, meta?: object) => app.log.info({ ...(meta as Record<string, unknown>) }, msg),
+        warn: (msg: string, meta?: object) => app.log.warn({ ...(meta as Record<string, unknown>) }, msg),
+      };
+
+      let normalizedTransactions: object[];
+      try {
+        normalizedTransactions = ensureTransactionUids(payload.transactions ?? [], id, logger);
+      } catch (error) {
+        const err = error as { statusCode?: number; code?: string; message?: string; details?: unknown };
+        (reply as unknown as { code(n: number): { send(v: unknown): void } }).code(err.statusCode ?? 400).send({
+          error: err.code ?? 'VALIDATION_ERROR',
+          message: err.message ?? 'Validation failed',
+          ...(err.details !== undefined ? { details: err.details } : {}),
+        });
+        return reply;
+      }
+
+      try {
+        enforceOversellPolicy(normalizedTransactions, { portfolioId: id, autoClip, logger });
+        enforceNonNegativeCash(normalizedTransactions, { portfolioId: id, logger });
+      } catch (error) {
+        const err = error as { statusCode?: number; code?: string; message?: string; details?: unknown };
+        (reply as unknown as { code(n: number): { send(v: unknown): void } }).code(err.statusCode ?? 400).send({
+          error: err.code ?? 'VALIDATION_ERROR',
+          message: err.message ?? 'Validation failed',
+          ...(err.details !== undefined ? { details: err.details } : {}),
+        });
+        return reply;
+      }
+
+      const cashCurrency =
+        typeof (payload.cash as Record<string, unknown> | undefined)?.['currency'] === 'string'
+          ? (payload.cash as Record<string, unknown>)['currency'] as string
+          : 'USD';
+      const cashTimeline = Array.isArray((payload.cash as Record<string, unknown> | undefined)?.['apyTimeline'])
+        ? ((payload.cash as Record<string, unknown>)['apyTimeline'] as Record<string, unknown>[]).map((entry) => ({
+            from: entry['from'],
+            to: entry['to'] ?? null,
+            apy: Number(entry['apy']),
+          }))
+        : [];
 
       await withLock(`portfolio:${id}`, async () => {
         const storage = await getStorage();
         await writePortfolioState(storage, id, {
-          transactions: payload.transactions ?? [],
-          signals: payload.signals ?? {},
-          settings: payload.settings,
-          cash: payload.cash ?? { currency: 'USD', apyTimeline: [] },
+          transactions: normalizedTransactions,
+          signals: (payload.signals as Record<string, unknown>) ?? {},
+          settings: payload.settings as Record<string, unknown> | undefined,
+          cash: { currency: cashCurrency, apyTimeline: cashTimeline },
         });
       });
 
+      analyticsCache?.flush();
       return reply.code(200).send({ status: 'ok' });
     },
   );
@@ -372,6 +420,51 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       });
 
       return reply.code(200).send({ status: 'ok' });
+    },
+  );
+
+  // ── GET /portfolio/:id/signal-notifications ───────────────────────────────
+  app.get(
+    '/portfolio/:id/signal-notifications',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        querystring: z.object({ limit: z.coerce.number().int().positive().optional() }),
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { limit } = request.query;
+      const storage = await getStorage();
+      const data = await listPortfolioSignalNotifications(storage, id, { limit });
+      return reply.code(200).send({ data });
+    },
+  );
+
+  // ── POST /portfolio/:id/signal-notifications/:notificationId/requeue-email ─
+  app.post(
+    '/portfolio/:id/signal-notifications/:notificationId/requeue-email',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema, notificationId: z.string().min(1) }),
+      },
+    },
+    async (request, reply) => {
+      const { id, notificationId } = request.params;
+      const storage = await getStorage();
+      const result = await (requeueSignalNotificationEmailDelivery as (opts: {
+        storage: unknown; portfolioId: string; notificationId: string;
+      }) => Promise<{ changed: boolean; reason: string; notification: unknown } | null>)({
+        storage,
+        portfolioId: id,
+        notificationId,
+      });
+      if (!result) {
+        return reply.code(404).send({ error: 'SIGNAL_NOTIFICATION_NOT_FOUND', message: 'Signal notification not found.' });
+      }
+      return reply.code(200).send({ status: 'ok', changed: result.changed, reason: result.reason, data: result.notification });
     },
   );
 };

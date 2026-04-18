@@ -3,14 +3,13 @@ import { afterEach, beforeEach, test } from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import request from 'supertest';
+import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestApp.js';
 
 import JsonTableStorage from '../data/storage.js';
 import { writePortfolioState } from '../data/portfolioState.js';
 import { runDailyClose } from '../jobs/daily_close.js';
-import { createApp } from '../app.js';
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const noopLogger = { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {}, child() { return this; } };
 
 class FakePriceProvider {
   constructor(pricesBySymbol) {
@@ -560,7 +559,7 @@ test('API endpoints expose computed series', async () => {
     priceProvider: provider,
   });
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: { featureFlags: { cashBenchmarks: true } },
@@ -601,6 +600,7 @@ test('API endpoints expose computed series', async () => {
     .post('/api/admin/cash-rate')
     .send({ effective_date: '2024-01-15', apy: 0.04 });
   assert.equal(postRate.status, 200);
+  await closeApp(app);
 });
 
 test('returns endpoint auto-repairs historical rows when returns tables are empty', async () => {
@@ -633,7 +633,7 @@ test('returns endpoint auto-repairs historical rows when returns tables are empt
     ],
   });
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     priceProvider: provider,
@@ -652,6 +652,7 @@ test('returns endpoint auto-repairs historical rows when returns tables are empt
   const navSnapshots = await storage.readTable('nav_snapshots');
   assert.ok(returns.length > 0);
   assert.ok(navSnapshots.length > 0);
+  await closeApp(app);
 });
 
 test('roi endpoint repairs missing canonical benchmark returns even when imported roi rows already exist', async () => {
@@ -703,7 +704,7 @@ test('roi endpoint repairs missing canonical benchmark returns even when importe
     ],
   });
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     priceProvider: provider,
@@ -730,6 +731,7 @@ test('roi endpoint repairs missing canonical benchmark returns even when importe
   assert.ok(desktopReturns.every((row) => Number.isFinite(row.r_spy_100)));
   assert.ok(desktopReturns.every((row) => Number.isFinite(row.r_qqq_100)));
   assert.ok(desktopReturns.every((row) => Number.isFinite(row.r_bench_blended)));
+  await closeApp(app);
 });
 
 test('roi endpoint repairs legacy flat-zero qqq benchmark rows when QQQ price history moved', async () => {
@@ -798,7 +800,7 @@ test('roi endpoint repairs legacy flat-zero qqq benchmark rows when QQQ price hi
     { ticker: 'QQQ', date: '2024-01-02', adj_close: 205, updated_at: '2024-01-03T00:00:00.000Z' },
   ]);
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     config: { featureFlags: { cashBenchmarks: true } },
@@ -814,6 +816,7 @@ test('roi endpoint repairs legacy flat-zero qqq benchmark rows when QQQ price hi
   const repairedReturns = await storage.readTable('returns_daily');
   const desktopReturns = repairedReturns.filter((row) => row.portfolio_id === 'desktop');
   assert.ok(desktopReturns.some((row) => Math.abs(Number(row.r_qqq_100)) > 1e-8));
+  await closeApp(app);
 });
 
 test('roi endpoint repairs legacy inception returns that still start below zero on day zero', async () => {
@@ -890,7 +893,7 @@ test('roi endpoint repairs legacy inception returns that still start below zero 
     ],
   });
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     priceProvider: provider,
@@ -912,6 +915,7 @@ test('roi endpoint repairs legacy inception returns that still start below zero 
   );
   assert.equal(firstReturn?.r_port ?? null, 0);
   assert.equal(firstReturn?.r_ex_cash ?? null, 0);
+  await closeApp(app);
 });
 
 test('historical repair keeps portfolio dates even when SPY history ends earlier', async () => {
@@ -938,7 +942,7 @@ test('historical repair keeps portfolio dates even when SPY history ends earlier
     ],
   });
 
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     priceProvider: provider,
@@ -960,6 +964,7 @@ test('historical repair keeps portfolio dates even when SPY history ends earlier
   const navSnapshots = await storage.readTable('nav_snapshots');
   const repairedDates = navSnapshots.map((row) => row.date).sort();
   assert.ok(repairedDates.includes('2024-01-03'));
+  await closeApp(app);
 });
 
 test('stale prices set flag when latest close missing', async () => {

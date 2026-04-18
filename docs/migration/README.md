@@ -56,6 +56,79 @@ docs/migration/
 
 ---
 
+## Políticas de calidad (rendimiento y robustez)
+
+Estas políticas aplican a **todas las fases**. Una tarea que las incumpla no puede marcarse `[x]`.
+
+### Política DB Write (robustez)
+
+> **Todo handler que realice más de una mutación SQLite debe usar `db.transaction()`.**
+
+Ninguna ruta puede emitir dos o más sentencias `INSERT`/`UPDATE`/`DELETE` sin envolverlas en una transacción explícita. El incumplimiento puede dejar la base de datos en estado inconsistente en caso de error a mitad de la operación (p.ej. importación de CSV, creación de portafolio con PIN inicial, escritura de `nav_snapshots`).
+
+```typescript
+// correcto
+const upsert = db.transaction((rows: TxRow[]) => {
+  for (const row of rows) {
+    insertTx.run(row);
+  }
+});
+upsert(rows);
+
+// incorrecto — sin transacción
+for (const row of rows) {
+  db.prepare('INSERT INTO transactions ...').run(row); // ← riesgo de escritura parcial
+}
+```
+
+### Política Job Isolation (robustez)
+
+> **Todo job en `server/jobs/` debe atrapar sus propios errores. Ninguna excepción puede propagarse hacia la capa HTTP.**
+
+Los jobs de fondo (scheduler nocturno, backfill CLI, `daily_close`) son disparados desde el servidor pero no deben derribarlo. Cada job debe envolver su cuerpo en `try/catch`, emitir un log estructurado con `{ err }` y retornar sin relanzar.
+
+```typescript
+// correcto
+async function runDailyClose(db: Database, config: ServerConfig): Promise<void> {
+  try {
+    await computeAndPersist(db, config);
+  } catch (err: unknown) {
+    logger.error({ err }, 'daily_close failed — skipping this run');
+    // no re-throw
+  }
+}
+
+// incorrecto — la excepción se propaga al caller HTTP
+async function runDailyClose(db: Database, config: ServerConfig): Promise<void> {
+  await computeAndPersist(db, config); // ← puede tirar hacia arriba
+}
+```
+
+### Política de Serialización (rendimiento)
+
+> **Toda ruta Fastify debe declarar un `response` schema Zod. Las rutas sin schema de respuesta se consideran incompletas.**
+
+`fastify-type-provider-zod` activa `fast-json-stringify` cuando el schema de respuesta está presente, eliminando la serialización genérica de V8. En una app con precios y holdings (arrays de cientos de objetos), esto reduce el tiempo de serialización en un 2–5×. El schema de respuesta también actúa como contrato documentado del output.
+
+```typescript
+// correcto
+fastify.get('/api/portfolio/:id', {
+  schema: {
+    params: z.object({ id: z.string() }),
+    response: { 200: PortfolioStateSchema },
+  },
+  handler: async (req) => { ... },
+});
+
+// incorrecto — sin schema de respuesta
+fastify.get('/api/portfolio/:id', {
+  schema: { params: z.object({ id: z.string() }) }, // ← falta response
+  handler: async (req) => { ... },
+});
+```
+
+---
+
 ## Gate de Go/No-Go (antes de cada fase)
 
 Verificar siempre antes de iniciar una nueva fase:

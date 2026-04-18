@@ -4,19 +4,17 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { promises as fsPromises } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import request from 'supertest';
+import pino from 'pino';
 
 import { JsonTableStorage } from '../data/storage.js';
 import { readPortfolioState } from '../data/portfolioState.js';
 import { atomicWriteFile } from '../utils/atomicStore.js';
 import { portfolioBodySchema } from '../middleware/validation.js';
-import { createSessionTestApp, withSession } from './sessionTestUtils.js';
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
-const noopLogger = {
-  info() {},
-  warn() {},
-  error() {},
-};
+const silentLogger = pino({ level: 'silent' });
+
+const tableName = 'test_concurrent_writes';
 
 let dataDir;
 
@@ -29,8 +27,7 @@ afterEach(() => {
 });
 
 test('JsonTableStorage serializes Promise.all writes without corrupting the SQLite-backed table', async () => {
-  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
-  const tableName = 'portfolio_serialized';
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
   const payloads = Array.from({ length: 24 }, (_, index) => [
     {
       id: `row-${index}-a`,
@@ -63,7 +60,7 @@ test('JsonTableStorage serializes Promise.all writes without corrupting the SQLi
 });
 
 test('API writes remain atomic and JSON-parseable under Promise.all load', async () => {
-  const app = createSessionTestApp({ dataDir, logger: noopLogger });
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
   const portfolioId = 'stress';
   const payloads = Array.from({ length: 16 }, (_, index) => ({
     transactions: [
@@ -97,7 +94,7 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
     assert.deepEqual(response.body, { status: 'ok' });
   }
 
-  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
   const saved = await readPortfolioState(storage, portfolioId);
 
   const sanitized = {
@@ -134,6 +131,7 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
   assert.equal(matches, true, 'final portfolio JSON should match one submitted payload');
   assert.ok(Array.isArray(saved.transactions));
   assert.equal(typeof saved.settings?.autoClip, 'boolean');
+  await closeApp(app);
 });
 
 test('atomicWriteFile preserves previous content when rename fails mid-write', async () => {

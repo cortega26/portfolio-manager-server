@@ -15,13 +15,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 
-import request from "supertest";
+import pino from "pino";
 
 import JsonTableStorage from "../data/storage.js";
 import { flushPriceCache } from "../cache/priceCache.js";
-import { createSessionTestApp, withSession } from "./sessionTestUtils.js";
+import { createSessionTestApp, withSession, closeApp, request } from "./helpers/fastifyTestApp.js";
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const silentLogger = pino({ level: 'silent' });
 
 // A price provider that always throws — simulates a provider outage
 class FailingPriceProvider {
@@ -35,7 +35,7 @@ let storage;
 
 beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), "roi-degradation-"));
-  storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  storage = new JsonTableStorage({ dataDir, logger: silentLogger });
   await storage.ensureTable("transactions", []);
   await storage.ensureTable("roi_daily", []);
   await storage.ensureTable("returns_daily", []);
@@ -44,7 +44,7 @@ beforeEach(async () => {
   flushPriceCache();
 });
 
-afterEach(() => {
+afterEach(async () => {
   flushPriceCache();
   rmSync(dataDir, { recursive: true, force: true });
 });
@@ -81,15 +81,16 @@ test("roi/daily returns 200 with existing data when rebuild fails due to provide
     ["date"],
   );
 
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     priceProvider: new FailingPriceProvider(),
   });
 
   const response = await withSession(
     request(app).get(`/api/roi/daily?from=${txDate}`),
   );
+  await closeApp(app);
 
   // Must not return 503 — existing ROI data should be served gracefully
   assert.equal(response.status, 200, `Expected 200 but got ${response.status}: ${JSON.stringify(response.body)}`);
@@ -120,15 +121,16 @@ test("roi/daily still returns 503 when rebuild fails AND no existing roi rows ex
     ["id"],
   );
 
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     priceProvider: new FailingPriceProvider(),
   });
 
   const response = await withSession(
     request(app).get(`/api/roi/daily?from=${txDate}`),
   );
+  await closeApp(app);
 
   // With no existing data AND failing provider, 503 is the correct behaviour
   assert.equal(response.status, 503, `Expected 503 but got ${response.status}`);

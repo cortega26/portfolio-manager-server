@@ -19,7 +19,7 @@
     "import:csv": "node scripts/import-csv-portfolio.mjs",
     "server": "node server/index.js",
     "lint": "eslint . --max-warnings=0",
-    "test": "npm run test:node && vitest run",
+    "test": "npm run test:node && vitest run --coverage=false",
     "test:node": "node --enable-source-maps tools/run-tests.mjs --no-coverage",
     "test:node:coverage": "node --enable-source-maps tools/run-tests.mjs",
     "test:fast": "vitest run --coverage=false --reporter=dot",

@@ -4,11 +4,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'path';
 import { tmpdir } from 'node:os';
 
-import request from 'supertest';
+import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestApp.js';
 
-import { createApp } from '../app.js';
-
-const noopLogger = { info() {}, warn() {}, error() {} };
+const noopLogger = { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {}, child() { return this; } };
 
 class LargePriceProvider {
   constructor(rowCount) {
@@ -38,24 +36,16 @@ afterEach(() => {
 });
 
 function buildApp(overrides = {}) {
-  return createApp({
+  return createSessionTestApp({
     dataDir,
     logger: noopLogger,
     priceProvider: overrides.priceProvider,
-    config: {
-      featureFlags: { cashBenchmarks: true },
-      cors: { allowedOrigins: [] },
-      cache: {
-        ttlSeconds: 600,
-        price: { ttlSeconds: 600, checkPeriodSeconds: 120 },
-      },
-    },
   });
 }
 
 test('gzip compression is applied to large JSON responses', async () => {
   const provider = new LargePriceProvider(2000);
-  const app = buildApp({ priceProvider: provider });
+  const app = await buildApp({ priceProvider: provider });
 
   const response = await request(app)
     .get('/api/prices/BIG?range=1y')
@@ -66,11 +56,12 @@ test('gzip compression is applied to large JSON responses', async () => {
   assert.ok(['gzip', 'br'].includes(response.headers['content-encoding']));
   assert.ok(Array.isArray(response.body));
   assert.equal(provider.calls, 1);
+  await closeApp(app);
 });
 
 test('compression can be skipped with x-no-compression header', async () => {
   const provider = new LargePriceProvider(2000);
-  const app = buildApp({ priceProvider: provider });
+  const app = await buildApp({ priceProvider: provider });
 
   const response = await request(app)
     .get('/api/prices/SKIP?range=1y')
@@ -79,10 +70,11 @@ test('compression can be skipped with x-no-compression header', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.headers['content-encoding'], undefined);
+  await closeApp(app);
 });
 
 test('small responses remain uncompressed', async () => {
-  const app = buildApp();
+  const app = await buildApp();
 
   // /api/monitoring returns a small JSON object — ideal for testing that
   // compression is not applied to small payloads.
@@ -90,5 +82,6 @@ test('small responses remain uncompressed', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.headers['content-encoding'], undefined);
+  await closeApp(app);
 });
 

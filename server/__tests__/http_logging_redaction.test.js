@@ -6,19 +6,8 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 
 import pino from 'pino';
-import pinoHttp from 'pino-http';
-import request from 'supertest';
 
-import { createSessionTestApp, withSession } from './sessionTestUtils.js';
-
-const noopLogger = {
-  info() {},
-  warn() {},
-  error() {},
-  child() {
-    return this;
-  },
-};
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
 let dataDir;
 
@@ -32,27 +21,24 @@ afterEach(() => {
 
 test('HTTP logs redact API key and session token headers', async () => {
   const captured = [];
-  const httpLoggerFactory = (options) => {
-    const stream = new Writable({
-      write(chunk, _encoding, callback) {
-        captured.push(chunk.toString());
-        callback();
-      },
-    });
-    const logger = pino(
-      {
-        level: 'info',
-        redact: options.redact,
-      },
-      stream,
-    );
-    return pinoHttp({ ...options, logger });
-  };
+  // In Fastify, pass a custom pino logger instance that writes to our stream
+  const stream = new Writable({
+    write(chunk, _encoding, callback) {
+      captured.push(chunk.toString());
+      callback();
+    },
+  });
+  const captureLogger = pino(
+    {
+      level: 'info',
+      redact: ['req.headers["x-session-token"]', 'req.headers["x-api-key"]'],
+    },
+    stream,
+  );
 
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
-    httpLoggerFactory,
+    logger: captureLogger,
   });
 
   const response = await withSession(
@@ -60,6 +46,7 @@ test('HTTP logs redact API key and session token headers', async () => {
       .get('/api/returns/daily'),
     'DesktopSecret789!',
   );
+  await closeApp(app);
 
   assert.equal(response.status, 200);
 

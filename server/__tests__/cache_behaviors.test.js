@@ -3,16 +3,12 @@ import { afterEach, beforeEach, test } from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import request from 'supertest';
+import pino from 'pino';
 
 import JsonTableStorage from '../data/storage.js';
-import { createSessionTestApp, withSession } from './sessionTestUtils.js';
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
-const noopLogger = {
-  info() {},
-  warn() {},
-  error() {},
-};
+const silentLogger = pino({ level: 'silent' });
 
 const CACHE_TTL_SECONDS = 450;
 
@@ -27,7 +23,7 @@ afterEach(() => {
 });
 
 async function seedReturnsTable(rows) {
-  const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
   await storage.writeTable('returns_daily', rows);
 }
 
@@ -39,9 +35,9 @@ test('GET /api/prices/:symbol caches responses for warm hits and exposes TTL hea
     fetchCount += 1;
     return { ok: true, text: async () => csv };
   };
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl,
     config: {
       cache: {
@@ -65,6 +61,7 @@ test('GET /api/prices/:symbol caches responses for warm hits and exposes TTL hea
   assert.deepEqual(second.body, first.body);
   assert.equal(second.headers['cache-control'], `private, max-age=${CACHE_TTL_SECONDS}`);
   assert.equal(second.headers['x-cache'], 'HIT');
+  await closeApp(app);
 });
 
 test('GET /api/prices/bulk reuses warmed cache for latest-only responses', async () => {
@@ -78,9 +75,9 @@ test('GET /api/prices/bulk reuses warmed cache for latest-only responses', async
     }
     throw new Error('upstream unavailable');
   };
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl,
     config: {
       cache: {
@@ -102,13 +99,14 @@ test('GET /api/prices/bulk reuses warmed cache for latest-only responses', async
   assert.deepEqual(fallback.body.errors, {});
   assert.equal(fallback.body.series.MSFT.length, 1);
   assert.equal(fallback.body.series.MSFT[0].close, 200.12);
+  await closeApp(app);
 });
 
 test('GET /api/prices/bulk uses the configured alpaca latest quote provider for latest-only requests', async () => {
   const today = new Date().toISOString().slice(0, 10);
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     fetchImpl: async (url) => {
       const value = String(url);
       if (value.startsWith('https://data.alpaca.markets/v2/stocks/MSFT/snapshot')) {
@@ -155,6 +153,7 @@ test('GET /api/prices/bulk uses the configured alpaca latest quote provider for 
   assert.equal(response.body.series.MSFT[0].date, today);
   assert.equal(response.body.metadata.symbols.MSFT.provider, 'alpaca');
   assert.equal(response.body.metadata.symbols.MSFT.status, 'live');
+  await closeApp(app);
 });
 
 test('GET /api/returns/daily serves cached payloads even when storage mutates', async () => {
@@ -169,9 +168,9 @@ test('GET /api/returns/daily serves cached payloads even when storage mutates', 
     },
   ];
   await seedReturnsTable(baseRows);
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
   });
 
@@ -192,6 +191,7 @@ test('GET /api/returns/daily serves cached payloads even when storage mutates', 
   const second = await request(app).get('/api/returns/daily');
   assert.equal(second.status, 200);
   assert.deepEqual(second.body, first.body, 'warm cache should ignore storage mutation');
+  await closeApp(app);
 });
 
 test('GET /api/returns/daily negotiates 304 when If-None-Match matches cached ETag', async () => {
@@ -206,9 +206,9 @@ test('GET /api/returns/daily negotiates 304 when If-None-Match matches cached ET
     },
   ];
   await seedReturnsTable(rows);
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
   });
 
@@ -224,6 +224,7 @@ test('GET /api/returns/daily negotiates 304 when If-None-Match matches cached ET
   assert.equal(second.headers.etag, etag);
   assert.equal(second.headers['cache-control'], `private, max-age=${CACHE_TTL_SECONDS}`);
   assert.equal(second.text, '');
+  await closeApp(app);
 });
 
 test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
@@ -238,9 +239,9 @@ test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
     },
   ];
   await seedReturnsTable(initialRows);
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
   });
 
@@ -289,4 +290,5 @@ test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
     updatedRows[0].r_port,
     'portfolio save should flush cached analytics data',
   );
+  await closeApp(app);
 });

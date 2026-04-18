@@ -4,15 +4,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'path';
 import { tmpdir } from 'node:os';
 
-import request from 'supertest';
+import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestApp.js';
 
-import { createApp } from '../app.js';
 import {
   configurePriceCache,
   flushPriceCache,
 } from '../cache/priceCache.js';
 
-const noopLogger = { info() {}, warn() {}, error() {} };
+const noopLogger = { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {}, child() { return this; } };
 
 function todayKey(offsetDays = 0) {
   const date = new Date();
@@ -50,40 +49,38 @@ test('returns cached price on subsequent requests', async () => {
     { date: todayKey(), adjClose: 100 },
     { date: todayKey(1), adjClose: 101 },
   ]);
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     priceProvider: provider,
   });
 
   const first = await request(app)
-    .get('/api/prices/AAPL?range=1y')
-    .set('X-API-Version', 'legacy');
+    .get('/api/prices/AAPL?range=1y');
   assert.equal(first.status, 200);
   assert.equal(first.body.length, 2);
 
   const second = await request(app)
-    .get('/api/prices/AAPL?range=1y')
-    .set('X-API-Version', 'legacy');
+    .get('/api/prices/AAPL?range=1y');
   assert.equal(second.status, 200);
   assert.equal(second.headers['x-cache'], 'HIT');
   assert.equal(second.body.length, 2);
 
   // Ensure provider was called only once due to cache hit
   assert.equal(provider.calls, 1);
+  await closeApp(app);
 });
 
 test('supports conditional requests with ETag', async () => {
   const provider = new StubPriceProvider([{ date: todayKey(), adjClose: 100 }]);
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     priceProvider: provider,
   });
 
   const first = await request(app)
-    .get('/api/prices/AAPL?range=1y')
-    .set('X-API-Version', 'legacy');
+    .get('/api/prices/AAPL?range=1y');
   assert.equal(first.status, 200);
   const etag = first.headers.etag;
   assert.ok(etag);
@@ -92,10 +89,11 @@ test('supports conditional requests with ETag', async () => {
     .get('/api/prices/AAPL?range=1y')
     .set('If-None-Match', etag);
   assert.equal(second.status, 304);
+  await closeApp(app);
 });
 
 test('exposes cache stats endpoint', async () => {
-  const app = createApp({
+  const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
     priceProvider: new StubPriceProvider([{ date: '2024-01-01', adjClose: 100 }]),
@@ -105,4 +103,5 @@ test('exposes cache stats endpoint', async () => {
   assert.equal(stats.status, 200);
   assert.equal(typeof stats.body.hits, 'number');
   assert.equal(typeof stats.body.misses, 'number');
+  await closeApp(app);
 });

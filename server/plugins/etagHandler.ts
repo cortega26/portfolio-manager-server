@@ -9,6 +9,7 @@ declare module 'fastify' {
       request: FastifyRequest,
       reply: FastifyReply,
       payload: unknown,
+      ttlSeconds?: number,
     ) => Promise<void>;
   }
 }
@@ -16,12 +17,15 @@ declare module 'fastify' {
 const etagPlugin: FastifyPluginAsync = async (app) => {
   app.decorate(
     'sendWithEtag',
-    async (request: FastifyRequest, reply: FastifyReply, payload: unknown) => {
+    async (request: FastifyRequest, reply: FastifyReply, payload: unknown, ttlSeconds?: number) => {
       const body = JSON.stringify(payload);
       const etag = `"${createHash('sha256').update(body).digest('hex').slice(0, 16)}"`;
 
       reply.header('ETag', etag);
-      reply.header('Cache-Control', 'private, no-cache');
+      const cacheControl = ttlSeconds != null && ttlSeconds > 0
+        ? `private, max-age=${ttlSeconds}`
+        : 'private, no-cache';
+      reply.header('Cache-Control', cacheControl);
 
       if (request.headers['if-none-match'] === etag) {
         reply.code(304).send();

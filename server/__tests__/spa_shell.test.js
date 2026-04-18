@@ -3,19 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, test } from "node:test";
-import request from "supertest";
+import pino from "pino";
 
 import { startServer } from "../runtime/startServer.js";
-import { createSessionTestApp } from "./sessionTestUtils.js";
+import { createSessionTestApp, closeApp, request } from "./helpers/fastifyTestApp.js";
 
-const noopLogger = {
-  info() {},
-  warn() {},
-  error() {},
-  child() {
-    return this;
-  },
-};
+const silentLogger = pino({ level: 'silent' });
 
 let dataDir;
 let staticDir;
@@ -41,12 +34,13 @@ afterEach(() => {
 });
 
 test("SPA shell serves index fallback without intercepting API routes", async () => {
-  const app = createSessionTestApp({
+  const app = await createSessionTestApp({
     dataDir,
-    logger: noopLogger,
+    logger: silentLogger,
     staticDir,
     spaFallback: true,
   });
+  try {
 
   const rootResponse = await request(app)
     .get("/")
@@ -75,6 +69,9 @@ test("SPA shell serves index fallback without intercepting API routes", async ()
     .get("/missing.js")
     .set("Accept", "*/*")
     .expect(404);
+  } finally {
+    await closeApp(app);
+  }
 });
 
 test("same-origin asset requests remain allowed when SPA shell runs on loopback", async () => {
@@ -89,7 +86,7 @@ test("same-origin asset requests remain allowed when SPA shell runs on loopback"
       cors: { allowedOrigins: [] },
       security: {},
     },
-    logger: noopLogger,
+    logger: silentLogger,
   });
 
   try {
