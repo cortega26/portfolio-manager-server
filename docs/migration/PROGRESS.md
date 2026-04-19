@@ -4,8 +4,8 @@ Actualizar este archivo en tiempo real durante la ejecución.
 Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 **Fecha inicio:** 2026-04-17
-**Última actualización:** 2026-04-18 (Fase 3 completada)
-**Fase actual:** Fase 4 — Cutover
+**Última actualización:** 2026-04-18 (Fase 4 completada)
+**Fase actual:** Fase 5 — Hardening
 
 ---
 
@@ -17,7 +17,7 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 | 1 — Domain types   | [x]    | 2026-04-17   | 2026-04-17 |
 | 2 — Fastify shadow | [x]    | 2026-04-17   | 2026-04-18 |
 | 3 — Test migration | [x]    | 2026-04-18   | 2026-04-18 |
-| 4 — Cutover        | [ ]    |              |            |
+| 4 — Cutover        | [x]    | 2026-04-18   | 2026-04-18 |
 | 5 — Hardening      | [ ]    |              |            |
 
 ---
@@ -190,21 +190,21 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 ## Fase 4 — Cutover
 
-- [ ] 4.1 — Actualizar `server/runtime/startServer.js` → `startServer.ts` (importa `createFastifyApp`)
-- [ ] 4.2 — `npm test` verde
-- [ ] 4.3 — `npm run electron:smoke` — Electron arranca
-- [ ] 4.4 — Verificar manualmente que la UI carga y las rutas responden
-- [ ] 4.5 — `npm uninstall express compression cors helmet`
-- [ ] 4.6 — `npm test` verde (confirmación post-uninstall)
-- [ ] 4.7 — Eliminar `server/app.js`
-- [ ] 4.8 — Eliminar `server/middleware/validation.js`
-- [ ] 4.9 — Eliminar `server/middleware/sessionAuth.js`
-- [ ] 4.10 — Eliminar `server/middleware/requestContext.js`
-- [ ] 4.11 — Eliminar archivos `.js` de dominio que tienen su par `.ts` (finance/, auth/, cache/)
-- [ ] 4.12 — `npm test` verde post-limpieza
-- [ ] 4.13 — `verify:typecheck:server` limpio
-- [ ] 4.14 — `npm run electron:smoke` final
-- [ ] 4.15 — Commit: `feat!: replace express with fastify, remove js domain files`
+- [x] 4.1 — Actualizar `server/runtime/startServer.js` → `startServer.ts` (importa `createFastifyApp`)
+- [x] 4.2 — `npm test` verde
+- [x] 4.3 — `npm run electron:smoke` — Electron arranca
+- [x] 4.4 — Verificar manualmente que la UI carga y las rutas responden (verificado vía smoke automatizado)
+- [x] 4.5 — `npm uninstall express compression cors helmet`
+- [x] 4.6 — `npm test` verde (confirmación post-uninstall) — 350 pass, 0 fail, 1 skip
+- [x] 4.7 — Eliminar `server/app.js`
+- [x] 4.8 — Eliminar `server/middleware/validation.js`
+- [x] 4.9 — Eliminar `server/middleware/sessionAuth.js`
+- [x] 4.10 — Eliminar `server/middleware/requestContext.js`
+- [x] 4.11 — Eliminar archivos `.js` de dominio que tienen su par `.ts` (finance/, auth/, cache/)
+- [x] 4.12 — `npm test` verde post-limpieza — 350 pass, 0 fail, 1 skip
+- [x] 4.13 — `verify:typecheck:server` limpio
+- [x] 4.14 — `npm run electron:smoke` final
+- [x] 4.15 — Commit: `feat!: replace express with fastify, remove js domain files`
 
 ---
 
@@ -232,10 +232,13 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 > Usar esta sección para registrar decisiones, bloqueos y resoluciones encontradas en el camino.
 
-| Fecha      | Fase | Nota                                                                                                                     |
-| ---------- | ---- | ------------------------------------------------------------------------------------------------------------------------ |
-| 2026-04-17 | 2    | `server/routes/analytics.ts` agregado durante migración (TWR + holdings analytics, no estaba en el plan original)        |
-| 2026-04-17 | 2    | `server/services/portfolioTransactions.js` extraído como servicio reutilizable                                           |
-| 2026-04-18 | 3    | Helpers creados como .js (no .ts): tsx/esm loader en `tools/run-tests.mjs` permite importar .ts como .js en node:test    |
-| 2026-04-18 | 3    | Commit fix posterior: nullable market fields en openapi.yaml + signals.ts, normalizeBenchmarkConfig en fastifyTestApp.js |
-| 2026-04-18 | 3    | 2.6b (computeCache) y 2.16a (FetchPolicy) diferidos — no bloquearon Fase 3; se revalúan en Fase 5                        |
+| Fecha      | Fase | Nota                                                                                                                        |
+| ---------- | ---- | --------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-17 | 2    | `server/routes/analytics.ts` agregado durante migración (TWR + holdings analytics, no estaba en el plan original)           |
+| 2026-04-17 | 2    | `server/services/portfolioTransactions.js` extraído como servicio reutilizable                                              |
+| 2026-04-18 | 3    | Helpers creados como .js (no .ts): tsx/esm loader en `tools/run-tests.mjs` permite importar .ts como .js en node:test       |
+| 2026-04-18 | 3    | Commit fix posterior: nullable market fields en openapi.yaml + signals.ts, normalizeBenchmarkConfig en fastifyTestApp.js    |
+| 2026-04-18 | 3    | 2.6b (computeCache) y 2.16a (FetchPolicy) diferidos — no bloquearon Fase 3; se revalúan en Fase 5                           |
+| 2026-04-18 | 4    | Electron requirió `NODE_OPTIONS=--import tsx/esm` en scripts/run-electron.mjs y electron-dev.mjs para resolver .ts vía .js  |
+| 2026-04-18 | 4    | `portfolioBodySchema` movida de middleware/validation.js a routes/\_schemas.ts; `FEE` añadido al enum transactionTypeSchema |
+| 2026-04-18 | 4    | `isValidPortfolioId` exportada desde routes/\_schemas.ts (eliminado import de server/app.js en tests)                       |
