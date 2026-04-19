@@ -79,7 +79,6 @@ async function loadDesktopModules() {
     desktopModulesPromise = Promise.all([
       import('./runtimeConfig.js'),
       import('../server/runtime/startServer.js'),
-      import('../server/middleware/sessionAuth.js'),
       import('../server/migrations/index.js'),
       import('../server/data/portfolioState.js'),
       import('../server/auth/localPinAuth.js'),
@@ -87,14 +86,12 @@ async function loadDesktopModules() {
       ([
         runtimeConfigModule,
         serverRuntimeModule,
-        sessionAuthModule,
         migrationsModule,
         portfolioStateModule,
         localPinAuthModule,
       ]) => ({
         ...runtimeConfigModule,
         ...serverRuntimeModule,
-        ...sessionAuthModule,
         ...migrationsModule,
         ...portfolioStateModule,
         ...localPinAuthModule,

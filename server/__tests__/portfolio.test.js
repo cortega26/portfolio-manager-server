@@ -6,7 +6,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import pino from 'pino';
 
-import { isValidPortfolioId } from '../app.js';
+import { isValidPortfolioId } from '../routes/_schemas.js';
 import { readPortfolioState } from '../data/portfolioState.js';
 import JsonTableStorage from '../data/storage.js';
 import { sortTransactions, sortTransactionsForCashAudit } from '../finance/portfolio.js';

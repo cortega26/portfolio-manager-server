@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { CASH_POLICY_SCHEMA_VERSION, PORTFOLIO_SCHEMA_VERSION } from '../../shared/constants.js';
 import { readPortfolioState, writePortfolioState } from '../data/portfolioState.js';
-import { portfolioBodySchema } from '../middleware/validation.js';
+import { portfolioBodySchema } from '../routes/_schemas.js';
 import { withLock } from '../utils/locks.js';
 import { d, roundDecimal } from '../finance/decimal.js';
 import { sortTransactions } from '../finance/portfolio.js';

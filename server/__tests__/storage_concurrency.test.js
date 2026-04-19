@@ -9,7 +9,7 @@ import pino from 'pino';
 import { JsonTableStorage } from '../data/storage.js';
 import { readPortfolioState } from '../data/portfolioState.js';
 import { atomicWriteFile } from '../utils/atomicStore.js';
-import { portfolioBodySchema } from '../middleware/validation.js';
+import { portfolioBodySchema } from '../routes/_schemas.js';
 import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
 const silentLogger = pino({ level: 'silent' });

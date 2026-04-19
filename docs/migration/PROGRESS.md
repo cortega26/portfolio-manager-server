@@ -4,8 +4,8 @@ Actualizar este archivo en tiempo real durante la ejecución.
 Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 **Fecha inicio:** 2026-04-17
-**Última actualización:** 2026-04-17 (políticas de rendimiento y robustez agregadas)
-**Fase actual:** Fase 1 — completada
+**Última actualización:** 2026-04-18 (Fase 3 completada)
+**Fase actual:** Fase 4 — Cutover
 
 ---
 
@@ -15,8 +15,8 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 | ------------------ | ------ | ------------ | ---------- |
 | 0 — Tooling        | [x]    | 2026-04-17   | 2026-04-17 |
 | 1 — Domain types   | [x]    | 2026-04-17   | 2026-04-17 |
-| 2 — Fastify shadow | [ ]    |              |            |
-| 3 — Test migration | [ ]    |              |            |
+| 2 — Fastify shadow | [x]    | 2026-04-17   | 2026-04-18 |
+| 3 — Test migration | [x]    | 2026-04-18   | 2026-04-18 |
 | 4 — Cutover        | [ ]    |              |            |
 | 5 — Hardening      | [ ]    |              |            |
 
@@ -109,42 +109,42 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 - [x] 2.5 — Crear `server/app.fastify.ts` (factory vacío, sin rutas aún; incluye graceful shutdown: `closeGracefully()` drena requests en vuelo y cierra SQLite antes de exit)
 - [x] 2.6 — `verify:typecheck:server` pasa
 - [x] 2.6a — Crear `server/types/errors.ts` (`AppError`, `NotFoundError`, `ValidationError`, `AuthError`) — dominio de errores unificado para todos los handlers
-- [ ] 2.6b — Crear `server/cache/computeCache.ts` (memoización de `computeDailyStates` y `computeDailyReturnRows` por `portfolioId + lastTxTimestamp`)
+- [~] 2.6b — Crear `server/cache/computeCache.ts` (memoización de `computeDailyStates` y `computeDailyReturnRows` por `portfolioId + lastTxTimestamp`) — **diferido a Fase 5**
 - [x] 2.6c — Configurar `@fastify/compress` con threshold `1024` bytes en `app.fastify.ts` (evitar overhead de gzip en respuestas pequeñas)
 
 ### Rutas — Grupo público (sin auth)
 
 - [x] 2.7 — Crear `server/routes/benchmarks.ts`
-- [ ] 2.8 — Tests de benchmarks pasan contra Fastify
+- [x] 2.8 — Tests de benchmarks pasan contra Fastify
 - [x] 2.9 — Crear `server/routes/cache.ts` (`/api/cache/stats`)
-- [ ] 2.10 — Tests de cache pasan
+- [x] 2.10 — Tests de cache pasan
 - [x] 2.11 — Crear `server/routes/monitoring.ts`
-- [ ] 2.12 — Tests de monitoring pasan
+- [x] 2.12 — Tests de monitoring pasan
 - [x] 2.13 — Crear `server/routes/prices.ts` (`GET /api/prices/:symbol`)
-- [ ] 2.14 — Tests de prices (single) pasan, ETag funciona
+- [x] 2.14 — Tests de prices (single) pasan, ETag funciona
 - [x] 2.15 — Agregar `GET /api/prices/bulk` a `routes/prices.ts`
-- [ ] 2.16 — Tests de bulk prices pasan
-- [ ] 2.16a — Definir `FetchPolicy` en `server/types/providers.ts` (`maxRetries: number`, `backoffMs: number`) y aplicar en el handler de prices (reintentos con backoff exponencial antes de declarar proveedor fallido)
+- [x] 2.16 — Tests de bulk prices pasan
+- [~] 2.16a — Definir `FetchPolicy` en `server/types/providers.ts` (`maxRetries: number`, `backoffMs: number`) y aplicar en el handler de prices — **diferido a Fase 5**
 
 ### Rutas — Portfolio (con auth)
 
 - [x] 2.17 — Crear `server/routes/portfolio.ts` (`GET/POST /api/portfolio/:id`)
-- [ ] 2.18 — Tests de portfolio base pasan
+- [x] 2.18 — Tests de portfolio base pasan
 - [x] 2.19 — Agregar `GET/POST /api/portfolio/:id/transactions`
-- [ ] 2.20 — Tests de transactions pasan, paginación cursor funciona
+- [x] 2.20 — Tests de transactions pasan, paginación cursor funciona
 - [x] 2.21 — Agregar `GET /api/portfolio/:id/performance`
-- [ ] 2.22 — Tests de performance (MWR, drawdown) pasan
+- [x] 2.22 — Tests de performance (MWR, drawdown) pasan
 - [x] 2.23 — Agregar `GET /api/portfolio/:id/holdings`
-- [ ] 2.24 — Tests de holdings pasan
+- [x] 2.24 — Tests de holdings pasan
 - [x] 2.25 — Agregar `GET/POST /api/portfolio/:id/cashRates`
-- [ ] 2.26 — Tests de cashRates pasan
+- [x] 2.26 — Tests de cashRates pasan
 
 ### Rutas — Auth y operaciones
 
 - [x] 2.27 — Crear `server/routes/signals.ts` (`POST /api/signals`)
-- [ ] 2.28 — Tests de signals pasan
+- [x] 2.28 — Tests de signals pasan
 - [x] 2.29 — Crear `server/routes/import.ts` (`POST /api/import/csv`)
-- [ ] 2.30 — Tests de import/csv pasan
+- [x] 2.30 — Tests de import/csv pasan
 
 ### Cierre Fase 2
 
@@ -161,30 +161,30 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 ### Infraestructura de tests
 
-- [ ] 3.1 — Crear `server/__tests__/helpers/fastifyTestApp.ts`
-- [ ] 3.2 — Crear `server/__tests__/helpers/testFixtures.ts` (fixtures reutilizables)
+- [x] 3.1 — Crear `server/__tests__/helpers/fastifyTestApp.js` (en .js — tsx/esm resuelve los imports .ts en runtime)
+- [x] 3.2 — Crear `server/__tests__/helpers/testFixtures.js` (fixtures reutilizables)
 
 ### Migración por grupo
 
-- [ ] 3.3 — Migrar tests de contrato (`api_contract.test.js`)
-- [ ] 3.4 — Migrar tests de validación (`api_validation.test.js`)
-- [ ] 3.5 — Migrar tests de prices (`pricing_resilience.test.js`)
-- [ ] 3.6 — Migrar tests de portfolio
-- [ ] 3.7 — Migrar tests de transactions
-- [ ] 3.8 — Migrar tests de performance
-- [ ] 3.9 — Migrar tests de holdings
-- [ ] 3.10 — Migrar tests de cashRates
-- [ ] 3.11 — Migrar tests de signals
-- [ ] 3.12 — Migrar tests de import
-- [ ] 3.13 — Migrar tests de auth (session, PIN)
-- [ ] 3.14 — Migrar tests de integración (`integration.test.js`)
-- [ ] 3.15 — Migrar resto de tests (finance, decimal, cash, returns)
+- [x] 3.3 — Migrar tests de contrato (`api_contract.test.js`)
+- [x] 3.4 — Migrar tests de validación (`api_validation.test.js`)
+- [x] 3.5 — Migrar tests de prices (`pricing_resilience.test.js`)
+- [x] 3.6 — Migrar tests de portfolio
+- [x] 3.7 — Migrar tests de transactions
+- [x] 3.8 — Migrar tests de performance
+- [x] 3.9 — Migrar tests de holdings
+- [x] 3.10 — Migrar tests de cashRates
+- [x] 3.11 — Migrar tests de signals
+- [x] 3.12 — Migrar tests de import
+- [x] 3.13 — Migrar tests de auth (session, PIN)
+- [x] 3.14 — Migrar tests de integración (`integration.test.js`)
+- [x] 3.15 — Migrar resto de tests (finance, decimal, cash, returns)
 
 ### Cierre Fase 3
 
-- [ ] 3.16 — Los 43 test files pasan contra Fastify
-- [ ] 3.17 — `verify:typecheck:server` limpio
-- [ ] 3.18 — Commit: `test: migrate all 43 backend tests to fastify`
+- [x] 3.16 — 350 pass, 0 fail, 1 skip (51 test files pasan contra Fastify)
+- [x] 3.17 — `verify:typecheck:server` limpio
+- [x] 3.18 — Commit: `test: migrate all backend tests to fastify`
 
 ---
 
@@ -232,6 +232,10 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 > Usar esta sección para registrar decisiones, bloqueos y resoluciones encontradas en el camino.
 
-| Fecha | Fase | Nota |
-| ----- | ---- | ---- |
-|       |      |      |
+| Fecha      | Fase | Nota                                                                                                                     |
+| ---------- | ---- | ------------------------------------------------------------------------------------------------------------------------ |
+| 2026-04-17 | 2    | `server/routes/analytics.ts` agregado durante migración (TWR + holdings analytics, no estaba en el plan original)        |
+| 2026-04-17 | 2    | `server/services/portfolioTransactions.js` extraído como servicio reutilizable                                           |
+| 2026-04-18 | 3    | Helpers creados como .js (no .ts): tsx/esm loader en `tools/run-tests.mjs` permite importar .ts como .js en node:test    |
+| 2026-04-18 | 3    | Commit fix posterior: nullable market fields en openapi.yaml + signals.ts, normalizeBenchmarkConfig en fastifyTestApp.js |
+| 2026-04-18 | 3    | 2.6b (computeCache) y 2.16a (FetchPolicy) diferidos — no bloquearon Fase 3; se revalúan en Fase 5                        |
