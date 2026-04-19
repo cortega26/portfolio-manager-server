@@ -1,17 +1,30 @@
 // server/types/domain.ts
 
+// ── Brand infrastructure ─────────────────────────────────────────────────────
+// Uses a unique symbol so branded types are structurally incompatible with each
+// other and with plain `number`/`string`, while still extending those primitives.
+declare const _brand: unique symbol;
+type Brand<T, B extends string> = T & { readonly [_brand]: B };
+
 /**
  * Tipo nominal para valores monetarios almacenados en centavos.
  * Ejemplo: $10.50 = 1050 Cents
  * NUNCA mezclar directamente con MicroShares en operaciones aritméticas.
  */
-export type Cents = number;
+export type Cents = Brand<number, 'Cents'>;
 
 /**
  * Tipo nominal para posiciones en micro-unidades de participación.
  * 1 share = 1_000_000 MicroShares (precisión de 6 decimales).
  */
-export type MicroShares = number;
+export type MicroShares = Brand<number, 'MicroShares'>;
+
+/**
+ * Tipo nominal para posiciones en nano-unidades de participación.
+ * 1 share = 1_000_000_000 NanoShares (precisión de 9 decimales).
+ * Requerido por el broker Fintual, que opera con resolución de 9 decimales.
+ */
+export type NanoShares = Brand<number, 'NanoShares'>;
 
 /** Fecha en formato ISO 8601: YYYY-MM-DD */
 export type ISODate = string;

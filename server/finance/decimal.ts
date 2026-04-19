@@ -1,7 +1,7 @@
 // server/finance/decimal.ts
 import { Decimal } from 'decimal.js';
 
-import type { Cents, MicroShares } from '../types/domain.js';
+import type { Cents, MicroShares, NanoShares } from '../types/domain.js';
 
 Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
 
@@ -14,14 +14,28 @@ export const roundDecimal = (
 ): Decimal => d(value).toDecimalPlaces(places);
 
 export const toCents = (value: Decimal.Value): Cents =>
-  roundDecimal(d(value).times(100), 0).toNumber();
+  roundDecimal(d(value).times(100), 0).toNumber() as Cents;
 
-export const fromCents = (cents: Cents): Decimal => d(cents).div(100);
+/** Accepts `Cents` or raw `number` (internal arithmetic accumulators are plain `number`). */
+export const fromCents = (cents: number): Decimal => d(cents).div(100);
 
 export const toMicroShares = (value: Decimal.Value): MicroShares =>
-  roundDecimal(d(value).times(1_000_000), 0).toNumber();
+  roundDecimal(d(value).times(1_000_000), 0).toNumber() as MicroShares;
 
-export const fromMicroShares = (microShares: MicroShares): Decimal =>
+/** Accepts `MicroShares` or raw `number` (internal arithmetic accumulators are plain `number`). */
+export const fromMicroShares = (microShares: number): Decimal =>
   d(microShares).div(1_000_000);
+
+/**
+ * Convierte un valor en shares a NanoShares (precisión de 9 decimales).
+ * Requerido por el broker Fintual.
+ * 1 share = 1_000_000_000 NanoShares.
+ */
+export const toNanoShares = (value: Decimal.Value): NanoShares =>
+  roundDecimal(d(value).times(1_000_000_000), 0).toNumber() as NanoShares;
+
+/** Accepts `NanoShares` or raw `number`. */
+export const fromNanoShares = (nanoShares: number): Decimal =>
+  d(nanoShares).div(1_000_000_000);
 
 export const ZERO = d(0);

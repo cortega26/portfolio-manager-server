@@ -235,7 +235,7 @@ export async function startServer({
     logger: appLogger,
     config: resolvedConfig,
     historicalPriceLoader: historicalPriceLoader as HistoricalPriceLoader,
-    staticDir: resolvedStaticDir ?? undefined,
+    ...(resolvedStaticDir != null ? { staticDir: resolvedStaticDir } : {}),
     spaFallback: Boolean(resolvedStaticDir && spaFallback),
     marketClock: getMarketClock,
   });
@@ -244,10 +244,10 @@ export async function startServer({
     scheduleNightlyClose({ config: resolvedConfig, logger: schedulerLogger });
   }
 
-  await app.listen({ port: resolvedPort, host });
+  await app.listen({ port: resolvedPort, ...(host !== undefined ? { host } : {}) });
 
   const address = app.server.address() as AddressInfo | string | null;
-  const baseUrl = getBaseUrl({ address, host });
+  const baseUrl = getBaseUrl({ address, ...(host !== undefined ? { host } : {}) });
 
   rootLogger.info(
     {

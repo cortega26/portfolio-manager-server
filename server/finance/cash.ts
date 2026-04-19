@@ -364,7 +364,7 @@ export function postInterestForDate(
   }
 
   const balance = computeCashBalanceUntil(transactions, dateKey, currency, {
-    portfolioId,
+    portfolioId: portfolioId ?? null,
     includeInterestOnDate: false,
   });
   const apy = resolveApyForDate(timeline, dateKey);
@@ -384,7 +384,7 @@ export function postInterestForDate(
 
   return {
     id: transactionId,
-    portfolio_id: portfolioId ?? undefined,
+    portfolio_id: portfolioId ?? null,
     type: 'INTEREST',
     ticker: 'CASH',
     date: dateKey,
@@ -487,7 +487,7 @@ export async function accrueInterest({
   }
 
   const cashBalance = computeCashBalanceUntil(transactions, dateKey, currency, {
-    portfolioId,
+    portfolioId: portfolioId ?? null,
     includeInterestOnDate: false,
   });
   const apy = resolveApyForDate(timeline, dateKey);
@@ -510,8 +510,8 @@ export async function accrueInterest({
       dateKey,
       interestCents,
       currency,
-      logger,
-      portfolioId,
+      ...(logger !== undefined ? { logger } : {}),
+      ...(portfolioId !== undefined ? { portfolioId } : {}),
     });
   }
 
@@ -520,7 +520,7 @@ export async function accrueInterest({
     : `interest-${dateKey}`;
   const record = {
     id: interestId,
-    portfolio_id: portfolioId ?? undefined,
+    portfolio_id: portfolioId ?? null,
     type: 'INTEREST',
     ticker: 'CASH',
     date: dateKey,

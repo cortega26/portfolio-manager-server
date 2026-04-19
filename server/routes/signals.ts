@@ -1,5 +1,6 @@
 // server/routes/signals.ts
 // POST /api/signals — evaluate signal preview for a portfolio body
+import { z } from 'zod';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import type { FastifyPluginOptions } from 'fastify';
 import { portfolioBodySchema } from './_schemas.js';
@@ -80,12 +81,30 @@ const signalsRoutes: FastifyPluginAsyncZod<SignalsRouteContext> = async (app, op
   const { historicalPriceLoader, config } = opts;
   const maxStaleTradingDays = config.freshness.maxStaleTradingDays;
 
+  // ── Response schema ───────────────────────────────────────────────────────
+  const SignalsResponseSchema = z.object({
+    rows: z.array(z.record(z.string(), z.unknown())),
+    prices: z.record(z.string(), z.number()),
+    errors: z.record(z.string(), z.unknown()),
+    pricing: z.object({
+      symbols: z.record(z.string(), z.unknown()),
+      summary: z.record(z.string(), z.unknown()),
+    }),
+    market: z.object({
+      isOpen: z.boolean(),
+      isBeforeOpen: z.boolean().nullable(),
+      lastTradingDate: z.string().nullable(),
+      nextTradingDate: z.string().nullable(),
+    }),
+  });
+
   app.post(
     '/signals',
     {
       preHandler: app.requireAuth,
       schema: {
         body: portfolioBodySchema,
+        response: { 200: SignalsResponseSchema },
       },
     },
     async (request, reply) => {

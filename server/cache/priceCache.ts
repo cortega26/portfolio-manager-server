@@ -84,13 +84,15 @@ export function configurePriceCache({
   ttlSeconds,
   checkPeriodSeconds,
 }: CacheConfig = {}): void {
-  priceCache = createCache({ ttlSeconds, checkPeriodSeconds });
+  priceCache = createCache({
+    ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
+    ...(checkPeriodSeconds !== undefined ? { checkPeriodSeconds } : {}),
+  });
 }
 
 export function flushPriceCache(): void {
   priceCache.flushAll();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (priceCache as any).flushStats?.();
+  (priceCache as unknown as { flushStats?: () => void }).flushStats?.();
 }
 
 export function generateETag(data: unknown): string {

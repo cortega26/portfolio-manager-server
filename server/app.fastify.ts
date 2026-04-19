@@ -66,9 +66,11 @@ export async function createFastifyApp(options: AppOptions) {
 
   // Initialise (and reset) the module-level price cache with the app's config.
   const priceCacheConfig = config?.cache?.price ?? {};
+  const priceCacheTtl = (priceCacheConfig as unknown as Record<string, unknown>).ttlSeconds as number | undefined;
+  const priceCacheCheckPeriod = (priceCacheConfig as unknown as Record<string, unknown>).checkPeriodSeconds as number | undefined;
   configurePriceCache({
-    ttlSeconds: (priceCacheConfig as unknown as Record<string, unknown>).ttlSeconds as number | undefined,
-    checkPeriodSeconds: (priceCacheConfig as unknown as Record<string, unknown>).checkPeriodSeconds as number | undefined,
+    ...(priceCacheTtl !== undefined ? { ttlSeconds: priceCacheTtl } : {}),
+    ...(priceCacheCheckPeriod !== undefined ? { checkPeriodSeconds: priceCacheCheckPeriod } : {}),
   });
 
   const app = Fastify({
@@ -299,7 +301,7 @@ export async function createFastifyApp(options: AppOptions) {
   const routeContext = {
     dataDir,
     config,
-    marketClock: options.marketClock,
+    ...(options.marketClock !== undefined ? { marketClock: options.marketClock } : {}),
     getStorage,
     historicalPriceLoader: wrappedPriceLoader,
     analyticsCache,
