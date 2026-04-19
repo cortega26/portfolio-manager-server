@@ -15,6 +15,9 @@ loadProjectEnv();
 const env = {
   ...process.env,
 };
+// Register tsx/esm so Electron's main process can load .ts server modules.
+const priorNodeOptions = process.env.NODE_OPTIONS ?? '';
+env.NODE_OPTIONS = `--import tsx/esm${priorNodeOptions ? ` ${priorNodeOptions}` : ''}`;
 delete env.ELECTRON_RUN_AS_NODE;
 
 const child = spawn(process.execPath, [electronCli, ...process.argv.slice(2)], {

@@ -36,6 +36,7 @@ export const transactionTypeSchema = z.enum([
   'DEPOSIT',
   'WITHDRAWAL',
   'INTEREST',
+  'FEE',
   'SPLIT',
 ]);
 
@@ -100,3 +101,7 @@ export const portfolioBodySchema = z.object({
 export type TransactionInput = z.infer<typeof transactionSchema>;
 export type CashRateInput = z.infer<typeof cashRateSchema>;
 export type PortfolioBodyInput = z.infer<typeof portfolioBodySchema>;
+
+export function isValidPortfolioId(id: unknown): boolean {
+  return typeof id === 'string' && PORTFOLIO_ID_PATTERN.test(id);
+}

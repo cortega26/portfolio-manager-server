@@ -58,6 +58,8 @@ async function main() {
       host: viteHost,
       baseCsp: process.env.VITE_APP_CSP,
     }),
+    // Register tsx/esm so Electron's main process can load .ts server modules.
+    NODE_OPTIONS: `--import tsx/esm${process.env.NODE_OPTIONS ? ` ${process.env.NODE_OPTIONS}` : ''}`,
   };
   delete sharedEnv.ELECTRON_RUN_AS_NODE;
 
