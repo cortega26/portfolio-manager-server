@@ -44,6 +44,35 @@ function resolveRendererOrigin(rendererUrl) {
   }
 }
 
+/**
+ * Inline HTML shown while the server and database are initialising.
+ * Deliberately minimal — no external resources, matches the app background colour.
+ */
+function buildLoadingHtml() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portfolio Manager</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#0f172a;display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,sans-serif}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:20px}
+.spinner{width:40px;height:40px;border:3px solid #1e293b;border-top-color:#38bdf8;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.label{color:#64748b;font-size:14px;letter-spacing:.03em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="spinner"></div>
+  <span class="label">Starting…</span>
+</div>
+</body>
+</html>`;
+}
+
 function createWindow({ rendererUrl }) {
   const browserWindow = new BrowserWindow({
     width: 1440,
@@ -72,6 +101,36 @@ function createWindow({ rendererUrl }) {
   }
   void browserWindow.loadURL(rendererUrl);
   return browserWindow;
+}
+
+/**
+ * Creates the main BrowserWindow and immediately shows a loading screen.
+ * The preload script is attached from the start; when the real app URL is
+ * later loaded via loadURL() the preload re-runs and reads __APP_CONFIG__
+ * from process.env[DESKTOP_RUNTIME_CONFIG_ENV] (set before loadURL).
+ */
+function createLoadingWindow() {
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 960,
+    minWidth: 1080,
+    minHeight: 720,
+    backgroundColor: '#0f172a',
+    autoHideMenuBar: true,
+    show: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      // additionalArguments intentionally omitted — runtime config not
+      // available yet.  The real config is injected via process.env before
+      // loadURL() is called with the final renderer URL.
+      preload: path.resolve(__dirname, './preload.cjs'),
+    },
+  });
+  const loadingHtml = buildLoadingHtml();
+  void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHtml)}`);
+  return win;
 }
 
 async function loadDesktopModules() {
@@ -349,6 +408,12 @@ async function bootstrapDesktopShell() {
     process.env.PORTFOLIO_ACTIVE_ID.trim().length > 0
       ? process.env.PORTFOLIO_ACTIVE_ID.trim()
       : DEFAULT_ACTIVE_PORTFOLIO_ID;
+
+  // In normal (non-smoke) mode: show a loading screen immediately so the user
+  // sees the window in <200ms while migrations + server run in the background.
+  // In smoke-test mode: keep the original behaviour (no window until ready).
+  const mainWindow = isSmokeTest ? null : createLoadingWindow();
+
   const storage = await runMigrations({
     dataDir: desktopConfig.dataDir,
     logger: rootLogger.child({ module: 'desktop-auth' }),
@@ -385,11 +450,19 @@ async function bootstrapDesktopShell() {
     verifyPin,
   });
   const encodedRuntimeConfig = encodeDesktopRuntimeConfig(runtimeConfig);
+  // Set env vars BEFORE loadURL so the preload can read them when it re-runs.
   process.env[DESKTOP_RUNTIME_CONFIG_ENV] = encodedRuntimeConfig;
   process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG = buildDesktopRuntimeConfigArg(runtimeConfig);
 
   const rendererUrl = startUrl || resolveRendererUrl(embeddedServer.baseUrl);
-  const mainWindow = createWindow({ rendererUrl });
+
+  // For normal mode: navigate the existing loading window to the real app URL.
+  // The preload re-runs and picks up __APP_CONFIG__ from process.env.
+  // For smoke-test mode: create the window the original way (show: false, preload args set).
+  const activeWindow = mainWindow ?? createWindow({ rendererUrl });
+  if (mainWindow) {
+    void mainWindow.loadURL(rendererUrl);
+  }
 
   let shutdownPromise = null;
   const shutdown = async () => {
@@ -415,7 +488,7 @@ async function bootstrapDesktopShell() {
   app.on('before-quit', () => {
     void shutdown();
   });
-  mainWindow.on('closed', () => {
+  activeWindow.on('closed', () => {
     ipcMain.removeHandler(IPC_CHANNELS.LIST_PORTFOLIOS);
     ipcMain.removeHandler(IPC_CHANNELS.SETUP_PIN);
     ipcMain.removeHandler(IPC_CHANNELS.UNLOCK_SESSION);
@@ -423,9 +496,9 @@ async function bootstrapDesktopShell() {
     delete process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG;
   });
   if (isSmokeTest) {
-    mainWindow.webContents.once('did-finish-load', async () => {
+    activeWindow.webContents.once('did-finish-load', async () => {
       try {
-        await runSmokeProbe(mainWindow);
+        await runSmokeProbe(activeWindow);
       } finally {
         await shutdown();
         app.quit();

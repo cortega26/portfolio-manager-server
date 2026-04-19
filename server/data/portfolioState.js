@@ -88,25 +88,27 @@ export async function writePortfolioState(storage, portfolioId, state) {
       }))
     : [];
 
-  await storage.deleteWhere(
-    TRANSACTIONS_TABLE,
-    (row) => row?.portfolio_id === portfolioId,
+  // Build the full transactions table: keep rows belonging to OTHER portfolios,
+  // then append the new rows for this portfolio — all written atomically.
+  const existingTransactions = await storage.readTable(TRANSACTIONS_TABLE);
+  const otherPortfolioTransactions = existingTransactions.filter(
+    (row) => row?.portfolio_id !== portfolioId,
   );
-  for (const transaction of transactions) {
-    await storage.upsertRow(
-      TRANSACTIONS_TABLE,
-      transaction,
-      ["portfolio_id", "uid"],
-    );
-  }
-  await storage.upsertRow(
-    PORTFOLIO_STATE_TABLE,
-    {
-      ...record,
-      updated_at: new Date().toISOString(),
-    },
-    ["id"],
-  );
+  const nextTransactions = [...otherPortfolioTransactions, ...transactions];
+
+  // Read existing portfolio_states so we can upsert without clobbering others.
+  const existingStates = await storage.readTable(PORTFOLIO_STATE_TABLE);
+  const nextRecord = { ...record, updated_at: new Date().toISOString() };
+  const otherStates = existingStates.filter((row) => row?.id !== portfolioId);
+  const nextStates = [...otherStates, nextRecord];
+
+  // Single atomic write: one lock, one SQLite transaction, one persist.
+  // If the process crashes after this call starts but before it completes,
+  // SQLite rolls back — no partial state is ever written to disk.
+  await storage.atomicBatchWrite([
+    { table: TRANSACTIONS_TABLE, rows: nextTransactions },
+    { table: PORTFOLIO_STATE_TABLE, rows: nextStates },
+  ]);
 }
 
 export async function listPortfolioStates(storage) {

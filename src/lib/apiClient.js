@@ -302,6 +302,8 @@ export async function requestApi(path, options = {}) {
 }
 
 async function parseJson(response, { allowEmptyObject = false, requestId, version } = {}) {
+  // Clone before reading so we can also read the raw text on failure.
+  const cloned = response.clone();
   try {
     return await response.json();
   } catch (parseError) {
@@ -315,6 +317,14 @@ async function parseJson(response, { allowEmptyObject = false, requestId, versio
     }
     if (version) {
       error.version = version;
+    }
+    // Attach a truncated raw body for diagnostics — makes it trivial to see
+    // whether the server returned HTML, an error page, or partial content.
+    try {
+      const raw = await cloned.text();
+      error.rawBody = raw.length > 512 ? `${raw.slice(0, 512)}…` : raw;
+    } catch {
+      // best-effort — ignore if the clone read also fails
     }
     throw error;
   }

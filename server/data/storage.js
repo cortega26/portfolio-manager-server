@@ -276,6 +276,73 @@ export class JsonTableStorage {
       await this.persistDatabase(db);
     });
   }
+
+  /**
+   * Write multiple tables atomically inside a single SQLite transaction.
+   * Acquires one lock, runs all writes inside one BEGIN…COMMIT, and calls
+   * persistDatabase exactly once. If any write fails the whole batch is
+   * rolled back — no partial state is ever persisted.
+   *
+   * Each operation has the shape:
+   *   { table: string, rows: unknown[] }
+   *
+   * Tables that do not yet exist are created automatically (ensureTable).
+   *
+   * @param {Array<{ table: string, rows: unknown[] }>} operations
+   */
+  async atomicBatchWrite(operations) {
+    if (!Array.isArray(operations) || operations.length === 0) {
+      return;
+    }
+    await withLock(this.storageLockKey(), async () => {
+      const db = await this.getDatabase();
+      // Ensure all tables exist inside the outer lock so we don't re-acquire.
+      for (const { table } of operations) {
+        if (!this.hasTableInDatabase(db, table)) {
+          // Bootstrap the table with empty rows (idempotent, no-op if exists).
+          this.writeTableToDatabase(db, table, []);
+        }
+      }
+      // Single SQLite transaction wraps all table writes.
+      withTransaction(db, () => {
+        for (const { table, rows } of operations) {
+          const nextRows = cloneRows(Array.isArray(rows) ? rows : []);
+          // writeTableToDatabase already does DELETE + INSERT via its own
+          // withTransaction call, but since we are already inside a transaction
+          // here we call the raw SQL helpers directly to avoid nested
+          // transactions (SQLite doesn't support them).
+          const timestamp = new Date().toISOString();
+          db.run('DELETE FROM json_table_rows WHERE table_name = $tableName', {
+            $tableName: table,
+          });
+          db.run(
+            `INSERT INTO json_tables (table_name, updated_at)
+             VALUES ($tableName, $updatedAt)
+             ON CONFLICT(table_name) DO UPDATE SET updated_at = excluded.updated_at`,
+            { $tableName: table, $updatedAt: timestamp },
+          );
+          if (nextRows.length > 0) {
+            const insert = db.prepare(
+              `INSERT INTO json_table_rows (table_name, row_index, row_json)
+               VALUES ($tableName, $rowIndex, $rowJson)`,
+            );
+            try {
+              nextRows.forEach((row, index) => {
+                insert.run({
+                  $tableName: table,
+                  $rowIndex: index,
+                  $rowJson: JSON.stringify(row),
+                });
+              });
+            } finally {
+              insert.free();
+            }
+          }
+        }
+      });
+      await this.persistDatabase(db);
+    });
+  }
 }
 
 export default JsonTableStorage;

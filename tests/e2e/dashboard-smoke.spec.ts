@@ -246,7 +246,7 @@ test.describe('dashboard smoke flows', () => {
       'Net Contributions',
       'Equity Price Gain',
       'Performance context',
-      'TWR vs Benchmarks',
+      'ROI vs Benchmarks',
     ];
 
     for (const label of kpiLabels) {

@@ -178,13 +178,32 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
         if (entry.status === 'fulfilled') {
           const { symbol, result } = entry;
           const { prices, etag, cacheHit } = result;
-          const latestDate = prices.length > 0 ? prices[prices.length - 1]?.date ?? null : null;
-          const tradingDayAge = computeTradingDayAge(latestDate);
+          const resolution = result.resolution as Record<string, unknown> | null | undefined;
+          const resolutionStatus = typeof resolution?.['status'] === 'string' ? resolution['status'] : '';
 
-          symbolMeta[symbol] = result.resolution ?? {
+          symbolMeta[symbol] = resolution ?? {
             status: cacheHit ? 'cache_fresh' : 'eod_fresh',
             source: cacheHit ? 'cache' : 'historical',
           };
+
+          // market_closed is expected when the exchange is not trading and no
+          // cached data exists yet.  Report it with a dedicated code so the
+          // frontend can show "market closed" instead of a hard error.
+          if (resolutionStatus === 'market_closed') {
+            errors[symbol] = {
+              code: 'MARKET_CLOSED',
+              status: 200,
+              message: 'Market is closed and no cached price is available yet.',
+            };
+            series[symbol] = [];
+            cacheMeta[symbol] = 'MISS';
+            if (etag) etagMeta[symbol] = etag;
+            allHits = false;
+            continue;
+          }
+
+          const latestDate = prices.length > 0 ? prices[prices.length - 1]?.date ?? null : null;
+          const tradingDayAge = computeTradingDayAge(latestDate);
 
           if (!latestDate || tradingDayAge > maxStaleTradingDays) {
             errors[symbol] = {
@@ -195,7 +214,7 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
             series[symbol] = [];
             symbolMeta[symbol] = {
               status: 'unavailable',
-              source: (result.resolution as Record<string, unknown>)?.['source'] ?? 'none',
+              source: resolution?.['source'] ?? 'none',
               warnings: ['PERSISTED_CLOSE_STALE_REJECTED'],
             };
           } else {
@@ -270,6 +289,14 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
       }
 
       const { prices, etag, cacheHit } = result;
+      const resolution = result.resolution as Record<string, unknown> | null | undefined;
+      const resolutionStatus = typeof resolution?.['status'] === 'string' ? resolution['status'] : '';
+
+      // Market closed and no cached data — expected, not an error.
+      if (resolutionStatus === 'market_closed') {
+        return reply.code(200).send({ error: 'MARKET_CLOSED', message: 'Market is closed and no cached price is available yet.' });
+      }
+
       const latestDate = prices.length > 0 ? prices[prices.length - 1]?.date ?? null : null;
       const tradingDayAge = computeTradingDayAge(latestDate);
 
