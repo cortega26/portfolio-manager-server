@@ -17,6 +17,7 @@ import {
   createConfiguredPriceProvider,
   createConfiguredLatestQuoteProvider,
 } from '../data/priceProviderFactory.js';
+import { createProviderHealthMonitor } from '../data/providerHealth.js';
 import { createHistoricalPriceLoader } from '../services/historicalPriceLoader.js';
 import JsonTableStorage from '../data/storage.js';
 import { getMarketClock } from '../../src/utils/marketHours.js';
@@ -183,11 +184,14 @@ export async function startServer({
   // ── Build price loader ────────────────────────────────────────────────────
   const fetchTimeoutMs = resolvedConfig.fetchTimeoutMs ?? 5000;
 
+  const healthMonitor = createProviderHealthMonitor({ logger: appLogger });
+
   const priceProvider = (createConfiguredPriceProvider as (opts: Record<string, unknown>) => unknown)({
     config: resolvedConfig,
     fetchImpl: fetch,
     timeoutMs: fetchTimeoutMs,
     logger: appLogger,
+    healthMonitor,
   });
 
   const latestQuoteProvider = (createConfiguredLatestQuoteProvider as (opts: Record<string, unknown>) => unknown)({
@@ -227,6 +231,11 @@ export async function startServer({
     persistedLatestCloseLookup,
     logger: appLogger,
     marketClock: getMarketClock,
+    maxStaleTradingDays: resolvedConfig.freshness?.maxStaleTradingDays,
+    cachePolicy: {
+      liveOpenTtlSeconds: resolvedConfig.cache?.price?.liveOpenTtlSeconds,
+      liveClosedTtlSeconds: resolvedConfig.cache?.price?.liveClosedTtlSeconds,
+    },
   });
 
   // ── Create Fastify app ────────────────────────────────────────────────────

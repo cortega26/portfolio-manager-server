@@ -88,39 +88,63 @@ export class YahooPriceProvider {
   }
 
   async getDailyAdjustedClose(symbol, from, to) {
-    const start = toUnixStart(from);
-    const end = toUnixEnd(to);
-    const url = new URL(`https://query1.finance.yahoo.com/v7/finance/download/${symbol}`);
-    url.searchParams.set('period1', String(start));
-    url.searchParams.set('period2', String(end));
+    const period1 = toUnixStart(from);
+    const period2 = toUnixEnd(to);
+    const url = new URL(
+      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`,
+    );
+    url.searchParams.set('period1', String(period1));
+    url.searchParams.set('period2', String(period2));
     url.searchParams.set('interval', '1d');
     url.searchParams.set('events', 'history');
-    url.searchParams.set('includeAdjustedClose', 'true');
+    url.searchParams.set('includePrePost', 'false');
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     const startedAt = Date.now();
     try {
-      const response = await this.fetch(url, { signal: controller.signal });
+      const response = await this.fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'Mozilla/5.0 (compatible; portfolio-app/1.0)',
+        },
+      });
       if (!response.ok) {
         const error = new Error(`Failed to fetch prices for ${symbol}`);
         error.status = response.status;
         throw error;
       }
-      const text = await response.text();
-      const lines = text.trim().split('\n');
+      const json = await response.json();
+      const chartResult = json?.chart?.result?.[0];
+      if (!chartResult) {
+        const chartError = json?.chart?.error;
+        if (chartError) {
+          const err = new Error(
+            `Yahoo Finance error for ${symbol}: ${
+              chartError.description ?? chartError.code ?? 'unknown'
+            }`,
+          );
+          err.code = chartError.code === 'Not Found' ? 'PRICE_NOT_FOUND' : 'PRICE_FETCH_FAILED';
+          throw err;
+        }
+        throw createNoDataError(symbol);
+      }
+      const timestamps = chartResult.timestamp ?? [];
+      const adjCloses = chartResult.indicators?.adjclose?.[0]?.adjclose ?? [];
+      const closes = chartResult.indicators?.quote?.[0]?.close ?? [];
       const result = [];
-      for (let i = 1; i < lines.length; i += 1) {
-        const parts = lines[i].split(',');
-        if (parts.length < 6) {
+      for (let i = 0; i < timestamps.length; i += 1) {
+        const adjClose = adjCloses[i] ?? closes[i];
+        if (adjClose == null || !Number.isFinite(adjClose)) {
           continue;
         }
-        const [date, , , , , adjCloseRaw] = parts;
-        const adjClose = Number.parseFloat(adjCloseRaw);
-        if (Number.isFinite(adjClose) && date) {
-          result.push({ date, adjClose });
-        }
+        const date = new Date(timestamps[i] * 1000).toLocaleDateString('en-CA', {
+          timeZone: 'America/New_York',
+        });
+        result.push({ date, adjClose });
       }
+      result.sort((a, b) => a.date.localeCompare(b.date));
       const durationMs = Date.now() - startedAt;
       this.logger?.info?.('price_provider_latency', {
         symbol,
@@ -157,7 +181,10 @@ export class StooqPriceProvider {
 
   async getDailyAdjustedClose(symbol, from, to) {
     const normalizedSymbol = normalizeStooqSymbol(symbol);
-    const url = `https://stooq.com/q/d/l/?s=${normalizedSymbol}&i=d`;
+    const d1 = typeof from === 'string' ? from.replace(/-/g, '') : '';
+    const d2 = typeof to === 'string' ? to.replace(/-/g, '') : '';
+    const dateParams = d1 && d2 ? `&d1=${d1}&d2=${d2}` : '';
+    const url = `https://stooq.com/q/d/l/?s=${normalizedSymbol}${dateParams}&i=d`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     const startedAt = Date.now();

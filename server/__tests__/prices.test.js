@@ -9,7 +9,21 @@ import {
   DualPriceProvider,
 } from '../data/prices.js';
 
-const yahooCsv = `Date,Open,High,Low,Close,Adj Close,Volume\n2024-01-01,1,1,1,10,9.5,100`;
+// Yahoo v8 chart JSON fixture (replaces the deprecated v7 CSV endpoint)
+const yahooV8Json = {
+  chart: {
+    result: [{
+      meta: { symbol: 'SPY' },
+      // 2024-01-01 17:00 UTC = 2024-01-01 12:00 America/New_York
+      timestamp: [1704124800],
+      indicators: {
+        quote: [{ close: [10.0] }],
+        adjclose: [{ adjclose: [9.5] }],
+      },
+    }],
+    error: null,
+  },
+};
 const stooqCsv = `Date,Open,High,Low,Close,Volume\n2024-01-01,1,1,1,11,100`;
 const twelveDataQuote = {
   symbol: 'MSFT',
@@ -69,7 +83,7 @@ const skipNetwork = process.env.NO_NETWORK_TESTS === '1';
 const test = skipNetwork ? baseTest.skip : baseTest;
 
 test('YahooPriceProvider parses adjusted close values and logs latency', async () => {
-  const fetchImpl = async () => ({ ok: true, text: async () => yahooCsv });
+  const fetchImpl = async () => ({ ok: true, json: async () => yahooV8Json });
   const logger = createMockLogger();
   const provider = new YahooPriceProvider({ fetchImpl, timeoutMs: 1000, logger });
   const rows = await provider.getDailyAdjustedClose('SPY', '2024-01-01', '2024-01-02');
@@ -106,7 +120,7 @@ test('StooqPriceProvider normalizes US symbols into adjusted series', async () =
   const provider = new StooqPriceProvider({ fetchImpl, timeoutMs: 1000, logger });
   const rows = await provider.getDailyAdjustedClose('NVDA', '2024-01-01', '2024-01-10');
   assert.deepEqual(rows, [{ date: '2024-01-01', adjClose: 11 }]);
-  assert.equal(requests[0], 'https://stooq.com/q/d/l/?s=nvda.us&i=d');
+  assert.equal(requests[0], 'https://stooq.com/q/d/l/?s=nvda.us&d1=20240101&d2=20240110&i=d');
   assert.ok(
     logger.entries.some(
       (entry) => entry.event === 'price_provider_latency' && entry.meta.provider === 'stooq',
