@@ -320,7 +320,7 @@ export function buildCashReturnSeries({
   to: unknown;
 }): Map<string, Decimal> {
   const series = buildCashSeries({
-    policy: policy as Parameters<typeof buildCashSeries>[0]['policy'],
+    ...(policy !== undefined ? { policy: policy as NonNullable<Parameters<typeof buildCashSeries>[0]['policy']> } : {}),
     from,
     to,
   });

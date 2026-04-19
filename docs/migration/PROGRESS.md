@@ -4,8 +4,8 @@ Actualizar este archivo en tiempo real durante la ejecución.
 Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 **Fecha inicio:** 2026-04-17
-**Última actualización:** 2026-04-18 (Fase 4 completada)
-**Fase actual:** Fase 5 — Hardening
+**Última actualización:** 2026-04-19 (Fase 5 completada)
+**Fase actual:** Completo
 
 ---
 
@@ -18,7 +18,7 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 | 2 — Fastify shadow | [x]    | 2026-04-17   | 2026-04-18 |
 | 3 — Test migration | [x]    | 2026-04-18   | 2026-04-18 |
 | 4 — Cutover        | [x]    | 2026-04-18   | 2026-04-18 |
-| 5 — Hardening      | [ ]    |              |            |
+| 5 — Hardening      | [x]    | 2026-04-18   | 2026-04-19 |
 
 ---
 
@@ -210,21 +210,21 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 ## Fase 5 — Hardening TypeScript
 
-- [ ] 5.1 — Activar `noUncheckedIndexedAccess` y `exactOptionalPropertyTypes` en `tsconfig.server.json`
-- [ ] 5.2 — Resolver errores que emergen del strict mode
-- [ ] 5.3 — Implementar branded types (`Cents`, `MicroShares`) en `server/types/domain.ts`
-- [ ] 5.4 — Aplicar branded types en `finance/decimal.ts`, `finance/cash.ts`, `finance/portfolio.ts`
-- [ ] 5.5 — `verify:typecheck:server` pasa con branded types
-- [ ] 5.6 — Activar schemas de response Zod en todas las rutas (validación de output)
-- [ ] 5.7 — `npm test` verde con response validation activa
-- [ ] 5.8 — Eliminar todos los `any` explícitos — reemplazar por tipos precisos
-- [ ] 5.8a — **Gate `catch (e: unknown)`**: grep audit — `grep -rn 'catch (e: any)\|catch(e: any)' server/**/*.ts` debe retornar 0 resultados antes de continuar
-- [ ] 5.9 — Ejecutar `codacy_cli_analyze` (seguridad y calidad)
-- [ ] 5.10 — Ejecutar `npm run leaks:repo` (gitleaks)
-- [ ] 5.11 — `npm audit --audit-level=moderate`
-- [ ] 5.12 — `npm test` verde final
-- [ ] 5.13 — `npm run electron:smoke` final
-- [ ] 5.14 — Commit: `refactor(types): strict ts hardening, branded financial types`
+- [x] 5.1 — Activar `noUncheckedIndexedAccess` y `exactOptionalPropertyTypes` en `tsconfig.server.json`
+- [x] 5.2 — Resolver errores que emergen del strict mode
+- [x] 5.3 — Implementar branded types (`Cents`, `MicroShares`, `NanoShares`) en `server/types/domain.ts`
+- [x] 5.4 — Aplicar branded types en `finance/decimal.ts`, `finance/cash.ts`, `finance/portfolio.ts`
+- [x] 5.5 — `verify:typecheck:server` pasa con branded types
+- [x] 5.6 — Activar schemas de response Zod en todas las rutas (validación de output)
+- [x] 5.7 — `npm test` verde con response validation activa — 350 pass, 0 fail, 1 skip
+- [x] 5.8 — Eliminar todos los `any` explícitos — reemplazar por tipos precisos
+- [x] 5.8a — **Gate `catch (e: unknown)`**: grep audit — 0 resultados
+- [x] 5.9 — Ejecutar `codacy_cli_analyze` — solo warnings de complejidad preexistentes; 0 nuevos issues de seguridad
+- [x] 5.10 — Ejecutar `npm run leaks:repo` — No leaks detected
+- [x] 5.11 — `npm audit --audit-level=moderate` — 0 vulnerabilities
+- [x] 5.12 — `npm test` verde final — 350 pass, 0 fail, 1 skip
+- [x] 5.13 — `npm run electron:smoke` final — exit 0
+- [x] 5.14 — Commit: `refactor(types): strict ts hardening, branded financial types`
 
 ---
 
@@ -232,13 +232,15 @@ Formato: `- [x]` completado · `- [ ]` pendiente · `- [~]` en progreso
 
 > Usar esta sección para registrar decisiones, bloqueos y resoluciones encontradas en el camino.
 
-| Fecha      | Fase | Nota                                                                                                                        |
-| ---------- | ---- | --------------------------------------------------------------------------------------------------------------------------- |
-| 2026-04-17 | 2    | `server/routes/analytics.ts` agregado durante migración (TWR + holdings analytics, no estaba en el plan original)           |
-| 2026-04-17 | 2    | `server/services/portfolioTransactions.js` extraído como servicio reutilizable                                              |
-| 2026-04-18 | 3    | Helpers creados como .js (no .ts): tsx/esm loader en `tools/run-tests.mjs` permite importar .ts como .js en node:test       |
-| 2026-04-18 | 3    | Commit fix posterior: nullable market fields en openapi.yaml + signals.ts, normalizeBenchmarkConfig en fastifyTestApp.js    |
-| 2026-04-18 | 3    | 2.6b (computeCache) y 2.16a (FetchPolicy) diferidos — no bloquearon Fase 3; se revalúan en Fase 5                           |
-| 2026-04-18 | 4    | Electron requirió `NODE_OPTIONS=--import tsx/esm` en scripts/run-electron.mjs y electron-dev.mjs para resolver .ts vía .js  |
-| 2026-04-18 | 4    | `portfolioBodySchema` movida de middleware/validation.js a routes/\_schemas.ts; `FEE` añadido al enum transactionTypeSchema |
-| 2026-04-18 | 4    | `isValidPortfolioId` exportada desde routes/\_schemas.ts (eliminado import de server/app.js en tests)                       |
+| Fecha      | Fase | Nota                                                                                                                                   |
+| ---------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-17 | 2    | `server/routes/analytics.ts` agregado durante migración (TWR + holdings analytics, no estaba en el plan original)                      |
+| 2026-04-17 | 2    | `server/services/portfolioTransactions.js` extraído como servicio reutilizable                                                         |
+| 2026-04-18 | 3    | Helpers creados como .js (no .ts): tsx/esm loader en `tools/run-tests.mjs` permite importar .ts como .js en node:test                  |
+| 2026-04-18 | 3    | Commit fix posterior: nullable market fields en openapi.yaml + signals.ts, normalizeBenchmarkConfig en fastifyTestApp.js               |
+| 2026-04-18 | 3    | 2.6b (computeCache) y 2.16a (FetchPolicy) diferidos — no bloquearon Fase 3; se revalúan en Fase 5                                      |
+| 2026-04-18 | 4    | Electron requirió `NODE_OPTIONS=--import tsx/esm` en scripts/run-electron.mjs y electron-dev.mjs para resolver .ts vía .js             |
+| 2026-04-18 | 4    | `portfolioBodySchema` movida de middleware/validation.js a routes/\_schemas.ts; `FEE` añadido al enum transactionTypeSchema            |
+| 2026-04-19 | 5    | `NanoShares` (9-decimal) añadido a branded types — broker Fintual opera con resolución de 9 decimales, no 6                            |
+| 2026-04-19 | 5    | Fastify response schemas restringen `reply.code()` a códigos declarados — necesario agregar 503 junto a 200 en handlers que usan ambos |
+| 2026-04-18 | 4    | `isValidPortfolioId` exportada desde routes/\_schemas.ts (eliminado import de server/app.js en tests)                                  |

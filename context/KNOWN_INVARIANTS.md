@@ -22,6 +22,7 @@ Registrar únicamente hechos confirmados y estables que sería costoso olvidar.
 - Reglas de importación y reconciliación deben ser explícitas, centralizadas y testeables.
 - La idempotencia debe basarse en claves deterministas.
 - Los dividendos deben preservarse como bruto e impuesto/retención por separado.
+- **Precisión de fracciones de acciones**: el broker Fintual opera con resolución de 9 decimales (NanoShares: 1 share = 1_000_000_000 NanoShares). El tipo `MicroShares` (6 decimales) aplica a otros brokers. Usar `NanoShares` y `fromNanoShares`/`toNanoShares` de `server/finance/decimal.ts` para operaciones con Fintual.
 
 ### Persistencia y desktop
 

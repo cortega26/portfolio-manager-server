@@ -159,6 +159,53 @@ const cashRateBodySchema = z.object({
   apy: z.coerce.number().finite(),
 });
 
+// ── Response schemas ──────────────────────────────────────────────────────────
+
+const PaginationMetaSchema = z.object({
+  page: z.number(),
+  per_page: z.number(),
+  total: z.number(),
+  total_pages: z.number(),
+});
+
+const ServiceErrorSchema = z.object({
+  error: z.string(),
+  message: z.string().optional(),
+});
+
+const ReturnsDailyResponseSchema = z.object({
+  series: z.record(z.string(), z.unknown()),
+  meta: PaginationMetaSchema,
+});
+
+const NavDailyResponseSchema = z.object({
+  data: z.array(z.record(z.string(), z.unknown())),
+  meta: PaginationMetaSchema,
+});
+
+const RoiDailyResponseSchema = z.record(z.string(), z.unknown());
+
+const BenchmarksSummaryResponseSchema = z.object({
+  summary: z.record(z.string(), z.number()),
+  max_drawdown: z
+    .object({
+      value: z.number(),
+      peak_date: z.string(),
+      trough_date: z.string(),
+    })
+    .nullable(),
+  drag: z.object({ vs_self: z.number(), allocation: z.number() }),
+  money_weighted: z.object({
+    portfolio: z.number(),
+    benchmarks: z.record(z.string(), z.number().nullable()),
+    start_date: z.string().nullable(),
+    end_date: z.string().nullable(),
+    method: z.string(),
+    basis: z.string(),
+    partial: z.boolean(),
+  }),
+});
+
 // ── Route plugin ──────────────────────────────────────────────────────────────
 
 const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app, opts) => {
@@ -198,6 +245,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       preHandler: ensureCashFeature,
       schema: {
         querystring: returnsQuerySchema,
+        response: { 200: ReturnsDailyResponseSchema, 503: ServiceErrorSchema },
       },
     },
     async (request, reply) => {
@@ -236,7 +284,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       const needsRepair =
         rows.length === 0 ||
         (typeof from === 'string' && from.trim().length > 0 && (!rows[0]?.['date'] || (rows[0]['date'] as string) > from)) ||
-        (typeof to === 'string' && to.trim().length > 0 && (!rows[rows.length - 1]?.['date'] || (rows[rows.length - 1]['date'] as string) < to));
+        (typeof to === 'string' && to.trim().length > 0 && (() => { const last = rows[rows.length - 1]; return !last?.['date'] || (last['date'] as string) < to; })());
 
       if (needsRepair) {
         try {
@@ -289,6 +337,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       preHandler: ensureCashFeature,
       schema: {
         querystring: rangeQuerySchema,
+        response: { 200: NavDailyResponseSchema },
       },
     },
     async (request, reply) => {
@@ -348,6 +397,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       preHandler: ensureCashFeature,
       schema: {
         querystring: rangeQuerySchema,
+        response: { 200: RoiDailyResponseSchema, 503: ServiceErrorSchema },
       },
     },
     async (request, reply) => {
@@ -377,6 +427,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       preHandler: ensureCashFeature,
       schema: {
         querystring: rangeQuerySchema,
+        response: { 200: BenchmarksSummaryResponseSchema, 503: ServiceErrorSchema },
       },
     },
     async (request, reply) => {
@@ -425,7 +476,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       let referenceKey = to ? (toDateKey(to) as string) : todayKey;
       if (referenceKey > todayKey) referenceKey = todayKey;
 
-      const latestDate = rows.length > 0 ? (rows[rows.length - 1]['date'] as string) : null;
+      const latestDate = rows.length > 0 ? (rows[rows.length - 1]?.['date'] as string | undefined ?? null) : null;
       const referenceDate = new Date(`${referenceKey}T00:00:00Z`);
       const tradingDayAge = computeTradingDayAge(latestDate, referenceDate);
 
@@ -445,13 +496,13 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       let moneyWeightedPartial = false;
 
       if (rows.length > 0) {
-        const startKey = rows[0]['date'] as string;
-        const endKey = rows[rows.length - 1]['date'] as string;
+        const startKey = rows[0]?.['date'] as string;
+        const endKey = rows[rows.length - 1]?.['date'] as string;
         const scopedTransactions = filterRowsByPortfolioScope(transactions, portfolioId);
         const scopedNavRows = filterRowsByPortfolioScope(navRows, portfolioId);
 
         const xirr = computeMoneyWeightedReturn({
-          transactions: (scopedTransactions as unknown) as Parameters<typeof computeMoneyWeightedReturn>[0]['transactions'],
+          transactions: (scopedTransactions as unknown) as NonNullable<Parameters<typeof computeMoneyWeightedReturn>[0]['transactions']>,
           navRows: (scopedNavRows as unknown) as Parameters<typeof computeMoneyWeightedReturn>[0]['navRows'],
           startDate: startKey,
           endDate: endKey,
@@ -474,7 +525,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
             });
             const benchmarkMwr = computeMatchedBenchmarkMoneyWeightedReturn({
               benchmarkPrices: (benchmarkPriceMap as unknown) as Parameters<typeof computeMatchedBenchmarkMoneyWeightedReturn>[0]['benchmarkPrices'],
-              transactions: (scopedTransactions as unknown) as Parameters<typeof computeMatchedBenchmarkMoneyWeightedReturn>[0]['transactions'],
+              transactions: (scopedTransactions as unknown) as NonNullable<Parameters<typeof computeMatchedBenchmarkMoneyWeightedReturn>[0]['transactions']>,
               navRows: (scopedNavRows as unknown) as Parameters<typeof computeMatchedBenchmarkMoneyWeightedReturn>[0]['navRows'],
               startDate: startKey,
               endDate: endKey,
