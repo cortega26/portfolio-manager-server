@@ -32,7 +32,7 @@ const etagPlugin: FastifyPluginAsync = async (app) => {
         return;
       }
 
-      reply.code(200).type('application/json').send(body);
+      reply.code(200).send(payload);
     },
   );
 };
