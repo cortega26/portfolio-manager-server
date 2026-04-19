@@ -4,7 +4,7 @@
 
 > A desktop-first portfolio tracker built on Electron + React + Express + SQLite.
 
-[![CI](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml/badge.svg)](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml) ![Node 20.19](https://img.shields.io/badge/node-20.19.x-339933?logo=node.js) ![Electron](https://img.shields.io/badge/electron-shell-47848F?logo=electron)
+[![CI](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml/badge.svg)](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml) ![Node 24 LTS](https://img.shields.io/badge/node-24.x%20LTS-339933?logo=node.js) ![Electron](https://img.shields.io/badge/electron-shell-47848F?logo=electron)
 
 ## Features
 
@@ -56,7 +56,7 @@ flowchart LR
 
 ### Prerequisites
 
-- Node.js 20.19.x (use `.nvmrc`)
+- Node.js 24.x LTS (use `.nvmrc`)
 - npm 10+
 
 ### Development

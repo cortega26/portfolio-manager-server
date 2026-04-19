@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const PROJECT_ROOT = process.cwd();
-const REQUIRED_NODE = '20.19.0';
+const REQUIRED_NODE = '24.15.0';
 
 function parseVersion(version) {
   return String(version)

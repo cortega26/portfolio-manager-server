@@ -7,11 +7,11 @@ For feature/architecture context see `AGENTS.md`.
 
 | Tool    | Version | How to install                                                          |
 | ------- | ------- | ----------------------------------------------------------------------- |
-| Node.js | 20.19.x | `nvm use` (reads `.nvmrc`)                                              |
-| npm     | ≥ 10.x  | bundled with Node 20                                                    |
+| Node.js | 24.15.x | `nvm use` (reads `.nvmrc`)                                              |
+| npm     | ≥ 10.x  | bundled with Node 24                                                    |
 | xvfb    | any     | Linux only — required for `npm run electron:smoke` (`apt install xvfb`) |
 
-> `.nvmrc` is present at the repo root and pins `20.19.0`.
+> `.nvmrc` is present at the repo root and pins `24.15.0`.
 
 ## First-time install
 
