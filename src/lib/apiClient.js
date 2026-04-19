@@ -266,7 +266,6 @@ export async function requestApi(path, options = {}) {
   const runtimeConfig = getRuntimeConfigSync();
   const resolvedTimeout = computeTimeout(runtimeConfig, timeoutMs);
   const { signal: requestSignal, cleanup } = buildTimeoutController(resolvedTimeout, signal);
-
   try {
     for (const { id, prefix } of versions) {
       const url = `${baseUrl}${prefix}${normalizedPath}`;
@@ -326,6 +325,11 @@ async function parseJson(response, { allowEmptyObject = false, requestId, versio
     } catch {
       // best-effort — ignore if the clone read also fails
     }
+    // Surface the error in the console (Electron DevTools or terminal) to aid
+    // debugging without requiring the caller to re-throw or catch.
+    console.error(
+      `[apiClient] parseJson failed ${JSON.stringify({ url: response.url, status: response.status, contentType: response.headers.get('content-type'), requestId: requestId ?? null, version: version ?? null, rawBody: error.rawBody ?? '(could not read body)', cause: parseError?.message ?? String(parseError) })}`
+    );
     throw error;
   }
 }

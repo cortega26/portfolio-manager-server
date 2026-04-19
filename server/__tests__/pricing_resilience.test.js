@@ -695,7 +695,7 @@ test("configured provider health skips yahoo after repeated upstream failures an
     healthMonitor,
     fetchImpl: async (url) => {
       const value = String(url);
-      if (value.startsWith("https://query1.finance.yahoo.com/")) {
+      if (value.startsWith("https://query2.finance.yahoo.com/")) {
         yahooCalls += 1;
         return {
           ok: false,

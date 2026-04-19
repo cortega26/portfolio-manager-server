@@ -94,22 +94,18 @@ function createWindow({ rendererUrl }) {
       preload: path.resolve(__dirname, './preload.cjs'),
     },
   });
-  if (!isSmokeTest) {
-    browserWindow.once('ready-to-show', () => {
-      browserWindow.show();
-    });
-  }
   void browserWindow.loadURL(rendererUrl);
   return browserWindow;
 }
 
 /**
- * Creates the main BrowserWindow and immediately shows a loading screen.
- * The preload script is attached from the start; when the real app URL is
- * later loaded via loadURL() the preload re-runs and reads __APP_CONFIG__
- * from process.env[DESKTOP_RUNTIME_CONFIG_ENV] (set before loadURL).
+ * Creates a lightweight splash window showing a loading spinner.
+ * This window uses sandbox mode with NO preload — it just renders static HTML.
+ * The real BrowserWindow (with preload + additionalArguments) is created after
+ * the server is ready and env vars are set, then this splash is closed on
+ * the real window's 'ready-to-show' event.
  */
-function createLoadingWindow() {
+function createSplashWindow() {
   const win = new BrowserWindow({
     width: 1440,
     height: 960,
@@ -121,11 +117,9 @@ function createLoadingWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
-      // additionalArguments intentionally omitted — runtime config not
-      // available yet.  The real config is injected via process.env before
-      // loadURL() is called with the final renderer URL.
-      preload: path.resolve(__dirname, './preload.cjs'),
+      sandbox: true,
+      // No preload — splash only needs to show a spinner. Keeping sandbox:true
+      // means no node access and no contextBridge calls from this window.
     },
   });
   const loadingHtml = buildLoadingHtml();
@@ -220,17 +214,25 @@ function registerDesktopSessionHandlers({
     };
   };
 
-  const createUnlockedSession = (portfolioId) => ({
-    portfolioId,
-    runtimeConfig: buildDesktopRuntimeConfig({
+  const createUnlockedSession = (portfolioId) => {
+    const runtimeConfig = buildDesktopRuntimeConfig({
       apiBaseUrl,
       sessionToken,
       activePortfolioId: portfolioId,
       sessionAuthHeader,
       jobNightlyActive: false,
       jobNightlyHourUtc,
-    }),
-  });
+    });
+    rootLogger.info(
+      {
+        portfolioId,
+        configKeys: Object.keys(runtimeConfig),
+        hasSessionToken: Boolean(runtimeConfig.API_SESSION_TOKEN),
+      },
+      'desktop_session_unlocked'
+    );
+    return { portfolioId, runtimeConfig };
+  };
 
   const resolvePortfolioId = async (rawPortfolioId) => {
     const requestedId = typeof rawPortfolioId === 'string' ? rawPortfolioId.trim() : '';
@@ -409,10 +411,10 @@ async function bootstrapDesktopShell() {
       ? process.env.PORTFOLIO_ACTIVE_ID.trim()
       : DEFAULT_ACTIVE_PORTFOLIO_ID;
 
-  // In normal (non-smoke) mode: show a loading screen immediately so the user
+  // In normal (non-smoke) mode: show a splash screen immediately so the user
   // sees the window in <200ms while migrations + server run in the background.
   // In smoke-test mode: keep the original behaviour (no window until ready).
-  const mainWindow = isSmokeTest ? null : createLoadingWindow();
+  const splashWindow = isSmokeTest ? null : createSplashWindow();
 
   const storage = await runMigrations({
     dataDir: desktopConfig.dataDir,
@@ -456,12 +458,24 @@ async function bootstrapDesktopShell() {
 
   const rendererUrl = startUrl || resolveRendererUrl(embeddedServer.baseUrl);
 
-  // For normal mode: navigate the existing loading window to the real app URL.
-  // The preload re-runs and picks up __APP_CONFIG__ from process.env.
-  // For smoke-test mode: create the window the original way (show: false, preload args set).
-  const activeWindow = mainWindow ?? createWindow({ rendererUrl });
-  if (mainWindow) {
-    void mainWindow.loadURL(rendererUrl);
+  // Create the real app window NOW — env vars are set so additionalArguments
+  // picks up the encoded runtime config and the preload sees the full config.
+  // For smoke-test mode createWindow() is used directly (original behaviour).
+  const activeWindow = createWindow({ rendererUrl });
+
+  if (splashWindow) {
+    // Two-window mode: show the real app and close the splash on first paint.
+    activeWindow.once('ready-to-show', () => {
+      if (!splashWindow.isDestroyed()) {
+        splashWindow.close();
+      }
+      activeWindow.show();
+    });
+  } else if (!isSmokeTest) {
+    // Fallback (should not normally be reached): show without splash.
+    activeWindow.once('ready-to-show', () => {
+      activeWindow.show();
+    });
   }
 
   let shutdownPromise = null;

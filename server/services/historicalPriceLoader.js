@@ -388,11 +388,12 @@ export function createHistoricalPriceLoader({
       }
 
       // When the market is closed and all live/cache/persisted fallbacks are
-      // exhausted, return a graceful "market_closed" resolution instead of
-      // throwing.  This lets the frontend display a meaningful status
-      // ("market closed, no cached data yet") rather than a hard error.
-      // Only throw when the market IS open (a real fetch failure is an error).
-      if (!liveMarketOpen && !extendedHoursActive) {
+      // exhausted for a latestOnly request, return a graceful "market_closed"
+      // resolution instead of throwing.  This lets the frontend display a
+      // meaningful status ("market closed, no cached data yet") rather than a
+      // hard error.  For full historical series requests (latestOnly=false)
+      // we always throw so the caller receives a proper 502 on provider failure.
+      if (latestOnly && !liveMarketOpen && !extendedHoursActive) {
         return {
           prices: [],
           etag: generateETag([]),
