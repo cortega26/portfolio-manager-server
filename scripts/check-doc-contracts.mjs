@@ -22,7 +22,7 @@ const FORBIDDEN_PHRASES = [
     reason: 'storage is implemented through sql.js-backed JsonTableStorage in the current repo.',
   },
   {
-    phrase: 'tools/node-v20.19.0-linux-x64',
+    phrase: 'tools/node-v24.15.0-linux-x64',
     reason: 'the repo no longer ships a bundled local Node runtime at that path.',
   },
 ];
