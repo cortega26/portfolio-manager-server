@@ -695,6 +695,17 @@ test("configured provider health skips yahoo after repeated upstream failures an
     healthMonitor,
     fetchImpl: async (url) => {
       const value = String(url);
+      // Yahoo crumb flow: homepage and getcrumb endpoint
+      if (value === 'https://finance.yahoo.com' || value.startsWith('https://finance.yahoo.com/')) {
+        return {
+          ok: true,
+          headers: { getSetCookie: () => ['A1=crumbtestcookie; Path=/'], get: () => null },
+          text: async () => '<!DOCTYPE html><html></html>',
+        };
+      }
+      if (value.startsWith('https://query1.finance.yahoo.com/v1/test/getcrumb')) {
+        return { ok: true, text: async () => 'testcrumb1234' };
+      }
       if (value.startsWith("https://query2.finance.yahoo.com/")) {
         yahooCalls += 1;
         return {
@@ -707,6 +718,7 @@ test("configured provider health skips yahoo after repeated upstream failures an
         stooqCalls += 1;
         return {
           ok: true,
+          headers: { get: () => null },
           text: async () =>
             "Date,Open,High,Low,Close,Volume\n2024-02-01,1,1,1,100.25,1000\n2024-02-02,1,1,1,101.75,1000",
         };

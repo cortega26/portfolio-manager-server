@@ -1,13 +1,51 @@
-# Todo
+# Todo — Price Fetch Fix
 
-- [x] Investigate why the `desktop` portfolio transactions and NAV disappear.
-- [x] Identify the root cause: Standard `npm run dev` development flows lack the Electron-injected session token, causing 500 errors in `sessionAuth.js` which aborts the data load.
-- [x] Implement development middleware bypass in `sessionAuth.js` for standalone usage.
-- [x] Update frontend `.env` configuration to use dev-token fallback.
-- [x] Run `npm run test:e2e` to verify regressions.
-- [x] Run `npm test` to ensure CI integrity.
+## Phase 0 — Spec & Scaffold
 
-## Notes
+- [x] Write `spec.md` with problem statement, goals, implementation details, invariants, verification table
+- [x] Overwrite `todo.md` with this checklist
+- [ ] Create `tests/prices/` directory and three test files
+- [ ] Add `tests/prices` to `TEST_DIRS` in `tools/run-tests.mjs`
 
-- Electron successfully manages session tokens and passes them down. The standalone usage via standard React browser (`npm run dev`) was the underlying failure due to the strict middleware.
-- With the implementation of `req.portfolioAuth = { mode: "development_bypass" }` during `NODE_ENV === "development"`, developers can now preview the UI safely on browsers using SQLite data.
+## Phase 1 — Config
+
+- [ ] `.env`: change `PRICE_PROVIDER_FALLBACK=none` → `PRICE_PROVIDER_FALLBACK=yahoo`
+- [ ] `.env.example`: same change
+
+## Phase 2 — Stooq hardening
+
+- [ ] `StooqPriceProvider`: add `User-Agent` header to `fetch` options
+- [ ] `StooqPriceProvider`: detect HTML response via `Content-Type` header
+- [ ] `StooqPriceProvider`: detect HTML response via body first-line check (`starts with <`)
+- [ ] Verify: existing Stooq tests in `server/__tests__/prices.test.js` still pass
+
+## Phase 3 — Yahoo Finance crumb auth
+
+- [ ] `YahooPriceProvider`: add `_crumbCache` and `_crumbTtlMs` instance fields
+- [ ] `YahooPriceProvider`: implement `_refreshCrumb()` method
+  - [ ] GET `https://finance.yahoo.com` → capture `Set-Cookie` headers
+  - [ ] GET `https://query1.finance.yahoo.com/v1/test/getcrumb` → plain-text crumb
+  - [ ] Validate crumb length ≥ 4
+  - [ ] Store `{ crumb, cookies, fetchedAt }` on instance
+- [ ] `YahooPriceProvider.getDailyAdjustedClose()`: lazy crumb fetch before chart request
+- [ ] `YahooPriceProvider.getDailyAdjustedClose()`: append `crumb` param + `Cookie` header
+- [ ] `YahooPriceProvider.getDailyAdjustedClose()`: on 401/403 → invalidate + refresh + retry once
+- [ ] Verify: existing Yahoo tests in `server/__tests__/prices.test.js` still pass
+
+## Phase 4 — Tests
+
+- [ ] `tests/prices/stooq-provider.test.js` — all 6 cases (see spec.md)
+- [ ] `tests/prices/yahoo-crumb.test.js` — all 6 cases (see spec.md)
+- [ ] `tests/prices/dual-provider-fallback.test.js` — all 4 cases (see spec.md)
+- [ ] `tests/e2e/prices-smoke.spec.ts` — Playwright smoke for prices
+
+## Phase 5 — Verification
+
+- [ ] `npm run test:node` — all node:test suites green (including new tests/prices/)
+- [ ] `npm test` (vitest) — no regressions in src/**tests**
+- [ ] Manual: `GET /api/prices/bulk?symbols=SPY&latest=1` returns non-empty series
+- [ ] Manual: Server log shows `price_provider_fallback` when Stooq mocked to fail
+
+## Phase 6 — Review
+
+- [ ] Sub-agent: "review spec.md and current implementation for gaps" → loop on feedback

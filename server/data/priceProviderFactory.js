@@ -1,15 +1,18 @@
 import fetch from "node-fetch";
 
 import {
+  AlpacaHistoricalProvider,
   AlpacaLatestQuoteProvider,
+  AlphaVantageHistoricalProvider,
   DualPriceProvider,
+  FinnhubLatestQuoteProvider,
   TwelveDataQuoteProvider,
   YahooPriceProvider,
   StooqPriceProvider,
 } from "./prices.js";
 
-export const PRICE_PROVIDER_NAMES = Object.freeze(["yahoo", "stooq", "none"]);
-export const LATEST_QUOTE_PROVIDER_NAMES = Object.freeze(["alpaca", "twelvedata", "none"]);
+export const PRICE_PROVIDER_NAMES = Object.freeze(["yahoo", "stooq", "alpaca", "alphavantage", "none"]);
+export const LATEST_QUOTE_PROVIDER_NAMES = Object.freeze(["alpaca", "twelvedata", "finnhub", "none"]);
 
 export function normalizePriceProviderName(value, fallback = "none") {
   const normalized =
@@ -96,15 +99,31 @@ export function normalizeLatestQuoteProviderName(value, fallback = "none") {
   return fallback;
 }
 
-function createNamedProvider(name, { fetchImpl = fetch, timeoutMs = 5000, logger } = {}) {
-  switch (normalizePriceProviderName(name)) {
-    case "yahoo":
-      return new YahooPriceProvider({ fetchImpl, timeoutMs, logger });
-    case "stooq":
-      return new StooqPriceProvider({ fetchImpl, timeoutMs, logger });
-    default:
-      return null;
-  }
+const HISTORICAL_PROVIDER_FACTORIES = {
+  yahoo: ({ fetchImpl, timeoutMs, logger }) =>
+    new YahooPriceProvider({ fetchImpl, timeoutMs, logger }),
+  stooq: ({ fetchImpl, timeoutMs, logger }) =>
+    new StooqPriceProvider({ fetchImpl, timeoutMs, logger }),
+  alpaca: ({ fetchImpl, timeoutMs, logger, providersConfig = {} }) =>
+    new AlpacaHistoricalProvider({
+      fetchImpl,
+      timeoutMs,
+      logger,
+      apiKey: String(providersConfig.alpacaApiKey ?? ""),
+      apiSecret: String(providersConfig.alpacaApiSecret ?? ""),
+    }),
+  alphavantage: ({ fetchImpl, timeoutMs, logger, providersConfig = {} }) =>
+    new AlphaVantageHistoricalProvider({
+      fetchImpl,
+      timeoutMs,
+      logger,
+      apiKey: String(providersConfig.alphavantageApiKey ?? ""),
+    }),
+};
+
+function createNamedProvider(name, opts = {}) {
+  const factory = HISTORICAL_PROVIDER_FACTORIES[normalizePriceProviderName(name)];
+  return factory ? factory(opts) : null;
 }
 
 export function createConfiguredPriceProvider({
@@ -114,16 +133,17 @@ export function createConfiguredPriceProvider({
   logger,
   healthMonitor = null,
 } = {}) {
+  const providersConfig = config?.prices?.providers ?? {};
   const primaryName = normalizePriceProviderName(
-    config?.prices?.providers?.primary,
+    providersConfig.primary,
     "stooq",
   );
   const fallbackName = normalizePriceProviderName(
-    config?.prices?.providers?.fallback,
+    providersConfig.fallback,
     "yahoo",
   );
-  const primary = createNamedProvider(primaryName, { fetchImpl, timeoutMs, logger });
-  const fallback = createNamedProvider(fallbackName, { fetchImpl, timeoutMs, logger });
+  const primary = createNamedProvider(primaryName, { fetchImpl, timeoutMs, logger, providersConfig });
+  const fallback = createNamedProvider(fallbackName, { fetchImpl, timeoutMs, logger, providersConfig });
 
   if (primary && fallback) {
     return new DualPriceProvider({ primary, fallback, logger, healthMonitor });
@@ -137,6 +157,34 @@ export function createConfiguredPriceProvider({
   throw new Error("No price providers configured");
 }
 
+function buildAlpacaLatestProvider({ fetchImpl, timeoutMs, logger, apiKey, apiSecret }) {
+  if (!apiKey || !apiSecret) {
+    const reason =
+      !apiKey && !apiSecret ? "missing_api_key_and_secret"
+        : !apiKey ? "missing_api_key"
+          : "missing_api_secret";
+    logger?.warn?.("latest_quote_provider_disabled", { provider: "alpaca", reason });
+    return null;
+  }
+  return new AlpacaLatestQuoteProvider({ fetchImpl, timeoutMs, logger, apiKey, apiSecret });
+}
+
+function buildFinnhubLatestProvider({ fetchImpl, timeoutMs, logger, apiKey }) {
+  if (!apiKey) {
+    logger?.warn?.("latest_quote_provider_disabled", { provider: "finnhub", reason: "missing_api_key" });
+    return null;
+  }
+  return new FinnhubLatestQuoteProvider({ fetchImpl, timeoutMs, logger, apiKey });
+}
+
+function buildTwelveDataProvider({ fetchImpl, timeoutMs, logger, apiKey, prepost }) {
+  if (!apiKey) {
+    logger?.warn?.("latest_quote_provider_disabled", { provider: "twelvedata", reason: "missing_api_key" });
+    return null;
+  }
+  return new TwelveDataQuoteProvider({ fetchImpl, timeoutMs, logger, apiKey, prepost });
+}
+
 export function createConfiguredLatestQuoteProvider({
   config,
   fetchImpl = fetch,
@@ -148,55 +196,26 @@ export function createConfiguredLatestQuoteProvider({
     config?.prices?.latest?.provider,
     "none",
   );
-  if (providerName !== "twelvedata") {
-    if (providerName !== "alpaca") {
-      return null;
-    }
-    const apiKey =
-      typeof config?.prices?.latest?.apiKey === "string"
-        ? config.prices.latest.apiKey.trim()
-        : "";
-    const apiSecret =
-      typeof config?.prices?.latest?.apiSecret === "string"
-        ? config.prices.latest.apiSecret.trim()
-        : "";
-    if (!apiKey || !apiSecret) {
-      logger?.warn?.("latest_quote_provider_disabled", {
-        provider: providerName,
-        reason: !apiKey && !apiSecret
-          ? "missing_api_key_and_secret"
-          : !apiKey
-            ? "missing_api_key"
-            : "missing_api_secret",
-      });
-      return null;
-    }
-    const provider = new AlpacaLatestQuoteProvider({
-      fetchImpl,
-      timeoutMs,
-      logger,
-      apiKey,
-      apiSecret,
-    });
-    return new HealthCheckedLatestQuoteProvider({ provider, healthMonitor });
-  }
   const apiKey =
     typeof config?.prices?.latest?.apiKey === "string"
       ? config.prices.latest.apiKey.trim()
       : "";
-  if (!apiKey) {
-    logger?.warn?.("latest_quote_provider_disabled", {
-      provider: providerName,
-      reason: "missing_api_key",
-    });
-    return null;
+  const apiSecret =
+    typeof config?.prices?.latest?.apiSecret === "string"
+      ? config.prices.latest.apiSecret.trim()
+      : "";
+
+  let innerProvider = null;
+  if (providerName === "alpaca") {
+    innerProvider = buildAlpacaLatestProvider({ fetchImpl, timeoutMs, logger, apiKey, apiSecret });
+  } else if (providerName === "finnhub") {
+    innerProvider = buildFinnhubLatestProvider({ fetchImpl, timeoutMs, logger, apiKey });
+  } else if (providerName === "twelvedata") {
+    const prepost = config?.prices?.latest?.prepost !== false;
+    innerProvider = buildTwelveDataProvider({ fetchImpl, timeoutMs, logger, apiKey, prepost });
   }
-  const provider = new TwelveDataQuoteProvider({
-    fetchImpl,
-    timeoutMs,
-    logger,
-    apiKey,
-    prepost: config?.prices?.latest?.prepost !== false,
-  });
-  return new HealthCheckedLatestQuoteProvider({ provider, healthMonitor });
+
+  return innerProvider
+    ? new HealthCheckedLatestQuoteProvider({ provider: innerProvider, healthMonitor })
+    : null;
 }
