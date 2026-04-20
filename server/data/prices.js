@@ -79,37 +79,110 @@ function normalizeStooqSymbol(symbol) {
   return `${normalized.replace(/[/.]/g, '-').toLowerCase()}.us`;
 }
 
+const YAHOO_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0';
+
 export class YahooPriceProvider {
-  constructor({ fetchImpl = fetch, timeoutMs = 5000, logger } = {}) {
+  constructor({ fetchImpl = fetch, timeoutMs = 5000, logger, crumbTtlMs } = {}) {
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.logger = normalizeLogger(logger, { provider: 'yahoo' });
     this.providerKey = 'yahoo';
+    this._crumbCache = null; // { crumb: string, cookies: string, fetchedAt: number }
+    this._crumbTtlMs =
+      Number.isFinite(crumbTtlMs) && crumbTtlMs > 0 ? crumbTtlMs : 30 * 60 * 1000;
+  }
+
+  async _refreshCrumb() {
+    const ua = YAHOO_UA;
+    const homeRes = await this.fetch('https://finance.yahoo.com', {
+      headers: {
+        'User-Agent': ua,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+    });
+    const setCookieHeaders =
+      typeof homeRes.headers?.getSetCookie === 'function'
+        ? homeRes.headers.getSetCookie()
+        : [homeRes.headers?.get?.('set-cookie') ?? ''].filter(Boolean);
+    const cookies = setCookieHeaders
+      .map((h) => h.split(';')[0].trim())
+      .filter(Boolean)
+      .join('; ');
+
+    const crumbRes = await this.fetch(
+      'https://query1.finance.yahoo.com/v1/test/getcrumb',
+      {
+        headers: {
+          'User-Agent': ua,
+          Accept: 'text/plain,*/*;q=0.9',
+          Cookie: cookies,
+        },
+      },
+    );
+    const crumb = (await crumbRes.text()).trim();
+    if (!crumb || crumb.length < 4) {
+      const err = new Error('Failed to obtain Yahoo Finance crumb');
+      err.code = 'PRICE_FETCH_FAILED';
+      throw err;
+    }
+    this._crumbCache = { crumb, cookies, fetchedAt: Date.now() };
+    this.logger?.info?.('yahoo_crumb_refreshed', {});
+  }
+
+  async _fetchChartOnce(url, crumb, cookies, signal) {
+    const chartUrl = new URL(url.toString());
+    chartUrl.searchParams.set('crumb', crumb);
+    return this.fetch(chartUrl, {
+      signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': YAHOO_UA,
+        Cookie: cookies,
+      },
+    });
   }
 
   async getDailyAdjustedClose(symbol, from, to) {
     const period1 = toUnixStart(from);
     const period2 = toUnixEnd(to);
-    const url = new URL(
+    const baseUrl = new URL(
       `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`,
     );
-    url.searchParams.set('period1', String(period1));
-    url.searchParams.set('period2', String(period2));
-    url.searchParams.set('interval', '1d');
-    url.searchParams.set('events', 'history');
-    url.searchParams.set('includePrePost', 'false');
+    baseUrl.searchParams.set('period1', String(period1));
+    baseUrl.searchParams.set('period2', String(period2));
+    baseUrl.searchParams.set('interval', '1d');
+    baseUrl.searchParams.set('events', 'history');
+    baseUrl.searchParams.set('includePrePost', 'false');
+
+    if (!this._crumbCache || Date.now() - this._crumbCache.fetchedAt > this._crumbTtlMs) {
+      await this._refreshCrumb();
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     const startedAt = Date.now();
     try {
-      const response = await this.fetch(url, {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'Mozilla/5.0 (compatible; portfolio-app/1.0)',
-        },
-      });
+      let response = await this._fetchChartOnce(
+        baseUrl,
+        this._crumbCache.crumb,
+        this._crumbCache.cookies,
+        controller.signal,
+      );
+
+      // On 401 or 403 the crumb has expired — refresh once and retry
+      if (response.status === 401 || response.status === 403) {
+        this._crumbCache = null;
+        await this._refreshCrumb();
+        response = await this._fetchChartOnce(
+          baseUrl,
+          this._crumbCache.crumb,
+          this._crumbCache.cookies,
+          controller.signal,
+        );
+      }
+
       if (!response.ok) {
         const error = new Error(`Failed to fetch prices for ${symbol}`);
         error.status = response.status;
@@ -189,15 +262,33 @@ export class StooqPriceProvider {
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     const startedAt = Date.now();
     try {
-      const response = await this.fetch(url, { signal: controller.signal });
+      const response = await this.fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+        },
+      });
       if (!response.ok) {
         const error = new Error(`Failed to fetch prices for ${symbol}`);
         error.status = response.status;
         throw error;
       }
+      const contentType = response.headers?.get?.('content-type') ?? '';
+      if (contentType.includes('text/html')) {
+        const htmlError = new Error(`Stooq returned HTML instead of CSV for ${symbol}`);
+        htmlError.code = 'PRICE_FETCH_FAILED';
+        throw htmlError;
+      }
       const csv = (await response.text()).trim();
       if (!csv || /^no data$/i.test(csv)) {
         throw createNoDataError(symbol);
+      }
+      const firstLine = csv.split('\n').find((l) => l.trim().length > 0) ?? '';
+      if (firstLine.trimStart().startsWith('<')) {
+        const htmlError = new Error(`Stooq returned HTML instead of CSV for ${symbol}`);
+        htmlError.code = 'PRICE_FETCH_FAILED';
+        throw htmlError;
       }
       const lines = csv.trim().split('\n');
       if (lines.length <= 1) {
@@ -486,6 +577,110 @@ function resolveAlpacaSnapshotDate(payload) {
   );
 }
 
+/**
+ * Historical daily close prices via the Alpaca Market Data API
+ * (v2/stocks/bars — IEX feed, split-adjusted).
+ *
+ * Uses the same API credentials as AlpacaLatestQuoteProvider so no extra
+ * configuration is needed; set PRICE_PROVIDER_PRIMARY=alpaca.
+ */
+export class AlpacaHistoricalProvider {
+  constructor({ fetchImpl = fetch, timeoutMs = 10000, logger, apiKey = '', apiSecret = '' } = {}) {
+    this.fetch = fetchImpl;
+    this.timeoutMs = timeoutMs;
+    this.logger = normalizeLogger(logger, { provider: 'alpaca_hist' });
+    this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+    this.apiSecret = typeof apiSecret === 'string' ? apiSecret.trim() : '';
+    this.providerKey = 'alpaca';
+  }
+
+  async getDailyAdjustedClose(symbol, from, to) {
+    if (!this.apiKey || !this.apiSecret) {
+      const error = new Error('Alpaca API credentials are required for historical prices');
+      error.code = 'PRICE_PROVIDER_MISCONFIGURED';
+      throw error;
+    }
+
+    const url = new URL('https://data.alpaca.markets/v2/stocks/bars');
+    url.searchParams.set('symbols', symbol);
+    url.searchParams.set('timeframe', '1Day');
+    url.searchParams.set('start', toDateKey(from));
+    url.searchParams.set('end', toDateKey(to));
+    url.searchParams.set('feed', 'iex');
+    url.searchParams.set('adjustment', 'split');
+    url.searchParams.set('limit', '10000');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const startedAt = Date.now();
+    try {
+      const response = await this.fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'APCA-API-KEY-ID': this.apiKey,
+          'APCA-API-SECRET-KEY': this.apiSecret,
+        },
+      });
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw createNoDataError(symbol);
+        }
+        const body = await response.text().catch(() => '');
+        const error = new Error(`Failed to fetch historical prices for ${symbol}: ${body.slice(0, 120)}`);
+        error.status = response.status;
+        if (response.status === 401 || response.status === 403) {
+          error.code = 'PRICE_PROVIDER_AUTH_FAILED';
+        }
+        throw error;
+      }
+      const payload = await response.json();
+      const bars = Array.isArray(payload?.bars?.[symbol]) ? payload.bars[symbol] : [];
+      if (bars.length === 0) {
+        throw createNoDataError(symbol);
+      }
+      const result = [];
+      for (const bar of bars) {
+        const adjClose = Number.parseFloat(bar?.c);
+        if (!Number.isFinite(adjClose) || adjClose <= 0) {
+          continue;
+        }
+        // Alpaca timestamps are ISO-8601 UTC; slice to YYYY-MM-DD in NY time
+        const rawTs = bar?.t;
+        let date;
+        if (typeof rawTs === 'string') {
+          date = new Date(rawTs).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        } else {
+          continue;
+        }
+        result.push({ date, adjClose });
+      }
+      if (result.length === 0) {
+        throw createNoDataError(symbol);
+      }
+      result.sort((a, b) => a.date.localeCompare(b.date));
+      const durationMs = Date.now() - startedAt;
+      this.logger?.info?.('price_provider_latency', {
+        symbol,
+        from,
+        to,
+        duration_ms: durationMs,
+        rows: result.length,
+      });
+      return attachProviderMeta(result, { provider: this.providerKey, degraded: false });
+    } catch (error) {
+      this.logger?.error?.('price_provider_failed', {
+        symbol,
+        from,
+        to,
+        error: error.message,
+      });
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 export class AlpacaLatestQuoteProvider {
   constructor({
     fetchImpl = fetch,
@@ -546,6 +741,178 @@ export class AlpacaLatestQuoteProvider {
         date,
         adjClose: price,
       }, {
+        provider: this.providerKey,
+        degraded: false,
+      });
+    } catch (error) {
+      this.logger?.error?.('latest_quote_provider_failed', {
+        symbol,
+        error: error.message,
+      });
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+/**
+ * Historical daily close prices via Alpha Vantage TIME_SERIES_DAILY (free tier).
+ * Free tier: 25 requests/day, 5 requests/minute.
+ * Note: free tier returns unadjusted close ("4. close"); split-adjusted
+ * data requires the premium TIME_SERIES_DAILY_ADJUSTED endpoint.
+ * Set PRICE_PROVIDER_PRIMARY=alphavantage and ALPHAVANTAGE_API_KEY=<key>.
+ */
+export class AlphaVantageHistoricalProvider {
+  constructor({ fetchImpl = fetch, timeoutMs = 15000, logger, apiKey = '' } = {}) {
+    this.fetch = fetchImpl;
+    this.timeoutMs = timeoutMs;
+    this.logger = normalizeLogger(logger, { provider: 'alphavantage' });
+    this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+    this.providerKey = 'alphavantage';
+  }
+
+  async getDailyAdjustedClose(symbol, from, to) {
+    if (!this.apiKey) {
+      const error = new Error('Alpha Vantage API key is required for historical prices');
+      error.code = 'PRICE_PROVIDER_MISCONFIGURED';
+      throw error;
+    }
+
+    const url = new URL('https://www.alphavantage.co/query');
+    url.searchParams.set('function', 'TIME_SERIES_DAILY');
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('outputsize', 'full');
+    url.searchParams.set('apikey', this.apiKey);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const startedAt = Date.now();
+    try {
+      const response = await this.fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        const error = new Error(`Failed to fetch historical prices for ${symbol}`);
+        error.status = response.status;
+        if (response.status === 401 || response.status === 403) {
+          error.code = 'PRICE_PROVIDER_AUTH_FAILED';
+        }
+        throw error;
+      }
+      const payload = await response.json();
+      // Free-tier rate limit
+      if (payload?.['Note']) {
+        const error = new Error(`Alpha Vantage rate limit reached: ${String(payload['Note']).slice(0, 120)}`);
+        error.code = 'PRICE_PROVIDER_RATE_LIMITED';
+        throw error;
+      }
+      // Premium endpoint guard
+      if (payload?.['Information']) {
+        const error = new Error(`Alpha Vantage access denied: ${String(payload['Information']).slice(0, 120)}`);
+        error.code = 'PRICE_PROVIDER_AUTH_FAILED';
+        throw error;
+      }
+      // Invalid or unknown symbol
+      if (payload?.['Error Message']) {
+        throw createNoDataError(symbol);
+      }
+
+      const timeSeries = payload?.['Time Series (Daily)'];
+      if (!timeSeries || typeof timeSeries !== 'object') {
+        throw createNoDataError(symbol);
+      }
+
+      const fromKey = toDateKey(from);
+      const toKey = toDateKey(to);
+      const result = [];
+      for (const [date, bar] of Object.entries(timeSeries)) {
+        if (date < fromKey || date > toKey) {
+          continue;
+        }
+        const adjClose = Number.parseFloat(bar?.['4. close']);
+        if (Number.isFinite(adjClose) && adjClose > 0) {
+          result.push({ date, adjClose });
+        }
+      }
+      if (result.length === 0) {
+        throw createNoDataError(symbol);
+      }
+      result.sort((a, b) => a.date.localeCompare(b.date));
+      const durationMs = Date.now() - startedAt;
+      this.logger?.info?.('price_provider_latency', {
+        symbol,
+        from,
+        to,
+        duration_ms: durationMs,
+        rows: result.length,
+      });
+      return attachProviderMeta(result, { provider: this.providerKey, degraded: false });
+    } catch (error) {
+      this.logger?.error?.('price_provider_failed', {
+        symbol,
+        from,
+        to,
+        error: error.message,
+      });
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+/**
+ * Latest price snapshot via Finnhub /v1/quote (free tier).
+ * Returns the current trading price (field "c") with a Unix timestamp ("t").
+ * Set PRICE_PROVIDER_LATEST=finnhub and FINNHUB_API_KEY=<key>.
+ */
+export class FinnhubLatestQuoteProvider {
+  constructor({ fetchImpl = fetch, timeoutMs = 5000, logger, apiKey = '' } = {}) {
+    this.fetch = fetchImpl;
+    this.timeoutMs = timeoutMs;
+    this.logger = normalizeLogger(logger, { provider: 'finnhub' });
+    this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+    this.providerKey = 'finnhub';
+  }
+
+  async getLatestQuote(symbol) {
+    if (!this.apiKey) {
+      const error = new Error('Finnhub API key is required');
+      error.code = 'PRICE_PROVIDER_MISCONFIGURED';
+      throw error;
+    }
+
+    const url = new URL('https://finnhub.io/api/v1/quote');
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('token', this.apiKey);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const startedAt = Date.now();
+    try {
+      const response = await this.fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        const error = new Error(`Failed to fetch latest quote for ${symbol}: ${body.slice(0, 120)}`);
+        error.status = response.status;
+        if (response.status === 401 || response.status === 403) {
+          error.code = 'PRICE_PROVIDER_AUTH_FAILED';
+        }
+        throw error;
+      }
+      const payload = await response.json();
+      // Finnhub returns { c: 0 } for unknown or untraded symbols
+      const price = Number.parseFloat(payload?.c);
+      if (!Number.isFinite(price) || price <= 0) {
+        throw createNoDataError(symbol);
+      }
+      const date = normalizeQuoteDate(payload?.t);
+      const durationMs = Date.now() - startedAt;
+      this.logger?.info?.('latest_quote_provider_latency', {
+        symbol,
+        duration_ms: durationMs,
+        date,
+      });
+      return attachProviderMeta({ date, adjClose: price }, {
         provider: this.providerKey,
         degraded: false,
       });

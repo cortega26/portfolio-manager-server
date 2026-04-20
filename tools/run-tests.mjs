@@ -6,7 +6,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 
-const TEST_DIRS = ['server/__tests__', 'shared/__tests__', 'src/__tests__'];
+const TEST_DIRS = ['server/__tests__', 'shared/__tests__', 'src/__tests__', 'tests/prices'];
 const PROJECT_ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const SETUP_MODULE = path.join(PROJECT_ROOT, 'server', '__tests__', 'setup', 'global.js');
 const DEFAULT_SEED = 20251006;

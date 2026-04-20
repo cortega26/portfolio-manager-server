@@ -86,6 +86,8 @@ test('YahooPriceProvider parses adjusted close values and logs latency', async (
   const fetchImpl = async () => ({ ok: true, json: async () => yahooV8Json });
   const logger = createMockLogger();
   const provider = new YahooPriceProvider({ fetchImpl, timeoutMs: 1000, logger });
+  // Pre-populate crumb cache so the test exercises only the chart-fetch path
+  provider._crumbCache = { crumb: 'test-crumb', cookies: 'A1=test', fetchedAt: Date.now() };
   const rows = await provider.getDailyAdjustedClose('SPY', '2024-01-01', '2024-01-02');
   assert.equal(rows.length, 1);
   assert.equal(rows[0].adjClose, 9.5);
@@ -97,9 +99,11 @@ test('YahooPriceProvider parses adjusted close values and logs latency', async (
 });
 
 test('YahooPriceProvider surfaces upstream failures', async () => {
-  const fetchImpl = async () => ({ ok: false, text: async () => '' });
+  const fetchImpl = async () => ({ ok: false, status: 500, text: async () => '' });
   const logger = createMockLogger();
   const provider = new YahooPriceProvider({ fetchImpl, timeoutMs: 1000, logger });
+  // Pre-populate crumb cache so the test exercises only the chart-fetch path
+  provider._crumbCache = { crumb: 'test-crumb', cookies: 'A1=test', fetchedAt: Date.now() };
   await assert.rejects(() =>
     provider.getDailyAdjustedClose('SPY', '2024-01-01', '2024-01-02'),
   );

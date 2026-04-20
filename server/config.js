@@ -16,6 +16,23 @@ import {
   normalizePriceProviderName,
 } from "./data/priceProviderFactory.js";
 
+function trimEnv(val) {
+  return typeof val === "string" ? val.trim() : "";
+}
+
+function resolveLatestApiKey(provider, env) {
+  if (provider === "alpaca") {
+    return trimEnv(env.ALPACA_API_KEY);
+  }
+  if (provider === "twelvedata") {
+    return trimEnv(env.TWELVE_DATA_API_KEY);
+  }
+  if (provider === "finnhub") {
+    return trimEnv(env.FINNHUB_API_KEY);
+  }
+  return "";
+}
+
 function parseBoolean(value, defaultValue = false) {
   if (value === undefined) {
     return defaultValue;
@@ -285,21 +302,15 @@ export function loadConfig(env = process.env) {
       providers: {
         primary: normalizePriceProviderName(env.PRICE_PROVIDER_PRIMARY, "stooq"),
         fallback: normalizePriceProviderName(env.PRICE_PROVIDER_FALLBACK, "yahoo"),
+        alpacaApiKey: trimEnv(env.ALPACA_API_KEY),
+        alpacaApiSecret: trimEnv(env.ALPACA_API_SECRET),
+        alphavantageApiKey: trimEnv(env.ALPHAVANTAGE_API_KEY),
       },
       latest: {
         provider: latestProvider,
-        apiKey:
-          latestProvider === "alpaca"
-            ? typeof env.ALPACA_API_KEY === "string"
-              ? env.ALPACA_API_KEY.trim()
-              : ""
-            : latestProvider === "twelvedata" && typeof env.TWELVE_DATA_API_KEY === "string"
-              ? env.TWELVE_DATA_API_KEY.trim()
-              : "",
+        apiKey: resolveLatestApiKey(latestProvider, env),
         apiSecret:
-          latestProvider === "alpaca" && typeof env.ALPACA_API_SECRET === "string"
-            ? env.ALPACA_API_SECRET.trim()
-            : "",
+          latestProvider === "alpaca" ? trimEnv(env.ALPACA_API_SECRET) : "",
         prepost: parseBoolean(env.TWELVE_DATA_PREPOST, true),
       },
     },
