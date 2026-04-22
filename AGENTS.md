@@ -5,7 +5,7 @@
 Este repositorio mantiene `portfolio-manager-unified` como una aplicación desktop local basada en:
 
 - React + Vite en renderer
-- Express como API local
+- Fastify como API local
 - Electron como shell desktop
 - SQLite como persistencia
 
@@ -116,7 +116,28 @@ Reglas de resolución:
 <claude-mem-context>
 # Memory Context
 
-# [portafolio-unificado] recent context, 2026-04-17 8:55pm GMT-4
+# [portafolio-unificado] recent context, 2026-04-22 11:41am GMT-4
 
-No previous sessions found.
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision
+Format: ID TIME TYPE TITLE
+Fetch details: get_observations([IDs]) | Search: mem-search skill
+
+Stats: 12 obs (4,954t read) | 262,422t work | 98% savings
+
+### Apr 22, 2026
+
+164 10:38a 🔵 portafolio-unificado — Baseline Quality Audit: Clean Lint/Types/Tests, Multiple Code Smells Found
+165 10:43a 🔴 console.log Removed from formatDate — Shared Utility Extracted to server/utils/dateUtils.ts
+166 " 🔄 API_BASE Centralized into src/lib/apiClient.ts — 5-Way Duplication Eliminated
+167 " 🔄 mapRowToTrade Helper Extracted in server/db/reader.ts
+168 " 🔴 Silent Error Swallowing Fixed in All 5 Express Route Handlers
+169 " 🔴 OverviewPage PieChart Import Path Fixed; DividendsPage React Key Stabilized
+170 " ✅ portafolio-unificado Code Quality Pass — All Checks Green After Refactoring
+171 10:45a 🔵 portafolio-unificado — Context Docs Reveal Far Richer Architecture Than TypeScript Files Suggest
+172 10:46a 🔵 PortfolioManagerApp.jsx Confirmed as Mega-Component — 1700+ Lines, 30+ State Vars, 12+ useEffects
+173 10:47a 🔵 Legacy Express bootstrap and server/routes/index.js were near-identical duplicates — Both 897 Lines
+174 10:50a 🔄 server/routes/\_helpers.ts Created — Shared Route Utilities Extracted from 3 Duplicating Route Files
+175 10:51a 🔄 server/routes/\_helpers.ts Patch Successfully Applied — 4 Files Updated Atomically
+
+Access 262k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

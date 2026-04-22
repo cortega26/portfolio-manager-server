@@ -392,6 +392,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       providers: {
         primary: normalizePriceProviderName(env['PRICE_PROVIDER_PRIMARY'], 'stooq') as string,
         fallback: normalizePriceProviderName(env['PRICE_PROVIDER_FALLBACK'], 'yahoo') as string,
+        alpacaApiKey: typeof env['ALPACA_API_KEY'] === 'string' ? env['ALPACA_API_KEY'].trim() : '',
+        alpacaApiSecret: typeof env['ALPACA_API_SECRET'] === 'string' ? env['ALPACA_API_SECRET'].trim() : '',
+        alphavantageApiKey: typeof env['ALPHAVANTAGE_API_KEY'] === 'string' ? env['ALPHAVANTAGE_API_KEY'].trim() : '',
       },
       latest: {
         provider: latestProvider,
@@ -400,10 +403,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
             ? typeof env['ALPACA_API_KEY'] === 'string'
               ? env['ALPACA_API_KEY'].trim()
               : ''
-            : latestProvider === 'twelvedata' &&
-                typeof env['TWELVE_DATA_API_KEY'] === 'string'
+            : latestProvider === 'twelvedata' && typeof env['TWELVE_DATA_API_KEY'] === 'string'
               ? env['TWELVE_DATA_API_KEY'].trim()
-              : '',
+              : latestProvider === 'finnhub' && typeof env['FINNHUB_API_KEY'] === 'string'
+                ? env['FINNHUB_API_KEY'].trim()
+                : '',
         apiSecret:
           latestProvider === 'alpaca' && typeof env['ALPACA_API_SECRET'] === 'string'
             ? env['ALPACA_API_SECRET'].trim()

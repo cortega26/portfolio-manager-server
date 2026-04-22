@@ -39,6 +39,7 @@ describe('TransactionsTab deposit UX', () => {
       expect(sharesInput).toHaveAttribute('aria-disabled', 'true');
       expect(sharesInput).toHaveDisplayValue('');
 
+      await userEvent.clear(within(form).getByLabelText(/date/i));
       await userEvent.type(within(form).getByLabelText(/date/i), '2024-05-01');
       await userEvent.type(within(form).getByLabelText(/amount/i), '5000');
 

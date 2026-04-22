@@ -1,20 +1,17 @@
-import { forwardRef, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import clsx from 'clsx';
 import Decimal from 'decimal.js';
-import { FixedSizeList } from 'react-window';
 
 import useDebouncedValue from '../hooks/useDebouncedValue.js';
 import { useI18n } from '../i18n/I18nProvider.jsx';
 import { validateNonNegativeCash } from '../utils/cashGuards.js';
+import { fetchBulkPrices } from '../utils/api.js';
+import DepositorModal from './transactions/DepositorModal.jsx';
+import TransactionsTable from './transactions/TransactionsTable.jsx';
 
-const defaultForm = {
-  date: '',
-  ticker: '',
-  type: 'BUY',
-  amount: '',
-  price: '',
-  shares: '',
-};
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const CASH_ONLY_TYPES = new Set(['DEPOSIT', 'WITHDRAWAL', 'DIVIDEND', 'INTEREST']);
 
@@ -22,15 +19,22 @@ function isCashOnlyType(type) {
   return CASH_ONLY_TYPES.has(type);
 }
 
+function createInitialForm() {
+  return {
+    date: todayIso(),
+    ticker: '',
+    type: 'BUY',
+    amount: '',
+    price: '',
+    shares: '',
+  };
+}
+
 const initialState = {
-  form: { ...defaultForm },
+  form: createInitialForm(),
   error: null,
   fieldErrors: {},
 };
-
-function createInitialForm() {
-  return { ...defaultForm };
-}
 
 function reducer(state, action) {
   switch (action.type) {
@@ -77,10 +81,8 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100];
 const VIRTUALIZATION_THRESHOLD = 200;
 const ROW_HEIGHT_DEFAULT = 56;
 const ROW_HEIGHT_COMPACT = 44;
-const VIRTUALIZED_MAX_HEIGHT = 480;
 const SHARE_INPUT_DECIMALS = 9;
 const PRICE_INPUT_DECIMALS = 9;
-const GRID_TEMPLATE = '140px minmax(100px, 1fr) 120px 140px 140px 120px minmax(120px, 1fr)';
 
 function toPositiveDecimalOrNull(value) {
   if (value === null || value === undefined || value === '') {
@@ -99,15 +101,6 @@ function toPositiveDecimalOrNull(value) {
 
 function toInputDecimalLabel(decimal, digits) {
   return decimal.toFixed(digits).replace(/\.?0+$/, '');
-}
-
-function deriveTransactionPriceLabel(amount, shares) {
-  const amountDecimal = toPositiveDecimalOrNull(amount);
-  const sharesDecimal = toPositiveDecimalOrNull(shares);
-  if (!amountDecimal || !sharesDecimal) {
-    return '';
-  }
-  return toInputDecimalLabel(amountDecimal.div(sharesDecimal), PRICE_INPUT_DECIMALS);
 }
 
 function normalizeSearchValue(value) {
@@ -151,340 +144,13 @@ function matchesTransaction(transaction, term, t) {
     .some((value) => value.includes(normalized));
 }
 
-function TransactionRow({
-  index,
-  item,
-  onDeleteTransaction,
-  style,
-  rowIndexOffset = 0,
-  compact = false,
-}) {
-  const { t, formatCurrency, formatNumber } = useI18n();
-  const { transaction, originalIndex } = item;
-  const shareValue =
-    typeof transaction.shares === 'number'
-      ? transaction.shares
-      : typeof transaction.shares === 'string'
-        ? Number.parseFloat(transaction.shares)
-        : Number.NaN;
-  const sharesDisplay = (() => {
-    if (typeof formatNumber === 'function' && Number.isFinite(shareValue)) {
-      return formatNumber(shareValue, {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 6,
-      });
-    }
-    if (Number.isFinite(shareValue)) {
-      return shareValue.toLocaleString(undefined, {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 6,
-      });
-    }
-    return '—';
-  })();
-  const typeKey = typeof transaction.type === 'string' ? transaction.type.toLowerCase() : '';
-  const typeLabel =
-    typeKey !== '' ? t(`transactions.type.${typeKey}`) : String(transaction.type ?? '—');
-
-  return (
-    <div
-      aria-rowindex={rowIndexOffset + index + 2}
-      className={clsx(
-        'grid items-center border-b border-slate-200 px-3 transition-colors last:border-none dark:border-slate-800',
-        compact ? 'py-1 text-xs' : 'py-2 text-sm',
-        index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-900/70'
-      )}
-      role="row"
-      style={{
-        ...style,
-        display: 'grid',
-        gridTemplateColumns: GRID_TEMPLATE,
-        width: '100%',
-      }}
-    >
-      <span className="truncate" role="cell">
-        {transaction.date}
-      </span>
-      <span className="font-semibold" role="cell">
-        {transaction.ticker}
-      </span>
-      <span role="cell">{typeLabel}</span>
-      <span role="cell">{formatCurrency(transaction.amount)}</span>
-      <span role="cell">{formatCurrency(transaction.price)}</span>
-      <span role="cell">{sharesDisplay}</span>
-      <span className="flex justify-end" role="cell">
-        <button
-          type="button"
-          onClick={() => onDeleteTransaction?.(originalIndex)}
-          className={clsx(
-            'rounded-md border border-transparent text-xs font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 dark:hover:bg-rose-500/10',
-            compact ? 'px-2 py-0.5' : 'px-3 py-1'
-          )}
-          aria-label={t('transactions.table.undoAria', {
-            ticker: transaction.ticker,
-            date: transaction.date,
-          })}
-        >
-          {t('transactions.table.undo')}
-        </button>
-      </span>
-    </div>
-  );
-}
-
-function VirtualizedRow({ index, style, data }) {
-  return (
-    <TransactionRow
-      index={index}
-      item={data.transactions[index]}
-      onDeleteTransaction={data.onDeleteTransaction}
-      style={style}
-      rowIndexOffset={data.rowIndexOffset}
-      compact={data.compact}
-    />
-  );
-}
-
-const VirtualizedRowGroup = forwardRef(function VirtualizedRowGroup(props, ref) {
-  return (
-    <div
-      {...props}
-      ref={ref}
-      role="rowgroup"
-      data-testid="transactions-virtual-list"
-      className={clsx('focus:outline-none', props.className)}
-    />
-  );
-});
-
-const VirtualizedInner = forwardRef(function VirtualizedInner(props, ref) {
-  return <div {...props} ref={ref} role="presentation" />;
-});
-
-function DepositorModal({ open, onClose, onSubmit }) {
-  const { t } = useI18n();
-  const [name, setName] = useState('');
-  const [reference, setReference] = useState('');
-  const [showErrors, setShowErrors] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setName('');
-      setReference('');
-      setShowErrors(false);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setShowErrors(true);
-      return;
-    }
-    onSubmit({
-      name: trimmedName,
-      reference: reference.trim(),
-    });
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="add-depositor-title"
-      data-testid="depositor-modal"
-    >
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-3">
-          <h3
-            id="add-depositor-title"
-            className="text-lg font-semibold text-slate-700 dark:text-slate-100"
-          >
-            {t('transactions.depositor.title')}
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-            aria-label={t('transactions.depositor.close')}
-          >
-            ×
-          </button>
-        </div>
-        <form className="mt-4 space-y-4" onSubmit={handleSubmit} noValidate>
-          <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-            {t('transactions.depositor.name')}
-            <input
-              type="text"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              placeholder={t('transactions.depositor.name.placeholder')}
-              aria-invalid={showErrors && !name.trim()}
-              autoFocus
-            />
-            {showErrors && !name.trim() ? (
-              <span className="mt-1 text-xs font-medium text-rose-600">
-                {t('transactions.depositor.nameError')}
-              </span>
-            ) : null}
-          </label>
-          <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
-            {t('transactions.depositor.reference')}
-            <input
-              type="text"
-              value={reference}
-              onChange={(event) => setReference(event.target.value)}
-              className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              placeholder={t('transactions.depositor.reference.placeholder')}
-            />
-          </label>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-            >
-              {t('transactions.depositor.save')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function TransactionsTable({
-  transactions,
-  onDeleteTransaction,
-  virtualized,
-  rowIndexOffset = 0,
-  listRef,
-  hasSearch = false,
-  totalTransactions = 0,
-  rowHeight = ROW_HEIGHT_DEFAULT,
-  compact = false,
-}) {
-  const { t } = useI18n();
-  if (transactions.length === 0) {
-    return (
-      <p
-        className={clsx('text-sm text-slate-500 dark:text-slate-400', compact && 'text-xs')}
-        role="status"
-      >
-        {totalTransactions === 0
-          ? t('transactions.table.empty')
-          : hasSearch
-            ? t('transactions.table.noMatch')
-            : t('transactions.table.noneAvailable')}
-      </p>
-    );
-  }
-
-  const listHeight = Math.min(
-    Math.max(rowHeight * 6, transactions.length * rowHeight),
-    VIRTUALIZED_MAX_HEIGHT
-  );
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
-      <div role="table" aria-label={t('transactions.table.aria')} className="w-full">
-        <div
-          role="rowgroup"
-          className={clsx(
-            'bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-300',
-            compact && 'text-[11px]'
-          )}
-        >
-          <div
-            role="row"
-            className={clsx(
-              'grid grid-cols-[140px_minmax(100px,1fr)_120px_140px_140px_120px_minmax(120px,1fr)] items-center px-3',
-              compact ? 'py-1.5' : 'py-2'
-            )}
-          >
-            <span role="columnheader">{t('transactions.table.date')}</span>
-            <span role="columnheader">{t('transactions.table.ticker')}</span>
-            <span role="columnheader">{t('transactions.table.type')}</span>
-            <span role="columnheader">{t('transactions.table.amount')}</span>
-            <span role="columnheader">{t('transactions.table.price')}</span>
-            <span role="columnheader">{t('transactions.table.shares')}</span>
-            <span className="text-right" role="columnheader">
-              {t('transactions.table.actions')}
-            </span>
-          </div>
-        </div>
-        {virtualized ? (
-          <FixedSizeList
-            height={listHeight}
-            innerElementType={VirtualizedInner}
-            itemCount={transactions.length}
-            itemData={{
-              transactions,
-              onDeleteTransaction,
-              compact,
-              rowIndexOffset,
-            }}
-            itemSize={rowHeight}
-            outerElementType={VirtualizedRowGroup}
-            ref={listRef ?? undefined}
-            width="100%"
-          >
-            {VirtualizedRow}
-          </FixedSizeList>
-        ) : (
-          <div role="rowgroup">
-            {transactions.map((item, index) => (
-              <TransactionRow
-                key={`${item.transaction.ticker}-${item.transaction.date}-${item.originalIndex}`}
-                index={index}
-                item={item}
-                onDeleteTransaction={onDeleteTransaction}
-                rowIndexOffset={rowIndexOffset}
-                compact={compact}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function TransactionsTab({
   onAddTransaction,
   onDeleteTransaction,
   transactions = [],
   compact = false,
+  holdings = [],
+  cashBalance = null,
 }) {
   const { t } = useI18n();
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -496,6 +162,13 @@ export default function TransactionsTab({
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const listRef = useRef(null);
   const rowHeight = compact ? ROW_HEIGHT_COMPACT : ROW_HEIGHT_DEFAULT;
+
+  // lockedFields tracks which two of {amount, price, shares} were most recently edited.
+  // The third is computed. Max size 2.
+  const [lockedFields, setLockedFields] = useState(new Set());
+
+  // Price auto-fill state: null | { source: string, timestamp: string } | 'unavailable'
+  const [priceAutoFill, setPriceAutoFill] = useState(null);
 
   const indexedTransactions = useMemo(
     () =>
@@ -559,6 +232,51 @@ export default function TransactionsTab({
     setDepositorModalOpen(false);
   }, []);
 
+  function computeMutualField(nextForm, nextLocked) {
+    // Only compute when exactly 2 fields are locked.
+    if (nextLocked.size !== 2) {
+      return nextForm;
+    }
+    const result = { ...nextForm };
+    const hasAmount = nextLocked.has('amount');
+    const hasPrice = nextLocked.has('price');
+    const hasShares = nextLocked.has('shares');
+
+    const amountD = toPositiveDecimalOrNull(result.amount);
+    const priceD = toPositiveDecimalOrNull(result.price);
+    const sharesD = toPositiveDecimalOrNull(result.shares);
+
+    if (hasAmount && hasPrice && !hasShares) {
+      // compute shares = amount / price
+      if (amountD && priceD && !priceD.isZero()) {
+        result.shares = toInputDecimalLabel(amountD.div(priceD), SHARE_INPUT_DECIMALS);
+      }
+    } else if (hasAmount && hasShares && !hasPrice) {
+      // compute price = amount / shares
+      if (amountD && sharesD && !sharesD.isZero()) {
+        result.price = toInputDecimalLabel(amountD.div(sharesD), PRICE_INPUT_DECIMALS);
+      }
+    } else if (hasPrice && hasShares && !hasAmount) {
+      // compute amount = price × shares
+      if (priceD && sharesD) {
+        result.amount = toInputDecimalLabel(priceD.mul(sharesD), 2);
+      }
+    }
+    return result;
+  }
+
+  function lockField(prevLocked, field) {
+    const next = new Set(prevLocked);
+    next.add(field);
+    // Evict the oldest if we exceed 2. We store insertion order in a Set,
+    // so the first element is the oldest.
+    if (next.size > 2) {
+      const [oldest] = next;
+      next.delete(oldest);
+    }
+    return next;
+  }
+
   function updateForm(field, value) {
     const nextForm = { ...form, [field]: value };
     const wasCashOnly = isCashOnlyType(form.type);
@@ -573,12 +291,28 @@ export default function TransactionsTab({
       }
     }
 
-    if (!nextCashOnly) {
-      nextForm.price = deriveTransactionPriceLabel(nextForm.amount, nextForm.shares);
+    // Mutual field computation for equity fields
+    let nextLocked = lockedFields;
+    if (!nextCashOnly && (field === 'amount' || field === 'price' || field === 'shares')) {
+      nextLocked = lockField(lockedFields, field);
+      setLockedFields(nextLocked);
+      // Clear auto-fill label if user manually edits price
+      if (field === 'price') {
+        setPriceAutoFill(null);
+      }
+      const computed = computeMutualField({ ...nextForm }, nextLocked);
+      nextForm.amount = computed.amount;
+      nextForm.price = computed.price;
+      nextForm.shares = computed.shares;
     }
 
     if (nextCashOnly) {
       nextForm.shares = '';
+      // Reset locked fields when switching to cash-only
+      if (!wasCashOnly) {
+        setLockedFields(new Set());
+        setPriceAutoFill(null);
+      }
     }
 
     dispatch({ type: 'set-form', form: nextForm });
@@ -656,13 +390,15 @@ export default function TransactionsTab({
     if (!cashOnly) {
       const amountDecimal = toPositiveDecimalOrNull(amount);
       const sharesDecimal = toPositiveDecimalOrNull(shares);
+      // Use the price directly from form when available; fall back to amount/shares derivation.
+      const priceFromForm = toPositiveDecimalOrNull(form.price);
       if (!amountDecimal || !sharesDecimal) {
         recordError(t('transactions.form.validation.shares'), {
           shares: t('transactions.form.validation.shares'),
         });
         return;
       }
-      priceDecimal = amountDecimal.div(sharesDecimal);
+      priceDecimal = priceFromForm ?? amountDecimal.div(sharesDecimal);
       if (!priceDecimal) {
         recordError(t('transactions.form.validation.price'), {
           price: t('transactions.form.validation.price'),
@@ -695,12 +431,91 @@ export default function TransactionsTab({
 
     onAddTransaction(payload);
     dispatch({ type: 'reset' });
+    setLockedFields(new Set());
+    setPriceAutoFill(null);
   }
 
+  // Step 3.3 — Auto-fill price on ticker blur
+  async function handleTickerBlur() {
+    const ticker = form.ticker.trim().toUpperCase();
+    const type = form.type;
+    if (!ticker || !/^[A-Z]{1,8}$/.test(ticker) || (type !== 'BUY' && type !== 'SELL')) {
+      return;
+    }
+    try {
+      const { series } = await fetchBulkPrices([ticker], { latestOnly: true, range: '5d' });
+      const entries = series.get(ticker) ?? [];
+      const last = entries.at(-1);
+      const price = Number(last?.close ?? last?.price ?? last?.value);
+      if (!Number.isFinite(price) || price <= 0) {
+        setPriceAutoFill('unavailable');
+        return;
+      }
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const source = last?.source ?? 'price engine';
+      setPriceAutoFill({ source, timestamp });
+      // Update price and recompute mutual field
+      const nextLocked = lockField(lockedFields, 'price');
+      setLockedFields(nextLocked);
+      const priceLabel = toInputDecimalLabel(new Decimal(price), PRICE_INPUT_DECIMALS);
+      const nextForm = { ...form, ticker: form.ticker.trim(), price: priceLabel };
+      const computed = computeMutualField(nextForm, nextLocked);
+      dispatch({ type: 'set-form', form: computed });
+    } catch {
+      setPriceAutoFill('unavailable');
+    }
+  }
+
+  // Step 3.5 — Smart type default on ticker blur
+  function applySmartTypeDefault(ticker) {
+    if (form.type !== 'BUY' && form.type !== 'SELL') {
+      return;
+    }
+    const normalizedTicker = ticker.trim().toUpperCase();
+    if (!normalizedTicker) {
+      return;
+    }
+    const holding = holdings.find(
+      (h) => typeof h?.ticker === 'string' && h.ticker.trim().toUpperCase() === normalizedTicker
+    );
+    const holdingShares = Number(holding?.shares ?? 0);
+    if (holdingShares > 0 && form.type === 'BUY') {
+      // Suggest SELL for existing positions — soft default only if user hasn't changed type
+      updateForm('type', 'SELL');
+    }
+  }
+
+  function handleTickerBlurFull() {
+    applySmartTypeDefault(form.ticker);
+    void handleTickerBlur();
+  }
   const requiresPrice = !isCashOnlyType(form.type);
   const tickerDisabled = form.type === 'DEPOSIT';
   const sharesDisabled = isCashOnlyType(form.type);
-  const priceReadOnly = requiresPrice;
+
+  // Determine which field (if any) is the computed one — it gets visual distinction.
+  const computedField = (() => {
+    if (!requiresPrice || lockedFields.size !== 2) {
+      return null;
+    }
+    if (!lockedFields.has('amount')) return 'amount';
+    if (!lockedFields.has('price')) return 'price';
+    return 'shares';
+  })();
+
+  // Step 3.6 — Remaining cash indicator
+  const remainingCashInfo = (() => {
+    if (form.type !== 'BUY' || !form.amount || cashBalance === null) {
+      return null;
+    }
+    const enteredAmount = toPositiveDecimalOrNull(form.amount);
+    if (!enteredAmount) {
+      return null;
+    }
+    const cashD = new Decimal(cashBalance);
+    const remaining = cashD.minus(enteredAmount);
+    return { remaining: remaining.toNumber(), sufficient: remaining.gte(0) };
+  })();
 
   const hasSearch = Boolean(debouncedSearch?.trim());
   const showingStart = filteredCount === 0 ? 0 : startIndex + 1;
@@ -777,6 +592,7 @@ export default function TransactionsTab({
                 type="text"
                 value={form.ticker}
                 onChange={(event) => updateForm('ticker', event.target.value)}
+                onBlur={tickerDisabled ? undefined : handleTickerBlurFull}
                 className={clsx(
                   'mt-1 rounded-md border px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
                   tickerDisabled
@@ -829,15 +645,45 @@ export default function TransactionsTab({
                 type="number"
                 value={form.amount}
                 onChange={(event) => updateForm('amount', event.target.value)}
-                className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                className={clsx(
+                  'mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+                  computedField === 'amount'
+                    ? 'border-slate-300 bg-slate-50 italic dark:bg-slate-800/50'
+                    : 'border-slate-300'
+                )}
                 step="0.01"
                 placeholder={t('transactions.form.amount.placeholder')}
                 aria-invalid={Boolean(fieldErrors.amount)}
+                aria-label={
+                  computedField === 'amount'
+                    ? `${t('transactions.form.amount')} (computed)`
+                    : t('transactions.form.amount')
+                }
               />
               {fieldErrors.amount ? (
                 <span className="mt-1 text-xs font-medium text-rose-600" data-testid="error-amount">
                   {fieldErrors.amount}
                 </span>
+              ) : remainingCashInfo !== null ? (
+                remainingCashInfo.sufficient ? (
+                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {t('transactions.form.amount.remainingCash', {
+                      amount: remainingCashInfo.remaining.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      }),
+                    })}
+                  </span>
+                ) : (
+                  <span className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    {t('transactions.form.amount.insufficientCash', {
+                      amount: Math.abs(remainingCashInfo.remaining).toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                      }),
+                    })}
+                  </span>
+                )
               ) : null}
             </label>
             {requiresPrice ? (
@@ -846,12 +692,21 @@ export default function TransactionsTab({
                 <input
                   type="number"
                   value={form.price}
-                  readOnly={priceReadOnly}
-                  className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  onChange={(event) => updateForm('price', event.target.value)}
+                  className={clsx(
+                    'mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+                    computedField === 'price'
+                      ? 'border-slate-300 bg-slate-50 italic dark:bg-slate-800/50'
+                      : 'border-slate-300'
+                  )}
                   step="0.000000001"
                   placeholder={t('transactions.form.price.placeholder')}
                   aria-invalid={Boolean(fieldErrors.price)}
-                  aria-readonly={priceReadOnly ? 'true' : undefined}
+                  aria-label={
+                    computedField === 'price'
+                      ? `${t('transactions.form.price')} (computed)`
+                      : t('transactions.form.price')
+                  }
                 />
                 {fieldErrors.price ? (
                   <span
@@ -859,6 +714,17 @@ export default function TransactionsTab({
                     data-testid="error-price"
                   >
                     {fieldErrors.price}
+                  </span>
+                ) : priceAutoFill === 'unavailable' ? (
+                  <span className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    {t('transactions.form.price.autoFillUnavailable')}
+                  </span>
+                ) : priceAutoFill !== null ? (
+                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {t('transactions.form.price.autoFilled', {
+                      source: priceAutoFill.source,
+                      time: priceAutoFill.timestamp,
+                    })}
                   </span>
                 ) : (
                   <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -882,7 +748,9 @@ export default function TransactionsTab({
                   'mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
                   sharesDisabled
                     ? 'border-dashed border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400'
-                    : 'border-slate-300'
+                    : computedField === 'shares'
+                      ? 'border-slate-300 bg-slate-50 italic dark:bg-slate-800/50'
+                      : 'border-slate-300'
                 )}
                 placeholder={
                   sharesDisabled
@@ -892,6 +760,11 @@ export default function TransactionsTab({
                     : t('transactions.form.shares.placeholder')
                 }
                 aria-invalid={Boolean(fieldErrors.shares)}
+                aria-label={
+                  computedField === 'shares'
+                    ? `${t('transactions.form.shares')} (computed)`
+                    : t('transactions.form.shares')
+                }
               />
               {sharesDisabled ? (
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">

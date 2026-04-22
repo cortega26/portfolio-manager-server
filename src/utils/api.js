@@ -141,7 +141,7 @@ export async function fetchNavDaily({ from, to, portfolioId, signal } = {}) {
   if (typeof portfolioId === 'string' && portfolioId.trim().length > 0) {
     params.set('portfolioId', portfolioId.trim());
   }
-  params.set('perPage', '10000');
+  params.set('per_page', '2000');
   const query = params.toString();
   return requestJson(`/nav/daily${query ? `?${query}` : ''}`, { signal });
 }
@@ -326,5 +326,25 @@ export async function fetchSecurityEvents({ limit, signal, onRequestMetadata } =
   return requestJson(`/security/events${query ? `?${query}` : ''}`, {
     signal,
     onRequestMetadata,
+  });
+}
+
+export async function fetchInbox(portfolioId, options = {}) {
+  const normalizedId = normalizePortfolioId(portfolioId);
+  return requestJson(`/portfolio/${normalizedId}/inbox`, {
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function dismissInboxItem(portfolioId, { ticker, eventType, eventKey }, options = {}) {
+  const normalizedId = normalizePortfolioId(portfolioId);
+  return requestJson(`/portfolio/${normalizedId}/inbox/dismiss`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticker, eventType, eventKey }),
+    allowEmptyObject: true,
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
   });
 }

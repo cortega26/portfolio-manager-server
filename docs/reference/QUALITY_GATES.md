@@ -15,6 +15,7 @@ Use this file to answer two questions quickly:
 | Bootstrap assumptions   | `npm run doctor`           | Yes, via `npm run verify:docs`       | Verifies required files, runtime assumptions, and canonical entrypoints exist.                        |
 | Documentation contracts | `npm run docs:check`       | Yes, via `npm run verify:docs`       | Fails when active docs reference missing scripts, missing repo paths, or stale implementation claims. |
 | Quality-gate contract   | `npm run quality:gates`    | Yes, via `npm run verify:docs`       | Verifies that this contract, package scripts, and CI workflow stay aligned.                           |
+| Repo quality guard      | `npm run verify:quality`   | Yes                                  | Runs the canonical anti-drift gate: docs, lint, typecheck, format, Codacy, complexity, build, tests.  |
 | Lint                    | `npm run verify:lint`      | Yes, via `npm run verify:smoke`      | Runs ESLint with zero warnings allowed.                                                               |
 | Type compatibility      | `npm run verify:typecheck` | Yes, via `npm run verify:smoke`      | Runs the repo TypeScript compatibility pass.                                                          |
 | Buildability            | `npm run verify:build`     | Yes, via `npm run verify:smoke`      | Confirms the renderer build still completes.                                                          |
@@ -55,8 +56,12 @@ without causing noisy false failures.
 The canonical CI workflow at `.github/workflows/ci.yml` must include these commands:
 
 - `npm run verify:docs`
+- `npm run verify:quality`
 - `npm run verify:smoke`
 - `npm run test:coverage`
 
 If CI changes, update this file and `scripts/check-quality-gates.mjs` in the same
 change.
+
+See `docs/reference/QUALITY_GUARDRAILS.md` for the ratcheting allowlist and
+complexity policy that sits on top of these gates.

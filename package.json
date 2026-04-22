@@ -5,6 +5,9 @@
   "main": "server/index.js",
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
+    "codacy:analyze": "node scripts/run-codacy-local.mjs",
+    "check:complexity": "node scripts/check-structural-complexity.mjs",
+    "quality:baseline:update": "node scripts/update-quality-baseline.mjs",
     "dev": "vite",
     "docs:check": "node scripts/check-doc-contracts.mjs && node scripts/check-doc-paths.mjs",
     "quality:gates": "node scripts/check-quality-gates.mjs",
@@ -34,6 +37,7 @@
     "backfill": "node server/cli/backfill.js",
     "verify:deps": "npm ci --no-fund --no-audit",
     "verify:docs": "npm run doctor && npm run docs:check && npm run quality:gates",
+    "verify:quality": "npm run doctor && npm run docs:check && npm run lint && npm run verify:typecheck && npm run format:check && npm run codacy:analyze && npm run check:complexity && npm run verify:build && npm test",
     "verify:lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
     "verify:typecheck": "tsc --pretty false --project tsconfig.typecheck.json",
     "verify:typecheck:server": "tsc --project tsconfig.server.json --noEmit",

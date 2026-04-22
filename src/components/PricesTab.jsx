@@ -1,6 +1,6 @@
 import { useI18n } from '../i18n/I18nProvider.jsx';
 
-function StatusBadge({ status, label }) {
+function StatusBadge({ status, label, tooltip }) {
   const className = (() => {
     if (status === 'live') {
       return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200';
@@ -10,6 +10,9 @@ function StatusBadge({ status, label }) {
     }
     if (status === 'cache_fresh' || status === 'cached') {
       return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200';
+    }
+    if (status === 'stale') {
+      return 'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700/60 dark:bg-orange-950/30 dark:text-orange-300';
     }
     if (status === 'degraded') {
       return 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/60 dark:bg-orange-950/30 dark:text-orange-200';
@@ -21,7 +24,10 @@ function StatusBadge({ status, label }) {
   })();
 
   return (
-    <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${className}`}>
+    <span
+      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${className}`}
+      title={tooltip ?? undefined}
+    >
       {label}
     </span>
   );
@@ -216,7 +222,11 @@ export default function PricesTab({
                     </td>
                     <td className="px-4 py-3 align-top">
                       <div className="space-y-1">
-                        <StatusBadge status={row.status} label={row.statusLabel} />
+                        <StatusBadge
+                          status={row.status}
+                          label={row.statusLabel}
+                          tooltip={row.staleTooltip ?? null}
+                        />
                         {row.errorMessage ? (
                           <div className="text-xs text-slate-500 dark:text-slate-400">
                             {row.errorMessage}

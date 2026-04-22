@@ -51,6 +51,8 @@ vi.mock('../utils/api.js', () => ({
   evaluateSignals: evaluateSignalsMock,
   fetchDailyRoi: fetchDailyRoiMock,
   fetchBenchmarkCatalog: fetchBenchmarkCatalogMock,
+  fetchBenchmarkSummary: vi.fn(async () => ({ data: null })),
+  fetchNavDaily: vi.fn(async () => ({ data: { data: [], meta: {} } })),
   fetchBulkPrices: fetchBulkPricesMock,
   fetchPrices: fetchPricesMock,
   persistPortfolio: vi.fn(),

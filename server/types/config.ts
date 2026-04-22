@@ -80,6 +80,9 @@ export interface CacheConfig {
 export interface PriceProvidersConfig {
   primary: string;
   fallback: string;
+  alpacaApiKey: string;
+  alpacaApiSecret: string;
+  alphavantageApiKey: string;
 }
 
 export interface LatestPriceConfig {

@@ -32,6 +32,15 @@ jobs:
       - name: Run bootstrap and quality-gate contract checks
         run: npm run verify:docs
 
+      - name: Capture lint summary
+        run: mkdir -p reports/quality && npm run verify:lint 2>&1 | tee reports/quality/lint-summary.txt
+
+      - name: Capture typecheck summary
+        run: mkdir -p reports/quality && npm run verify:typecheck 2>&1 | tee reports/quality/typecheck-summary.txt
+
+      - name: Run repo quality guard
+        run: npm run verify:quality
+
       - name: Run stabilization smoke gate
         run: npm run verify:smoke
 
@@ -52,4 +61,12 @@ jobs:
         with:
           name: node-coverage
           path: coverage/
+          if-no-files-found: ignore
+
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: reports/quality/
           if-no-files-found: ignore

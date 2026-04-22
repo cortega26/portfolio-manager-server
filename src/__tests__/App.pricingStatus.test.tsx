@@ -5,12 +5,37 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import App from '../App.jsx';
 import { renderWithProviders } from './test-utils';
 
+vi.mock('../components/DashboardTab.jsx', async () => {
+  const { usePortfolioMetrics } = await import('../hooks/usePortfolioMetrics.js');
+  function MockDashboardTab({ metrics, transactions, roiData }) {
+    const portfolioMetrics = usePortfolioMetrics({ metrics, transactions, roiData });
+    const totalNav = Number(portfolioMetrics?.totals?.totalNav ?? 0);
+    const totalValue = Number(portfolioMetrics?.totals?.totalValue ?? 0);
+    const currencyFormatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return (
+      <div data-testid="stub-dashboard">
+        <span>{currencyFormatter.format(totalNav)}</span>
+        <span>{currencyFormatter.format(totalValue)}</span>
+      </div>
+    );
+  }
+  return {
+    default: MockDashboardTab,
+  };
+});
+
 const {
   evaluateSignalsMock,
   fetchBenchmarkCatalogMock,
   fetchBenchmarkSummaryMock,
   fetchBulkPricesMock,
   fetchDailyRoiMock,
+  fetchNavDailyMock,
   retrievePortfolioMock,
 } = vi.hoisted(() => ({
   evaluateSignalsMock: vi.fn(),
@@ -18,6 +43,7 @@ const {
   fetchBenchmarkSummaryMock: vi.fn(),
   fetchBulkPricesMock: vi.fn(),
   fetchDailyRoiMock: vi.fn(),
+  fetchNavDailyMock: vi.fn(),
   retrievePortfolioMock: vi.fn(),
 }));
 
@@ -30,6 +56,7 @@ vi.mock('../utils/api.js', async (importOriginal) => {
     fetchBenchmarkSummary: fetchBenchmarkSummaryMock,
     fetchBulkPrices: fetchBulkPricesMock,
     fetchDailyRoi: fetchDailyRoiMock,
+    fetchNavDaily: fetchNavDailyMock,
     persistPortfolio: vi.fn(async () => ({ requestId: 'persist-001' })),
     retrievePortfolio: retrievePortfolioMock,
   };
@@ -114,6 +141,13 @@ describe('App pricing status UX', () => {
         },
       },
       requestId: 'roi-001',
+    });
+    fetchNavDailyMock.mockResolvedValue({
+      data: {
+        data: [],
+        meta: {},
+      },
+      requestId: 'nav-001',
     });
   });
 

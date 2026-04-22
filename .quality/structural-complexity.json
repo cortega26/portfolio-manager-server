@@ -1,0 +1,32 @@
+{
+  "duplication": {
+    "windowSize": 4,
+    "maxRepeatedWindows": 8
+  },
+  "duplicationOverrides": {
+    "server/finance/lotMatcher.ts": {
+      "maxRepeatedWindows": 12
+    },
+    "server/routes/analytics.ts": {
+      "maxRepeatedWindows": 13
+    },
+    "server/routes/portfolio.ts": {
+      "maxRepeatedWindows": 24
+    },
+    "src/PortfolioManagerApp.jsx": {
+      "maxRepeatedWindows": 36
+    },
+    "src/components/RealizedGainsView.jsx": {
+      "maxRepeatedWindows": 23
+    },
+    "src/components/TransactionsTab.jsx": {
+      "maxRepeatedWindows": 14
+    },
+    "src/utils/api.js": {
+      "maxRepeatedWindows": 36
+    },
+    "src/utils/portfolioManagerApp.js": {
+      "maxRepeatedWindows": 9
+    }
+  }
+}

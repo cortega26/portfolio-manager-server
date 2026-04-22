@@ -1,0 +1,531 @@
+{
+  "generatedAt": "2026-04-22T15:06:40.412Z",
+  "results": [
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/app.fastify.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/auth/localPinAuth.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/data/prices.js",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/data/providerHealth.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/finance/cash.ts",
+      "count": 6
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/finance/inboxComputer.ts",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/finance/returns.ts",
+      "count": 7
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/jobs/daily_close.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/metrics/performanceMetrics.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/plugins/spaFallback.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/routes/_helpers.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/routes/analytics.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/routes/prices.ts",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/routes/signals.ts",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/runtime/startServer.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/services/historicalPriceLoader.js",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/services/performanceHistory.js",
+      "count": 5
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/services/portfolioTransactions.js",
+      "count": 3
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "server/services/signalNotifications.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "shared/signals.js",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/components/AllocationChart.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/components/dashboard/DashboardChartsPanel.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/components/dashboard/dashboardFormatters.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/components/dashboard/DashboardZone1.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/components/InboxTab.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/components/PricesTab.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/components/TransactionsTab.jsx",
+      "count": 3
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/hooks/usePortfolioMetrics.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/i18n/I18nProvider.jsx",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/lib/apiClient.js",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/PortfolioManagerApp.jsx",
+      "count": 14
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/utils/allocation.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/utils/cashGuards.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/utils/history.js",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/utils/holdings.js",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/utils/marketHours.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/utils/portfolioSchema.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/utils/reports.js",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_ccn-medium",
+      "level": "warning",
+      "path": "src/utils/roi.js",
+      "count": 4
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_file-nloc-medium",
+      "level": "warning",
+      "path": "server/data/prices.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_file-nloc-medium",
+      "level": "warning",
+      "path": "server/finance/cash.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_file-nloc-medium",
+      "level": "warning",
+      "path": "server/finance/returns.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_file-nloc-medium",
+      "level": "warning",
+      "path": "server/import/csvPortfolioImport.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_file-nloc-medium",
+      "level": "warning",
+      "path": "server/services/performanceHistory.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_file-nloc-medium",
+      "level": "warning",
+      "path": "server/services/signalNotificationEmail.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_file-nloc-medium",
+      "level": "warning",
+      "path": "src/i18n/translations.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_file-nloc-medium",
+      "level": "warning",
+      "path": "src/utils/roi.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "electron/main.cjs",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "server/auth/localPinAuth.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "server/data/prices.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "server/finance/cash.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "server/finance/inboxComputer.ts",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "server/finance/returns.ts",
+      "count": 3
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "server/services/performanceHistory.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "server/services/portfolioTransactions.js",
+      "count": 3
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "server/services/signalNotificationEmail.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "src/components/ContributionTable.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "src/components/dashboard/DashboardChartsPanel.jsx",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "src/components/RealizedGainsView.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "src/components/TransactionsTab.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "src/PortfolioManagerApp.jsx",
+      "count": 5
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "src/utils/history.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_nloc-medium",
+      "level": "warning",
+      "path": "src/utils/roi.js",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_parameter-count-medium",
+      "level": "warning",
+      "path": "server/finance/inboxComputer.ts",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_parameter-count-medium",
+      "level": "warning",
+      "path": "server/finance/returns.ts",
+      "count": 2
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_parameter-count-medium",
+      "level": "warning",
+      "path": "src/components/dashboard/DashboardChartsPanel.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_parameter-count-medium",
+      "level": "warning",
+      "path": "src/components/DashboardTab.jsx",
+      "count": 1
+    },
+    {
+      "tool": "Lizard",
+      "ruleId": "Lizard_parameter-count-medium",
+      "level": "warning",
+      "path": "src/components/DesktopSessionGate.jsx",
+      "count": 1
+    },
+    {
+      "tool": "PMD",
+      "ruleId": "InnaccurateNumericLiteral",
+      "level": "warning",
+      "path": "server/config.js",
+      "count": 4
+    },
+    {
+      "tool": "PMD",
+      "ruleId": "InnaccurateNumericLiteral",
+      "level": "warning",
+      "path": "server/jobs/daily_close.js",
+      "count": 1
+    },
+    {
+      "tool": "PMD",
+      "ruleId": "InnaccurateNumericLiteral",
+      "level": "warning",
+      "path": "server/jobs/scheduler.js",
+      "count": 1
+    },
+    {
+      "tool": "PMD",
+      "ruleId": "InnaccurateNumericLiteral",
+      "level": "warning",
+      "path": "server/services/performanceHistory.js",
+      "count": 5
+    },
+    {
+      "tool": "PMD",
+      "ruleId": "InnaccurateNumericLiteral",
+      "level": "warning",
+      "path": "server/utils/calendar.js",
+      "count": 1
+    },
+    {
+      "tool": "PMD",
+      "ruleId": "InnaccurateNumericLiteral",
+      "level": "warning",
+      "path": "shared/constants.js",
+      "count": 2
+    },
+    {
+      "tool": "PMD",
+      "ruleId": "InnaccurateNumericLiteral",
+      "level": "warning",
+      "path": "src/utils/roi.js",
+      "count": 1
+    }
+  ],
+  "notifications": []
+}

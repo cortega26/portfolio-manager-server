@@ -11,18 +11,18 @@ No reemplaza la inspección del código real.
 
 ### Backend bootstrap y API
 
-- `server/app.js`
-  - composición principal de Express, middleware y rutas
-- `server/runtime/startServer.js`
+- `server/app.fastify.ts`
+  - composición principal de Fastify, plugins y rutas
+- `server/runtime/startServer.ts`
   - arranque del backend y política de scheduler
 - `server/index.js`
   - entrypoint standalone del servidor
 
 ### Auth y boundary desktop
 
-- `server/middleware/sessionAuth.js`
+- `server/plugins/sessionAuth.ts`
   - enforcement del session token local
-- `server/auth/localPinAuth.js`
+- `server/auth/localPinAuth.ts`
   - hash y verificación de PIN local
 - `electron/main.cjs`
   - orquestación del proceso desktop
@@ -37,13 +37,13 @@ No reemplaza la inspección del código real.
   - persistencia SQLite
 - `server/data/portfolioState.js`
   - composición de estado del portafolio
-- `server/finance/decimal.js`
+- `server/finance/decimal.ts`
   - helpers canónicos de Decimal
-- `server/finance/portfolio.js`
+- `server/finance/portfolio.ts`
   - holdings y estado de portfolio
-- `server/finance/cash.js`
+- `server/finance/cash.ts`
   - lógica de caja
-- `server/finance/returns.js`
+- `server/finance/returns.ts`
   - ROI, benchmarks y retornos
 
 ### Importación y reconciliación
@@ -86,7 +86,8 @@ No reemplaza la inspección del código real.
 - `src/components/HoldingsTab.jsx`
 - `src/components/TransactionsTab.jsx`
 - `src/components/PricesTab.jsx`
-- `src/components/SignalsTab.jsx`
+- `src/components/InboxTab.jsx`
+- `src/components/RealizedGainsView.jsx`
 - `src/components/SettingsTab.jsx`
 - `src/components/SignalTableCard.jsx`
   - componente compartido de matriz de señales

@@ -1,5 +1,5 @@
 // server/app.fastify.ts
-// Shadow Fastify app — coexists with app.js. Runtime still uses app.js.
+// Canonical Fastify app factory used by the runtime entrypoint.
 // Activated in production during Phase 4 (Cutover).
 import Fastify from 'fastify';
 import cors from '@fastify/cors';

@@ -37,7 +37,7 @@ The app runs without any changes to `.env` for pure offline use.
 
 | Variable                               | Default            | Notes                                                           |
 | -------------------------------------- | ------------------ | --------------------------------------------------------------- |
-| `PORT`                                 | `3000`             | Express port (standalone mode; Electron picks a random port)    |
+| `PORT`                                 | `3000`             | Fastify port (standalone mode; Electron picks a random port)    |
 | `DATA_DIR`                             | `./data`           | SQLite database location                                        |
 | `LOG_LEVEL`                            | `info`             | Pino level: `trace \| debug \| info \| warn \| error`           |
 | `PORTFOLIO_SESSION_TOKEN`              | `dev-secret-token` | Only used in standalone server mode; Electron generates its own |
@@ -51,11 +51,11 @@ All other variables have safe defaults in `.env.example`.
 | Goal                             | Command                  |
 | -------------------------------- | ------------------------ |
 | Frontend only (Vite HMR)         | `npm run dev`            |
-| Backend only (Express)           | `npm run server`         |
+| Backend only (Fastify)           | `npm run server`         |
 | Full Electron desktop (dev mode) | `npm run electron:dev`   |
 | Full Electron desktop (built)    | `npm run electron:build` |
 
-In Electron dev mode (`electron:dev`), Express and Vite start together and
+In Electron dev mode (`electron:dev`), Fastify and Vite start together and
 the Electron shell points to the Vite dev server. No extra steps needed.
 
 ## First portfolio import

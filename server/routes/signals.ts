@@ -10,6 +10,7 @@ import { buildPortfolioSignalRows } from '../services/signalNotifications.js';
 import { sortTransactions, projectStateUntil } from '../finance/portfolio.js';
 import { isOpenSignalHolding } from '../../shared/signals.js';
 import { ensureTransactionUids } from '../services/portfolioTransactions.js';
+import { buildFreshPriceSnapshot } from './_helpers.js';
 
 export interface SignalsRouteContext extends FastifyPluginOptions {
   historicalPriceLoader: HistoricalPriceLoader;
@@ -26,6 +27,8 @@ type PriceMeta = {
   warnings?: string[];
   asOf?: string | null;
 };
+
+type SignalTransaction = { date?: string };
 
 function normalizePricingStatusSummary(
   symbolMeta: Record<string, PriceMeta>,
@@ -114,7 +117,7 @@ const signalsRoutes: FastifyPluginAsyncZod<SignalsRouteContext> = async (app, op
       const sortedTransactions = sortTransactions(normalizedTransactions as never[]);
       const lastTransactionDate =
         sortedTransactions.length > 0
-          ? (sortedTransactions[sortedTransactions.length - 1] as Record<string, string>)['date']
+          ? ((sortedTransactions[sortedTransactions.length - 1] as SignalTransaction).date ?? null)
           : null;
       const projectedState = lastTransactionDate
         ? projectStateUntil(sortedTransactions, lastTransactionDate)
@@ -142,7 +145,8 @@ const signalsRoutes: FastifyPluginAsyncZod<SignalsRouteContext> = async (app, op
               asOf: null,
             };
             const latest = Array.isArray(result.prices) ? result.prices[result.prices.length - 1] : null;
-            const latestDate = (latest as Record<string, string> | null)?.['date'] ?? null;
+            const latestSnapshot = buildFreshPriceSnapshot(latest, maxStaleTradingDays);
+            const latestDate = latestSnapshot.asOf;
             const tradingDayAge = computeTradingDayAge(latestDate);
             if (!latestDate || (tradingDayAge !== null && tradingDayAge > maxStaleTradingDays)) {
               const existingMeta = symbolMeta[symbol];
@@ -157,11 +161,7 @@ const signalsRoutes: FastifyPluginAsyncZod<SignalsRouteContext> = async (app, op
               pricingErrors[symbol] = { code: 'STALE_DATA', status: 503, message: 'Historical prices are stale for this symbol.' };
               return;
             }
-            const rawClose = Number.isFinite((latest as Record<string, unknown>)?.['close'])
-              ? (latest as unknown as Record<string, number>)['close']
-              : Number.isFinite((latest as Record<string, unknown>)?.['adjClose'])
-                ? (latest as unknown as Record<string, number>)['adjClose']
-                : null;
+            const rawClose = latestSnapshot.price;
             if (!Number.isFinite(rawClose)) {
               symbolMeta[symbol] = { ...symbolMeta[symbol], status: 'unavailable', asOf: latestDate };
               pricingErrors[symbol] = { code: 'PRICE_FETCH_FAILED', status: 502, message: 'Failed to fetch historical prices.' };

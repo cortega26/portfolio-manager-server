@@ -53,6 +53,8 @@ vi.mock('../utils/api.js', () => ({
     requestId: 'signals-none',
   })),
   fetchBenchmarkCatalog: vi.fn(async () => ({ data: {} })),
+  fetchBenchmarkSummary: vi.fn(async () => ({ data: null })),
+  fetchNavDaily: vi.fn(async () => ({ data: { data: [], meta: {} } })),
   fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
   fetchDailyRoi: vi.fn(async () => ({ data: { series: { portfolio: [] } } })),
   fetchDailyReturns: vi.fn(async () => ({ data: { series: [] } })),
@@ -83,8 +85,8 @@ test('switches tabs and shows expected panels', async () => {
   const pricesPanel = await screen.findByTestId('panel-prices');
   expect(pricesPanel).toBeVisible();
 
-  await userEvent.click(screen.getByRole('tab', { name: /signals/i }));
-  const signalsPanel = await screen.findByTestId('panel-signals');
+  await userEvent.click(screen.getByRole('tab', { name: /inbox/i }));
+  const signalsPanel = await screen.findByTestId('panel-inbox');
   expect(signalsPanel).toBeVisible();
 
   await userEvent.click(screen.getByRole('tab', { name: /transactions/i }));

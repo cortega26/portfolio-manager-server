@@ -13,7 +13,15 @@ vi.mock('recharts', () => ({
   AreaChart: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="area-chart">{children}</div>
   ),
+  ComposedChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="area-chart">{children}</div>
+  ),
+  PieChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="pie-chart">{children}</div>
+  ),
   Area: ({ name }: { name?: string }) => <span data-testid="area-series">{name}</span>,
+  Pie: () => null,
+  Cell: () => null,
   CartesianGrid: () => null,
   XAxis: () => null,
   YAxis: () => null,
@@ -22,8 +30,8 @@ vi.mock('recharts', () => ({
   ),
   Legend: ({ payload }: { payload?: Array<{ id?: string; value?: string }> }) => (
     <div data-testid="chart-legend">
-      {(payload ?? []).map((entry) => (
-        <span key={entry.id ?? entry.value}>{entry.value}</span>
+      {(payload ?? []).map((entry, index) => (
+        <span key={entry.id ?? entry.value ?? index}>{entry.value}</span>
       ))}
     </div>
   ),
