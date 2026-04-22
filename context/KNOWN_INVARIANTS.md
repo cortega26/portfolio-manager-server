@@ -10,7 +10,7 @@ Registrar únicamente hechos confirmados y estables que sería costoso olvidar.
 
 ### Base del sistema
 
-- `portfolio-manager-unified` sigue siendo una app desktop local con React + Vite, Express, Electron y SQLite.
+- `portfolio-manager-unified` sigue siendo una app desktop local con React + Vite, Fastify, Electron y SQLite.
 - R1 (`portfolio-manager-server`) es la base obligatoria.
 - R2 (`mi_portfolio`) es solo fuente selectiva de funcionalidades.
 
@@ -27,7 +27,7 @@ Registrar únicamente hechos confirmados y estables que sería costoso olvidar.
 ### Persistencia y desktop
 
 - El renderer nunca accede directo a SQLite.
-- Toda lectura y escritura pasa por la API Express local y el boundary seguro de Electron.
+- Toda lectura y escritura pasa por la API local Fastify y el boundary seguro de Electron.
 - La seguridad desktop no depende del modelo de API keys público heredado.
 - La autenticación local usa session token por proceso.
 

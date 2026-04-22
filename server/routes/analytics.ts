@@ -1,6 +1,5 @@
 // server/routes/analytics.ts
 // Analytics routes: returns/daily, nav/daily, roi/daily, benchmarks/summary, admin/cash-rate
-// These mirror the Express routes in server/app.js.
 
 import { z } from 'zod';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -19,6 +18,12 @@ import { toDateKey } from '../finance/cash.js';
 import { roundDecimal } from '../finance/decimal.js';
 import { computeTradingDayAge } from '../utils/calendar.js';
 import { isoDateSchema, portfolioIdSchema } from './_schemas.js';
+import {
+  buildAdjustedPriceMap,
+  filterRowsByPortfolioScope,
+  filterRowsByRange,
+  paginateRows,
+} from './_helpers.js';
 
 interface AnalyticsCache {
   get(key: string): unknown | undefined;
@@ -38,90 +43,6 @@ const MATCHED_MWR_BENCHMARKS = [
   { key: 'qqq', ticker: 'QQQ' },
 ] as const;
 
-function filterRowsByRange(
-  rows: Array<Record<string, unknown>>,
-  from: string | null,
-  to: string | null,
-) {
-  return rows.filter((row) => {
-    const date = row['date'];
-    if (typeof date !== 'string') return true;
-    if (from && date < from) return false;
-    if (to && date > to) return false;
-    return true;
-  });
-}
-
-function paginateRows<T>(
-  rows: T[],
-  { page = 1, perPage = 100 }: { page?: number; perPage?: number } = {},
-) {
-  const total = rows.length;
-  const normalizedPerPage = Number.isFinite(perPage) && perPage > 0 ? perPage : 100;
-  const totalPages = total === 0 ? 0 : Math.ceil(total / normalizedPerPage);
-  const safePage =
-    totalPages === 0 ? Math.max(1, page) : Math.min(Math.max(1, page), totalPages);
-  const start = (safePage - 1) * normalizedPerPage;
-  const end = start + normalizedPerPage;
-  const items = rows.slice(start, end);
-  return {
-    items,
-    meta: {
-      page: safePage,
-      per_page: normalizedPerPage,
-      total,
-      total_pages: totalPages,
-    },
-  };
-}
-
-function normalizeScopedPortfolioId(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
-}
-
-function filterRowsByPortfolioScope(
-  rows: Array<Record<string, unknown>>,
-  portfolioId: unknown,
-) {
-  const normalizedPortfolioId = normalizeScopedPortfolioId(portfolioId);
-  if (!normalizedPortfolioId) {
-    const unscoped = rows.filter(
-      (row) =>
-        typeof row['portfolio_id'] !== 'string' || (row['portfolio_id'] as string).trim().length === 0,
-    );
-    return unscoped.length > 0 ? unscoped : rows;
-  }
-  return rows.filter((row) => row['portfolio_id'] === normalizedPortfolioId);
-}
-
-function buildAdjustedPriceMap(
-  rows: Array<Record<string, unknown>>,
-  ticker: string,
-  { from, to }: { from?: string | null; to?: string | null } = {},
-) {
-  const normalizedTicker = typeof ticker === 'string' ? ticker.trim().toUpperCase() : '';
-  const map = new Map<string, number>();
-  for (const row of rows) {
-    const rowTicker = typeof row['ticker'] === 'string' ? (row['ticker'] as string).trim().toUpperCase() : '';
-    const date = typeof row['date'] === 'string' ? (row['date'] as string).trim() : '';
-    const price = Number.parseFloat(
-      String(row['adj_close'] ?? row['adjClose'] ?? row['close'] ?? row['price'] ?? ''),
-    );
-    if (
-      rowTicker !== normalizedTicker ||
-      !date ||
-      (from && date < from) ||
-      (to && date > to) ||
-      !Number.isFinite(price) ||
-      price <= 0
-    ) {
-      continue;
-    }
-    map.set(date, price);
-  }
-  return new Map(Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0])));
-}
-
 // ── Query schemas ─────────────────────────────────────────────────────────────
 
 const rangeQuerySchema = z.object({
@@ -129,7 +50,7 @@ const rangeQuerySchema = z.object({
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
-  per_page: z.coerce.number().int().min(1).max(500).default(100),
+  per_page: z.coerce.number().int().min(1).max(2000).default(100),
 });
 
 const returnsQuerySchema = z.object({
@@ -210,7 +131,7 @@ const BenchmarksSummaryResponseSchema = z.object({
 
 const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app, opts) => {
   const { getStorage, historicalPriceLoader, config, analyticsCache } = opts;
-  const featureFlags = config.featureFlags ?? {};
+  const cashBenchmarksEnabled = config.featureFlags?.cashBenchmarks ?? true;
   const freshness = config as unknown as { freshness?: { maxStaleTradingDays?: number } };
   const maxStaleTradingDays = (() => {
     const val = freshness.freshness?.maxStaleTradingDays;
@@ -230,7 +151,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
   } as Parameters<typeof createPerformanceHistoryService>[0]);
 
   async function ensureCashFeature(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    if (!featureFlags.cashBenchmarks) {
+    if (!cashBenchmarksEnabled) {
       await reply.code(404).send({
         error: 'CASH_BENCHMARKS_DISABLED',
         message: 'Cash benchmarks feature is disabled.',

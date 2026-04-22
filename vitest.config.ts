@@ -5,8 +5,14 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
     css: true,
+    fileParallelism: false,
     maxWorkers: '50%',
     minWorkers: 1,
+    poolOptions: {
+      threads: {
+        execArgv: ['--max-old-space-size=4096'],
+      },
+    },
     include: ['src/__tests__/**/*.{test,spec}.{ts,tsx}', 'src/__smoke__/**/*.test.tsx'],
     exclude: ['src/__tests__/**/*.test.jsx', 'src/__tests__/**/*.spec.jsx', 'server/**'],
     testTimeout: 10000,

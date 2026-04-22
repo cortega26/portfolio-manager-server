@@ -20,11 +20,12 @@ test('shows validation errors then submits when fixed', async () => {
   await userEvent.click(initialSubmitButton);
 
   expect(screen.getByTestId('error-form')).toHaveTextContent(/please fill in all fields/i);
-  expect(screen.getByTestId('error-date')).toBeInTheDocument();
+  // date is pre-filled with today — no date validation error expected
   expect(screen.getByTestId('error-ticker')).toBeInTheDocument();
   expect(screen.getByTestId('error-amount')).toBeInTheDocument();
   expect(screen.getByTestId('error-shares')).toBeInTheDocument();
 
+  await userEvent.clear(screen.getByLabelText(/date/i));
   await userEvent.type(screen.getByLabelText(/date/i), '2024-01-01');
   await userEvent.type(screen.getByLabelText(/ticker/i), 'aapl');
   await userEvent.type(screen.getByRole('spinbutton', { name: /^Amount$/i }), '1500');
@@ -65,6 +66,7 @@ test('derives price from amount and 9-decimal shares for manual equity trades', 
   const priceInput = within(form).getByPlaceholderText(/calculated automatically/i);
   const sharesInput = within(form).getByPlaceholderText(/0\.349861261/i);
 
+  await userEvent.clear(dateInput);
   await userEvent.type(dateInput, '2026-03-20');
   await userEvent.type(tickerInput, 'DELL');
   await userEvent.type(amountInput, '58.12');
@@ -103,6 +105,7 @@ test('allows cash-only transactions without price information', async () => {
   await userEvent.selectOptions(typeSelect, 'DEPOSIT');
   const dateInput = within(form).getByLabelText(/date/i);
   const amountInput = within(form).getByRole('spinbutton', { name: /^Amount$/i });
+  await userEvent.clear(dateInput);
   await userEvent.type(dateInput, '2024-03-15');
   await userEvent.type(amountInput, '2500');
 

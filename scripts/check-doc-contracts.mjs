@@ -6,11 +6,17 @@ import process from 'node:process';
 
 const PROJECT_ROOT = process.cwd();
 const ACTIVE_DOCS = [
+  'AGENTS.md',
   'README.md',
   'SETUP.md',
   'AGENTS_QUICKSTART.md',
+  'context/ARCHITECTURE.md',
+  'context/KNOWN_INVARIANTS.md',
+  'context/MODULE_INDEX.md',
+  'context/TASK_ENTRYPOINTS.md',
   'docs/README.md',
   'docs/reference/QUALITY_GATES.md',
+  'docs/reference/QUALITY_GUARDRAILS.md',
   'docs/reference/VALIDATION_MATRIX.md',
   'docs/operations/playbooks/testing-strategy.md',
   'docs/adr/README.md',
@@ -24,6 +30,23 @@ const FORBIDDEN_PHRASES = [
   {
     phrase: 'tools/node-v24.15.0-linux-x64',
     reason: 'the repo no longer ships a bundled local Node runtime at that path.',
+  },
+  {
+    phrase: 'server/app.js',
+    reason:
+      'the backend cutover canonicalized Fastify entrypoints instead of the removed Express app.js.',
+  },
+  {
+    phrase: 'server/middleware/sessionAuth.js',
+    reason: 'session auth lives in the Fastify plugin `server/plugins/sessionAuth.ts`.',
+  },
+  {
+    phrase: 'server/middleware/requestContext.js',
+    reason: 'request context lives in the Fastify plugin `server/plugins/requestContext.ts`.',
+  },
+  {
+    phrase: 'server/runtime/startServer.js',
+    reason: 'the runtime entrypoint moved to `server/runtime/startServer.ts`.',
   },
 ];
 

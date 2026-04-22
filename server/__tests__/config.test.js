@@ -9,6 +9,9 @@ test("loadConfig provides default pricing, benchmarks, and scheduler settings", 
   assert.deepEqual(config.prices.providers, {
     primary: "stooq",
     fallback: "yahoo",
+    alpacaApiKey: "",
+    alpacaApiSecret: "",
+    alphavantageApiKey: "",
   });
   assert.deepEqual(config.prices.latest, {
     provider: "none",
@@ -42,6 +45,9 @@ test("loadConfig sanitizes provider names and benchmark selections", () => {
   assert.deepEqual(config.prices.providers, {
     primary: "stooq",
     fallback: "none",
+    alpacaApiKey: "test-key",
+    alpacaApiSecret: "test-secret",
+    alphavantageApiKey: "",
   });
   assert.deepEqual(config.prices.latest, {
     provider: "alpaca",

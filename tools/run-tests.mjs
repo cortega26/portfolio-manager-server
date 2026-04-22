@@ -87,7 +87,7 @@ async function walk(absDir, relDir, accumulator) {
     if (!entry.isFile()) {
       continue;
     }
-    if (/\.(test|spec)\.(c|m)?js$/u.test(entry.name)) {
+    if (/\.(test|spec)\.(c|m)?[jt]s$/u.test(entry.name)) {
       const filePath = path.join(absDir, entry.name);
       if (await isVitestSuite(filePath)) {
         continue;

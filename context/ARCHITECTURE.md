@@ -12,7 +12,7 @@ Describir la forma del sistema y sus fronteras sin mezclar estado de roadmap ni 
 2. Electron `main` conserva el contexto seguro del proceso y la autenticación de sesión local.
 3. Electron `preload` expone el bridge mínimo y seguro hacia el renderer.
 4. El renderer React/Vite consume runtime config y llama a la API local; no toca SQLite directamente.
-5. Express concentra auth, validación, finanzas, importaciones, jobs y acceso a datos.
+5. Fastify concentra auth, validación, finanzas, importaciones, jobs y acceso a datos.
 6. SQLite es la persistencia backend.
 7. CLI y scheduler corren junto al backend, no dentro del renderer.
 
@@ -28,7 +28,7 @@ Describir la forma del sistema y sus fronteras sin mezclar estado de roadmap ni 
 - Electron `main`:
   - orquestación de proceso y contexto seguro
   - no lógica financiera distribuida
-- Express:
+- Fastify:
   - source of truth para lecturas, escrituras y lógica de negocio backend
 - Storage y finanzas:
   - reglas de dominio server-side y testeables
@@ -45,7 +45,7 @@ Describir la forma del sistema y sus fronteras sin mezclar estado de roadmap ni 
 ### Flujo de request
 
 - Renderer llama al cliente API compartido.
-- Express autentica y valida.
+- Fastify autentica y valida.
 - Backend calcula y/o persiste contra SQLite.
 - La respuesta vuelve por la misma boundary local.
 
@@ -68,8 +68,8 @@ graph TD
         REACT["src/ — React SPA"]
         CLIENT["src/lib/apiClient.js"]
     end
-    subgraph Backend["Backend (Express)"]
-        EXPRESS["server/app.js\nAuth · validation · routes"]
+    subgraph Backend["Backend (Fastify)"]
+        EXPRESS["server/app.fastify.ts\nAuth · validation · routes"]
         FINANCE["server/finance/\nDecimal arithmetic · holdings · ROI"]
         IMPORT["server/import/\nCSV importer · reconciliation"]
         JOBS["server/jobs/\nScheduler · daily close · backfill CLI"]

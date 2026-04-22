@@ -86,10 +86,18 @@ function computeTimeout(runtimeConfig, optionsTimeout) {
 }
 
 function normalizePath(path) {
-  if (typeof path !== 'string' || path.length === 0) {
+  if (typeof path !== 'string') {
     throw new Error('Path must be a non-empty string');
   }
-  return path.startsWith('/') ? path : `/${path}`;
+  const trimmed = path.trim();
+  if (!trimmed) {
+    throw new Error('Path must be a non-empty string');
+  }
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('http://') || lower.startsWith('https://') || trimmed.startsWith('//')) {
+    throw new Error('API paths must be relative to the configured base URL');
+  }
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
 function createHeaders(headers) {
@@ -179,6 +187,66 @@ export function trimTrailingSlash(value) {
   return value.replace(/\/+$/u, '');
 }
 
+function isLoopbackHost(hostname) {
+  return (
+    hostname === '127.0.0.1' ||
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    hostname === '[::1]'
+  );
+}
+
+function isSameBrowserOrigin(url) {
+  if (typeof window === 'undefined' || !window.location?.origin) {
+    return false;
+  }
+  try {
+    return new URL(window.location.origin).origin === url.origin;
+  } catch {
+    return false;
+  }
+}
+
+function allowRemoteApiOriginForTesting() {
+  if (typeof process === 'undefined') {
+    return false;
+  }
+  return process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+}
+
+function validateApiBaseUrl(value) {
+  const normalized = trimTrailingSlash(value);
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error(`Invalid API base URL: ${normalized}`);
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`Unsupported API base URL protocol: ${parsed.protocol}`);
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error('API base URL must not include credentials');
+  }
+  if (
+    !isLoopbackHost(parsed.hostname) &&
+    !isSameBrowserOrigin(parsed) &&
+    !allowRemoteApiOriginForTesting()
+  ) {
+    throw new Error(`Refusing unexpected API base URL host: ${parsed.hostname}`);
+  }
+  return parsed.toString().replace(/\/+$/u, '');
+}
+
+function buildVersionedApiUrl(baseUrl, prefix, normalizedPath) {
+  const validatedBaseUrl = validateApiBaseUrl(baseUrl);
+  const requestUrl = new URL(`${prefix}${normalizedPath}`, `${validatedBaseUrl}/`);
+  if (requestUrl.origin !== new URL(`${validatedBaseUrl}/`).origin) {
+    throw new Error('API request path escaped the configured base URL');
+  }
+  return requestUrl.toString();
+}
+
 export async function resolveApiBaseUrl() {
   const runtimeBaseUrl = syncCachedBaseUrlFromRuntimeConfig();
   if (runtimeBaseUrl) {
@@ -260,7 +328,7 @@ async function buildApiError({ response, requestId, version, method, url, path }
 export async function requestApi(path, options = {}) {
   const { method = 'GET', headers, body, signal, timeoutMs } = options;
   const normalizedPath = normalizePath(path);
-  const baseUrl = trimTrailingSlash(await resolveApiBaseUrl());
+  const baseUrl = await resolveApiBaseUrl();
   const versions = API_VERSION_ROUTES;
 
   const runtimeConfig = getRuntimeConfigSync();
@@ -268,7 +336,7 @@ export async function requestApi(path, options = {}) {
   const { signal: requestSignal, cleanup } = buildTimeoutController(resolvedTimeout, signal);
   try {
     for (const { id, prefix } of versions) {
-      const url = `${baseUrl}${prefix}${normalizedPath}`;
+      const url = buildVersionedApiUrl(baseUrl, prefix, normalizedPath);
       const response = await fetch(url, {
         method,
         headers: applySessionAuthHeader(createHeaders(headers), runtimeConfig),
@@ -342,4 +410,8 @@ export async function requestJson(path, options = {}) {
   }
   const data = await parseJson(response, { allowEmptyObject, requestId, version });
   return { data, requestId, version };
+}
+
+export async function getRealizedGains(portfolioId, options = {}) {
+  return requestJson(`/api/portfolio/${encodeURIComponent(portfolioId)}/realized-gains`, options);
 }

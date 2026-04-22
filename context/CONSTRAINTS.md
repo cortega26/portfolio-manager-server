@@ -24,7 +24,7 @@ No guarda verdades de dominio ni estado temporal del proyecto.
   - Electron `main`
   - Electron `preload`
   - renderer
-  - backend Express
+  - backend Fastify
   - acceso a datos
 
 ## Validación mínima

@@ -18,6 +18,7 @@ const DOCS_TO_CHECK = [
   'docs/README.md',
   'docs/adr/README.md',
   'docs/reference/QUALITY_GATES.md',
+  'docs/reference/QUALITY_GUARDRAILS.md',
   'docs/reference/VALIDATION_MATRIX.md',
   'docs/operations/playbooks/testing-strategy.md',
 ];

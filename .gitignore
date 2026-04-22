@@ -15,6 +15,7 @@ data/*
 coverage/
 playwright-report/
 test-results/
+reports/quality/
 .DS_Store
 npm-debug.log*
 

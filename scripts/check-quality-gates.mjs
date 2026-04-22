@@ -8,13 +8,17 @@ const PROJECT_ROOT = process.cwd();
 const QUALITY_GATES_DOC = 'docs/reference/QUALITY_GATES.md';
 const CI_WORKFLOW = '.github/workflows/ci.yml';
 const REQUIRED_SCRIPTS = [
+  'codacy:analyze',
+  'check:complexity',
   'doctor',
   'docs:check',
   'quality:gates',
   'verify:docs',
+  'verify:quality',
   'verify:smoke',
   'verify:lint',
   'verify:typecheck',
+  'format:check',
   'verify:build',
   'smoke:test',
   'test',
@@ -22,6 +26,7 @@ const REQUIRED_SCRIPTS = [
 ];
 const REQUIRED_CI_COMMANDS = [
   'npm run verify:docs',
+  'npm run verify:quality',
   'npm run verify:smoke',
   'npm run test:coverage',
 ];

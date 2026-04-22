@@ -2,7 +2,7 @@
 
 # Portfolio Manager Unified
 
-> A desktop-first portfolio tracker built on Electron + React + Express + SQLite.
+> A desktop-first portfolio tracker built on Electron + React + Fastify + SQLite.
 
 [![CI](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml/badge.svg)](https://github.com/cortega26/portfolio-manager-server/actions/workflows/ci.yml) ![Node 24 LTS](https://img.shields.io/badge/node-24.x%20LTS-339933?logo=node.js) ![Electron](https://img.shields.io/badge/electron-shell-47848F?logo=electron)
 
@@ -25,7 +25,7 @@
 flowchart LR
   user((User)) --> electron[Electron Shell]
   electron --> renderer[React Renderer]
-  electron --> express[Express API<br/>127.0.0.1:random]
+  electron --> express[Fastify API<br/>127.0.0.1:random]
   express --> session["Session Auth<br/>(per-process token)"]
   express --> cache["Price Cache<br/>(TTL + metrics)"]
   cache --> providers["Price Providers<br/>(Stooq / Yahoo / Alpaca)"]
@@ -39,15 +39,15 @@ flowchart LR
 | Layer               | Runs in          | Access                                              |
 | ------------------- | ---------------- | --------------------------------------------------- |
 | React UI (renderer) | Chromium process | Cannot access SQLite directly                       |
-| Express API         | Node.js (main)   | Session token required for every request            |
-| Electron shell      | Node.js (main)   | Generates session token, starts Express on loopback |
-| SQLite              | Filesystem       | Only accessed via Express storage layer             |
+| Fastify API         | Node.js (main)   | Session token required for every request            |
+| Electron shell      | Node.js (main)   | Generates session token, starts Fastify on loopback |
+| SQLite              | Filesystem       | Only accessed via the backend storage layer         |
 
 ## Tech Stack
 
 - **Shell**: Electron (contextIsolation, no nodeIntegration)
 - **Frontend**: React 18, Vite 7, TailwindCSS, Recharts, react-window
-- **Backend**: Express 4, Pino logging, Zod validation, node-cache
+- **Backend**: Fastify 5, Pino logging, Zod validation, in-memory caching
 - **Storage**: SQLite persisted through the repo's `JsonTableStorage` layer (`server/data/storage.js`)
 - **Testing**: Vitest, @testing-library, fast-check, node:test
 - **CI**: GitHub Actions (`verify:docs` → `verify:smoke` → `test:coverage` → gitleaks → npm audit)
@@ -71,11 +71,11 @@ npm run doctor
 # Copy environment template
 cp .env.example .env
 
-# Run full stack (Electron + Express + Vite HMR)
+# Run full stack (Electron + Fastify + Vite HMR)
 npm run electron:dev
 
 # Or run backend + frontend separately
-npm run server   # Express on :3000
+npm run server   # Fastify on :3000
 npm run dev      # Vite on :5173
 ```
 
@@ -107,11 +107,11 @@ All configuration lives in `.env`. Copy `.env.example` for defaults.
 
 ### Core Settings
 
-| Variable    | Default  | Description                        |
-| ----------- | -------- | ---------------------------------- |
-| `PORT`      | `3000`   | Express API port (standalone mode) |
-| `DATA_DIR`  | `./data` | SQLite database directory          |
-| `LOG_LEVEL` | `info`   | Pino log level                     |
+| Variable    | Default  | Description                      |
+| ----------- | -------- | -------------------------------- |
+| `PORT`      | `3000`   | Local API port (standalone mode) |
+| `DATA_DIR`  | `./data` | SQLite database directory        |
+| `LOG_LEVEL` | `info`   | Pino log level                   |
 
 ### Pricing & Benchmarks
 
@@ -146,12 +146,12 @@ All configuration lives in `.env`. Copy `.env.example` for defaults.
 │   ├── main.cjs        # Shell bootstrap, session token, IPC
 │   ├── preload.cjs     # Secure renderer bridge
 │   └── runtimeConfig.js
-├── server/             # Express backend
-│   ├── app.js          # Express composition
+├── server/             # Fastify backend
+│   ├── app.fastify.ts  # Fastify composition
 │   ├── data/           # SQLite storage, price providers
 │   ├── finance/        # Portfolio engine, ROI, cash
 │   ├── jobs/           # Nightly scheduler, daily close
-│   ├── middleware/      # Session auth, validation
+│   ├── plugins/        # Session auth, request context, ETag
 │   └── migrations/     # SQLite schema migrations
 ├── src/                # React frontend
 │   ├── App.jsx         # Router root

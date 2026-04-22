@@ -45,9 +45,9 @@ npm run mutate:changed    # incremental mutation testing
 
 ## Architecture in one sentence
 
-`Electron main` spawns `Express`, injects the session token, and loads the
-`preload` bridge. The `React/Vite` renderer talks to Express over
-`HTTP 127.0.0.1`. SQLite is only touched by Express. See
+`Electron main` spawns `Fastify`, injects the session token, and loads the
+`preload` bridge. The `React/Vite` renderer talks to the local API over
+`HTTP 127.0.0.1`. SQLite is only touched by the backend. See
 `context/ARCHITECTURE.md` for the full process diagram.
 
 ## Key invariants an agent must never break

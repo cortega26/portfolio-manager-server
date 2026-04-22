@@ -10,6 +10,13 @@ import { readPortfolioState, writePortfolioState } from '../data/portfolioState.
 import { ensureTransactionUids, enforceNonNegativeCash, enforceOversellPolicy } from '../services/portfolioTransactions.js';
 import { listPortfolioSignalNotifications } from '../services/signalNotifications.js';
 import { requeueSignalNotificationEmailDelivery } from '../services/signalNotificationEmail.js';
+import { matchLots } from '../finance/lotMatcher.js';
+import type { LotTransaction, ClosedLot } from '../finance/lotMatcher.js';
+import { d } from '../finance/decimal.js';
+import { computeInbox } from '../finance/inboxComputer.js';
+import type { InboxReviewRecord } from '../types/inbox.js';
+import type { HistoricalPriceLoader } from './prices.js';
+import { buildFreshPriceSnapshot, paginateRows } from './_helpers.js';
 
 // Minimal storage interface used by this route
 export interface StorageAdapter {
@@ -24,8 +31,10 @@ export interface PortfolioRouteContext extends FastifyPluginOptions {
   config: {
     featureFlags: { cashBenchmarks: boolean };
     cache: { ttlSeconds: number };
+    freshness?: { maxStaleTradingDays: number };
   };
   analyticsCache?: { flush(): void };
+  historicalPriceLoader?: HistoricalPriceLoader;
 }
 
 // ── Response schemas ─────────────────────────────────────────────────────────
@@ -60,18 +69,6 @@ const CashRatesResponseSchema = z.object({
   currency: z.string(),
   apyTimeline: z.array(cashRateSchema),
 });
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function paginateRows<T>(rows: T[], { page = 1, perPage = 50 }: { page?: number; perPage?: number } = {}) {
-  const total = rows.length;
-  const normalizedPerPage = Number.isFinite(perPage) && perPage > 0 ? perPage : 50;
-  const totalPages = total === 0 ? 0 : Math.ceil(total / normalizedPerPage);
-  const safePage = totalPages === 0 ? Math.max(1, page) : Math.min(Math.max(1, page), totalPages);
-  const start = (safePage - 1) * normalizedPerPage;
-  const items = rows.slice(start, start + normalizedPerPage);
-  return { items, meta: { page: safePage, per_page: normalizedPerPage, total, total_pages: totalPages } };
-}
 
 // ── Route plugin ─────────────────────────────────────────────────────────────
 
@@ -465,6 +462,223 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         return reply.code(404).send({ error: 'SIGNAL_NOTIFICATION_NOT_FOUND', message: 'Signal notification not found.' });
       }
       return reply.code(200).send({ status: 'ok', changed: result.changed, reason: result.reason, data: result.notification });
+    },
+  );
+
+  // ── GET /portfolio/:id/realized-gains ─────────────────────────────────────
+  app.get(
+    '/portfolio/:id/realized-gains',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        response: {
+          200: z.record(z.string(), z.unknown()),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const storage = await getStorage();
+      const portfolio = (await readPortfolioState(storage, id)) as {
+        transactions?: Array<Record<string, unknown>>;
+      } | null;
+
+      if (!portfolio) {
+        throw Object.assign(new Error('Portfolio not found.'), { statusCode: 404, code: 'NOT_FOUND' });
+      }
+
+      // Map stored transactions to the minimal shape expected by the lot matcher.
+      const txs: LotTransaction[] = (portfolio.transactions ?? []).map((tx) => ({
+        date: String(tx['date'] ?? ''),
+        type: String(tx['type'] ?? ''),
+        ticker: typeof tx['ticker'] === 'string' ? tx['ticker'] : undefined,
+        shares: tx['shares'] != null ? String(tx['shares']) : undefined,
+        price: tx['price'] != null ? String(tx['price']) : undefined,
+        uid: typeof tx['uid'] === 'string' ? tx['uid'] : undefined,
+      }));
+
+      // Sort ascending by date (lot matcher requires chronological order).
+      txs.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+      const { closedLots, openLots } = matchLots(txs);
+
+      // ── Group closed lots by calendar year ──────────────────────────────
+      const byYear = new Map<number, ClosedLot[]>();
+      for (const lot of closedLots) {
+        const year = Number(lot.sellDate.slice(0, 4));
+        if (!byYear.has(year)) byYear.set(year, []);
+        byYear.get(year)!.push(lot);
+      }
+
+      const years = Array.from(byYear.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([year, lots]) => {
+          let totalGain = d(0);
+          let totalLoss = d(0);
+          for (const lot of lots) {
+            const gl = d(lot.gainLoss);
+            if (gl.gte(0)) {
+              totalGain = totalGain.plus(gl);
+            } else {
+              totalLoss = totalLoss.plus(gl);
+            }
+          }
+          const netRealized = totalGain.plus(totalLoss);
+          return {
+            year,
+            closedLots: lots,
+            totalGain: totalGain.toFixed(2),
+            totalLoss: totalLoss.toFixed(2),
+            netRealized: netRealized.toFixed(2),
+            lotCount: lots.length,
+          };
+        });
+
+      // ── Unrealized today (open lots) ─────────────────────────────────────
+      const unrealizedToday = {
+        holdings: openLots,
+        totalUnrealized: null, // pricing not available in this endpoint
+      };
+
+      return app.sendWithEtag(request, reply, {
+        method: 'FIFO',
+        years,
+        unrealizedToday,
+      });
+    },
+  );
+
+  // ── GET /portfolio/:id/inbox ──────────────────────────────────────────────
+  // Returns computed Action Inbox feed items for the portfolio.
+  const InboxItemSchema = z.object({
+    ticker: z.string(),
+    eventType: z.string(),
+    eventKey: z.string(),
+    urgency: z.enum(['HIGH', 'MEDIUM', 'LOW']),
+    description: z.string(),
+    shares: z.string(),
+    currentValue: z.string().nullable(),
+    currentPrice: z.string().nullable(),
+    currentPriceAsOf: z.string().nullable(),
+    thresholdPct: z.number().optional(),
+    signalStatus: z.string().optional(),
+    movePct: z.number().optional(),
+    tradingDaysUnreviewed: z.number().optional(),
+  });
+
+  const InboxResponseSchema = z.object({
+    items: z.array(InboxItemSchema),
+    computedAt: z.string(),
+  });
+
+  app.get(
+    '/portfolio/:id/inbox',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        response: { 200: InboxResponseSchema },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const storage = await getStorage();
+      const portfolio = (await readPortfolioState(storage, id)) as {
+        transactions?: Record<string, unknown>[];
+        signals?: Record<string, unknown>;
+      } | null;
+
+      if (!portfolio) {
+        throw Object.assign(new Error('Portfolio not found.'), { statusCode: 404, code: 'NOT_FOUND' });
+      }
+
+      const transactions = (portfolio.transactions ?? []) as Record<string, unknown>[];
+      const signals = (portfolio.signals ?? {}) as Record<string, unknown>;
+
+      // Derive open tickers from portfolio state.
+      const { isOpenSignalHolding } = await import('../../shared/signals.js');
+      const { sortTransactions: sortTxs, projectStateUntil: project } = await import('../finance/portfolio.js');
+      const sorted = sortTxs(transactions as never[]) as unknown as Record<string, unknown>[];
+      const lastDate = sorted.length > 0 ? String(sorted[sorted.length - 1]?.['date'] ?? '') : '';
+      const projected = lastDate ? project(sorted as never[], lastDate) : { holdings: new Map() };
+      const openTickers = Array.from((projected.holdings as Map<string, number>).entries())
+        .filter(([, qty]) => isOpenSignalHolding(qty))
+        .map(([ticker]) => ticker as string);
+
+      // Fetch latest prices for open tickers.
+      const priceSnapshots = new Map<string, { price: number | null; asOf: string | null }>();
+      if (opts.historicalPriceLoader && openTickers.length > 0) {
+        const maxStaleDays = opts.config.freshness?.maxStaleTradingDays ?? 30;
+        await Promise.all(openTickers.map(async (symbol) => {
+          try {
+            const result = await opts.historicalPriceLoader!.fetchSeries(symbol, { range: '1y', latestOnly: true });
+            const latest = Array.isArray(result.prices) ? result.prices[result.prices.length - 1] : null;
+            priceSnapshots.set(symbol, buildFreshPriceSnapshot(latest, maxStaleDays));
+          } catch {
+            priceSnapshots.set(symbol, { price: null, asOf: null });
+          }
+        }));
+      } else {
+        for (const t of openTickers) {
+          priceSnapshots.set(t, { price: null, asOf: null });
+        }
+      }
+
+      // Load dismiss history for this portfolio.
+      const allReviews = await storage.readTable('inbox_reviews');
+      const dismissHistory = allReviews.filter(
+        (r) => r['portfolio_id'] === id,
+      ) as unknown as InboxReviewRecord[];
+
+      const items = computeInbox({
+        transactions: transactions as never[],
+        signals,
+        priceSnapshots,
+        dismissHistory,
+      });
+
+      return reply.code(200).send({ items, computedAt: new Date().toISOString() });
+    },
+  );
+
+  // ── POST /portfolio/:id/inbox/dismiss ─────────────────────────────────────
+  // Zod schema for the dismiss body.
+  const DismissBodySchema = z.object({
+    ticker: z.string().min(1).max(32).transform((v) => v.trim().toUpperCase()),
+    eventType: z.enum(['THRESHOLD_TRIGGERED', 'LARGE_MOVE_UNREVIEWED', 'LONG_UNREVIEWED', 'NO_THRESHOLD_CONFIGURED']),
+    eventKey: z.string().min(1).max(256),
+  });
+
+  app.post(
+    '/portfolio/:id/inbox/dismiss',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        body: DismissBodySchema,
+        response: { 200: z.object({ ok: z.literal(true) }) },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { ticker, eventType, eventKey } = request.body;
+
+      await withLock(`inbox-reviews:${id}`, async () => {
+        const storage = await getStorage();
+        await storage.ensureTable('inbox_reviews', []);
+        const record: InboxReviewRecord = {
+          portfolio_id: id,
+          ticker,
+          event_type: eventType,
+          event_key: eventKey,
+          dismissed_at: new Date().toISOString(),
+        };
+        const existing = await storage.readTable('inbox_reviews');
+        await storage.writeTable('inbox_reviews', [...existing, record as unknown as Record<string, unknown>]);
+      });
+
+      return reply.code(200).send({ ok: true });
     },
   );
 };

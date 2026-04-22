@@ -148,6 +148,13 @@ const MIGRATIONS = [
       await storage.ensureTable('signal_notifications', []);
     },
   },
+  {
+    id: '009_inbox_reviews',
+    description: 'Initialize inbox_reviews table for Action Inbox dismiss state (Phase 5)',
+    async up({ storage }) {
+      await storage.ensureTable('inbox_reviews', []);
+    },
+  },
 ];
 
 async function readStateFile(filePath) {

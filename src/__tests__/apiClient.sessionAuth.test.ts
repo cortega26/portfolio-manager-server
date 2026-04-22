@@ -96,4 +96,28 @@ describe('apiClient session auth', () => {
     const headers = new Headers(init?.headers);
     expect(headers.get('X-Desktop-Auth')).toBe('desktop-session-token');
   });
+
+  it('rejects absolute API paths before calling fetch', async () => {
+    setRuntimeConfigForTesting({
+      API_BASE_URL: 'https://runtime.example',
+    });
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof global.fetch;
+
+    await expect(requestApi('https://evil.example/monitoring')).rejects.toThrow(
+      'API paths must be relative'
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported base URL protocols before calling fetch', async () => {
+    setRuntimeConfigForTesting({
+      API_BASE_URL: 'file:///tmp/portfolio',
+    });
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as unknown as typeof global.fetch;
+
+    await expect(requestApi('/monitoring')).rejects.toThrow('Unsupported API base URL protocol');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -81,7 +81,10 @@ const checks = [
   },
   {
     label: 'backend entrypoints present',
-    ok: exists('server/index.js') && exists('server/app.js'),
+    ok:
+      exists('server/index.js') &&
+      exists('server/runtime/startServer.ts') &&
+      exists('server/app.fastify.ts'),
   },
   {
     label: 'renderer entrypoints present',

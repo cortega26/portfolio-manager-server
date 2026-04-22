@@ -18,24 +18,24 @@ No reemplaza la lectura del código real ni `context/MODULE_INDEX.md`.
 
 ## Desktop auth y boundary Electron
 
-| Tarea                             | Leer primero                                                                                                             | Tests guía                                                                                                                                                                        | Verificar con                        |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| Sesión desktop / unlock / preload | `electron/main.cjs`, `electron/preload.cjs`, `server/middleware/sessionAuth.js`, `src/components/DesktopSessionGate.jsx` | `server/__tests__/session_auth.test.js`, `server/__tests__/desktop_runtime_config.test.js`, `src/__tests__/App.bootstrap.test.tsx`, `src/__tests__/apiClient.sessionAuth.test.ts` | `npm test`, `npm run electron:smoke` |
-| Runtime config entre procesos     | `electron/runtimeConfig.js`, `src/lib/runtimeConfig.js`, `server/runtime/startServer.js`                                 | `server/__tests__/desktop_runtime_config.test.js`, `src/__tests__/runtimeConfig.test.ts`                                                                                          | `npm test`                           |
+| Tarea                             | Leer primero                                                                                                          | Tests guía                                                                                                                                                                        | Verificar con                        |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Sesión desktop / unlock / preload | `electron/main.cjs`, `electron/preload.cjs`, `server/plugins/sessionAuth.ts`, `src/components/DesktopSessionGate.jsx` | `server/__tests__/session_auth.test.js`, `server/__tests__/desktop_runtime_config.test.js`, `src/__tests__/App.bootstrap.test.tsx`, `src/__tests__/apiClient.sessionAuth.test.ts` | `npm test`, `npm run electron:smoke` |
+| Runtime config entre procesos     | `electron/runtimeConfig.js`, `src/lib/runtimeConfig.js`, `server/runtime/startServer.ts`                              | `server/__tests__/desktop_runtime_config.test.js`, `src/__tests__/runtimeConfig.test.ts`                                                                                          | `npm test`                           |
 
 ## API backend y contratos
 
-| Tarea                                | Leer primero                                                                                                 | Tests guía                                                                                                                                                        | Verificar con |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| Rutas Express / middleware / headers | `server/app.js`, `server/middleware/validation.js`, `server/middleware/requestContext.js`                    | `server/__tests__/api_contract.test.js`, `server/__tests__/api_validation.test.js`, `server/__tests__/api_errors.test.js`, `server/__tests__/compression.test.js` | `npm test`    |
-| Arranque backend y scheduler         | `server/index.js`, `server/runtime/startServer.js`, `server/jobs/scheduler.js`, `server/jobs/daily_close.js` | `server/__tests__/start_server.test.js`, `server/__tests__/daily_close.test.js`                                                                                   | `npm test`    |
+| Tarea                             | Leer primero                                                                                                 | Tests guía                                                                                                                                                        | Verificar con |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Rutas Fastify / plugins / headers | `server/app.fastify.ts`, `server/plugins/sessionAuth.ts`, `server/plugins/requestContext.ts`                 | `server/__tests__/api_contract.test.js`, `server/__tests__/api_validation.test.js`, `server/__tests__/api_errors.test.js`, `server/__tests__/compression.test.js` | `npm test`    |
+| Arranque backend y scheduler      | `server/index.js`, `server/runtime/startServer.ts`, `server/jobs/scheduler.js`, `server/jobs/daily_close.js` | `server/__tests__/start_server.test.js`, `server/__tests__/daily_close.test.js`                                                                                   | `npm test`    |
 
 ## Storage y finanzas
 
 | Tarea                                  | Leer primero                                                                                                 | Tests guía                                                                                                                                                                                          | Verificar con                                             |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | Persistencia SQLite / JsonTableStorage | `server/data/storage.js`, `server/data/portfolioState.js`, `docs/adr/008-json-table-storage-on-sqljs.md`     | `server/__tests__/storage_concurrency.test.js`, `server/__tests__/integration.test.js`                                                                                                              | `npm test`                                                |
-| Holdings / cash / ROI / benchmarks     | `server/finance/portfolio.js`, `server/finance/cash.js`, `server/finance/returns.js`, `shared/benchmarks.js` | `server/__tests__/portfolio.test.js`, `server/__tests__/cash.test.js`, `server/__tests__/returns.test.js`, `server/__tests__/returns.property.test.js`, `server/__tests__/golden_financial.test.js` | `npm test`, `npm run test:perf`, `npm run mutate:changed` |
+| Holdings / cash / ROI / benchmarks     | `server/finance/portfolio.ts`, `server/finance/cash.ts`, `server/finance/returns.ts`, `shared/benchmarks.js` | `server/__tests__/portfolio.test.js`, `server/__tests__/cash.test.js`, `server/__tests__/returns.test.js`, `server/__tests__/returns.property.test.js`, `server/__tests__/golden_financial.test.js` | `npm test`, `npm run test:perf`, `npm run mutate:changed` |
 
 ## Importación y reconciliación
 
@@ -53,7 +53,7 @@ No reemplaza la lectura del código real ni `context/MODULE_INDEX.md`.
 
 ## Hotspots a tratar con cuidado
 
-- `server/app.js`: composición de API, middleware, caché, pricing y contratos en un archivo muy grande.
+- `server/app.fastify.ts`: composición de API, plugins, caché, pricing y contratos en un archivo todavía sensible.
 - `src/PortfolioManagerApp.jsx`: bootstrap, efectos de carga, tabs y fallbacks cruzados en un solo shell.
 - `server/import/csvPortfolioImport.js`: reglas sensibles de reconciliación e idempotencia.
 

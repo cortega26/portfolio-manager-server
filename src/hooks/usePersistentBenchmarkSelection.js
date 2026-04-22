@@ -59,7 +59,14 @@ export function usePersistentBenchmarkSelection(availableIds, defaultSelection) 
   });
 
   useEffect(() => {
-    setSelection((prev) => sanitizeSelection(prev, availableSet, defaultSelection));
+    setSelection((prev) => {
+      const sanitized = sanitizeSelection(prev, availableSet, defaultSelection);
+      // Return the same reference if values are identical to avoid a spurious re-render
+      if (sanitized.length === prev.length && sanitized.every((v, i) => v === prev[i])) {
+        return prev;
+      }
+      return sanitized;
+    });
   }, [availableSet, defaultSelection]);
 
   useEffect(() => {
