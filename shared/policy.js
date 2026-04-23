@@ -37,6 +37,12 @@
  * @property {number} [shares]
  * @property {number} [currentValue_cents]
  * @property {boolean} [isCash]
+ *
+ * @typedef {object} EvaluatePolicyParams
+ * @property {Policy} policy
+ * @property {Holding[]} holdings
+ * @property {string | Date | null} [lastReviewedAt] - portfolio-level review timestamp/date
+ * @property {string | Date | null} [asOf] - explicit evaluation date; required for review cadence
  */
 
 /**
@@ -79,14 +85,39 @@ function makeRecId(type, ticker, reason) {
   return `${type}:${ticker}:${reason}`;
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function parseDateOnly(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  const time = date.getTime();
+  if (!Number.isFinite(time)) {
+    return null;
+  }
+
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function calendarDaysBetween(start, end) {
+  const startDay = parseDateOnly(start);
+  const endDay = parseDateOnly(end);
+  if (startDay === null || endDay === null || endDay < startDay) {
+    return null;
+  }
+  return Math.floor((endDay - startDay) / MS_PER_DAY);
+}
+
 /**
  * Evaluates a portfolio policy against current holdings and returns a list
  * of actionable recommendations.
  *
- * @param {{ policy: Policy, holdings: Holding[] }} params
+ * @param {EvaluatePolicyParams} params
  * @returns {PolicyRecommendation[]}
  */
-export function evaluatePolicy({ policy, holdings }) {
+export function evaluatePolicy({ policy, holdings, lastReviewedAt, asOf }) {
   if (!policy || !Array.isArray(holdings)) {
     return [];
   }
@@ -184,6 +215,32 @@ export function evaluatePolicy({ policy, holdings }) {
         },
       });
     }
+  }
+
+  // ── Rule 4: Portfolio review cadence ────────────────────────────────────
+  const cadenceDays = Number(policy.review_cadence_days);
+  const elapsedDays = calendarDaysBetween(lastReviewedAt, asOf);
+  if (
+    Number.isFinite(cadenceDays) &&
+    cadenceDays > 0 &&
+    elapsedDays !== null &&
+    elapsedDays >= cadenceDays
+  ) {
+    recs.push({
+      id: makeRecId('review', 'PORTFOLIO', 'review_cadence'),
+      type: 'review',
+      ticker: 'PORTFOLIO',
+      severity: elapsedDays >= cadenceDays * 2 ? 'high' : 'medium',
+      rationale: `Portfolio has not been reviewed in ${elapsedDays} days, exceeding the ${cadenceDays}-day review cadence.`,
+      evidence: {
+        last_reviewed_at:
+          lastReviewedAt instanceof Date ? lastReviewedAt.toISOString() : lastReviewedAt,
+        as_of: asOf instanceof Date ? asOf.toISOString() : asOf,
+        elapsed_days: elapsedDays,
+        cadence_days: cadenceDays,
+        overdue_days: elapsedDays - cadenceDays,
+      },
+    });
   }
 
   return recs;

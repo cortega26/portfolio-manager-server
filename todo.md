@@ -188,10 +188,10 @@
 - [x] Implement concentration check
 - [x] Implement allocation drift check
 - [x] Implement cash range check
-- [ ] Implement review cadence check
-- [ ] Verify: pure function unit tests for each rule
+- [x] Implement review cadence check
+- [x] Verify: pure function unit tests for each rule
   - [x] Tests exist for concentration, allocation drift and cash range
-  - [ ] Review cadence test missing
+  - [x] Review cadence test exists
 
 ### SR-062 — Inbox as recommendation queue (P0, L)
 
