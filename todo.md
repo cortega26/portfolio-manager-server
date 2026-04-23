@@ -32,12 +32,12 @@
 
 ### SR-001 — Trust metadata schema (P0, M)
 
-- [ ] Create `shared/trust.ts` with SourceType, FreshnessState, ConfidenceState, DegradedReason, TrustMetadata
+- [x] Create `shared/trust.ts` with SourceType, FreshnessState, ConfidenceState, DegradedReason, TrustMetadata
   - [x] `shared/trust.ts` exists
-  - [ ] Still does not exactly match spec enum surface (`eod_estimated`, `manual`, `expired`, explicit `DegradedReason`)
-- [ ] Create `shared/trustUtils.ts` with helper: `buildTrustFromPriceStatus(status, asOf)`
+  - [x] Spec enum surface now includes `eod_estimated`, `manual`, `expired`, and explicit `DegradedReason`
+- [x] Keep runtime helper `shared/trustUtils.js` with `buildTrustFromPriceStatus(status, asOf)`
   - [x] Helper exists as `shared/trustUtils.js`
-  - [ ] Decide whether to keep JS or convert to TS per spec
+  - [x] Decision: keep helper in JS for current Node/Vite runtime imports; keep canonical schema in `shared/trust.ts`
 - [x] Verify: TypeScript compiles; unit test in `tests/redesign/trust.test.js` passes
 
 ---
@@ -48,9 +48,9 @@
 
 - [x] Create `server/routes/portfolioHealth.ts` with `GET /api/portfolio/:id/health`
 - [x] Register route in Fastify app
-- [ ] Implement freshness logic from holdings + prices
+- [x] Implement freshness logic from holdings + prices
   - [x] Basic snapshot-based trust exists
-  - [ ] Spec logic still needs exact fresh/stale/expired trading-day behavior
+  - [x] Spec logic now uses exact fresh/stale/expired trading-day behavior
 - [x] Implement action_count from inbox compute
 - [x] Verify: API integration test in `tests/redesign/portfolioHealth.test.js` passes
 
@@ -92,17 +92,17 @@
 - [x] Create `src/components/review/TodayTab.jsx`
 - [x] Create `src/components/review/PortfolioHealthBar.jsx` (uses health endpoint)
 - [x] Wire all four sections into TodayTab
-- [ ] Handle loading/healthy/needs_attention/blocked/error states
+- [x] Handle loading/healthy/needs_attention/blocked/error states
   - [x] Loading, empty and error states exist in `PortfolioHealthBar`
-  - [ ] Today-level healthy/needs_attention/blocked state model still needs completion
+  - [x] Today-level healthy/needs_attention/blocked state model exists
 - [x] Verify: Playwright e2e test in `tests/e2e/today-shell.spec.ts` passes
 
 ### SR-022 — NeedsAttentionSection (P0, M)
 
 - [x] Create `src/components/review/NeedsAttentionSection.jsx`
 - [x] Descriptive empty state: "No action needed — your portfolio is on track."
-- [ ] Show top 5 HIGH urgency items with rationale
-- [ ] Verify: component tests for empty + populated states
+- [x] Show top 5 HIGH urgency items with rationale
+- [x] Verify: component tests for empty + populated states
 
 ### SR-023 — RecentChangesSection (P1, M)
 
@@ -114,9 +114,9 @@
 ### SR-024 — DataBlockersSection (P1, M)
 
 - [x] Create `src/components/review/DataBlockersSection.jsx`
-- [ ] Populate from health endpoint `degraded_reasons`
+- [x] Populate from health endpoint `degraded_reasons`
 - [x] Empty state: "All data is current."
-- [ ] Verify: component tests
+- [x] Verify: component tests
 
 ---
 

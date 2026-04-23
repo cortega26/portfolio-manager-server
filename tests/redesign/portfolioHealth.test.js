@@ -12,6 +12,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 
+import { computeTradingDayAge } from '../../server/utils/calendar.js';
 import {
   createSessionTestApp,
   withSession,
@@ -36,6 +37,51 @@ const BASE_TRANSACTIONS = [
     price: 400,
   },
 ];
+
+function dateForTradingDayAge(targetAge) {
+  const reference = new Date();
+  const cursor = new Date(
+    Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), reference.getUTCDate())
+  );
+  for (let i = 0; i < 30; i += 1) {
+    const dateKey = cursor.toISOString().slice(0, 10);
+    if (computeTradingDayAge(dateKey, reference) === targetAge) {
+      return dateKey;
+    }
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  throw new Error(`Unable to find date for trading-day age ${targetAge}`);
+}
+
+function makeHistoricalPriceLoader(priceBySymbol) {
+  return {
+    async fetchSeries(symbol) {
+      const price = priceBySymbol[symbol];
+      return { prices: price ? [price] : [], cacheHit: false, resolution: null };
+    },
+  };
+}
+
+async function createSeededHealthApp({
+  priceBySymbol,
+  transactions = BASE_TRANSACTIONS,
+  signals = {},
+}) {
+  const tempDir = mkdtempSync(path.join(tmpdir(), 'health-state-'));
+  const tempApp = await createSessionTestApp({
+    dataDir: tempDir,
+    historicalPriceLoader: makeHistoricalPriceLoader(priceBySymbol),
+  });
+  await withSession(
+    request(tempApp).post(`/api/portfolio/${PORTFOLIO_ID}`).send({
+      transactions,
+      signals,
+      settings: {},
+    }),
+    TEST_SESSION_TOKEN
+  );
+  return { tempDir, tempApp };
+}
 
 beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'health-test-'));
@@ -142,6 +188,85 @@ test('GET /health: no holdings with prices → freshness_state is unknown', asyn
   } finally {
     await closeApp(noHoldingsApp);
     rmSync(noHoldingsDir, { recursive: true, force: true });
+  }
+});
+
+test('GET /health: fresh prices return fresh/high', async () => {
+  const { tempDir, tempApp } = await createSeededHealthApp({
+    priceBySymbol: { SPY: { date: dateForTradingDayAge(0), close: 410 } },
+  });
+
+  try {
+    const res = await withSession(
+      request(tempApp).get(`/api/portfolio/${PORTFOLIO_ID}/health`),
+      TEST_SESSION_TOKEN
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.freshness_state, 'fresh');
+    assert.equal(res.body.confidence_state, 'high');
+    assert.deepEqual(res.body.degraded_reasons, []);
+  } finally {
+    await closeApp(tempApp);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('GET /health: prices 1–3 trading days old return stale/medium', async () => {
+  const { tempDir, tempApp } = await createSeededHealthApp({
+    priceBySymbol: { SPY: { date: dateForTradingDayAge(2), close: 410 } },
+  });
+
+  try {
+    const res = await withSession(
+      request(tempApp).get(`/api/portfolio/${PORTFOLIO_ID}/health`),
+      TEST_SESSION_TOKEN
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.freshness_state, 'stale');
+    assert.equal(res.body.confidence_state, 'medium');
+    assert.deepEqual(res.body.degraded_reasons, ['stale_price']);
+  } finally {
+    await closeApp(tempApp);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('GET /health: prices older than 3 trading days return expired/low', async () => {
+  const { tempDir, tempApp } = await createSeededHealthApp({
+    priceBySymbol: { SPY: { date: dateForTradingDayAge(4), close: 410 } },
+  });
+
+  try {
+    const res = await withSession(
+      request(tempApp).get(`/api/portfolio/${PORTFOLIO_ID}/health`),
+      TEST_SESSION_TOKEN
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.freshness_state, 'expired');
+    assert.equal(res.body.confidence_state, 'low');
+    assert.deepEqual(res.body.degraded_reasons, ['stale_price']);
+  } finally {
+    await closeApp(tempApp);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('GET /health: action_count counts only HIGH urgency inbox items', async () => {
+  const { tempDir, tempApp } = await createSeededHealthApp({
+    priceBySymbol: { SPY: { date: dateForTradingDayAge(0), close: 450 } },
+    signals: { SPY: { pct: 10 } },
+  });
+
+  try {
+    const res = await withSession(
+      request(tempApp).get(`/api/portfolio/${PORTFOLIO_ID}/health`),
+      TEST_SESSION_TOKEN
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.action_count, 1);
+  } finally {
+    await closeApp(tempApp);
+    rmSync(tempDir, { recursive: true, force: true });
   }
 });
 

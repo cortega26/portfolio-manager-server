@@ -17,10 +17,10 @@ import type { FastifyPluginOptions } from 'fastify';
 
 import { portfolioIdSchema } from './_schemas.js';
 import { readPortfolioState } from '../data/portfolioState.js';
-import { buildFreshPriceSnapshot } from './_helpers.js';
+import { asHistoricalPricePoint, resolveHistoricalClose } from './_helpers.js';
 import type { StorageAdapter } from './portfolio.js';
 import type { HistoricalPriceLoader } from './prices.js';
-import { buildTrustFromPriceStatus, buildUnknownTrust } from '../../shared/trustUtils.js';
+import { computeTradingDayAge } from '../utils/calendar.js';
 import type { TrustMetadata } from '../../shared/trust.js';
 import { isOpenSignalHolding } from '../../shared/signals.js';
 import { sortTransactions, projectStateUntil } from '../finance/portfolio.js';
@@ -40,7 +40,7 @@ export interface PortfolioHealthRouteContext extends FastifyPluginOptions {
 
 const PortfolioHealthResponseSchema = z.object({
   portfolio_id: z.string(),
-  freshness_state: z.enum(['fresh', 'stale', 'unknown']),
+  freshness_state: z.enum(['fresh', 'stale', 'expired', 'unknown']),
   confidence_state: z.enum(['high', 'medium', 'low', 'degraded', 'unknown']),
   degraded_reasons: z.array(z.string()),
   unresolved_exception_count: z.number().int().nonnegative(),
@@ -50,7 +50,9 @@ const PortfolioHealthResponseSchema = z.object({
 
 // ── Helper: derive freshness from price snapshots ────────────────────────────
 
-type PriceSnapshot = { price: number | null; asOf: string | null };
+type PriceSnapshot = { price: number | null; asOf: string | null; tradingDayAge: number | null };
+type DegradedReason = NonNullable<TrustMetadata['degraded_reason']>;
+type HealthTrust = TrustMetadata & { degraded_reasons: DegradedReason[] };
 
 /**
  * Derives a trust metadata object from a map of price snapshots.
@@ -58,34 +60,74 @@ type PriceSnapshot = { price: number | null; asOf: string | null };
  * If there are no holdings, returns 'unknown' freshness trust.
  * Otherwise, uses the worst snapshot among all holdings.
  */
-function deriveTrust(snapshots: Map<string, PriceSnapshot>): TrustMetadata {
-  if (snapshots.size === 0) {
-    return buildUnknownTrust();
+function deriveTrust(snapshots: Map<string, PriceSnapshot>, openTickerCount: number): HealthTrust {
+  if (openTickerCount === 0) {
+    return {
+      source_type: 'unknown',
+      freshness_state: 'unknown',
+      confidence_state: 'degraded',
+      degraded_reason: 'no_transactions',
+      degraded_reasons: ['no_transactions'],
+    };
   }
 
   const entries = Array.from(snapshots.values());
-  const allNull = entries.every((s) => s.price === null);
-  if (allNull) {
-    return buildTrustFromPriceStatus('unavailable', undefined);
+  if (entries.length === 0 || entries.every((s) => s.price === null || !s.asOf)) {
+    return {
+      source_type: 'unknown',
+      freshness_state: 'unknown',
+      confidence_state: 'degraded',
+      degraded_reason: 'missing_price',
+      degraded_reasons: ['missing_price'],
+    };
   }
 
-  const hasNull = entries.some((s) => s.price === null);
-  if (hasNull) {
-    const trust = buildTrustFromPriceStatus('degraded', undefined);
-    trust.degraded_reason = 'partial_portfolio';
-    return trust;
+  const degradedReasons = new Set<DegradedReason>();
+  if (entries.some((s) => s.price === null || !s.asOf)) {
+    degradedReasons.add('missing_price');
+    degradedReasons.add('partial_data');
   }
 
-  const asOfs = entries
-    .map((s) => s.asOf)
-    .filter((d): d is string => typeof d === 'string');
+  const datedSnapshots = entries.filter(
+    (s): s is PriceSnapshot & { asOf: string; tradingDayAge: number } =>
+      typeof s.asOf === 'string' && Number.isFinite(s.tradingDayAge),
+  );
 
-  if (asOfs.length === 0) {
-    return buildTrustFromPriceStatus('cache_fresh', undefined);
+  const oldest = datedSnapshots.reduce((worst, current) =>
+    current.tradingDayAge > worst.tradingDayAge ? current : worst,
+  );
+  const freshness_state =
+    oldest.tradingDayAge < 1 ? 'fresh' : oldest.tradingDayAge <= 3 ? 'stale' : 'expired';
+  if (freshness_state === 'stale' || freshness_state === 'expired') {
+    degradedReasons.add('stale_price');
   }
+  const confidence_state =
+    freshness_state === 'fresh' && degradedReasons.size === 0
+      ? 'high'
+      : freshness_state === 'expired' || degradedReasons.size >= 2
+        ? 'low'
+        : 'medium';
 
-  const oldestAsOf = [...asOfs].sort()[0];
-  return buildTrustFromPriceStatus('cache_fresh', oldestAsOf);
+  return {
+    source_type: freshness_state === 'fresh' ? 'eod' : 'cached',
+    freshness_state,
+    confidence_state,
+    ...(oldest.asOf ? { as_of: oldest.asOf } : {}),
+    ...(degradedReasons.size > 0 ? { degraded_reason: Array.from(degradedReasons)[0] } : {}),
+    degraded_reasons: Array.from(degradedReasons),
+  };
+}
+
+function buildHealthPriceSnapshot(value: unknown, referenceDate: Date): PriceSnapshot {
+  const point = asHistoricalPricePoint(value);
+  const asOf = point?.date ?? null;
+  const price = resolveHistoricalClose(point);
+  const tradingDayAge = asOf ? computeTradingDayAge(asOf, referenceDate) : null;
+  return {
+    price,
+    asOf,
+    tradingDayAge: Number.isFinite(tradingDayAge) ? tradingDayAge : null,
+  };
 }
 
 // ── Route plugin ─────────────────────────────────────────────────────────────
@@ -128,20 +170,20 @@ const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> 
 
       // Fetch latest prices.
       const priceSnapshots = new Map<string, PriceSnapshot>();
+      const now = new Date();
       if (opts.historicalPriceLoader && openTickers.length > 0) {
-        const maxStaleDays = opts.config.freshness?.maxStaleTradingDays ?? 30;
         await Promise.all(openTickers.map(async (symbol) => {
           try {
             const result = await opts.historicalPriceLoader!.fetchSeries(symbol, { range: '1y', latestOnly: true });
             const latest = Array.isArray(result.prices) ? result.prices[result.prices.length - 1] : null;
-            priceSnapshots.set(symbol, buildFreshPriceSnapshot(latest, maxStaleDays));
+            priceSnapshots.set(symbol, buildHealthPriceSnapshot(latest, now));
           } catch {
-            priceSnapshots.set(symbol, { price: null, asOf: null });
+            priceSnapshots.set(symbol, { price: null, asOf: null, tradingDayAge: null });
           }
         }));
       }
 
-      const trust = deriveTrust(priceSnapshots);
+      const trust = deriveTrust(priceSnapshots, openTickers.length);
 
       // Count actionable inbox items (non-fatal — failure returns 0).
       let actionCount = 0;
@@ -157,7 +199,9 @@ const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> 
           priceSnapshots,
           dismissHistory: dismissHistory as never[],
         });
-        actionCount = Array.isArray(items) ? items.length : 0;
+        actionCount = Array.isArray(items)
+          ? items.filter((item) => item.urgency === 'HIGH').length
+          : 0;
       } catch {
         actionCount = 0;
       }
@@ -166,7 +210,7 @@ const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> 
         portfolio_id: id,
         freshness_state: trust.freshness_state,
         confidence_state: trust.confidence_state,
-        degraded_reasons: trust.degraded_reason ? [trust.degraded_reason] : [],
+        degraded_reasons: trust.degraded_reasons,
         unresolved_exception_count: 0,
         action_count: actionCount,
         as_of: new Date().toISOString(),

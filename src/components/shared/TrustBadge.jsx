@@ -57,7 +57,7 @@ export function TrustBadge({ trust, size = 'sm', className = '' }) {
 TrustBadge.propTypes = {
   trust: PropTypes.shape({
     confidence_state: PropTypes.oneOf(['high', 'medium', 'low', 'degraded', 'unknown']).isRequired,
-    freshness_state: PropTypes.oneOf(['fresh', 'stale', 'unknown']).isRequired,
+    freshness_state: PropTypes.oneOf(['fresh', 'stale', 'expired', 'unknown']).isRequired,
     source_type: PropTypes.string.isRequired,
     as_of: PropTypes.string,
     degraded_reason: PropTypes.string,
