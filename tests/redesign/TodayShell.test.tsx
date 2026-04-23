@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import TodayTab from '../../src/components/review/TodayTab.jsx';
 import NeedsAttentionSection from '../../src/components/review/NeedsAttentionSection.jsx';
+import RecentChangesSection from '../../src/components/review/RecentChangesSection.jsx';
 import { requestJson } from '../../src/lib/apiClient.js';
 
 vi.mock('../../src/lib/apiClient.js', () => ({
@@ -112,5 +113,48 @@ describe('SR-022 NeedsAttentionSection populated state', () => {
     expect(screen.queryByText('FFF')).not.toBeInTheDocument();
     expect(screen.queryByText('MMM')).not.toBeInTheDocument();
     expect(screen.queryByText('ZZZ')).not.toBeInTheDocument();
+  });
+});
+
+describe('SR-023 RecentChangesSection NAV snapshot', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  test('stores the latest NAV snapshot when no previous snapshot exists', () => {
+    render(
+      <RecentChangesSection
+        portfolioId="demo"
+        navDaily={[{ date: '2026-04-22', portfolio_nav: 1000 }]}
+      />
+    );
+
+    expect(screen.getByText('No meaningful changes since your last review.')).toBeVisible();
+    expect(
+      JSON.parse(window.localStorage.getItem('portfolio-manager-recent-nav-snapshot:demo') ?? '{}')
+    ).toEqual({ date: '2026-04-22', portfolio_nav: '1000' });
+  });
+
+  test('shows NAV change from the stored snapshot and writes the new snapshot', () => {
+    window.localStorage.setItem(
+      'portfolio-manager-recent-nav-snapshot:demo',
+      JSON.stringify({ date: '2026-04-22', portfolio_nav: '1000' })
+    );
+
+    render(
+      <RecentChangesSection
+        portfolioId="demo"
+        navDaily={[{ date: '2026-04-23', portfolio_nav: 1025.5 }]}
+      />
+    );
+
+    expect(screen.getByText('NAV +$25.50 since 2026-04-22')).toBeVisible();
+    expect(
+      JSON.parse(window.localStorage.getItem('portfolio-manager-recent-nav-snapshot:demo') ?? '{}')
+    ).toEqual({ date: '2026-04-23', portfolio_nav: '1025.5' });
   });
 });

@@ -33,6 +33,7 @@ export default function TodayTab({
   portfolioId,
   inboxItems = [],
   recentChanges = [],
+  navDaily = [],
   degradedReasons = [],
   staleTickers = [],
 }) {
@@ -57,7 +58,7 @@ export default function TodayTab({
     >
       <PortfolioHealthBar portfolioId={portfolioId} onHealthChange={handleHealthChange} />
       <NeedsAttentionSection items={inboxItems} />
-      <RecentChangesSection changes={recentChanges} />
+      <RecentChangesSection changes={recentChanges} navDaily={navDaily} portfolioId={portfolioId} />
       <DataBlockersSection degradedReasons={resolvedDegradedReasons} staleTickers={staleTickers} />
     </div>
   );
@@ -67,6 +68,7 @@ TodayTab.propTypes = {
   portfolioId: PropTypes.string.isRequired,
   inboxItems: PropTypes.array,
   recentChanges: PropTypes.array,
+  navDaily: PropTypes.array,
   degradedReasons: PropTypes.arrayOf(PropTypes.string),
   staleTickers: PropTypes.arrayOf(PropTypes.string),
 };

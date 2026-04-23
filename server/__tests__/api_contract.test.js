@@ -146,6 +146,16 @@ for (const basePath of API_PREFIXES) {
     assert.ok(response.body?.series?.MSFT);
     assert.equal(Array.isArray(response.body.series.AAPL), true);
     assert.equal(Array.isArray(response.body.series.MSFT), true);
+    assert.deepEqual(response.body.metadata.symbols.AAPL.trust, {
+      source_type: 'eod',
+      freshness_state: 'fresh',
+      confidence_state: 'high',
+    });
+    assert.deepEqual(response.body.metadata.symbols.MSFT.trust, {
+      source_type: 'eod',
+      freshness_state: 'fresh',
+      confidence_state: 'high',
+    });
     assert.equal((response.headers["x-cache"] ?? "MISS").toUpperCase(), "MISS");
   });
 }
@@ -201,6 +211,11 @@ for (const basePath of API_PREFIXES) {
     assert.equal(response.status, 200);
     const validator = getValidator(`${basePath}/roi/daily`);
     expectValidResponse(validator, response.body);
+    assert.deepEqual(response.body.trust, {
+      source_type: 'unknown',
+      freshness_state: 'unknown',
+      confidence_state: 'unknown',
+    });
   });
 }
 

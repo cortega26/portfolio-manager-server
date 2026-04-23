@@ -1621,6 +1621,7 @@ export default function PortfolioManagerApp() {
                 portfolioId={portfolioId}
                 inboxItems={[]}
                 recentChanges={[]}
+                navDaily={navDaily}
                 degradedReasons={[]}
                 staleTickers={[]}
               />

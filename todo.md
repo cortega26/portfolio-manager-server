@@ -58,7 +58,7 @@
 
 - [x] `server/routes/prices.ts`: add `trust` field to each symbol in `symbolMeta`
 - [x] `server/routes/analytics.ts` (or ROI endpoint): add top-level `trust` field
-- [ ] Verify: response assertions in tests pass
+- [x] Verify: response assertions in tests pass
 
 ### SR-004 — Trust badge UI components (P0, M)
 
@@ -69,7 +69,7 @@
 ### SR-005 — Trust badges on dashboard (P0, M)
 
 - [x] `src/components/DashboardTab.jsx` or `DashboardZone1.jsx`: add TrustBadge behind `redesign.trustBadges` flag
-- [ ] Verify: existing dashboard tests still pass; flag-gated behavior tested
+- [x] Verify: existing dashboard tests still pass; flag-gated behavior tested
 
 ### SR-006 — Inbox rationale cards (P0, M)
 
@@ -107,9 +107,9 @@
 ### SR-023 — RecentChangesSection (P1, M)
 
 - [x] Create `src/components/review/RecentChangesSection.jsx`
-- [ ] Read/write NAV snapshot to localStorage on each load
+- [x] Read/write NAV snapshot to localStorage on each load
 - [x] Descriptive empty state: "No meaningful changes since your last review."
-- [ ] Verify: component tests with mock NAV data
+- [x] Verify: component tests with mock NAV data
 
 ### SR-024 — DataBlockersSection (P1, M)
 
