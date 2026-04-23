@@ -8,23 +8,27 @@
  *
  * Schema (matches test expectations):
  * {
- *   source_type:     'live' | 'eod' | 'cached' | 'unknown'
- *   freshness_state: 'fresh' | 'stale' | 'unknown'
+ *   source_type:     'live' | 'eod' | 'eod_estimated' | 'manual' | 'cached' | 'unknown'
+ *   freshness_state: 'fresh' | 'stale' | 'expired' | 'unknown'
  *   confidence_state:'high' | 'medium' | 'low' | 'degraded' | 'unknown'
  *   as_of?:          string | null
- *   degraded_reason?: string   (only present when confidence is degraded/low)
+ *   degraded_reason?: 'missing_price' | 'stale_price' | 'partial_data' |
+ *     'provider_error' | 'no_transactions' | 'unresolved_exceptions'
+ *   explanation?: string
  * }
  *
- * @typedef {'live' | 'eod' | 'cached' | 'unknown'} SourceType
- * @typedef {'fresh' | 'stale' | 'unknown'} FreshnessState
+ * @typedef {'live' | 'eod' | 'eod_estimated' | 'manual' | 'cached' | 'unknown'} SourceType
+ * @typedef {'fresh' | 'stale' | 'expired' | 'unknown'} FreshnessState
  * @typedef {'high' | 'medium' | 'low' | 'degraded' | 'unknown'} ConfidenceState
+ * @typedef {'missing_price' | 'stale_price' | 'partial_data' | 'provider_error' | 'no_transactions' | 'unresolved_exceptions'} DegradedReason
  *
  * @typedef {object} TrustMetadata
  * @property {SourceType} source_type
  * @property {FreshnessState} freshness_state
  * @property {ConfidenceState} confidence_state
  * @property {string|null} [as_of]
- * @property {string} [degraded_reason]
+ * @property {DegradedReason} [degraded_reason]
+ * @property {string} [explanation]
  */
 
 /**
@@ -39,8 +43,11 @@
 export const PRICE_STATUS_TO_TRUST = {
   live: 'live',
   eod_fresh: 'eod_fresh',
+  eod_estimated: 'eod_estimated',
+  manual: 'manual',
   cache_fresh: 'cache_fresh',
   degraded: 'degraded',
+  expired: 'expired',
   unavailable: 'unavailable',
 };
 
@@ -69,6 +76,24 @@ export function buildTrustFromPriceStatus(priceStatus, as_of) {
         ...(as_of != null ? { as_of } : {}),
       };
 
+    case 'eod_estimated':
+      return {
+        source_type: 'eod_estimated',
+        freshness_state: 'fresh',
+        confidence_state: 'medium',
+        degraded_reason: 'partial_data',
+        ...(as_of != null ? { as_of } : {}),
+      };
+
+    case 'manual':
+      return {
+        source_type: 'manual',
+        freshness_state: 'fresh',
+        confidence_state: 'medium',
+        degraded_reason: 'partial_data',
+        ...(as_of != null ? { as_of } : {}),
+      };
+
     case 'cache_fresh':
       return {
         source_type: 'cached',
@@ -81,6 +106,15 @@ export function buildTrustFromPriceStatus(priceStatus, as_of) {
       return {
         source_type: 'cached',
         freshness_state: 'stale',
+        confidence_state: 'low',
+        degraded_reason: 'stale_price',
+        ...(as_of != null ? { as_of } : {}),
+      };
+
+    case 'expired':
+      return {
+        source_type: 'cached',
+        freshness_state: 'expired',
         confidence_state: 'low',
         degraded_reason: 'stale_price',
         ...(as_of != null ? { as_of } : {}),

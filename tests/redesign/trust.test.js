@@ -44,11 +44,35 @@ test('buildTrustFromPriceStatus: cache_fresh → medium confidence, stale, cache
   assert.equal(trust.confidence_state, 'medium');
 });
 
+test('buildTrustFromPriceStatus: eod_estimated → medium confidence, fresh freshness', () => {
+  const trust = buildTrustFromPriceStatus('eod_estimated', '2026-04-22T00:00:00Z');
+  assert.equal(trust.source_type, 'eod_estimated');
+  assert.equal(trust.freshness_state, 'fresh');
+  assert.equal(trust.confidence_state, 'medium');
+  assert.equal(trust.degraded_reason, 'partial_data');
+});
+
+test('buildTrustFromPriceStatus: manual → medium confidence, fresh freshness', () => {
+  const trust = buildTrustFromPriceStatus('manual', '2026-04-22T00:00:00Z');
+  assert.equal(trust.source_type, 'manual');
+  assert.equal(trust.freshness_state, 'fresh');
+  assert.equal(trust.confidence_state, 'medium');
+  assert.equal(trust.degraded_reason, 'partial_data');
+});
+
 test('buildTrustFromPriceStatus: degraded → low confidence, stale, cached source', () => {
   const trust = buildTrustFromPriceStatus('degraded', '2026-04-18T00:00:00Z');
   assert.equal(trust.source_type, 'cached');
   assert.equal(trust.freshness_state, 'stale');
   assert.equal(trust.confidence_state, 'low');
+});
+
+test('buildTrustFromPriceStatus: expired → low confidence, expired freshness', () => {
+  const trust = buildTrustFromPriceStatus('expired', '2026-04-15T00:00:00Z');
+  assert.equal(trust.source_type, 'cached');
+  assert.equal(trust.freshness_state, 'expired');
+  assert.equal(trust.confidence_state, 'low');
+  assert.equal(trust.degraded_reason, 'stale_price');
 });
 
 test('buildTrustFromPriceStatus: unavailable → degraded, unknown source', () => {
@@ -102,7 +126,16 @@ test('isTrustHigh: returns false for medium confidence', () => {
 // ---------------------------------------------------------------------------
 
 test('PRICE_STATUS_TO_TRUST: covers all expected price status values', () => {
-  const expectedStatuses = ['live', 'eod_fresh', 'cache_fresh', 'degraded', 'unavailable'];
+  const expectedStatuses = [
+    'live',
+    'eod_fresh',
+    'eod_estimated',
+    'manual',
+    'cache_fresh',
+    'degraded',
+    'expired',
+    'unavailable',
+  ];
   for (const status of expectedStatuses) {
     assert.ok(
       status in PRICE_STATUS_TO_TRUST,
@@ -116,7 +149,16 @@ test('PRICE_STATUS_TO_TRUST: covers all expected price status values', () => {
 // ---------------------------------------------------------------------------
 
 test('trust objects are JSON round-trippable', () => {
-  const statuses = ['live', 'eod_fresh', 'cache_fresh', 'degraded', 'unavailable'];
+  const statuses = [
+    'live',
+    'eod_fresh',
+    'eod_estimated',
+    'manual',
+    'cache_fresh',
+    'degraded',
+    'expired',
+    'unavailable',
+  ];
   for (const status of statuses) {
     const trust = buildTrustFromPriceStatus(status, '2026-04-22T00:00:00Z');
     const json = JSON.stringify(trust);

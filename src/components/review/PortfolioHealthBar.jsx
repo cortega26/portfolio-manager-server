@@ -15,22 +15,41 @@ const CONFIDENCE_BAR_STYLES = {
   unknown: 'bg-slate-300 dark:bg-slate-700',
 };
 
-export default function PortfolioHealthBar({ portfolioId }) {
+function resolveHealthStatus(data) {
+  if (!data) return 'blocked';
+  if (data.freshness_state === 'expired' || ['low', 'degraded'].includes(data.confidence_state)) {
+    return 'blocked';
+  }
+  if (
+    data.action_count > 0 ||
+    data.confidence_state === 'medium' ||
+    data.freshness_state === 'stale' ||
+    (Array.isArray(data.degraded_reasons) && data.degraded_reasons.length > 0)
+  ) {
+    return 'needs_attention';
+  }
+  return 'healthy';
+}
+
+export default function PortfolioHealthBar({ portfolioId, onHealthChange }) {
   const [state, setState] = useState({ status: 'loading', data: null, error: null });
 
   const load = useCallback(async () => {
     if (!portfolioId) {
       setState({ status: 'empty', data: null, error: null });
+      onHealthChange?.(null);
       return;
     }
     setState({ status: 'loading', data: null, error: null });
     try {
       const { data } = await requestJson(`/portfolio/${encodeURIComponent(portfolioId)}/health`);
       setState({ status: 'ready', data, error: null });
+      onHealthChange?.(data);
     } catch (err) {
       setState({ status: 'error', data: null, error: String(err?.message ?? err) });
+      onHealthChange?.(null);
     }
-  }, [portfolioId]);
+  }, [onHealthChange, portfolioId]);
 
   useEffect(() => {
     load();
@@ -72,10 +91,12 @@ export default function PortfolioHealthBar({ portfolioId }) {
 
   const { data } = state;
   const barStyle = CONFIDENCE_BAR_STYLES[data.confidence_state] ?? CONFIDENCE_BAR_STYLES.unknown;
+  const healthStatus = resolveHealthStatus(data);
 
   return (
     <div
       data-testid="portfolio-health-bar"
+      data-health-status={healthStatus}
       className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
       <div className="flex items-center gap-3">
@@ -83,7 +104,7 @@ export default function PortfolioHealthBar({ portfolioId }) {
         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
           {data.confidence_state === 'high'
             ? 'Portfolio data is current'
-            : data.confidence_state === 'medium'
+            : healthStatus === 'needs_attention'
               ? 'Some data may be stale'
               : 'Data quality issues detected'}
         </span>
@@ -102,4 +123,5 @@ export default function PortfolioHealthBar({ portfolioId }) {
 
 PortfolioHealthBar.propTypes = {
   portfolioId: PropTypes.string.isRequired,
+  onHealthChange: PropTypes.func,
 };

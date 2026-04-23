@@ -116,23 +116,20 @@ Reglas de resolución:
 <claude-mem-context>
 # Memory Context
 
-# [portafolio-unificado] recent context, 2026-04-23 6:38pm GMT-4
+# [portafolio-unificado] recent context, 2026-04-23 6:54pm GMT-4
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 33 obs (13,996t read) | 424,475t work | 97% savings
+Stats: 50 obs (20,168t read) | 469,670t work | 96% savings
 
 ### Apr 22, 2026
 
-164 10:38a 🔵 portafolio-unificado — Baseline Quality Audit: Clean Lint/Types/Tests, Multiple Code Smells Found
 165 10:43a 🔴 console.log Removed from formatDate — Shared Utility Extracted to server/utils/dateUtils.ts
 166 " 🔄 API_BASE Centralized into src/lib/apiClient.ts — 5-Way Duplication Eliminated
 167 " 🔄 mapRowToTrade Helper Extracted in server/db/reader.ts
 168 " 🔴 Silent Error Swallowing Fixed in All 5 Express Route Handlers
-169 " 🔴 OverviewPage PieChart Import Path Fixed; DividendsPage React Key Stabilized
-170 " ✅ portafolio-unificado Code Quality Pass — All Checks Green After Refactoring
 171 10:45a 🔵 portafolio-unificado — Context Docs Reveal Far Richer Architecture Than TypeScript Files Suggest
 172 10:46a 🔵 PortfolioManagerApp.jsx Confirmed as Mega-Component — 1700+ Lines, 30+ State Vars, 12+ useEffects
 173 10:47a 🔵 server/app.js and server/routes/index.js Are Near-Identical Duplicates — Both 897 Lines
@@ -162,6 +159,26 @@ Stats: 33 obs (13,996t read) | 424,475t work | 97% savings
 238 " 🔴 All 7 ESLint Errors Fixed Across 4 Files
 239 " ✅ portafolio-unificado Audit Complete — Tests, E2E, and Lint All Green
 240 6:36p ✅ portafolio-unificado All Quality Gates Pass — Tests, Lint, and TypeCheck Green
+241 6:39p 🔵 portafolio-unificado — InboxTab and TrustBadge Components Confirmed Implemented
+242 " 🟣 InboxTab — InboxItemCard Now Renders Optional rationale Field
+243 " ✅ vitest.config.ts — tests/redesign TypeScript Tests Added to Vitest Include Pattern
+244 " 🟣 SR-004 TrustBadge and TrustTooltip Unit Tests Created
+245 " 🟣 SR-006 InboxRationale Unit Test Created
+246 6:40p 🔵 portafolio-unificado — vitest Must Be Invoked via npx or npm run, Not Directly
+247 " 🔴 TrustTooltip Test — Raw dispatchEvent mouseenter Replaced with fireEvent.mouseEnter
+248 " ✅ SR-004/SR-006 New Tests — 4/4 Passing After fireEvent Fix
+249 " 🟣 inboxComputer Server Test — rationale Field Assertion Added for THRESHOLD_TRIGGERED
+250 " ✅ todo.md — SR-004 and SR-006 Audit Items Marked Complete
+251 6:41p ✅ Full Test Suite Green — 447/448 Node Tests + 92/92 Vitest Tests After SR-004/SR-006 Changes
+252 " ✅ All Three Quality Gates Green — Tests, Lint, and TypeCheck Pass After SR-004/SR-006 Session
+253 " ✅ E2E Suite — 9/9 Playwright Tests Pass After SR-004/SR-006 Audit Session Changes
+254 6:42p 🔴 portafolio-unificado — Full Uncommitted Work Inventory: 19 Modified + 15 Untracked Files
+255 6:43p 🔵 portafolio-unificado — Open Audit Items Inventory for M1/M2 Sprint
+256 6:44p 🔵 portafolio-unificado — Current State of SR-021/022/023/024 Today Shell Components
+257 " 🔵 portafolio-unificado — SR-001 Trust Schema Contract and SR-002 Health Endpoint Logic Confirmed from spec.md
+258 6:46p 🟣 SR-001: Trust Schema Extended with eod_estimated, manual, expired, and DegradedReason
+259 6:47p 🟣 portfolioHealth.ts — SR-002 Freshness Logic Implemented with Real Trading Day Age
+260 6:48p 🟣 SR-021/022/024 — Today-Level Health States and NeedsAttention Top-5 Filter Implemented
 
-Access 424k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 470k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

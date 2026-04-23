@@ -14,6 +14,8 @@
 export type SourceType =
   | 'live' // Real-time market feed
   | 'eod' // End-of-day official close
+  | 'eod_estimated' // Estimated end-of-day value
+  | 'manual' // User-entered value
   | 'cached' // Previously fetched value still within acceptable TTL
   | 'unknown'; // Source cannot be determined
 
@@ -23,6 +25,7 @@ export type SourceType =
 export type FreshnessState =
   | 'fresh' // Sourced from a live or EOD feed within the current session
   | 'stale' // Cached value, age is acceptable but data source is unavailable
+  | 'expired' // Data is too old to support a confident decision
   | 'unknown'; // Cannot determine freshness
 
 /**
@@ -34,6 +37,15 @@ export type ConfidenceState =
   | 'low' // Stale cached data
   | 'degraded' // Missing, unavailable, or error state
   | 'unknown'; // No information available
+
+/** Machine-readable reason explaining why data confidence is reduced. */
+export type DegradedReason =
+  | 'missing_price'
+  | 'stale_price'
+  | 'partial_data'
+  | 'provider_error'
+  | 'no_transactions'
+  | 'unresolved_exceptions';
 
 /** Complete trust metadata attached to any metric or price data point. */
 export interface TrustMetadata {
@@ -56,5 +68,8 @@ export interface TrustMetadata {
    * Machine-readable reason code explaining why trust is less than 'high'.
    * Only present when confidence_state is 'degraded' or 'low'.
    */
-  degraded_reason?: string;
+  degraded_reason?: DegradedReason;
+
+  /** Optional human-readable explanation for UI surfaces. */
+  explanation?: string;
 }

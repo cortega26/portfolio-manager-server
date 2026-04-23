@@ -6,7 +6,12 @@
 import PropTypes from 'prop-types';
 
 export default function NeedsAttentionSection({ items = [] }) {
-  if (items.length === 0) {
+  const sortedHighItems = [...items]
+    .filter((item) => item.urgency === 'HIGH')
+    .sort((a, b) => String(a.ticker).localeCompare(String(b.ticker)))
+    .slice(0, 5);
+
+  if (sortedHighItems.length === 0) {
     return (
       <section
         data-testid="needs-attention-section"
@@ -23,11 +28,6 @@ export default function NeedsAttentionSection({ items = [] }) {
     );
   }
 
-  const sorted = [...items].sort((a, b) => {
-    const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-    return (order[a.urgency] ?? 2) - (order[b.urgency] ?? 2);
-  });
-
   return (
     <section
       data-testid="needs-attention-section"
@@ -35,12 +35,13 @@ export default function NeedsAttentionSection({ items = [] }) {
       aria-label="Needs attention"
     >
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Needs Attention ({items.length})
+        Needs Attention ({sortedHighItems.length})
       </h2>
       <ul className="space-y-2">
-        {sorted.map((item) => (
+        {sortedHighItems.map((item) => (
           <li
             key={item.eventKey}
+            data-testid="needs-attention-item"
             className="flex items-start gap-3 rounded-md border border-slate-100 p-3 dark:border-slate-800"
           >
             <span
