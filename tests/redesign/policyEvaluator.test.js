@@ -147,6 +147,42 @@ test('evaluatePolicy: holding within target allocation band generates no_action'
 });
 
 // ---------------------------------------------------------------------------
+// Review cadence rule
+// ---------------------------------------------------------------------------
+
+test('evaluatePolicy: overdue review cadence generates portfolio review recommendation', () => {
+  const policy = makePolicy({ review_cadence_days: 30 });
+  const holdings = makeHoldings();
+  const recs = evaluatePolicy({
+    policy,
+    holdings,
+    lastReviewedAt: '2026-01-01T12:00:00Z',
+    asOf: '2026-02-05T09:00:00Z',
+  });
+
+  const reviewRec = recs.find((r) => r.type === 'review' && r.ticker === 'PORTFOLIO');
+  assert.ok(reviewRec, 'Expected portfolio review recommendation when cadence is overdue');
+  assert.equal(reviewRec.severity, 'medium');
+  assert.equal(reviewRec.evidence?.elapsed_days, 35);
+  assert.equal(reviewRec.evidence?.cadence_days, 30);
+  assert.equal(reviewRec.evidence?.overdue_days, 5);
+});
+
+test('evaluatePolicy: review cadence within window generates no review recommendation', () => {
+  const policy = makePolicy({ review_cadence_days: 30 });
+  const holdings = makeHoldings();
+  const recs = evaluatePolicy({
+    policy,
+    holdings,
+    lastReviewedAt: '2026-01-20T12:00:00Z',
+    asOf: '2026-02-05T09:00:00Z',
+  });
+
+  const reviewRec = recs.find((r) => r.type === 'review');
+  assert.ok(!reviewRec, 'No review recommendation expected before cadence expires');
+});
+
+// ---------------------------------------------------------------------------
 // Pure function guarantee
 // ---------------------------------------------------------------------------
 
