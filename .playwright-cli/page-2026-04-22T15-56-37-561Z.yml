@@ -1,0 +1,280 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - status [ref=e122]:
+      - generic [ref=e123]:
+        - generic [ref=e124]:
+          - paragraph [ref=e125]: Portafolio desktop cargado
+          - paragraph [ref=e126]: Se restauraron las transacciones y configuraciones.
+        - button "Descartar notificación" [ref=e127] [cursor=pointer]: ×
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - heading "Gestor de Portafolios" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Supervisa tus activos, gestiona operaciones y compara el rendimiento en vistas especializadas.
+      - generic [ref=e9]:
+        - generic [ref=e10]: Idioma
+        - combobox "Idioma" [ref=e11]:
+          - option "Inglés"
+          - option "Español" [selected]
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: ID del portafolio
+          - textbox "ID del portafolio" [ref=e16]:
+            - /placeholder: p. ej. demo-portfolio
+            - text: desktop
+        - generic [ref=e17]:
+          - paragraph [ref=e18]: Sesion desktop
+          - paragraph [ref=e19]: La autenticacion se inyecta automaticamente desde el shell de Electron para esta app local.
+        - generic [ref=e20]:
+          - button "Guardar portafolio" [ref=e21] [cursor=pointer]
+          - button "Cargar portafolio" [active] [ref=e22] [cursor=pointer]
+      - status [ref=e128]:
+        - paragraph [ref=e129]: Operación completada con éxito.
+    - tablist "Navegación del tablero" [ref=e24]:
+      - tab "Tablero" [selected] [ref=e25] [cursor=pointer]
+      - tab "Posiciones" [ref=e26] [cursor=pointer]
+      - tab "Precios" [ref=e27] [cursor=pointer]
+      - tab "Bandeja" [ref=e28] [cursor=pointer]
+      - tab "Transacciones" [ref=e29] [cursor=pointer]
+      - tab "Historial" [ref=e30] [cursor=pointer]
+      - tab "Métricas" [ref=e31] [cursor=pointer]
+      - tab "Ganancias realizadas" [ref=e32] [cursor=pointer]
+      - tab "Reportes" [ref=e33] [cursor=pointer]
+      - tab "Configuración" [ref=e34] [cursor=pointer]
+    - main [ref=e35]:
+      - region "Alertas del sistema" [ref=e130]:
+        - alert [ref=e131]:
+          - paragraph [ref=e132]: Cotizaciones en vivo temporalmente no disponibles
+          - paragraph [ref=e133]: Mostrando el último cierre oficial para AMD, DELL, NVDA, GLD, TSLA mientras se recupera el proveedor de precios en vivo.
+      - tabpanel "Tablero" [ref=e39]:
+        - generic [ref=e40]:
+          - generic "El NAV equivale a activos de riesgo más efectivo. Las definiciones de efectivo siguen docs/guides/cash-benchmarks.md." [ref=e41]:
+            - generic [ref=e42]:
+              - generic [ref=e43]:
+                - paragraph [ref=e44]: NAV total
+                - paragraph [ref=e45]: 846,51 US$
+                - paragraph [ref=e46]: Acciones 649,80 US$ · Efectivo 196,71 US$ (23,2%) · Estimado con los últimos precios utilizables para 5/5 posiciones
+                - paragraph [ref=e134]: "-5,60 US$ (-0,66%)"
+              - generic [ref=e47]:
+                - generic [ref=e135]: ≈ Estimado
+                - status [ref=e48]: ROI en tiempo real
+                - button "Actualizar ROI" [ref=e49] [cursor=pointer]
+          - generic "dashboard.zone2.emptyAria" [ref=e50]:
+            - paragraph [ref=e51]: dashboard.zone2.empty
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - generic [ref=e54]:
+                - generic "Retorno simple sobre el capital neto aportado. No pondera el momento de depósitos/retiros. Ver TWR y MWR para retornos ajustados por tiempo y flujos." [ref=e55]:
+                  - paragraph [ref=e56]: Rendimiento total
+                  - paragraph [ref=e57]: 418,69 US$
+                  - paragraph [ref=e58]: Realizado 369,35 US$ · No realizado 41,09 US$ · Ingresos netos 8,24 US$ · ROI Simple +97,86%
+                - generic [ref=e136]: ≈ Estimado
+              - generic [ref=e60]:
+                - paragraph [ref=e61]: Aportes netos
+                - paragraph [ref=e62]: 427,82 US$
+                - paragraph [ref=e63]: Compras brutas 7211,25 US$ · Ventas brutas 6971,90 US$ · Ingresos netos 8,24 US$
+              - generic [ref=e64]:
+                - generic "Valor de mercado actual de posiciones abiertas menos su costo total de compra. No incluye dividendos, intereses ni ganancias realizadas." [ref=e65]:
+                  - paragraph [ref=e66]: Ganancia de precio en acciones
+                  - paragraph [ref=e67]: 41,09 US$
+                  - paragraph [ref=e68]: Usando los últimos precios de mercado utilizables para todas las posiciones abiertas.
+                - generic [ref=e137]: ≈ Estimado
+            - generic [ref=e69]:
+              - generic [ref=e70]:
+                - heading "Contexto de rendimiento" [level=3] [ref=e71]
+                - paragraph [ref=e72]: Usa el ROI para la ganancia total sobre capital aportado y compara el TWR contra referencias en el gráfico.
+              - generic [ref=e73]:
+                - generic [ref=e74]:
+                  - paragraph [ref=e75]: ROI del portafolio
+                  - paragraph [ref=e76]: +97,39%
+                  - paragraph [ref=e77]: Retorno simple sobre el capital neto aportado. A diferencia del TWR, se ve afectado por el momento de depósitos/retiros.
+                - generic [ref=e78]:
+                  - paragraph [ref=e79]: TWR del portafolio
+                  - paragraph [ref=e80]: +67,78%
+                  - paragraph [ref=e81]: Retorno ponderado por tiempo usado para comparar contra referencias en el gráfico.
+                - generic [ref=e82]:
+                  - paragraph [ref=e83]: Brecha vs S&P 500
+                  - paragraph [ref=e84]: +13,57%
+                  - paragraph [ref=e85]: Referencia S&P 500 en +54,22%
+                - generic [ref=e86]:
+                  - paragraph [ref=e87]: Brecha vs Nasdaq-100
+                  - paragraph [ref=e88]: +6,20%
+                  - paragraph [ref=e89]: Proxy Nasdaq-100 en +61,59%
+                - generic "Retorno ponderado por dinero de tu experiencia real como inversionista versus SPY y QQQ usando los mismos flujos externos." [ref=e90]:
+                  - paragraph [ref=e91]: MWR inversionista
+                  - paragraph [ref=e92]: +124,33%
+                  - paragraph [ref=e93]: SPY +39,03% · QQQ +49,12% con tus mismos flujos · Ventana parcial desde 20/4/2025
+                - generic "Mayor caída de pico a valle en el valor del portafolio. Una medida de riesgo a la baja." [ref=e94]:
+                  - paragraph [ref=e95]: Drawdown máximo
+                  - paragraph [ref=e96]: "-11,76%"
+                  - paragraph [ref=e97]: Nov 2025 – Nov 2025
+            - generic [ref=e98]:
+              - heading "Asignación de activos" [level=3] [ref=e99]
+              - generic [ref=e140]:
+                - img [ref=e141]:
+                  - generic [ref=e142]:
+                    - img [ref=e144]
+                    - img [ref=e146]
+                    - img [ref=e148]
+                    - img [ref=e150]
+                    - img [ref=e152]
+                    - img [ref=e154]
+                - list [ref=e156]:
+                  - listitem [ref=e157]:
+                    - img [ref=e158]
+                    - text: NVDA 19.2%
+                  - listitem [ref=e160]:
+                    - img [ref=e161]
+                    - text: TSLA 35.8%
+                  - listitem [ref=e163]:
+                    - img [ref=e164]
+                    - text: AMD 10.3%
+                  - listitem [ref=e166]:
+                    - img [ref=e167]
+                    - text: DELL 11.4%
+                  - listitem [ref=e169]:
+                    - img [ref=e170]
+                    - text: GLD 0.1%
+                  - listitem [ref=e172]:
+                    - img [ref=e173]
+                    - text: Cash 23.2%
+            - generic [ref=e101]:
+              - heading "Contribución al retorno por activo" [level=3] [ref=e102]
+              - paragraph [ref=e103]: Peso × retorno individual. Ordenado por contribución (descendente).
+              - table [ref=e176]:
+                - rowgroup [ref=e177]:
+                  - row "Ticker Peso (%) Retorno Contribución (pp)" [ref=e178]:
+                    - columnheader "Ticker" [ref=e179]
+                    - columnheader "Peso (%)" [ref=e180]
+                    - columnheader "Retorno" [ref=e181]
+                    - columnheader "Contribución (pp)" [ref=e182]
+                - rowgroup [ref=e183]:
+                  - row "DELL 11.4% +61.0% +6.96 pp" [ref=e184]:
+                    - cell "DELL" [ref=e185]
+                    - cell "11.4%" [ref=e186]
+                    - cell "+61.0%" [ref=e187]
+                    - cell "+6.96 pp" [ref=e188]
+                  - row "AMD 10.3% +22.0% +2.26 pp" [ref=e189]:
+                    - cell "AMD" [ref=e190]
+                    - cell "10.3%" [ref=e191]
+                    - cell "+22.0%" [ref=e192]
+                    - cell "+2.26 pp" [ref=e193]
+                  - row "NVDA 19.2% +10.2% +1.95 pp" [ref=e194]:
+                    - cell "NVDA" [ref=e195]
+                    - cell "19.2%" [ref=e196]
+                    - cell "+10.2%" [ref=e197]
+                    - cell "+1.95 pp" [ref=e198]
+                  - row "GLD 0.1% +16.8% +0.01 pp" [ref=e199]:
+                    - cell "GLD" [ref=e200]
+                    - cell "0.1%" [ref=e201]
+                    - cell "+16.8%" [ref=e202]
+                    - cell "+0.01 pp" [ref=e203]
+                  - row "TSLA 35.8% -8.0% -2.86 pp" [ref=e204]:
+                    - cell "TSLA" [ref=e205]
+                    - cell "35.8%" [ref=e206]
+                    - cell "-8.0%" [ref=e207]
+                    - cell "-2.86 pp" [ref=e208]
+          - generic [ref=e105]:
+            - button "dashboard.charts.title" [expanded] [ref=e106] [cursor=pointer]:
+              - generic [ref=e107]: dashboard.charts.title
+              - img [ref=e108]
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - generic [ref=e112]:
+                  - heading "ROI vs Referencias" [level=3] [ref=e115]
+                  - group "Controles de comparación de referencias" [ref=e209]:
+                    - generic [ref=e210]: Referencias
+                    - group "Alternar series de referencia" [ref=e211]:
+                      - button "S&P 500" [pressed] [ref=e212] [cursor=pointer]: S&P 500
+                      - button "Nasdaq-100" [pressed] [ref=e214] [cursor=pointer]: Nasdaq-100
+                      - button "Restablecer referencias a los valores predeterminados" [disabled] [ref=e216]: Restablecer referencias
+                - generic [ref=e218]:
+                  - img [ref=e219]:
+                    - generic [ref=e224]:
+                      - generic [ref=e226]: Dec '23
+                      - generic [ref=e228]: Jan '24
+                      - generic [ref=e230]: Mar '24
+                      - generic [ref=e232]: Apr '24
+                      - generic [ref=e234]: May '24
+                      - generic [ref=e236]: Jun '24
+                      - generic [ref=e238]: Jul '24
+                      - generic [ref=e240]: Aug '24
+                      - generic [ref=e242]: Sep '24
+                      - generic [ref=e244]: Oct '24
+                      - generic [ref=e246]: Nov '24
+                      - generic [ref=e248]: Dec '24
+                      - generic [ref=e250]: Feb '25
+                      - generic [ref=e252]: Mar '25
+                      - generic [ref=e254]: Apr '25
+                      - generic [ref=e256]: May '25
+                      - generic [ref=e258]: Jun '25
+                      - generic [ref=e260]: Jul '25
+                      - generic [ref=e262]: Aug '25
+                      - generic [ref=e264]: Sep '25
+                      - generic [ref=e266]: Oct '25
+                      - generic [ref=e268]: Dec '25
+                      - generic [ref=e270]: Jan '26
+                      - generic [ref=e272]: Feb '26
+                      - generic [ref=e274]: Mar '26
+                      - generic [ref=e276]: Apr '26
+                    - generic [ref=e278]:
+                      - generic [ref=e280]: "-35,0%"
+                      - generic [ref=e282]: 0,0%
+                      - generic [ref=e284]: 35,0%
+                      - generic [ref=e286]: 70,0%
+                      - generic [ref=e288]: 105,0%
+                  - list [ref=e296]:
+                    - listitem [ref=e297]:
+                      - img [ref=e298]
+                      - text: ROI del portafolio
+                    - listitem [ref=e300]:
+                      - img [ref=e301]
+                      - text: S&P 500 ROI
+                    - listitem [ref=e303]:
+                      - img [ref=e304]
+                      - text: Nasdaq-100 ROI
+              - generic [ref=e118]:
+                - heading "Crecimiento NAV" [level=3] [ref=e119]
+                - generic [ref=e307]:
+                  - img [ref=e308]:
+                    - generic [ref=e313]:
+                      - generic [ref=e315]: Nov '23
+                      - generic [ref=e317]: Jan '24
+                      - generic [ref=e319]: Feb '24
+                      - generic [ref=e321]: Mar '24
+                      - generic [ref=e323]: Apr '24
+                      - generic [ref=e325]: May '24
+                      - generic [ref=e327]: Jun '24
+                      - generic [ref=e329]: Jul '24
+                      - generic [ref=e331]: Aug '24
+                      - generic [ref=e333]: Oct '24
+                      - generic [ref=e335]: Nov '24
+                      - generic [ref=e337]: Dec '24
+                      - generic [ref=e339]: Jan '25
+                      - generic [ref=e341]: Feb '25
+                      - generic [ref=e343]: Mar '25
+                      - generic [ref=e345]: May '25
+                      - generic [ref=e347]: Jun '25
+                      - generic [ref=e349]: Jul '25
+                      - generic [ref=e351]: Aug '25
+                      - generic [ref=e353]: Sep '25
+                      - generic [ref=e355]: Oct '25
+                      - generic [ref=e357]: Nov '25
+                      - generic [ref=e359]: Dec '25
+                      - generic [ref=e361]: Feb '26
+                      - generic [ref=e363]: Mar '26
+                      - generic [ref=e365]: Apr '26
+                    - generic [ref=e367]:
+                      - generic [ref=e369]: 0,00 US$
+                      - generic [ref=e371]: 250,00 US$
+                      - generic [ref=e373]: 500,00 US$
+                      - generic [ref=e375]: 750,00 US$
+                      - generic [ref=e377]: 1000,00 US$
+                  - list [ref=e387]:
+                    - listitem [ref=e388]:
+                      - img [ref=e389]
+                      - text: Ganancia de mercado
+                    - listitem [ref=e391]:
+                      - img [ref=e392]
+                      - text: Aportes netos
+  - generic [ref=e394]: 0,00 US$

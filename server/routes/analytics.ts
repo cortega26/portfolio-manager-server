@@ -10,6 +10,7 @@ import type { HistoricalPriceLoader } from './prices.js';
 import type { ReturnRow } from '../finance/returns.js';
 
 import createPerformanceHistoryService from '../services/performanceHistory.js';
+import { buildUnknownTrust } from '../../shared/trustUtils.js';
 import { summarizeReturns } from '../finance/returns.js';
 import { computeMaxDrawdown } from '../finance/returns.js';
 import { computeMoneyWeightedReturn, computeMatchedBenchmarkMoneyWeightedReturn } from '../finance/returns.js';
@@ -330,7 +331,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       const { from, to, portfolioId } = query;
       try {
         const payload = await performanceHistory.getRoiPayload({ from, to, portfolioId });
-        return app.sendWithEtag(request, reply, payload);
+        return app.sendWithEtag(request, reply, { ...payload, trust: buildUnknownTrust() });
       } catch (repairError) {
         app.log.error({ error: (repairError as Error).message, from, to }, 'roi_rebuild_failed');
         return reply.code(503).send({

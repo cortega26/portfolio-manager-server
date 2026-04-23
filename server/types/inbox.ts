@@ -46,6 +46,10 @@ export interface InboxItem {
   movePct?: number;
   /** For LONG_UNREVIEWED: trading days elapsed since last review */
   tradingDaysUnreviewed?: number;
+  /** Human-readable explanation of why this item was generated (SR-006) */
+  rationale?: string;
+  /** Source of this item: from a signal threshold or a policy rule (SR-006) */
+  source?: 'threshold' | 'policy';
 }
 
 /** A row from the inbox_reviews table. */

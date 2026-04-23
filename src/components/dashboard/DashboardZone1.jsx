@@ -1,6 +1,8 @@
 import clsx from 'clsx';
 import { useI18n } from '../../i18n/I18nProvider.jsx';
 import { formatNullableCurrency, formatNullablePercent } from './dashboardFormatters.js';
+import { TrustBadge } from '../shared/TrustBadge.jsx';
+import { resolveFlags, getFlag } from '../../lib/featureFlags.js';
 
 function resolveStatusStyle(priceStatus) {
   if (priceStatus === 'fallback') {
@@ -133,6 +135,20 @@ export default function DashboardZone1({
 
   const status = resolveStatusStyle(priceStatus);
 
+  // SR-005: trust badge, behind feature flag
+  const showTrustBadges = getFlag(resolveFlags(), 'redesign.trustBadges');
+  const trustFromStatus = {
+    api: { source_type: 'eod', freshness_state: 'fresh', confidence_state: 'high' },
+    stale: { source_type: 'cached', freshness_state: 'stale', confidence_state: 'low' },
+    'cash-only': {
+      source_type: 'unknown',
+      freshness_state: 'unknown',
+      confidence_state: 'unknown',
+    },
+    error: { source_type: 'unknown', freshness_state: 'unknown', confidence_state: 'degraded' },
+  };
+  const navTrust = trustFromStatus[priceStatus] ?? trustFromStatus.error;
+
   return (
     <div
       className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
@@ -179,6 +195,7 @@ export default function DashboardZone1({
           >
             {t(status.label)}
           </span>
+          {showTrustBadges && <TrustBadge trust={navTrust} />}
           <button
             type="button"
             onClick={onRefresh}

@@ -16,6 +16,7 @@ import etagPlugin from './plugins/etagHandler.js';
 import pricesRoutes from './routes/prices.js';
 import benchmarksRoutes from './routes/benchmarks.js';
 import portfolioRoutes from './routes/portfolio.js';
+import portfolioHealthRoutes from './routes/portfolioHealth.js';
 import importRoutes from './routes/import.js';
 import signalsRoutes from './routes/signals.js';
 import monitoringRoutes from './routes/monitoring.js';
@@ -314,6 +315,7 @@ export async function createFastifyApp(options: AppOptions) {
     await app.register(monitoringRoutes, { prefix, ...routeContext });
     await app.register(pricesRoutes, { prefix, ...routeContext });
     await app.register(portfolioRoutes, { prefix, ...routeContext });
+    await app.register(portfolioHealthRoutes, { prefix, ...routeContext });
     await app.register(signalsRoutes, { prefix, ...routeContext });
     await app.register(importRoutes, { prefix, ...routeContext });
     await app.register(analyticsRoutes, { prefix, ...routeContext });

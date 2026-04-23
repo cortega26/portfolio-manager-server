@@ -8,6 +8,7 @@ import {
   formatSignedPercent as baseFormatSignedPercent,
 } from '../utils/format.js';
 import { translations } from './translations.js';
+import { interpolate } from './i18nUtils.js';
 
 const FALLBACK_LANGUAGE = 'en';
 const STORAGE_KEY = 'portfolio-manager-language';
@@ -19,11 +20,7 @@ const LANGUAGE_CONFIG = {
 
 const I18nContext = createContext(null);
 
-function interpolate(template, values = {}) {
-  return template.replace(/\{(\w+)\}/g, (_, token) =>
-    Object.prototype.hasOwnProperty.call(values, token) ? String(values[token]) : `{${token}}`
-  );
-}
+// interpolate is imported from i18nUtils.js
 
 function getStorage() {
   if (typeof window === 'undefined') {
@@ -74,10 +71,11 @@ export function I18nProvider({ children }) {
 
   const translate = useCallback(
     (key, vars) => {
+      const { defaultValue, ...interpolationVars } = vars ?? {};
       const table = translations[language] ?? translations[FALLBACK_LANGUAGE];
       const fallbackTable = translations[FALLBACK_LANGUAGE] ?? {};
-      const template = table[key] ?? fallbackTable[key] ?? key;
-      return interpolate(template, vars);
+      const template = table[key] ?? fallbackTable[key] ?? defaultValue ?? key;
+      return interpolate(template, interpolationVars);
     },
     [language]
   );

@@ -1,0 +1,18 @@
+[      37ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[     726ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=c7ed6698:21608
+[     862ms] [ERROR] Access to fetch at 'http://127.0.0.1:3000/api/v1/benchmarks' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4173/:0
+[     863ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:3000/api/v1/benchmarks:0
+[     863ms] [WARNING] Failed to load benchmark catalog; using fallback metadata TypeError: Failed to fetch
+    at requestApi (http://127.0.0.1:4173/src/lib/apiClient.js:275:30)
+    at async requestJson (http://127.0.0.1:4173/src/lib/apiClient.js:334:44)
+    at async loadBenchmarkMetadata (http://127.0.0.1:4173/src/PortfolioManagerApp.jsx:521:26) @ http://127.0.0.1:4173/src/PortfolioManagerApp.jsx:525
+[     865ms] [ERROR] Access to fetch at 'http://127.0.0.1:3000/api/v1/benchmarks' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4173/:0
+[     865ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:3000/api/v1/benchmarks:0
+[     866ms] [WARNING] Failed to load benchmark catalog; using fallback metadata TypeError: Failed to fetch
+    at requestApi (http://127.0.0.1:4173/src/lib/apiClient.js:275:30)
+    at async requestJson (http://127.0.0.1:4173/src/lib/apiClient.js:334:44)
+    at async loadBenchmarkMetadata (http://127.0.0.1:4173/src/PortfolioManagerApp.jsx:521:26) @ http://127.0.0.1:4173/src/PortfolioManagerApp.jsx:525
+[   12776ms] [ERROR] Access to fetch at 'http://127.0.0.1:3000/api/v1/portfolio/desktop/inbox' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4173/:0
+[   12777ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:3000/api/v1/portfolio/desktop/inbox:0
+[   17150ms] [ERROR] Access to fetch at 'http://127.0.0.1:3000/api/v1/portfolio/desktop' from origin 'http://127.0.0.1:4173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4173/:0
+[   17151ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:3000/api/v1/portfolio/desktop:0

@@ -1,0 +1,26 @@
+[      23ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[     178ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=c7ed6698:21608
+[ 6398451ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[ 6398689ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=c7ed6698:21608
+[ 6411153ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[ 6411282ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=c7ed6698:21608
+[ 6426315ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[ 6426435ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=c7ed6698:21608
+[ 6433926ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[ 6434025ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=c7ed6698:21608
+[ 6799606ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[ 6799802ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=c7ed6698:21608
+[ 7610535ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[ 7610903ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=ceba4025:21608
+[ 7861546ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[ 7861738ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:4173/node_modules/.vite/deps/chunk-LPF6KSF2.js?v=ceba4025:21608
+[ 7880593ms] [ERROR] [vite] SyntaxError: The requested module '/src/lib/apiClient.js' does not provide an export named 'apiGet' @ http://127.0.0.1:4173/@vite/client:808
+[ 7880593ms] [ERROR] [vite] Failed to reload /src/PortfolioManagerApp.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://127.0.0.1:4173/@vite/client:808
+[ 7889241ms] [ERROR] [vite] SyntaxError: The requested module '/src/lib/apiClient.js' does not provide an export named 'apiGet' @ http://127.0.0.1:4173/@vite/client:808
+[ 7889242ms] [ERROR] [vite] Failed to reload /src/PortfolioManagerApp.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://127.0.0.1:4173/@vite/client:808
+[ 7901276ms] [ERROR] [vite] SyntaxError: The requested module '/src/lib/apiClient.js' does not provide an export named 'apiGet' @ http://127.0.0.1:4173/@vite/client:808
+[ 7901276ms] [ERROR] [vite] Failed to reload /src/PortfolioManagerApp.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://127.0.0.1:4173/@vite/client:808
+[ 8212490ms] [ERROR] [vite] SyntaxError: The requested module '/src/lib/apiClient.js' does not provide an export named 'apiGet' @ http://127.0.0.1:4173/@vite/client:808
+[ 8212490ms] [ERROR] [vite] Failed to reload /src/PortfolioManagerApp.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://127.0.0.1:4173/@vite/client:808
+[ 8212527ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ http://127.0.0.1:4173/:25
+[ 8212563ms] The requested module '/src/lib/apiClient.js' does not provide an export named 'apiGet'

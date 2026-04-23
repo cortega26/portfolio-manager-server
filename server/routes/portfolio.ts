@@ -565,6 +565,8 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
     signalStatus: z.string().optional(),
     movePct: z.number().optional(),
     tradingDaysUnreviewed: z.number().optional(),
+    rationale: z.string().optional(),
+    source: z.enum(['threshold', 'policy']).optional(),
   });
 
   const InboxResponseSchema = z.object({

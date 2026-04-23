@@ -1,0 +1,53 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - heading "Gestor de Portafolios" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Supervisa tus activos, gestiona operaciones y compara el rendimiento en vistas especializadas.
+      - generic [ref=e9]:
+        - generic [ref=e10]: Idioma
+        - combobox "Idioma" [ref=e11]:
+          - option "Inglés"
+          - option "Español" [selected]
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: ID del portafolio
+          - textbox "ID del portafolio" [ref=e16]:
+            - /placeholder: p. ej. demo-portfolio
+            - text: desktop
+        - generic [ref=e17]:
+          - paragraph [ref=e18]: Sesion desktop
+          - paragraph [ref=e19]: La autenticacion se inyecta automaticamente desde el shell de Electron para esta app local.
+        - generic [ref=e20]:
+          - button "Guardar portafolio" [ref=e21] [cursor=pointer]
+          - button "Cargar portafolio" [ref=e22] [cursor=pointer]
+      - status [ref=e128]:
+        - paragraph [ref=e129]: Operación completada con éxito.
+    - tablist "Navegación del tablero" [ref=e24]:
+      - tab "Tablero" [ref=e25] [cursor=pointer]
+      - tab "Posiciones" [ref=e26] [cursor=pointer]
+      - tab "Precios" [ref=e27] [cursor=pointer]
+      - tab "Bandeja" [active] [selected] [ref=e28] [cursor=pointer]
+      - tab "Transacciones" [ref=e29] [cursor=pointer]
+      - tab "Historial" [ref=e30] [cursor=pointer]
+      - tab "Métricas" [ref=e31] [cursor=pointer]
+      - tab "Ganancias realizadas" [ref=e32] [cursor=pointer]
+      - tab "Reportes" [ref=e33] [cursor=pointer]
+      - tab "Configuración" [ref=e34] [cursor=pointer]
+    - main [ref=e35]:
+      - region "Alertas del sistema" [ref=e130]:
+        - alert [ref=e131]:
+          - paragraph [ref=e132]: Cotizaciones en vivo temporalmente no disponibles
+          - paragraph [ref=e133]: Mostrando el último cierre oficial para AMD, DELL, NVDA, GLD, TSLA mientras se recupera el proveedor de precios en vivo.
+      - tabpanel "Bandeja" [ref=e657]:
+        - generic [ref=e658]:
+          - generic [ref=e659]:
+            - heading "Bandeja de acciones" [level=2] [ref=e660]
+            - paragraph [ref=e661]: Alertas y hitos de posiciones, ordenados por urgencia.
+          - region "Bandeja de entrada" [ref=e662]:
+            - paragraph [ref=e664]: Portafolio al día. Sin alertas.
+          - button "Configurar umbrales" [ref=e666] [cursor=pointer]:
+            - generic [ref=e667]: Configurar umbrales
+            - img [ref=e668]
+  - generic [ref=e394]: 0,00 US$
