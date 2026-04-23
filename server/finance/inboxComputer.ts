@@ -273,6 +273,8 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
             currentPriceAsOf,
             thresholdPct,
             signalStatus: status,
+            rationale: `Price crossed the ${thresholdPct}% ${direction === 'below' ? 'buy' : 'trim'} threshold. Review whether to act.`,
+            source: 'threshold',
           });
         }
       }

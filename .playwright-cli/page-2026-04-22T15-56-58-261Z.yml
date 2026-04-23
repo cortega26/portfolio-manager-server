@@ -1,0 +1,207 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - heading "Gestor de Portafolios" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Supervisa tus activos, gestiona operaciones y compara el rendimiento en vistas especializadas.
+      - generic [ref=e9]:
+        - generic [ref=e10]: Idioma
+        - combobox "Idioma" [ref=e11]:
+          - option "Inglés"
+          - option "Español" [selected]
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: ID del portafolio
+          - textbox "ID del portafolio" [ref=e16]:
+            - /placeholder: p. ej. demo-portfolio
+            - text: desktop
+        - generic [ref=e17]:
+          - paragraph [ref=e18]: Sesion desktop
+          - paragraph [ref=e19]: La autenticacion se inyecta automaticamente desde el shell de Electron para esta app local.
+        - generic [ref=e20]:
+          - button "Guardar portafolio" [ref=e21] [cursor=pointer]
+          - button "Cargar portafolio" [ref=e22] [cursor=pointer]
+      - status [ref=e128]:
+        - paragraph [ref=e129]: Operación completada con éxito.
+    - tablist "Navegación del tablero" [ref=e24]:
+      - tab "Tablero" [ref=e25] [cursor=pointer]
+      - tab "Posiciones" [ref=e26] [cursor=pointer]
+      - tab "Precios" [ref=e27] [cursor=pointer]
+      - tab "Bandeja" [ref=e28] [cursor=pointer]
+      - tab "Transacciones" [active] [selected] [ref=e29] [cursor=pointer]
+      - tab "Historial" [ref=e30] [cursor=pointer]
+      - tab "Métricas" [ref=e31] [cursor=pointer]
+      - tab "Ganancias realizadas" [ref=e32] [cursor=pointer]
+      - tab "Reportes" [ref=e33] [cursor=pointer]
+      - tab "Configuración" [ref=e34] [cursor=pointer]
+    - main [ref=e35]:
+      - region "Alertas del sistema" [ref=e130]:
+        - alert [ref=e131]:
+          - paragraph [ref=e132]: Cotizaciones en vivo temporalmente no disponibles
+          - paragraph [ref=e133]: Mostrando el último cierre oficial para AMD, DELL, NVDA, GLD, TSLA mientras se recupera el proveedor de precios en vivo.
+      - tabpanel "Transacciones" [ref=e395]:
+        - generic [ref=e396]:
+          - generic [ref=e397]:
+            - generic [ref=e398]:
+              - heading "Agregar transacción" [level=2] [ref=e399]
+              - button "Agregar depositante" [ref=e400] [cursor=pointer]
+            - form "Agregar transacción" [ref=e401]:
+              - generic [ref=e402]:
+                - generic [ref=e403]:
+                  - text: Fecha
+                  - textbox "Fecha" [ref=e404]: 2026-04-22
+                - generic [ref=e405]:
+                  - text: Ticker
+                  - textbox "Ticker" [ref=e406]:
+                    - /placeholder: p. ej. AAPL
+                - generic [ref=e407]:
+                  - text: Tipo
+                  - combobox "Tipo" [ref=e408]:
+                    - option "Compra" [selected]
+                    - option "Venta"
+                    - option "Depósito"
+                    - option "Retiro"
+                    - option "Dividendo"
+                    - option "Interés"
+                - generic [ref=e409]:
+                  - text: Monto
+                  - spinbutton "Monto" [ref=e410]
+                - generic [ref=e411]:
+                  - text: Precio
+                  - spinbutton "Precio" [ref=e412]
+                  - generic [ref=e413]: Calculado a partir del monto y las acciones.
+                - generic [ref=e414]:
+                  - text: Acciones
+                  - spinbutton "Acciones" [ref=e415]
+                  - generic [ref=e416]: Ingresa la cantidad exacta de acciones (hasta 9 decimales).
+              - button "Agregar transacción" [ref=e418] [cursor=pointer]
+          - region "Transacciones registradas" [ref=e419]:
+            - heading "Actividad reciente" [level=2] [ref=e420]
+            - generic [ref=e421]:
+              - paragraph [ref=e422]: Mostrando 1-50 de 990 transacciones
+              - generic [ref=e423]:
+                - generic [ref=e424]:
+                  - generic [ref=e425]: Filas por página
+                  - combobox "Filas por página" [ref=e426]:
+                    - option "25"
+                    - option "50" [selected]
+                    - option "100"
+                - generic [ref=e427]:
+                  - generic [ref=e428]: Buscar transacciones
+                  - searchbox "Buscar transacciones" [ref=e429]
+            - table "Transacciones" [ref=e431]:
+              - rowgroup [ref=e432]:
+                - row "Fecha Ticker Tipo Monto Precio Acciones Acciones" [ref=e433]:
+                  - columnheader "Fecha" [ref=e434]
+                  - columnheader "Ticker" [ref=e435]
+                  - columnheader "Tipo" [ref=e436]
+                  - columnheader "Monto" [ref=e437]
+                  - columnheader "Precio" [ref=e438]
+                  - columnheader "Acciones" [ref=e439]
+                  - columnheader "Acciones" [ref=e440]
+              - rowgroup [ref=e441]:
+                - row "2023-11-27 CASH Depósito 1,00 US$ — 0 Deshacer la transacción de CASH del 2023-11-27" [ref=e442]:
+                  - cell "2023-11-27" [ref=e443]
+                  - cell "CASH" [ref=e444]
+                  - cell "Depósito" [ref=e445]
+                  - cell "1,00 US$" [ref=e446]
+                  - cell "—" [ref=e447]
+                  - cell "0" [ref=e448]
+                  - cell "Deshacer la transacción de CASH del 2023-11-27" [ref=e449]:
+                    - button "Deshacer la transacción de CASH del 2023-11-27" [ref=e450] [cursor=pointer]: Deshacer
+                - row "2023-11-27 SPY Compra -1,00 US$ 455,09 US$ 0,002197 Deshacer la transacción de SPY del 2023-11-27" [ref=e451]:
+                  - cell "2023-11-27" [ref=e452]
+                  - cell "SPY" [ref=e453]
+                  - cell "Compra" [ref=e454]
+                  - cell "-1,00 US$" [ref=e455]
+                  - cell "455,09 US$" [ref=e456]
+                  - cell "0,002197" [ref=e457]
+                  - cell "Deshacer la transacción de SPY del 2023-11-27" [ref=e458]:
+                    - button "Deshacer la transacción de SPY del 2023-11-27" [ref=e459] [cursor=pointer]: Deshacer
+                - row "2024-01-23 NVDA Compra -1,06 US$ 59,45 US$ 0,01783 Deshacer la transacción de NVDA del 2024-01-23" [ref=e460]:
+                  - cell "2024-01-23" [ref=e461]
+                  - cell "NVDA" [ref=e462]
+                  - cell "Compra" [ref=e463]
+                  - cell "-1,06 US$" [ref=e464]
+                  - cell "59,45 US$" [ref=e465]
+                  - cell "0,01783" [ref=e466]
+                  - cell "Deshacer la transacción de NVDA del 2024-01-23" [ref=e467]:
+                    - button "Deshacer la transacción de NVDA del 2024-01-23" [ref=e468] [cursor=pointer]: Deshacer
+                - row "2024-01-23 SPY Venta 1,06 US$ 482,39 US$ 0,002197 Deshacer la transacción de SPY del 2024-01-23" [ref=e469]:
+                  - cell "2024-01-23" [ref=e470]
+                  - cell "SPY" [ref=e471]
+                  - cell "Venta" [ref=e472]
+                  - cell "1,06 US$" [ref=e473]
+                  - cell "482,39 US$" [ref=e474]
+                  - cell "0,002197" [ref=e475]
+                  - cell "Deshacer la transacción de SPY del 2024-01-23" [ref=e476]:
+                    - button "Deshacer la transacción de SPY del 2024-01-23" [ref=e477] [cursor=pointer]: Deshacer
+                - row "2024-01-24 CASH Depósito 2,96 US$ — 0 Deshacer la transacción de CASH del 2024-01-24" [ref=e478]:
+                  - cell "2024-01-24" [ref=e479]
+                  - cell "CASH" [ref=e480]
+                  - cell "Depósito" [ref=e481]
+                  - cell "2,96 US$" [ref=e482]
+                  - cell "—" [ref=e483]
+                  - cell "0" [ref=e484]
+                  - cell "Deshacer la transacción de CASH del 2024-01-24" [ref=e485]:
+                    - button "Deshacer la transacción de CASH del 2024-01-24" [ref=e486] [cursor=pointer]: Deshacer
+                - row "2024-01-24 AMZN Compra -1,00 US$ 157,58 US$ 0,006346 Deshacer la transacción de AMZN del 2024-01-24" [ref=e487]:
+                  - cell "2024-01-24" [ref=e488]
+                  - cell "AMZN" [ref=e489]
+                  - cell "Compra" [ref=e490]
+                  - cell "-1,00 US$" [ref=e491]
+                  - cell "157,58 US$" [ref=e492]
+                  - cell "0,006346" [ref=e493]
+                  - cell "Deshacer la transacción de AMZN del 2024-01-24" [ref=e494]:
+                    - button "Deshacer la transacción de AMZN del 2024-01-24" [ref=e495] [cursor=pointer]: Deshacer
+                - row "2024-01-24 SPY Compra -1,00 US$ 487,18 US$ 0,002053 Deshacer la transacción de SPY del 2024-01-24" [ref=e496]:
+                  - cell "2024-01-24" [ref=e497]
+                  - cell "SPY" [ref=e498]
+                  - cell "Compra" [ref=e499]
+                  - cell "-1,00 US$" [ref=e500]
+                  - cell "487,18 US$" [ref=e501]
+                  - cell "0,002053" [ref=e502]
+                  - cell "Deshacer la transacción de SPY del 2024-01-24" [ref=e503]:
+                    - button "Deshacer la transacción de SPY del 2024-01-24" [ref=e504] [cursor=pointer]: Deshacer
+                - row "2024-01-24 TSLA Compra -1,00 US$ 209,09 US$ 0,004783 Deshacer la transacción de TSLA del 2024-01-24" [ref=e505]:
+                  - cell "2024-01-24" [ref=e506]
+                  - cell "TSLA" [ref=e507]
+                  - cell "Compra" [ref=e508]
+                  - cell "-1,00 US$" [ref=e509]
+                  - cell "209,09 US$" [ref=e510]
+                  - cell "0,004783" [ref=e511]
+                  - cell "Deshacer la transacción de TSLA del 2024-01-24" [ref=e512]:
+                    - button "Deshacer la transacción de TSLA del 2024-01-24" [ref=e513] [cursor=pointer]: Deshacer
+                - row "2024-01-24 TSLA Compra -1,00 US$ 209,15 US$ 0,004781 Deshacer la transacción de TSLA del 2024-01-24" [ref=e514]:
+                  - cell "2024-01-24" [ref=e515]
+                  - cell "TSLA" [ref=e516]
+                  - cell "Compra" [ref=e517]
+                  - cell "-1,00 US$" [ref=e518]
+                  - cell "209,15 US$" [ref=e519]
+                  - cell "0,004781" [ref=e520]
+                  - cell "Deshacer la transacción de TSLA del 2024-01-24" [ref=e521]:
+                    - button "Deshacer la transacción de TSLA del 2024-01-24" [ref=e522] [cursor=pointer]: Deshacer
+                - row "2024-01-24 NVDA Venta 1,11 US$ 62,25 US$ 0,01783 Deshacer la transacción de NVDA del 2024-01-24" [ref=e523]:
+                  - cell "2024-01-24" [ref=e524]
+                  - cell "NVDA" [ref=e525]
+                  - cell "Venta" [ref=e526]
+                  - cell "1,11 US$" [ref=e527]
+                  - cell "62,25 US$" [ref=e528]
+                  - cell "0,01783" [ref=e529]
+                  - cell "Deshacer la transacción de NVDA del 2024-01-24" [ref=e530]:
+                    - button "Deshacer la transacción de NVDA del 2024-01-24" [ref=e531] [cursor=pointer]: Deshacer
+                - row "2024-03-14 CASH Depósito 423,86 US$ — 0 Deshacer la transacción de CASH del 2024-03-14" [ref=e532]:
+                  - cell "2024-03-14" [ref=e533]
+                  - cell "CASH" [ref=e534]
+                  - cell "Depósito" [ref=e535]
+                  - cell "423,86 US$" [ref=e536]
+                  - cell "—" [ref=e537]
+                  - cell "0" [ref=e538]
+                  - cell "Deshacer la transacción de CASH del 2024-03-14" [ref=e539]:
+                    - button "Deshacer la transacción de CASH del 2024-03-14" [ref=e540] [cursor=pointer]: Deshacer
+            - generic [ref=e541]:
+              - button "Página anterior" [disabled] [ref=e542]
+              - paragraph [ref=e543]: Página 1 de 20
+              - button "Página siguiente" [ref=e544] [cursor=pointer]
+  - generic [ref=e394]: 0,00 US$

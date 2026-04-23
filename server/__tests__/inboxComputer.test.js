@@ -104,6 +104,7 @@ describe('computeInbox — THRESHOLD_TRIGGERED', () => {
     assert.equal(thresh.urgency, 'HIGH');
     assert.equal(thresh.signalStatus, 'BUY_ZONE');
     assert.equal(thresh.thresholdPct, 10);
+    assert.match(thresh.rationale, /10% buy threshold/u);
   });
 
   test('surfaces THRESHOLD_TRIGGERED when price crosses above trim threshold', () => {

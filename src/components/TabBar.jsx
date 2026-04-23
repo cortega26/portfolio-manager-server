@@ -1,6 +1,8 @@
 import TabButton from './TabButton.jsx';
 import { useI18n } from '../i18n/I18nProvider.jsx';
 
+const TODAY_TAB = { id: 'Today', labelKey: 'nav.today' };
+
 const defaultTabs = [
   { id: 'Dashboard', labelKey: 'nav.dashboard' },
   { id: 'Holdings', labelKey: 'nav.holdings' },
@@ -14,12 +16,18 @@ const defaultTabs = [
   { id: 'Settings', labelKey: 'nav.settings' },
 ];
 
-export default function TabBar({ activeTab, onTabChange, tabs = defaultTabs }) {
+export default function TabBar({
+  activeTab,
+  onTabChange,
+  tabs = defaultTabs,
+  showTodayTab = false,
+}) {
   const { t } = useI18n();
+  const visibleTabs = showTodayTab ? [TODAY_TAB, ...tabs] : tabs;
   return (
     <div className="mb-6 rounded-xl bg-white/80 p-1 shadow dark:bg-slate-900/80">
       <div className="flex gap-2" role="tablist" aria-label={t('nav.aria')}>
-        {tabs.map(({ id, labelKey }) => {
+        {visibleTabs.map(({ id, labelKey }) => {
           const slug = id.toLowerCase();
           const tabId = `tab-${slug}`;
           const panelId = `panel-${slug}`;

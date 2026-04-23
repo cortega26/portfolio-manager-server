@@ -1,0 +1,150 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - heading "Gestor de Portafolios" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Supervisa tus activos, gestiona operaciones y compara el rendimiento en vistas especializadas.
+      - generic [ref=e9]:
+        - generic [ref=e10]: Idioma
+        - combobox "Idioma" [ref=e11]:
+          - option "Inglés"
+          - option "Español" [selected]
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: ID del portafolio
+          - textbox "ID del portafolio" [ref=e16]:
+            - /placeholder: p. ej. demo-portfolio
+            - text: desktop
+        - generic [ref=e17]:
+          - paragraph [ref=e18]: Sesion desktop
+          - paragraph [ref=e19]: La autenticacion se inyecta automaticamente desde el shell de Electron para esta app local.
+        - generic [ref=e20]:
+          - button "Guardar portafolio" [ref=e21] [cursor=pointer]
+          - button "Cargar portafolio" [ref=e22] [cursor=pointer]
+      - status [ref=e128]:
+        - paragraph [ref=e129]: Operación completada con éxito.
+    - tablist "Navegación del tablero" [ref=e24]:
+      - tab "Tablero" [ref=e25] [cursor=pointer]
+      - tab "Posiciones" [active] [selected] [ref=e26] [cursor=pointer]
+      - tab "Precios" [ref=e27] [cursor=pointer]
+      - tab "Bandeja" [ref=e28] [cursor=pointer]
+      - tab "Transacciones" [ref=e29] [cursor=pointer]
+      - tab "Historial" [ref=e30] [cursor=pointer]
+      - tab "Métricas" [ref=e31] [cursor=pointer]
+      - tab "Ganancias realizadas" [ref=e32] [cursor=pointer]
+      - tab "Reportes" [ref=e33] [cursor=pointer]
+      - tab "Configuración" [ref=e34] [cursor=pointer]
+    - main [ref=e35]:
+      - region "Alertas del sistema" [ref=e130]:
+        - alert [ref=e131]:
+          - paragraph [ref=e132]: Cotizaciones en vivo temporalmente no disponibles
+          - paragraph [ref=e133]: Mostrando el último cierre oficial para AMD, DELL, NVDA, GLD, TSLA mientras se recupera el proveedor de precios en vivo.
+      - tabpanel "Posiciones" [ref=e545]:
+        - generic [ref=e546]:
+          - generic [ref=e547]:
+            - heading "Posiciones" [level=2] [ref=e548]
+            - table "Posiciones" [ref=e551]:
+              - rowgroup [ref=e552]:
+                - row "Ticker Acciones Costo promedio Precio actual Valor PnL no realizado PnL realizado" [ref=e553]:
+                  - columnheader "Ticker" [ref=e554]
+                  - columnheader "Acciones" [ref=e555]
+                  - columnheader "Costo promedio" [ref=e556]
+                  - columnheader "Precio actual" [ref=e557]
+                  - columnheader "Valor" [ref=e558]
+                  - columnheader "PnL no realizado" [ref=e559]
+                  - columnheader "PnL realizado" [ref=e560]
+              - rowgroup [ref=e561]:
+                - row "NVDA 0,81509791 181,45 US$ 199,88 US$ 162,92 US$ 15,02 US$ 62,89 US$" [ref=e562]:
+                  - cell "NVDA" [ref=e563]
+                  - cell "0,81509791" [ref=e564]
+                  - cell "181,45 US$" [ref=e565]
+                  - cell "199,88 US$" [ref=e566]
+                  - cell "162,92 US$" [ref=e567]
+                  - cell "15,02 US$" [ref=e568]
+                  - cell "62,89 US$" [ref=e569]
+                - row "TSLA 0,783956628 419,96 US$ 386,42 US$ 302,94 US$ -26,30 US$ 99,52 US$" [ref=e570]:
+                  - cell "TSLA" [ref=e571]
+                  - cell "0,783956628" [ref=e572]
+                  - cell "419,96 US$" [ref=e573]
+                  - cell "386,42 US$" [ref=e574]
+                  - cell "302,94 US$" [ref=e575]
+                  - cell "-26,30 US$" [ref=e576]
+                  - cell "99,52 US$" [ref=e577]
+                - row "AMD 0,30556226 233,11 US$ 284,49 US$ 86,93 US$ 15,70 US$ 77,67 US$" [ref=e578]:
+                  - cell "AMD" [ref=e579]
+                  - cell "0,30556226" [ref=e580]
+                  - cell "233,11 US$" [ref=e581]
+                  - cell "284,49 US$" [ref=e582]
+                  - cell "86,93 US$" [ref=e583]
+                  - cell "15,70 US$" [ref=e584]
+                  - cell "77,67 US$" [ref=e585]
+                - row "DELL 0,454749913 131,87 US$ 212,36 US$ 96,57 US$ 36,60 US$ 64,56 US$" [ref=e586]:
+                  - cell "DELL" [ref=e587]
+                  - cell "0,454749913" [ref=e588]
+                  - cell "131,87 US$" [ref=e589]
+                  - cell "212,36 US$" [ref=e590]
+                  - cell "96,57 US$" [ref=e591]
+                  - cell "36,60 US$" [ref=e592]
+                  - cell "64,56 US$" [ref=e593]
+                - row "GLD 0,001016562 367,87 US$ 429,57 US$ 0,44 US$ 0,06 US$ 5,53 US$" [ref=e594]:
+                  - cell "GLD" [ref=e595]
+                  - cell "0,001016562" [ref=e596]
+                  - cell "367,87 US$" [ref=e597]
+                  - cell "429,57 US$" [ref=e598]
+                  - cell "0,44 US$" [ref=e599]
+                  - cell "0,06 US$" [ref=e600]
+                  - cell "5,53 US$" [ref=e601]
+          - generic [ref=e602]:
+            - heading "Señales" [level=2] [ref=e604]
+            - table "Señales" [ref=e607]:
+              - rowgroup [ref=e608]:
+                - row "Ticker Rango (%) Último precio Límite inferior Límite superior Señal" [ref=e609]:
+                  - columnheader "Ticker" [ref=e610]
+                  - columnheader "Rango (%)" [ref=e611]
+                  - columnheader "Último precio" [ref=e612]
+                  - columnheader "Límite inferior" [ref=e613]
+                  - columnheader "Límite superior" [ref=e614]
+                  - columnheader "Señal" [ref=e615]
+              - rowgroup [ref=e616]:
+                - row "NVDA 3 199,88 US$ 179,94 US$ 191,08 US$ Zona de VENTA" [ref=e617]:
+                  - cell "NVDA" [ref=e618]
+                  - cell "3" [ref=e619]:
+                    - spinbutton "Rango porcentual de NVDA" [ref=e620]: "3"
+                  - cell "199,88 US$" [ref=e621]
+                  - cell "179,94 US$" [ref=e622]
+                  - cell "191,08 US$" [ref=e623]
+                  - cell "Zona de VENTA" [ref=e624]
+                - row "TSLA 3 386,42 US$ 390,41 US$ 414,55 US$ Zona de COMPRA" [ref=e625]:
+                  - cell "TSLA" [ref=e626]
+                  - cell "3" [ref=e627]:
+                    - spinbutton "Rango porcentual de TSLA" [ref=e628]: "3"
+                  - cell "386,42 US$" [ref=e629]
+                  - cell "390,41 US$" [ref=e630]
+                  - cell "414,55 US$" [ref=e631]
+                  - cell "Zona de COMPRA" [ref=e632]
+                - row "AMD 3 284,49 US$ 245,05 US$ 260,21 US$ Zona de VENTA" [ref=e633]:
+                  - cell "AMD" [ref=e634]
+                  - cell "3" [ref=e635]:
+                    - spinbutton "Rango porcentual de AMD" [ref=e636]: "3"
+                  - cell "284,49 US$" [ref=e637]
+                  - cell "245,05 US$" [ref=e638]
+                  - cell "260,21 US$" [ref=e639]
+                  - cell "Zona de VENTA" [ref=e640]
+                - row "DELL 3 212,36 US$ — — SIN DATOS" [ref=e641]:
+                  - cell "DELL" [ref=e642]
+                  - cell "3" [ref=e643]:
+                    - spinbutton "Rango porcentual de DELL" [ref=e644]: "3"
+                  - cell "212,36 US$" [ref=e645]
+                  - cell "—" [ref=e646]
+                  - cell "—" [ref=e647]
+                  - cell "SIN DATOS" [ref=e648]
+                - row "GLD 3 429,57 US$ 364,92 US$ 387,50 US$ Zona de VENTA" [ref=e649]:
+                  - cell "GLD" [ref=e650]
+                  - cell "3" [ref=e651]:
+                    - spinbutton "Rango porcentual de GLD" [ref=e652]: "3"
+                  - cell "429,57 US$" [ref=e653]
+                  - cell "364,92 US$" [ref=e654]
+                  - cell "387,50 US$" [ref=e655]
+                  - cell "Zona de VENTA" [ref=e656]
+  - generic [ref=e394]: 0,00 US$

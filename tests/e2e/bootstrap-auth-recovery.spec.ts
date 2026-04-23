@@ -51,7 +51,7 @@ test.describe('desktop bootstrap auth recovery', () => {
         return;
       }
 
-      if (method === 'GET' && /\/api\/v1\/portfolio\/desktop$/u.test(url.pathname)) {
+      if (method === 'GET' && /\/portfolio\/desktop\/?$/u.test(url.pathname)) {
         await route.fulfill(
           jsonResponse(
             {

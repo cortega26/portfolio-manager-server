@@ -1,0 +1,117 @@
+- generic [ref=e4]:
+  - status [ref=e122]:
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - paragraph [ref=e125]: No se pudo cargar el portafolio desktop
+        - paragraph [ref=e126]: Failed to fetch
+      - button "Descartar notificación" [ref=e127] [cursor=pointer]: ×
+  - banner [ref=e5]:
+    - generic [ref=e6]:
+      - heading "Gestor de Portafolios" [level=1] [ref=e7]
+      - paragraph [ref=e8]: Supervisa tus activos, gestiona operaciones y compara el rendimiento en vistas especializadas.
+    - generic [ref=e9]:
+      - generic [ref=e10]: Idioma
+      - combobox "Idioma" [ref=e11]:
+        - option "Inglés"
+        - option "Español" [selected]
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]: ID del portafolio
+        - textbox "ID del portafolio" [ref=e16]:
+          - /placeholder: p. ej. demo-portfolio
+          - text: desktop
+      - generic [ref=e17]:
+        - paragraph [ref=e18]: Sesion desktop
+        - paragraph [ref=e19]: La autenticacion se inyecta automaticamente desde el shell de Electron para esta app local.
+      - generic [ref=e20]:
+        - button "Guardar portafolio" [ref=e21] [cursor=pointer]
+        - button "Cargar portafolio" [active] [ref=e22] [cursor=pointer]
+    - status [ref=e128]:
+      - paragraph [ref=e129]: Failed to fetch
+  - tablist "Navegación del tablero" [ref=e24]:
+    - tab "Tablero" [selected] [ref=e25] [cursor=pointer]
+    - tab "Posiciones" [ref=e26] [cursor=pointer]
+    - tab "Precios" [ref=e27] [cursor=pointer]
+    - tab "Bandeja" [ref=e28] [cursor=pointer]
+    - tab "Transacciones" [ref=e29] [cursor=pointer]
+    - tab "Historial" [ref=e30] [cursor=pointer]
+    - tab "Métricas" [ref=e31] [cursor=pointer]
+    - tab "Ganancias realizadas" [ref=e32] [cursor=pointer]
+    - tab "Reportes" [ref=e33] [cursor=pointer]
+    - tab "Configuración" [ref=e34] [cursor=pointer]
+  - main [ref=e35]:
+    - tabpanel "Tablero" [ref=e39]:
+      - generic [ref=e40]:
+        - generic "El NAV equivale a activos de riesgo más efectivo. Las definiciones de efectivo siguen docs/guides/cash-benchmarks.md." [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - paragraph [ref=e44]: NAV total
+              - paragraph [ref=e45]: —
+              - paragraph [ref=e46]: Saldo en efectivo 0,00 US$ · esperando precios de mercado
+            - generic [ref=e47]:
+              - status [ref=e48]: ROI en tiempo real
+              - button "Actualizar ROI" [ref=e49] [cursor=pointer]
+        - generic "dashboard.zone2.emptyAria" [ref=e50]:
+          - paragraph [ref=e51]: dashboard.zone2.empty
+        - generic [ref=e52]:
+          - generic [ref=e53]:
+            - generic "Retorno simple sobre el capital neto aportado. No pondera el momento de depósitos/retiros. Ver TWR y MWR para retornos ajustados por tiempo y flujos." [ref=e55]:
+              - paragraph [ref=e56]: Rendimiento total
+              - paragraph [ref=e57]: —
+              - paragraph [ref=e58]: Esperando precios de mercado antes de calcular rendimiento y ROI
+            - generic [ref=e60]:
+              - paragraph [ref=e61]: Aportes netos
+              - paragraph [ref=e62]: 0,00 US$
+              - paragraph [ref=e63]: Compras brutas 0,00 US$ · Ventas brutas 0,00 US$ · Ingresos netos 0,00 US$
+            - generic "Valor de mercado actual de posiciones abiertas menos su costo total de compra. No incluye dividendos, intereses ni ganancias realizadas." [ref=e65]:
+              - paragraph [ref=e66]: Ganancia de precio en acciones
+              - paragraph [ref=e67]: —
+              - paragraph [ref=e68]: Esperando precios de mercado para calcular la variación
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - heading "Contexto de rendimiento" [level=3] [ref=e71]
+              - paragraph [ref=e72]: Usa el ROI para la ganancia total sobre capital aportado y compara el TWR contra referencias en el gráfico.
+            - generic [ref=e73]:
+              - generic [ref=e74]:
+                - paragraph [ref=e75]: ROI del portafolio
+                - paragraph [ref=e76]: —
+                - paragraph [ref=e77]: Retorno simple sobre el capital neto aportado. A diferencia del TWR, se ve afectado por el momento de depósitos/retiros.
+              - generic [ref=e78]:
+                - paragraph [ref=e79]: TWR del portafolio
+                - paragraph [ref=e80]: —
+                - paragraph [ref=e81]: Retorno ponderado por tiempo usado para comparar contra referencias en el gráfico.
+              - generic [ref=e82]:
+                - paragraph [ref=e83]: Brecha vs S&P 500
+                - paragraph [ref=e84]: —
+                - paragraph [ref=e85]: Referencia S&P 500 en —
+              - generic [ref=e86]:
+                - paragraph [ref=e87]: Brecha vs Nasdaq-100
+                - paragraph [ref=e88]: —
+                - paragraph [ref=e89]: Proxy Nasdaq-100 en —
+              - generic "Retorno ponderado por dinero de tu experiencia real como inversionista versus SPY y QQQ usando los mismos flujos externos." [ref=e90]:
+                - paragraph [ref=e91]: MWR inversionista
+                - paragraph [ref=e92]: —
+                - paragraph [ref=e93]: SPY — · QQQ — con tus mismos flujos
+              - generic "Mayor caída de pico a valle en el valor del portafolio. Una medida de riesgo a la baja." [ref=e94]:
+                - paragraph [ref=e95]: Drawdown máximo
+                - paragraph [ref=e96]: —
+                - paragraph [ref=e97]: Datos insuficientes
+          - generic [ref=e98]:
+            - heading "Asignación de activos" [level=3] [ref=e99]
+            - paragraph [ref=e100]: Agrega posiciones y precios para ver el gráfico de asignación.
+          - generic [ref=e101]:
+            - heading "Contribución al retorno por activo" [level=3] [ref=e102]
+            - paragraph [ref=e103]: Peso × retorno individual. Ordenado por contribución (descendente).
+            - paragraph [ref=e104]: Se necesitan precios para calcular las contribuciones al retorno.
+        - generic [ref=e105]:
+          - button "dashboard.charts.title" [expanded] [ref=e106] [cursor=pointer]:
+            - generic [ref=e107]: dashboard.charts.title
+            - img [ref=e108]
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - heading "ROI vs Referencias" [level=3] [ref=e115]
+              - paragraph [ref=e117]: Agrega transacciones para ver el rendimiento comparativo.
+            - generic [ref=e118]:
+              - heading "Crecimiento NAV" [level=3] [ref=e119]
+              - paragraph [ref=e121]: Los datos NAV estarán disponibles después de cargar los snapshots diarios.

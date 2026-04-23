@@ -1,0 +1,136 @@
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - heading "Gestor de Portafolios" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Supervisa tus activos, gestiona operaciones y compara el rendimiento en vistas especializadas.
+      - generic [ref=e9]:
+        - generic [ref=e10]: Idioma
+        - combobox "Idioma" [ref=e11]:
+          - option "Inglés"
+          - option "Español" [selected]
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: ID del portafolio
+          - textbox "ID del portafolio" [ref=e16]:
+            - /placeholder: p. ej. demo-portfolio
+            - text: desktop
+        - generic [ref=e17]:
+          - paragraph [ref=e18]: Sesion desktop
+          - paragraph [ref=e19]: La autenticacion se inyecta automaticamente desde el shell de Electron para esta app local.
+        - generic [ref=e20]:
+          - button "Guardar portafolio" [ref=e21] [cursor=pointer]
+          - button "Cargar portafolio" [ref=e22] [cursor=pointer]
+      - status [ref=e128]:
+        - paragraph [ref=e129]: Operación completada con éxito.
+    - tablist "Navegación del tablero" [ref=e24]:
+      - tab "Tablero" [ref=e25] [cursor=pointer]
+      - tab "Posiciones" [ref=e26] [cursor=pointer]
+      - tab "Precios" [ref=e27] [cursor=pointer]
+      - tab "Bandeja" [ref=e28] [cursor=pointer]
+      - tab "Transacciones" [ref=e29] [cursor=pointer]
+      - tab "Historial" [ref=e30] [cursor=pointer]
+      - tab "Métricas" [ref=e31] [cursor=pointer]
+      - tab "Ganancias realizadas" [ref=e32] [cursor=pointer]
+      - tab "Reportes" [ref=e33] [cursor=pointer]
+      - tab "Configuración" [active] [selected] [ref=e34] [cursor=pointer]
+    - main [ref=e35]:
+      - region "Alertas del sistema" [ref=e130]:
+        - alert [ref=e131]:
+          - paragraph [ref=e132]: Cotizaciones en vivo temporalmente no disponibles
+          - paragraph [ref=e133]: Mostrando el último cierre oficial para AMD, DELL, NVDA, GLD, TSLA mientras se recupera el proveedor de precios en vivo.
+      - tabpanel "Configuración" [ref=e670]:
+        - generic [ref=e671]:
+          - generic [ref=e672]:
+            - generic [ref=e674]:
+              - heading "Notificaciones" [level=2] [ref=e675]
+              - paragraph [ref=e676]: Personaliza alertas para operaciones, oportunidades de rebalanceo y cambios de mercado.
+            - generic [ref=e677]:
+              - generic [ref=e678]:
+                - generic [ref=e679]:
+                  - generic [ref=e680]:
+                    - text: Alertas por correo
+                    - paragraph [ref=e681]: Guarda tu preferencia para futuros resúmenes por correo (función en desarrollo).
+                  - checkbox "Alertas por correo Guarda tu preferencia para futuros resúmenes por correo (función en desarrollo)." [disabled] [ref=e682]
+                - paragraph [ref=e683]: Los resúmenes por correo estarán disponibles cuando lancemos las notificaciones automáticas. Por ahora solo guardamos tu preferencia.
+              - generic [ref=e685]:
+                - generic [ref=e686]:
+                  - text: Notificaciones push
+                  - paragraph [ref=e687]: Mostrar avisos emergentes en la aplicación para eventos y advertencias del portafolio.
+                - checkbox "Notificaciones push Mostrar avisos emergentes en la aplicación para eventos y advertencias del portafolio." [checked] [ref=e688]
+              - generic [ref=e690]:
+                - generic [ref=e691]:
+                  - text: Toasts de cambios de señal
+                  - paragraph [ref=e692]: Mostrar un aviso cuando una posición entre en zona de COMPRA o VENTA tras un movimiento de precio.
+                - checkbox "Toasts de cambios de señal Mostrar un aviso cuando una posición entre en zona de COMPRA o VENTA tras un movimiento de precio." [checked] [ref=e693]
+              - generic [ref=e695]:
+                - generic [ref=e696]:
+                  - text: Recordatorios de rebalanceo mensual
+                  - paragraph [ref=e697]: Obtén un recordatorio cuando las asignaciones se desvíen de sus bandas objetivo.
+                - checkbox "Recordatorios de rebalanceo mensual Obtén un recordatorio cuando las asignaciones se desvíen de sus bandas objetivo." [checked] [ref=e698]
+              - generic [ref=e700]:
+                - generic [ref=e701]:
+                  - text: Banners de estado de mercado
+                  - paragraph [ref=e702]: Mostrar contexto cuando los precios usan el último cierre del mercado en vez de una sesión en vivo.
+                - checkbox "Banners de estado de mercado Mostrar contexto cuando los precios usan el último cierre del mercado en vez de una sesión en vivo." [checked] [ref=e703]
+              - generic [ref=e705]:
+                - generic [ref=e706]:
+                  - text: Banners de respaldo ROI
+                  - paragraph [ref=e707]: Mostrar banners informativos cuando ROI vuelve al cálculo local.
+                - checkbox "Banners de respaldo ROI Mostrar banners informativos cuando ROI vuelve al cálculo local." [checked] [ref=e708]
+          - generic [ref=e709]:
+            - generic [ref=e710]:
+              - heading "Scheduler" [level=2] [ref=e711]
+              - paragraph [ref=e712]: Revisa el estado runtime del cierre nocturno expuesto por el shell desktop local.
+            - generic [ref=e713]:
+              - generic [ref=e714]:
+                - paragraph [ref=e715]: Runtime del cierre nocturno
+                - paragraph [ref=e716]: Desconocido
+                - paragraph [ref=e717]: El estado del cierre nocturno no está disponible en la configuración runtime actual.
+              - generic [ref=e718]:
+                - paragraph [ref=e719]: Hora UTC configurada
+                - paragraph [ref=e720]: Hora del scheduler no disponible
+                - paragraph [ref=e721]: Esto refleja la hora configurada para el cierre nocturno cuando el runtime la expone.
+          - generic [ref=e722]:
+            - generic [ref=e723]:
+              - generic [ref=e724]:
+                - text: Alerta de drawdown (%)
+                - paragraph [ref=e725]: Dispara una notificación si el ROI cae este porcentaje desde el último pico.
+              - spinbutton "Alerta de drawdown (%) Dispara una notificación si el ROI cae este porcentaje desde el último pico." [ref=e726]: "15"
+            - generic [ref=e727]:
+              - generic [ref=e728]:
+                - text: Moneda de visualización
+                - paragraph [ref=e729]: Usada para reportes y valoración de posiciones.
+              - combobox "Moneda de visualización Usada para reportes y valoración de posiciones." [ref=e730]:
+                - option "USD" [selected]
+                - option "EUR"
+                - option "GBP"
+                - option "JPY"
+            - generic [ref=e731]:
+              - generic [ref=e732]:
+                - text: Autoactualización (minutos)
+                - paragraph [ref=e733]: Actualiza precios y datos de ROI en este intervalo mientras la app esté abierta.
+              - spinbutton "Autoactualización (minutos) Actualiza precios y datos de ROI en este intervalo mientras la app esté abierta." [ref=e734]: "15"
+          - generic [ref=e735]:
+            - generic [ref=e736]:
+              - heading "Espacio de trabajo" [level=2] [ref=e737]
+              - paragraph [ref=e738]: Controla la privacidad y densidad de tablas según tu entorno.
+            - generic [ref=e739]:
+              - generic [ref=e741]:
+                - generic [ref=e742]:
+                  - text: Ocultar saldos por defecto
+                  - paragraph [ref=e743]: Oculta los valores en moneda hasta pasar el cursor para proteger tu privacidad en espacios compartidos.
+                - checkbox "Ocultar saldos por defecto Oculta los valores en moneda hasta pasar el cursor para proteger tu privacidad en espacios compartidos." [ref=e744]
+              - generic [ref=e746]:
+                - generic [ref=e747]:
+                  - text: Espaciado compacto en tablas
+                  - paragraph [ref=e748]: Reduce el padding de filas para vistas densas de transacciones o posiciones.
+                - checkbox "Espaciado compacto en tablas Reduce el padding de filas para vistas densas de transacciones o posiciones." [ref=e749]
+              - generic [ref=e751]:
+                - generic [ref=e752]:
+                  - text: Recortar órdenes de venta automáticamente
+                  - paragraph [ref=e753]: Si está desactivado, el servidor rechaza las órdenes de VENTA que superen las acciones disponibles.
+                - checkbox "Recortar órdenes de venta automáticamente Si está desactivado, el servidor rechaza las órdenes de VENTA que superen las acciones disponibles." [ref=e754]
+            - button "Restablecer predeterminados" [ref=e755] [cursor=pointer]
+  - generic [ref=e394]: 0,00 US$

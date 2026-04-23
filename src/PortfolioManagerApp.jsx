@@ -66,6 +66,8 @@ import { loadActivePortfolioId, setActivePortfolioId } from './state/portfolioSt
 import { getRuntimeConfigSync, mergeRuntimeConfig } from './lib/runtimeConfig.js';
 import { isSignalStatusActionable, SIGNAL_STATUS } from '../shared/signals.js';
 import { getMarketClock } from './utils/marketHours.js';
+import { resolveFlags, getFlag } from './lib/featureFlags.js';
+import TodayTab from './components/review/TodayTab.jsx';
 
 const DashboardTab = lazy(() => import('./components/DashboardTab.jsx'));
 const HoldingsTab = lazy(() => import('./components/HoldingsTab.jsx'));
@@ -1417,7 +1419,6 @@ export default function PortfolioManagerApp() {
     if (bootstrapLoadAttemptedRef.current) {
       return;
     }
-    bootstrapLoadAttemptedRef.current = true;
 
     const storedId = loadActivePortfolioId();
     const runtimeConfig = getRuntimeConfigSync();
@@ -1433,18 +1434,22 @@ export default function PortfolioManagerApp() {
     }
 
     let cancelled = false;
+    let completed = false;
+    bootstrapLoadAttemptedRef.current = true;
 
     setPortfolioId((current) =>
       current && current.trim().length > 0 ? current : initialPortfolioId
     );
     void retrievePortfolio(initialPortfolioId)
       .then(({ data }) => {
+        completed = true;
         if (cancelled || !isMountedRef.current) {
           return;
         }
         applyLoadedPortfolio(data, initialPortfolioId);
       })
       .catch((error) => {
+        completed = true;
         if (cancelled || !isMountedRef.current) {
           return;
         }
@@ -1456,6 +1461,9 @@ export default function PortfolioManagerApp() {
 
     return () => {
       cancelled = true;
+      if (!completed) {
+        bootstrapLoadAttemptedRef.current = false;
+      }
     };
   }, [applyLoadedPortfolio, desktopSessionLocked, recoverFromPortfolioLoadError]);
 
@@ -1579,7 +1587,11 @@ export default function PortfolioManagerApp() {
           onNotify={pushToast}
         />
 
-        <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        <TabBar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          showTodayTab={getFlag(resolveFlags(), 'redesign.todayShell')}
+        />
 
         <main className="pb-12">
           {activeAlerts.length > 0 && (
@@ -1604,6 +1616,15 @@ export default function PortfolioManagerApp() {
             </div>
           )}
           <Suspense fallback={<LoadingFallback />}>
+            {activeTab === 'Today' && (
+              <TodayTab
+                portfolioId={portfolioId}
+                inboxItems={[]}
+                recentChanges={[]}
+                degradedReasons={[]}
+                staleTickers={[]}
+              />
+            )}
             {activeTab === 'Dashboard' && (
               <section
                 role="tabpanel"

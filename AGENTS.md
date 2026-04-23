@@ -116,13 +116,13 @@ Reglas de resolución:
 <claude-mem-context>
 # Memory Context
 
-# [portafolio-unificado] recent context, 2026-04-22 11:41am GMT-4
+# [portafolio-unificado] recent context, 2026-04-23 6:38pm GMT-4
 
-Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 12 obs (4,954t read) | 262,422t work | 98% savings
+Stats: 33 obs (13,996t read) | 424,475t work | 97% savings
 
 ### Apr 22, 2026
 
@@ -135,9 +135,33 @@ Stats: 12 obs (4,954t read) | 262,422t work | 98% savings
 170 " ✅ portafolio-unificado Code Quality Pass — All Checks Green After Refactoring
 171 10:45a 🔵 portafolio-unificado — Context Docs Reveal Far Richer Architecture Than TypeScript Files Suggest
 172 10:46a 🔵 PortfolioManagerApp.jsx Confirmed as Mega-Component — 1700+ Lines, 30+ State Vars, 12+ useEffects
-173 10:47a 🔵 Legacy Express bootstrap and server/routes/index.js were near-identical duplicates — Both 897 Lines
+173 10:47a 🔵 server/app.js and server/routes/index.js Are Near-Identical Duplicates — Both 897 Lines
 174 10:50a 🔄 server/routes/\_helpers.ts Created — Shared Route Utilities Extracted from 3 Duplicating Route Files
 175 10:51a 🔄 server/routes/\_helpers.ts Patch Successfully Applied — 4 Files Updated Atomically
 
-Access 262k tokens of past work via get_observations([IDs]) or mem-search skill.
+### Apr 23, 2026
+
+220 6:26p 🔵 portafolio-unificado — Partial Audit Implementation State at Session Resume
+221 6:27p 🔵 portafolio-unificado — E2E Baseline Run Reveals Build Error and 2 Failing Tests
+222 6:28p 🔵 portafolio-unificado — Full E2E Baseline: 5 Failures, 2 Skipped, 2 Passed
+223 " 🔵 portafolio-unificado — SR-021 Today Shell Left Incomplete: apiGet Missing Export Is Root Cause
+224 6:29p 🔵 portafolio-unificado — SR-021 Today Shell Architecture: Full Wiring Mapped, apiGet is Only Missing Piece
+225 " 🔵 portafolio-unificado — SR-021 Today Shell Partially Implemented, Vite Build Broken by Missing apiGet Export
+226 6:30p 🔄 TodayTab sessionToken Prop Removed — PortfolioHealthBar Auth Decoupled from Parent
+227 " 🔴 today-shell E2E Tests Fixed — Today Tab Role Is "tab" Not "button"
+228 " 🔴 today-shell E2E Suite Now 5/5 Green After Role Selector Fix
+229 " 🔵 bootstrap-auth-recovery E2E — Expected Recovery Message Text Confirmed in Test File
+230 6:31p 🔵 portafolio-unificado — Policy Evaluator, Trust System, and PortfolioHealth Backend Already Fully Implemented
+231 " 🔵 portafolio-unificado — Redesign Audit: Actual Implementation Status Mapped Against spec.md
+232 6:32p 🔴 bootstrap-auth-recovery E2E URL Intercept Pattern Fixed
+233 " 🔵 bootstrap-auth-recovery Test Still Fails — App Renders Normal Desktop View Instead of Error
+234 6:33p 🔴 Bootstrap Load Ref Race Condition Fixed in PortfolioManagerApp.jsx
+235 " ✅ Full E2E Suite Now 9/9 Green — portafolio-unificado Audit Complete
+236 6:34p ✅ Full Unit + Vitest Test Suite Passes — 447/448 Node Tests Green, 0 Failures
+237 " 🔵 ESLint Fails with 7 Errors — cancelled Undefined in usePortfolioData.js Plus 4 Unused Vars
+238 " 🔴 All 7 ESLint Errors Fixed Across 4 Files
+239 " ✅ portafolio-unificado Audit Complete — Tests, E2E, and Lint All Green
+240 6:36p ✅ portafolio-unificado All Quality Gates Pass — Tests, Lint, and TypeCheck Green
+
+Access 424k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

@@ -1,239 +1,458 @@
-# Price Fetch Fix — Spec
+# Strategic Redesign — Implementation Spec
 
-## Problem Statement
-
-The app is not displaying live, extended-hours, or last-close prices for any holding.
-NAV, per-share prices, and allocation charts all show stale or missing data.
-
-Root-cause audit (April 2026) identified three compounding defects:
-
-| #   | Defect                                                   | Location                                     | Impact                                                                                                               |
-| --- | -------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| D1  | `PRICE_PROVIDER_FALLBACK=none` in `.env`                 | `.env`, `.env.example`                       | No fallback when Stooq fails; any Stooq outage → total price blackout                                                |
-| D2  | Stooq requests have no `User-Agent` header               | `server/data/prices.js` `StooqPriceProvider` | Stooq CDN rate-limits or blocks naked requests; returns HTML captcha/redirect which the CSV parser silently fails on |
-| D3  | Yahoo Finance v8 chart endpoint requires a session crumb | `server/data/prices.js` `YahooPriceProvider` | All Yahoo requests return 401/403 without a valid `crumb` query param and matching `Cookie` header                   |
+> Origin: `docs/implementation/portfolio-manager-strategic-redesign-plan.md` + `docs/backlog/portfolio-manager-strategic-redesign-backlog.md`
+> Created: 2026-04-22
+> Status: Active
 
 ---
 
-## Goals
+## 1. Goals
 
-### G1 — Restore end-of-day prices (eod_fresh)
+Transform this app from "10 tabs of portfolio information" into "a trusted daily review system for a real investor."
 
-`GET /api/prices/bulk?symbols=SPY&latest=1` must return a non-empty `series` object with `status = eod_fresh` or `live` for at least one equity symbol during and after market hours.
+Five structural problems to solve:
 
-### G2 — Fallback chain works
+1. **Too many surfaces** — exposes unfiltered data before clarifying what matters now
+2. **Computes more than it explains** — numbers have no source, freshness, or confidence
+3. **Signals without action loops** — detects events but does not convert them to decisions
+4. **Ledger as secondary workflow** — import and reconciliation are buried
+5. **Logic concentrated in few oversized modules** — every feature touches the same 3 files
 
-When Stooq is unavailable (network error, rate-limit, HTML response), Yahoo Finance is tried automatically. The server log must contain `price_provider_fallback` for that request.
+### Product outcomes
 
-### G3 — Yahoo Finance crumb auth
-
-`YahooPriceProvider.getDailyAdjustedClose` must obtain a session crumb from `https://query1.finance.yahoo.com/v1/test/getcrumb` before each batch of chart requests, cache the crumb for 30 minutes, and automatically refresh it on a 401/403 response with exactly one retry.
-
-### G4 — Stooq requests succeed
-
-`StooqPriceProvider` must send a `User-Agent` header on every request and must detect and reject HTML responses (captcha/redirect) with a `PRICE_FETCH_FAILED` error code instead of trying to parse garbage CSV.
-
-### G5 — All existing tests remain green
-
-No regression in the existing `npm test` suite.
+| Dimension             | Target                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| Time to first insight | < 30 seconds after app open                                                         |
+| Every material metric | Shows source, freshness, confidence                                                 |
+| Recommendations       | Grounded in portfolio policy, not just threshold crossings                          |
+| Ledger maintenance    | Guided workflow, not scanning a giant table                                         |
+| Code hot spots        | `PortfolioManagerApp.jsx`, `TransactionsTab.jsx`, `portfolio.ts` materially reduced |
 
 ---
 
-## Implementation Details
+## 2. Milestones
 
-### I1 — Config: re-enable Yahoo fallback
+| Milestone | Focus                                                               | Exit condition                                                             |
+| --------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| M1        | Foundation (trust schema, feature flags, i18n fix, health endpoint) | Types exist, flags work, no raw i18n keys on primary surfaces              |
+| M2        | Trust Layer + Today Shell                                           | Every primary metric shows trust metadata; Today tab available behind flag |
+| M3        | Ledger Operations Center                                            | Import preview, exception queue, reconciliation status visible             |
+| M4        | Policy Guidance                                                     | Inbox is a policy-backed recommendation queue with rationale               |
+| M5        | Architecture consolidation                                          | Hot spots materially reduced, legacy surfaces retired                      |
 
-Files: `.env`, `.env.example`
+---
 
+## 3. Feature Flag Strategy (SR-100)
+
+**Contract:**
+
+- Flags live in `src/lib/featureFlags.js` (renderer) and referenced via `src/hooks/useFeatureFlag.js`
+- Renderer reads overrides from `localStorage` key `portfolio-manager-feature-flags`
+- Default state: all new surfaces are **off** unless explicitly enabled
+
+**Flags introduced in this redesign:**
+
+| Flag                       | Default | Guards                                     |
+| -------------------------- | ------- | ------------------------------------------ |
+| `redesign.todayShell`      | `false` | Today tab, review-first navigation         |
+| `redesign.trustBadges`     | `false` | Trust badges on dashboard/prices/inbox     |
+| `redesign.ledgerOpsCenter` | `false` | Import preview, exception queue, ledger UI |
+| `redesign.policyGuidance`  | `false` | Policy evaluation, recommendation queue    |
+
+**Verification:**
+
+- `useFeatureFlag('redesign.todayShell')` returns `false` with no localStorage override
+- Setting `localStorage.setItem('portfolio-manager-feature-flags', JSON.stringify({ 'redesign.todayShell': true }))` makes the Today tab appear
+- Flag state survives page reload
+
+---
+
+## 4. Trust Metadata Schema (SR-001)
+
+**Contract** (`shared/trust.ts`):
+
+```ts
+export type SourceType = 'live' | 'eod' | 'eod_estimated' | 'manual' | 'cached' | 'unknown';
+export type FreshnessState = 'fresh' | 'stale' | 'expired' | 'unknown';
+export type ConfidenceState = 'high' | 'medium' | 'low' | 'degraded' | 'unknown';
+export type DegradedReason =
+  | 'missing_price'
+  | 'stale_price'
+  | 'partial_data'
+  | 'provider_error'
+  | 'no_transactions'
+  | 'unresolved_exceptions';
+
+export interface TrustMetadata {
+  source_type: SourceType;
+  freshness_state: FreshnessState;
+  confidence_state: ConfidenceState;
+  degraded_reason?: DegradedReason;
+  as_of?: string; // ISO-8601
+  explanation?: string;
+}
 ```
-PRICE_PROVIDER_FALLBACK=yahoo   # was: none
-```
 
-### I2 — Stooq hardening
+**Rules:**
 
-File: `server/data/prices.js` → `StooqPriceProvider.getDailyAdjustedClose`
+- `high` confidence requires `fresh` freshness and `live` or `eod` source
+- `degraded` confidence always carries a `degraded_reason`
+- Frontend and backend both import from `shared/trust.ts`
 
-Changes:
+**Verification:**
 
-1. Pass `headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0' }` in the `fetch` call options.
-2. After receiving the response, check:
-   - `response.headers.get('content-type')` contains `text/html`
-   - OR the first non-empty line of `csv` starts with `<`
+- TypeScript compilation succeeds with no errors
+- Every trust state combination can be round-tripped through JSON
+- `confidence_state: 'high'` without `freshness_state: 'fresh'` is flagged in validator
 
-   If either is true: throw `Error('Stooq returned HTML instead of CSV for <symbol>')` with `error.code = 'PRICE_FETCH_FAILED'`.
+---
 
-### I3 — Yahoo Finance crumb auth
+## 5. i18n defaultValue Fix (SR-007)
 
-File: `server/data/prices.js` → `YahooPriceProvider`
+**Problem:**
+`t('dashboard.zone2.empty', { defaultValue: 'No alerts...' })` renders the raw key `dashboard.zone2.empty` because:
 
-**Instance state added:**
+1. The key is not in `translations.js`
+2. The `translate()` function uses `vars` only for `{token}` interpolation, ignoring `defaultValue`
+
+**Fix** (`src/i18n/I18nProvider.jsx`):
 
 ```js
-this._crumbCache = null; // { crumb: string, cookies: string, fetchedAt: number }
-this._crumbTtlMs = 30 * 60 * 1000; // 30 minutes
+const translate = useCallback(
+  (key, vars) => {
+    const { defaultValue, ...interpolationVars } = vars ?? {};
+    const table = translations[language] ?? translations[FALLBACK_LANGUAGE];
+    const fallbackTable = translations[FALLBACK_LANGUAGE] ?? {};
+    const template = table[key] ?? fallbackTable[key] ?? defaultValue ?? key;
+    return interpolate(template, interpolationVars);
+  },
+  [language]
+);
 ```
 
-**New private method `_refreshCrumb()`:**
+**Keys requiring translation entries** (add to `translations.js` `en` table):
 
-```
-1. GET https://finance.yahoo.com  (browser UA headers)
-   → capture Set-Cookie response headers → build cookie string
-2. GET https://query1.finance.yahoo.com/v1/test/getcrumb
-   (same UA + Cookie header with captured cookies)
-   → plain-text body is the crumb
-3. Validate: crumb must be a non-empty string ≥ 4 chars
-4. Store: this._crumbCache = { crumb, cookies, fetchedAt: Date.now() }
-```
+- `dashboard.zone2.empty` → `'No alerts or action items. Portfolio is up to date.'`
+- `dashboard.zone2.emptyAria` → `'Action inbox'`
+- `dashboard.charts.title` → `'Portfolio charts'`
 
-**Modified `getDailyAdjustedClose()`:**
+**Verification:**
 
-```
-Before building the chart URL:
-  if (!this._crumbCache || Date.now() - this._crumbCache.fetchedAt > this._crumbTtlMs)
-    await this._refreshCrumb()
-
-Append to chart URL:  url.searchParams.set('crumb', this._crumbCache.crumb)
-Add to fetch options: headers: { ..., Cookie: this._crumbCache.cookies }
-
-On 401 or 403 response:
-  this._crumbCache = null   // invalidate
-  await this._refreshCrumb()  // refresh
-  rebuild URL with new crumb + new cookies
-  retry the chart fetch once
-  if retry also fails: throw the error
-```
-
-**Multi-value Set-Cookie handling (node-fetch v3.3+):**
-
-```js
-const setCookies =
-  typeof res.headers.getSetCookie === 'function'
-    ? res.headers.getSetCookie()
-    : [res.headers.get('set-cookie') ?? ''].filter(Boolean);
-const cookies = setCookies
-  .map((h) => h.split(';')[0].trim())
-  .filter(Boolean)
-  .join('; ');
-```
-
-### I4 — Test scaffold: add `tests/prices/` to the test runner
-
-File: `tools/run-tests.mjs`
-
-Add `'tests/prices'` to `TEST_DIRS` array so `npm run test:node` discovers new tests automatically.
+- `t('dashboard.zone2.empty')` returns `'No alerts or action items. Portfolio is up to date.'` (from translations table)
+- `t('unknown.key', { defaultValue: 'Fallback' })` returns `'Fallback'` (from defaultValue)
+- `t('unknown.key')` returns `'unknown.key'` (raw key, no defaultValue)
+- Playwright screenshot of empty-inbox state shows no raw key strings
 
 ---
 
-## New Tests
+## 6. Portfolio Health Summary (SR-002)
 
-### `tests/prices/stooq-provider.test.js` (node:test)
+**Endpoint:** `GET /api/portfolio/:id/health`
 
-| Test                                                        | Assertion                              |
-| ----------------------------------------------------------- | -------------------------------------- |
-| Sends `User-Agent` header                                   | `options.headers['User-Agent']` is set |
-| Parses multi-row CSV correctly                              | Returns sorted `{date, adjClose}[]`    |
-| Throws `PRICE_NOT_FOUND` on "No data" CSV                   | `error.code === 'PRICE_NOT_FOUND'`     |
-| Throws `PRICE_FETCH_FAILED` on HTML response (content-type) | `error.code === 'PRICE_FETCH_FAILED'`  |
-| Throws `PRICE_FETCH_FAILED` on HTML body (starts with `<`)  | `error.code === 'PRICE_FETCH_FAILED'`  |
-| Skips rows outside the requested date window                | Result has only in-range rows          |
+**Response contract:**
 
-### `tests/prices/yahoo-crumb.test.js` (node:test)
+```json
+{
+  "portfolio_id": "string",
+  "freshness_state": "fresh | stale | expired | unknown",
+  "confidence_state": "high | medium | low | degraded | unknown",
+  "degraded_reasons": ["missing_price"],
+  "unresolved_exception_count": 0,
+  "action_count": 0,
+  "last_reviewed_at": "ISO-8601 | null",
+  "as_of": "ISO-8601"
+}
+```
 
-| Test                                               | Assertion                                           |
-| -------------------------------------------------- | --------------------------------------------------- |
-| Fetches crumb before first chart request           | crumb appended to chart URL                         |
-| Crumb is reused within TTL                         | crumb endpoint hit exactly once for two chart calls |
-| `Cookie` header forwarded to chart request         | `Cookie` header present in chart fetch              |
-| On 401: invalidates crumb, refreshes, retries once | Chart fetch called twice; second succeeds           |
-| On 403: same retry behaviour as 401                | Chart fetch called twice; second succeeds           |
-| Crumb refresh failure propagates cleanly           | Throws, does not hang                               |
+**Logic:**
 
-### `tests/prices/dual-provider-fallback.test.js` (node:test)
+- `freshness_state`: derived from the oldest price timestamp in open holdings
+  - all prices < 1 trading day old → `fresh`
+  - any price 1–3 trading days old → `stale`
+  - any price > 3 trading days old → `expired`
+  - no prices → `unknown`
+- `confidence_state`:
+  - `high` if freshness is fresh and no degraded reasons
+  - `medium` if stale or 1 degraded reason
+  - `low` if expired or 2+ degraded reasons
+  - `degraded` if confidence cannot be computed
+- `action_count`: count of HIGH urgency inbox items
+- `unresolved_exception_count`: initially 0 (placeholder until SR-040 exists)
 
-| Test                                                | Assertion                                       |
-| --------------------------------------------------- | ----------------------------------------------- |
-| Primary success: fallback never called              | `fallback.calls === 0`                          |
-| Primary HTML error triggers fallback                | `fallback.calls === 1`; result is fallback data |
-| Both providers fail: throws last error              | Throws `lastError`                              |
-| Health-monitor-marked unhealthy provider is skipped | Unhealthy provider is not attempted             |
+**Verification:**
 
-### `tests/e2e/prices-smoke.spec.ts` (Playwright)
-
-| Test                                                 | Assertion                                    |
-| ---------------------------------------------------- | -------------------------------------------- |
-| App loads and shows a price for SPY                  | PricesTab row for SPY contains a number > 0  |
-| Manual refresh returns at least one non-error status | Status badge is not `error` or `unavailable` |
-
----
-
-## Verification Table
-
-| Goal                        | Automated check                                         | Manual check                                                         |
-| --------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
-| G1 — eod_fresh prices       | `tests/prices/stooq-provider.test.js` passes            | `GET /api/prices/bulk?symbols=SPY&latest=1` returns non-empty series |
-| G2 — Fallback chain         | `tests/prices/dual-provider-fallback.test.js` passes    | Server log shows `price_provider_fallback` when Stooq mocked to fail |
-| G3 — Yahoo crumb            | `tests/prices/yahoo-crumb.test.js` passes               | `YahooPriceProvider` returns rows without 401 in fresh environment   |
-| G4 — Stooq UA + HTML reject | `tests/prices/stooq-provider.test.js` (UA + HTML tests) | Stooq response is CSV, not HTML                                      |
-| G5 — No regression          | `npm test` all green                                    | —                                                                    |
+- `GET /api/portfolio/test-id/health` returns 200 with all required fields present
+- With fresh prices: `freshness_state === 'fresh'` and `confidence_state === 'high'`
+- With stale prices (>1 day): `freshness_state === 'stale'`
+- With no prices in holdings: `freshness_state === 'unknown'`
 
 ---
 
-## Invariants (must not be broken)
+## 7. Trust Metadata in Price/Analytics Responses (SR-003)
 
-- `PRICE_PROVIDER_FALLBACK=none` must never appear in `.env` or `.env.example` after this fix.
-- `StooqPriceProvider` must always send a `User-Agent` header.
-- `YahooPriceProvider` must never call the crumb endpoint more than once per 30 minutes per instance, and must retry on 401/403 exactly once.
-- Crumb cache lives on the instance, not at module level.
-- No new npm dependencies are introduced.
+**Price bulk endpoint** — extend each symbol's `symbolMeta` with trust fields:
 
-## Confirmed Context
+```json
+"SPY": {
+  "status": "eod_fresh",
+  "trust": {
+    "source_type": "eod",
+    "freshness_state": "fresh",
+    "confidence_state": "high",
+    "as_of": "2026-04-22T16:00:00Z"
+  }
+}
+```
 
-- The app is desktop-first: Electron handles secure session tokens for the `desktop` portfolio.
-- During standalone development without Electron (`npm run dev` and `npm run server`), the API lacks an injected session token.
-- The `sessionAuth` middleware strictly applies a 500 error when no token is present, even in development mode.
-- This causes the renderer to fail the portfolio load with the message "Desktop session credentials are missing", resulting in an empty dashboard (no transactions, no NAV).
-- The underlying SQLite database correctly contains all transactions for the portfolio, and data processing (`holdingsLedger`) executes cleanly in under ~20ms.
+**Analytics endpoint** — add top-level `trust` field to ROI/performance response.
 
-## Root Cause
+**Source type mapping** from existing price status:
+| Existing status | source_type | freshness_state | confidence_state |
+|---|---|---|---|
+| `live` | `live` | `fresh` | `high` |
+| `eod_fresh` | `eod` | `fresh` | `high` |
+| `cache_fresh` | `cached` | `stale` | `medium` |
+| `degraded` | `cached` | `stale` | `low` |
+| `unavailable` | `unknown` | `unknown` | `degraded` |
 
-The `sessionAuth.js` middleware enforces the presence of a `PORTFOLIO_SESSION_TOKEN` universally. When running independently of Electron, the token is undefined. The backend responds with `500 SESSION_AUTH_MISCONFIGURED` to all `/api/portfolio/desktop` reads. The frontend catches this, displays a toast, and aborts the data load.
+**Verification:**
 
-## Goals
+- Price bulk response includes `trust.source_type` per symbol
+- Analytics response includes top-level `trust` object
+- Status mapping is consistent with the table above
 
-### G1. Allow App Development Execution
+---
 
-The standalone development server (`NODE_ENV === 'development'`) must bypass the `sessionAuth` requirement if no token is injected.
+## 8. Trust Badge UI Components (SR-004)
 
-### G2. Fix Frontend Data Loading
+**Components** (`src/components/shared/`):
 
-Resolving the 500 error will allow the frontend to successfully retrieve and process the portfolio transactions in the standalone browser experience.
+### `TrustBadge.jsx`
 
-### G3. Ensure Security in Production
+Props: `{ trust: TrustMetadata, compact?: boolean }`
 
-The backend must continue to enforce session token constraints identically outside of development environments.
+Visual contract:
 
-## Implementation Plan
+- `high` / `fresh`: green dot + "Live" or "EOD" label
+- `medium` / `stale`: amber dot + "Stale" label
+- `low` / `degraded`: red dot + reason label
+- `unknown`: grey dot + "No data" label
 
-### I1. Middleware Bypass for Development
+### `TrustTooltip.jsx`
 
-Modify `server/middleware/sessionAuth.js` so that if no `sessionToken` is configured AND `process.env.NODE_ENV === "development"`, it sets `req.portfolioAuth = { mode: "development_bypass" }` and proceeds via `next()` rather than generating an error.
+Props: `{ trust: TrustMetadata, children: ReactNode }`
 
-### I2. Explicit Environment Token Configuration
+- Wraps children in a tooltip showing source, freshness, as_of, explanation
 
-Update `.env` and `.env.example` to document `PORTFOLIO_SESSION_TOKEN=dev-secret-token` as a manual override, ensuring developers are aware of how development bypass functions.
+**Verification:**
 
-## Verification
+- `<TrustBadge trust={{ source_type: 'live', freshness_state: 'fresh', confidence_state: 'high' }} />` renders green
+- `<TrustBadge trust={{ confidence_state: 'degraded', degraded_reason: 'missing_price' }} />` renders red
+- Both have `aria-label` attributes
 
-### V1. Standalone Dev Flow
+---
 
-- `npm run dev` and `npm run server` successfully load the `desktop` portfolio data without 500 errors.
+## 9. Trust on Dashboard Primary Metrics (SR-005)
 
-### V2. Electron Flow (Preserved)
+- NAV card: add `TrustBadge` using ROI endpoint's `trust` field (behind `redesign.trustBadges` flag)
+- ROI card: add `TrustBadge` using analytics `trust` field
+- When flag is off: no trust UI shown (backward compatible)
 
-- The Electron App continues its normal unlock behavior dynamically injecting runtime session configurations.
-- `npm run test:e2e` and `npm test` remain green.
+**Verification:**
 
-## Non-Goals
+- With `redesign.trustBadges = true`: NAV card contains a TrustBadge element
+- With `redesign.trustBadges = false`: no TrustBadge rendered
+- Existing dashboard tests still pass
 
-- Changing the frontend UI components handling the data processing.
-- Changing the SQLite retrieval mechanisms.
+---
+
+## 10. Inbox Rationale Cards (SR-006)
+
+**Backend:** Extend `InboxItem` with `rationale?: string` field describing why the item exists.
+
+**Frontend:** Show rationale text below description in inbox card when present.
+
+**Verification:**
+
+- THRESHOLD_TRIGGERED items have non-empty `rationale` in API response
+- Rationale text is visible in Inbox UI when items exist
+
+---
+
+## 11. Review-First Navigation Model (SR-020)
+
+**Flag behavior:**
+
+- `redesign.todayShell = false`: all existing tabs, no change
+- `redesign.todayShell = true`: `Today` tab added as first tab rendering `TodayTab`
+
+**Verification:**
+
+- With flag off: TabBar renders unchanged
+- With flag on: `Today` tab is first and renders `TodayTab` component
+- All legacy tabs remain accessible even with flag on
+
+---
+
+## 12. Today Shell (SR-021)
+
+**Component:** `src/components/review/TodayTab.jsx`
+
+**Structure:**
+
+```
+TodayTab
+├── PortfolioHealthBar        (health endpoint)
+├── NeedsAttentionSection     (SR-022)
+├── RecentChangesSection      (SR-023)
+└── DataBlockersSection       (SR-024)
+```
+
+**States that must be handled:** loading, healthy, needs_attention, blocked, error.
+
+**Verification:**
+
+- Today tab renders without errors in all five states
+- NeedsAttentionSection shows "You're up to date" when inbox is empty
+- DataBlockersSection shows degraded reasons from health endpoint
+
+---
+
+## 13. NeedsAttentionSection (SR-022)
+
+Descriptive empty state required: "No action needed — your portfolio is on track."
+Items sorted by urgency (HIGH first).
+
+---
+
+## 14. RecentChangesSection (SR-023)
+
+Compares current NAV snapshot to localStorage-persisted previous snapshot.
+Descriptive empty state: "No meaningful changes since your last review."
+
+---
+
+## 15. DataBlockersSection (SR-024)
+
+Shows holdings with missing/stale prices and degraded health reasons.
+Empty state: "All data is current."
+
+---
+
+## 16. PortfolioManagerApp.jsx Decomposition (SR-080)
+
+Extract to:
+
+- `src/hooks/usePortfolioData.js` — all data-fetching state + effects
+- `src/hooks/usePortfolioActions.js` — all mutation handlers
+
+**Goal:** File shrinks from 1,788 lines to < 800 lines.
+**Constraint:** Zero behavior change. All existing tests pass.
+
+---
+
+## 17. Portfolio Routes Decomposition (SR-082)
+
+Split `server/routes/portfolio.ts` into:
+
+- `server/routes/portfolioCore.ts` — GET/PATCH portfolio, holdings, transactions
+- `server/routes/portfolioInbox.ts` — inbox compute + reviews
+- `server/routes/portfolioHealth.ts` — health summary
+- `server/routes/portfolioLedger.ts` — import sessions, exceptions
+
+---
+
+## 18. Ledger State Model (SR-040/041)
+
+Types in `server/types/import.ts`:
+
+- `ImportSession` with status enum: pending | previewing | applying | applied | failed | cancelled
+- `LedgerException` with type enum: duplicate | ambiguous | unsupported | missing_price | missing_field
+
+---
+
+## 19. Import Session Endpoints (SR-042)
+
+- `GET /api/portfolio/:id/import-sessions`
+- `GET /api/portfolio/:id/import-sessions/:sessionId/exceptions`
+- `PATCH /api/portfolio/:id/import-sessions/:sessionId/exceptions/:exceptionId`
+
+---
+
+## 20. Import Preview Flow (SR-043)
+
+- `POST /api/portfolio/:id/import/preview` → non-mutating, returns delta
+- `POST /api/portfolio/:id/import/apply` → idempotent apply, returns delta summary
+
+---
+
+## 21. Ledger Operations Center UI (SR-044)
+
+Components in `src/components/ledger/`:
+
+- `LedgerOpsCenter.jsx`, `ImportSessionList.jsx`, `ExceptionQueue.jsx`, `ImportPreviewModal.jsx`
+  All behind `redesign.ledgerOpsCenter` flag.
+
+---
+
+## 22. Portfolio Policy Schema (SR-060)
+
+`shared/policy.ts` with `PortfolioPolicy` interface and `DEFAULT_POLICY` opinionated defaults.
+
+---
+
+## 23. Policy Evaluation Service (SR-061)
+
+`server/services/policyEvaluator.ts` — pure function producing `PolicyRecommendation[]` with type, severity, rationale, evidence.
+
+---
+
+## 24. Inbox as Recommendation Queue (SR-062)
+
+- Inbox items get `source: 'threshold' | 'policy'` field
+- New lifecycle states: active | acknowledged | snoozed | dismissed | resolved
+- Policy items merged behind `redesign.policyGuidance` flag
+
+---
+
+## 25. Verification Summary
+
+| SR         | Verification method                                           |
+| ---------- | ------------------------------------------------------------- |
+| SR-007     | Unit test translate(); Playwright snapshot of empty dashboard |
+| SR-100     | Unit test useFeatureFlag(); localStorage toggle test          |
+| SR-001     | TypeScript compilation; validator unit tests                  |
+| SR-002     | API integration test; freshness logic unit tests              |
+| SR-003     | API response assertion in tests                               |
+| SR-004     | Component snapshot; aria-label check                          |
+| SR-005     | Component test with flag mocked on/off                        |
+| SR-006     | API test for rationale field; component render test           |
+| SR-020     | Component test for flag-gated tab                             |
+| SR-021     | Component tests for all 5 states; Playwright smoke            |
+| SR-022–024 | Component tests: empty state + data state                     |
+| SR-080     | `wc -l` check; existing tests pass                            |
+| SR-082     | Module existence check; existing tests pass                   |
+| SR-040/041 | TypeScript compilation                                        |
+| SR-042     | API integration tests                                         |
+| SR-043     | Integration test: preview is non-mutating                     |
+| SR-044     | Component render tests                                        |
+| SR-060     | Unit tests for policy validator                               |
+| SR-061     | Pure function unit tests                                      |
+| SR-062     | Integration test: threshold + policy items merged             |
+
+---
+
+## 26. Non-Goals
+
+- AI chat assistant, brokerage execution, mobile apps, social features, more charts
+
+---
+
+## 27. Quality Gates
+
+1. `npm test` passes with no regressions
+2. `npm run lint` zero warnings
+3. TypeScript compilation clean
+4. No raw i18n keys on primary surfaces
+5. Trust metadata present on every new metric-producing API endpoint
+6. All new code has test coverage

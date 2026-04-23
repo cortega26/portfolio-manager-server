@@ -6,6 +6,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import type { FastifyPluginOptions } from 'fastify';
 import { computeTradingDayAge } from '../utils/calendar.js';
 import { isoDateSchema, tickerSchema } from './_schemas.js';
+import { buildTrustFromPriceStatus } from '../../shared/trustUtils.js';
 
 const MAX_BULK_PRICE_SYMBOLS = 64;
 
@@ -181,9 +182,11 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
           const resolution = result.resolution as Record<string, unknown> | null | undefined;
           const resolutionStatus = typeof resolution?.['status'] === 'string' ? resolution['status'] : '';
 
-          symbolMeta[symbol] = resolution ?? {
-            status: cacheHit ? 'cache_fresh' : 'eod_fresh',
-            source: cacheHit ? 'cache' : 'historical',
+          const metaStatus = resolutionStatus || (cacheHit ? 'cache_fresh' : 'eod_fresh');
+          const metaAsOf = typeof resolution?.['as_of'] === 'string' ? resolution['as_of'] as string : undefined;
+          symbolMeta[symbol] = {
+            ...(resolution ?? { status: metaStatus, source: cacheHit ? 'cache' : 'historical' }),
+            trust: buildTrustFromPriceStatus(metaStatus, metaAsOf),
           };
 
           // market_closed is expected when the exchange is not trading and no
@@ -216,6 +219,7 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
               status: 'unavailable',
               source: resolution?.['source'] ?? 'none',
               warnings: ['PERSISTED_CLOSE_STALE_REJECTED'],
+              trust: buildTrustFromPriceStatus('unavailable', undefined),
             };
           } else {
             series[symbol] = prices.map((p) => ({
@@ -230,7 +234,7 @@ const pricesRoutes: FastifyPluginAsyncZod<PricesRouteContext> = async (app, opts
         } else {
           const { symbol, error } = entry as { symbol: string; error: unknown };
           const err = error as { code?: string; status?: number; statusCode?: number; message?: string };
-          symbolMeta[symbol] = { status: 'unavailable', source: 'none' };
+          symbolMeta[symbol] = { status: 'unavailable', source: 'none', trust: buildTrustFromPriceStatus('unavailable', undefined) };
           errors[symbol] = {
             code: err?.code ?? 'PRICE_FETCH_FAILED',
             status: err?.status ?? err?.statusCode ?? 502,

@@ -1,51 +1,219 @@
-# Todo — Price Fetch Fix
+# Todo — Strategic Redesign
 
-## Phase 0 — Spec & Scaffold
+> Spec: `spec.md` | Plan: `docs/implementation/portfolio-manager-strategic-redesign-plan.md`
+> Updated as work progresses. Check off items immediately when done.
 
-- [x] Write `spec.md` with problem statement, goals, implementation details, invariants, verification table
+---
+
+## Phase 0 — Scaffold (M1 Foundation)
+
+- [x] Write `spec.md` with goals, implementation details, verification criteria
 - [x] Overwrite `todo.md` with this checklist
-- [ ] Create `tests/prices/` directory and three test files
-- [ ] Add `tests/prices` to `TEST_DIRS` in `tools/run-tests.mjs`
+- [ ] Create `tests/redesign/` test files (SR-100, SR-001, SR-007, SR-002, SR-004, SR-021)
+  - [x] Present: SR-100, SR-001, SR-007, SR-002, SR-004
+  - [ ] SR-021 currently lives in `tests/e2e/today-shell.spec.ts`, not `tests/redesign/`
+- [x] Register `tests/redesign` in `tools/run-tests.mjs`
 
-## Phase 1 — Config
+---
 
-- [ ] `.env`: change `PRICE_PROVIDER_FALLBACK=none` → `PRICE_PROVIDER_FALLBACK=yahoo`
-- [ ] `.env.example`: same change
+## Phase 1 — M1: Foundation
 
-## Phase 2 — Stooq hardening
+### SR-007 — Fix i18n defaultValue (P0, S)
 
-- [ ] `StooqPriceProvider`: add `User-Agent` header to `fetch` options
-- [ ] `StooqPriceProvider`: detect HTML response via `Content-Type` header
-- [ ] `StooqPriceProvider`: detect HTML response via body first-line check (`starts with <`)
-- [ ] Verify: existing Stooq tests in `server/__tests__/prices.test.js` still pass
+- [x] `src/i18n/I18nProvider.jsx`: destructure `defaultValue` from vars before interpolation
+- [x] `src/i18n/translations.js`: add `dashboard.zone2.empty`, `dashboard.zone2.emptyAria`, `dashboard.charts.title`
+- [x] Verify: unit test in `tests/redesign/i18n.test.js` passes
 
-## Phase 3 — Yahoo Finance crumb auth
+### SR-100 — Feature flag system (P0, S)
 
-- [ ] `YahooPriceProvider`: add `_crumbCache` and `_crumbTtlMs` instance fields
-- [ ] `YahooPriceProvider`: implement `_refreshCrumb()` method
-  - [ ] GET `https://finance.yahoo.com` → capture `Set-Cookie` headers
-  - [ ] GET `https://query1.finance.yahoo.com/v1/test/getcrumb` → plain-text crumb
-  - [ ] Validate crumb length ≥ 4
-  - [ ] Store `{ crumb, cookies, fetchedAt }` on instance
-- [ ] `YahooPriceProvider.getDailyAdjustedClose()`: lazy crumb fetch before chart request
-- [ ] `YahooPriceProvider.getDailyAdjustedClose()`: append `crumb` param + `Cookie` header
-- [ ] `YahooPriceProvider.getDailyAdjustedClose()`: on 401/403 → invalidate + refresh + retry once
-- [ ] Verify: existing Yahoo tests in `server/__tests__/prices.test.js` still pass
+- [x] Create `src/lib/featureFlags.js` with flag registry and localStorage reader
+- [x] Create `src/hooks/useFeatureFlag.js` hook
+- [x] Verify: unit test in `tests/redesign/featureFlags.test.js` passes
 
-## Phase 4 — Tests
+### SR-001 — Trust metadata schema (P0, M)
 
-- [ ] `tests/prices/stooq-provider.test.js` — all 6 cases (see spec.md)
-- [ ] `tests/prices/yahoo-crumb.test.js` — all 6 cases (see spec.md)
-- [ ] `tests/prices/dual-provider-fallback.test.js` — all 4 cases (see spec.md)
-- [ ] `tests/e2e/prices-smoke.spec.ts` — Playwright smoke for prices
+- [ ] Create `shared/trust.ts` with SourceType, FreshnessState, ConfidenceState, DegradedReason, TrustMetadata
+  - [x] `shared/trust.ts` exists
+  - [ ] Still does not exactly match spec enum surface (`eod_estimated`, `manual`, `expired`, explicit `DegradedReason`)
+- [ ] Create `shared/trustUtils.ts` with helper: `buildTrustFromPriceStatus(status, asOf)`
+  - [x] Helper exists as `shared/trustUtils.js`
+  - [ ] Decide whether to keep JS or convert to TS per spec
+- [x] Verify: TypeScript compiles; unit test in `tests/redesign/trust.test.js` passes
 
-## Phase 5 — Verification
+---
 
-- [ ] `npm run test:node` — all node:test suites green (including new tests/prices/)
-- [ ] `npm test` (vitest) — no regressions in src/**tests**
-- [ ] Manual: `GET /api/prices/bulk?symbols=SPY&latest=1` returns non-empty series
-- [ ] Manual: Server log shows `price_provider_fallback` when Stooq mocked to fail
+## Phase 2 — M1/M2: Trust Layer
 
-## Phase 6 — Review
+### SR-002 — Portfolio health summary endpoint (P0, M)
 
-- [ ] Sub-agent: "review spec.md and current implementation for gaps" → loop on feedback
+- [x] Create `server/routes/portfolioHealth.ts` with `GET /api/portfolio/:id/health`
+- [x] Register route in Fastify app
+- [ ] Implement freshness logic from holdings + prices
+  - [x] Basic snapshot-based trust exists
+  - [ ] Spec logic still needs exact fresh/stale/expired trading-day behavior
+- [x] Implement action_count from inbox compute
+- [x] Verify: API integration test in `tests/redesign/portfolioHealth.test.js` passes
+
+### SR-003 — Trust metadata in price/analytics responses (P0, L)
+
+- [x] `server/routes/prices.ts`: add `trust` field to each symbol in `symbolMeta`
+- [x] `server/routes/analytics.ts` (or ROI endpoint): add top-level `trust` field
+- [ ] Verify: response assertions in tests pass
+
+### SR-004 — Trust badge UI components (P0, M)
+
+- [x] Create `src/components/shared/TrustBadge.jsx`
+- [x] Create `src/components/shared/TrustTooltip.jsx`
+- [x] Verify: component tests in `tests/redesign/TrustBadge.test.tsx` pass
+
+### SR-005 — Trust badges on dashboard (P0, M)
+
+- [x] `src/components/DashboardTab.jsx` or `DashboardZone1.jsx`: add TrustBadge behind `redesign.trustBadges` flag
+- [ ] Verify: existing dashboard tests still pass; flag-gated behavior tested
+
+### SR-006 — Inbox rationale cards (P0, M)
+
+- [x] `server/finance/inboxComputer.ts`: add `rationale` field to each InboxItem
+- [x] `src/components/InboxTab.jsx`: render rationale text when present
+- [x] Verify: API test confirms rationale exists; component test confirms render
+
+---
+
+## Phase 3 — M2: Review Workflow
+
+### SR-020 — Review-first navigation model (P0, M)
+
+- [x] Update `src/components/TabBar.jsx` to conditionally include `Today` tab
+- [x] Update `src/PortfolioManagerApp.jsx` to render `TodayTab` when `redesign.todayShell` is on
+- [x] Verify: flag-off renders unchanged; flag-on adds Today tab
+
+### SR-021 — Today shell (P0, XL)
+
+- [x] Create `src/components/review/TodayTab.jsx`
+- [x] Create `src/components/review/PortfolioHealthBar.jsx` (uses health endpoint)
+- [x] Wire all four sections into TodayTab
+- [ ] Handle loading/healthy/needs_attention/blocked/error states
+  - [x] Loading, empty and error states exist in `PortfolioHealthBar`
+  - [ ] Today-level healthy/needs_attention/blocked state model still needs completion
+- [x] Verify: Playwright e2e test in `tests/e2e/today-shell.spec.ts` passes
+
+### SR-022 — NeedsAttentionSection (P0, M)
+
+- [x] Create `src/components/review/NeedsAttentionSection.jsx`
+- [x] Descriptive empty state: "No action needed — your portfolio is on track."
+- [ ] Show top 5 HIGH urgency items with rationale
+- [ ] Verify: component tests for empty + populated states
+
+### SR-023 — RecentChangesSection (P1, M)
+
+- [x] Create `src/components/review/RecentChangesSection.jsx`
+- [ ] Read/write NAV snapshot to localStorage on each load
+- [x] Descriptive empty state: "No meaningful changes since your last review."
+- [ ] Verify: component tests with mock NAV data
+
+### SR-024 — DataBlockersSection (P1, M)
+
+- [x] Create `src/components/review/DataBlockersSection.jsx`
+- [ ] Populate from health endpoint `degraded_reasons`
+- [x] Empty state: "All data is current."
+- [ ] Verify: component tests
+
+---
+
+## Phase 4 — M2/M3: Architecture
+
+### SR-080 — Carve PortfolioManagerApp.jsx (P0, XL)
+
+- [x] Create `src/hooks/usePortfolioData.js` — extract all data-fetching state + effects
+- [x] Create `src/hooks/usePortfolioActions.js` — extract all mutation handlers
+- [ ] Verify: `wc -l src/PortfolioManagerApp.jsx` < 800; all existing tests pass
+  - [ ] Current line count: 1803, extraction not integrated enough to meet the goal
+
+### SR-082 — Split portfolio.ts routes (P0, XL)
+
+- [ ] Create `server/routes/portfolioCore.ts`
+- [ ] Create `server/routes/portfolioInbox.ts`
+- [x] `server/routes/portfolioHealth.ts` (already created in SR-002)
+- [ ] Update `portfolio.ts` to become thin router
+- [ ] Verify: all portfolio tests pass; each sub-module < 250 lines
+
+---
+
+## Phase 5 — M3: Ledger Operations
+
+### SR-040/041 — Import session + exception types (P0, M)
+
+- [ ] Create `server/types/import.ts` with ImportSession, LedgerException, status enums
+- [ ] Verify: TypeScript compilation clean
+
+### SR-042 — Import session API endpoints (P0, L)
+
+- [ ] Create `server/routes/portfolioLedger.ts`
+  - [ ] `GET /api/portfolio/:id/import-sessions`
+  - [ ] `GET /api/portfolio/:id/import-sessions/:sessionId/exceptions`
+  - [ ] `PATCH /api/portfolio/:id/import-sessions/:sessionId/exceptions/:exceptionId`
+- [ ] Verify: API integration tests pass
+
+### SR-043 — Import preview flow (P0, XL)
+
+- [ ] `POST /api/portfolio/:id/import/preview` — non-mutating, returns delta
+- [ ] `POST /api/portfolio/:id/import/apply` — idempotent apply
+- [ ] Verify: preview test confirms no transactions added; apply tested once
+
+### SR-044 — Ledger operations center UI (P0, XL)
+
+- [ ] Create `src/components/ledger/LedgerOpsCenter.jsx`
+- [ ] Create `src/components/ledger/ImportSessionList.jsx`
+- [ ] Create `src/components/ledger/ExceptionQueue.jsx`
+- [ ] Create `src/components/ledger/ImportPreviewModal.jsx`
+- [ ] All behind `redesign.ledgerOpsCenter` flag
+- [ ] Verify: component render tests; flag-gated behavior
+
+---
+
+## Phase 6 — M4: Policy Guidance
+
+### SR-060 — Portfolio policy schema (P0, L)
+
+- [ ] Create `shared/policy.ts` with PortfolioPolicy interface and DEFAULT_POLICY
+  - [x] Initial policy model exists as `shared/policy.js`
+  - [ ] Decide whether to keep JS or convert to TS per spec
+- [x] Verify: TypeScript compiles; validator unit tests pass
+
+### SR-061 — Policy evaluation service (P0, XL)
+
+- [ ] Create `server/services/policyEvaluator.ts`
+  - [x] Pure evaluator currently exists in `shared/policy.js`
+  - [ ] Move/split to the specified backend service if this remains the chosen architecture
+- [x] Implement concentration check
+- [x] Implement allocation drift check
+- [x] Implement cash range check
+- [ ] Implement review cadence check
+- [ ] Verify: pure function unit tests for each rule
+  - [x] Tests exist for concentration, allocation drift and cash range
+  - [ ] Review cadence test missing
+
+### SR-062 — Inbox as recommendation queue (P0, L)
+
+- [ ] Extend `InboxItem` with `source: 'threshold' | 'policy'` field
+- [ ] Add lifecycle states: acknowledged | snoozed | dismissed | resolved
+- [ ] Merge policy items into inbox when `redesign.policyGuidance` is on
+- [ ] Verify: integration test confirms threshold + policy items merged
+
+### SR-063 — Policy setup UI (P1, L)
+
+- [ ] Create policy configuration section in `src/components/SettingsTab.jsx`
+- [ ] Default policy pre-populated (no manual config required)
+- [ ] Verify: renders without error; saving policy persists to backend
+
+---
+
+## Phase 7 — M5: Consolidation & Verification
+
+- [ ] Run `npm test` — fix any regressions
+- [ ] Run `npm run lint` — fix any warnings
+- [ ] Run TypeScript compilation — fix any type errors
+- [ ] Playwright e2e: today-shell.spec.ts passes
+- [ ] Verify no raw i18n keys appear in primary surfaces
+- [ ] Check hot-spot line counts: PortfolioManagerApp.jsx < 800, portfolio.ts retired
+- [ ] Sub-agent review: "review spec.md and the current implementation for gaps"
