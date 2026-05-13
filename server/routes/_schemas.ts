@@ -8,19 +8,19 @@ const PORTFOLIO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const SYMBOL_PATTERN = /^[A-Za-z0-9._-]{1,32}$/;
 
 const sanitize = <T extends z.ZodTypeAny>(schema: T): T =>
-  (z.preprocess((v) => (typeof v === 'string' ? v.trim() : v), schema) as unknown) as T;
+  z.preprocess((v) => (typeof v === 'string' ? v.trim() : v), schema) as unknown as T;
 
 export const isoDateSchema = sanitize(z.string().regex(ISO_DATE_REGEX, 'Must be YYYY-MM-DD'));
 
 export const portfolioIdSchema = sanitize(
-  z.string().regex(PORTFOLIO_ID_PATTERN, 'Invalid portfolio ID format'),
+  z.string().regex(PORTFOLIO_ID_PATTERN, 'Invalid portfolio ID format')
 );
 
 export const tickerSchema = sanitize(
   z
     .string()
     .regex(SYMBOL_PATTERN, 'Invalid ticker format')
-    .transform((v) => v.toUpperCase()),
+    .transform((v) => v.toUpperCase())
 );
 
 export const paginationSchema = z.object({

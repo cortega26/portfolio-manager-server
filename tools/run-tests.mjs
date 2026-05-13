@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { readFile, readdir } from 'node:fs/promises';
+import { mkdir, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +18,7 @@ const SETUP_MODULE = path.join(PROJECT_ROOT, 'server', '__tests__', 'setup', 'gl
 const DEFAULT_SEED = 20251006;
 
 function parseArgs(argv) {
-  const options = { repeat: 1, coverage: true, ci: false };
+  const options = { repeat: 1, coverage: true, nativeCoverage: false, ci: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--ci') {
@@ -27,6 +27,11 @@ function parseArgs(argv) {
     }
     if (arg === '--no-coverage') {
       options.coverage = false;
+      continue;
+    }
+    if (arg === '--native-coverage') {
+      options.coverage = true;
+      options.nativeCoverage = true;
       continue;
     }
     if (arg === '--repeat') {
@@ -168,7 +173,19 @@ async function main() {
     const nodeArgs = ['--import', 'tsx/esm', '--import', setupSpecifier, '--test', ...order];
     let command = process.execPath;
     let args = nodeArgs;
-    if (options.coverage) {
+    if (options.nativeCoverage) {
+      const coverageDir = path.join(PROJECT_ROOT, 'coverage', 'server');
+      await mkdir(coverageDir, { recursive: true });
+      const lcovPath = path.join(coverageDir, 'lcov.info');
+      args = [
+        '--experimental-test-coverage',
+        `--test-reporter=lcov`,
+        `--test-reporter-destination=${lcovPath}`,
+        '--test-reporter=spec',
+        '--test-reporter-destination=stdout',
+        ...nodeArgs,
+      ];
+    } else if (options.coverage) {
       // Invoke c8 via the node executable to avoid executing
       // platform-specific wrappers directly.
       const c8Js = resolveC8Bin();

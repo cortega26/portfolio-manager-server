@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  buildElectronDevCsp,
-  getElectronDevConnectSrc,
-} from '../../scripts/lib/electronDevCsp.js';
+import { buildElectronDevCsp, getElectronDevConnectSrc } from '../../scripts/lib/electronDevCsp.js';
 
 function parseCsp(csp) {
   const directives = new Map();

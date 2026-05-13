@@ -15,11 +15,11 @@
 import PropTypes from 'prop-types';
 
 const CONFIDENCE_STYLES = {
-  high: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-  medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+  high: 'bg-brand-100 text-brand-800 dark:bg-brand-900/40 dark:text-brand-300',
+  medium: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
   low: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-  degraded: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-  unknown: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+  degraded: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',
+  unknown: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
 };
 
 const FRESHNESS_LABELS = {

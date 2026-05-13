@@ -8,7 +8,9 @@ function throwOnConsole(method) {
   const original = console[method].bind(console);
   console[method] = (...args) => {
     original(...args);
-    const rendered = args.map((value) => (typeof value === 'string' ? value : inspect(value))).join(' ');
+    const rendered = args
+      .map((value) => (typeof value === 'string' ? value : inspect(value)))
+      .join(' ');
     throw new Error(`Console ${method}: ${rendered}`);
   };
 }
@@ -22,7 +24,9 @@ function isProjectWarning(warning) {
   if (!warning?.stack) {
     return false;
   }
-  return PROJECT_SEGMENTS.some((segment) => warning.stack.includes(`${path.sep}${segment}${path.sep}`));
+  return PROJECT_SEGMENTS.some((segment) =>
+    warning.stack.includes(`${path.sep}${segment}${path.sep}`)
+  );
 }
 
 process.on('warning', (warning) => {

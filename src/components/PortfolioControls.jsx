@@ -160,26 +160,26 @@ export default function PortfolioControls({
   }
 
   return (
-    <div className="rounded-xl bg-white p-4 shadow dark:bg-slate-900">
+    <div className="card-base p-4">
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col">
           <label
             htmlFor="portfolioId"
-            className="text-sm font-medium text-slate-600 dark:text-slate-300"
+            className="text-sm font-medium text-surface-600 dark:text-surface-400"
           >
             {t('portfolioControls.id')}
           </label>
           <input
             id="portfolioId"
             type="text"
-            className="mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="mt-1 w-48 rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm text-surface-900 shadow-sm transition-colors placeholder:text-surface-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-950 dark:text-surface-100 dark:placeholder:text-surface-500"
             value={portfolioId}
             onChange={(event) => onPortfolioIdChange(event.target.value)}
             placeholder={t('portfolioControls.id.placeholder')}
           />
         </div>
-        <div className="max-w-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
-          <p className="font-semibold text-slate-700 dark:text-slate-100">
+        <div className="max-w-xs rounded-lg border border-surface-200 bg-surface-50/80 px-3 py-2 text-xs text-surface-600 dark:border-surface-700 dark:bg-surface-800/50 dark:text-surface-400">
+          <p className="font-semibold text-surface-700 dark:text-surface-200">
             {t('portfolioControls.session.title')}
           </p>
           <p className="mt-1">{t('portfolioControls.session.description')}</p>
@@ -188,14 +188,14 @@ export default function PortfolioControls({
           <button
             type="button"
             onClick={() => handle(onSave)}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+            className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-brand-700 hover:shadow-tab focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             {t('portfolioControls.save')}
           </button>
           <button
             type="button"
             onClick={() => handle(onLoad)}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+            className="inline-flex items-center rounded-lg border border-surface-200 bg-white px-4 py-2 text-sm font-semibold text-surface-700 shadow-sm transition-all duration-150 hover:bg-surface-50 hover:shadow-tab focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200 dark:hover:bg-surface-800"
           >
             {t('portfolioControls.load')}
           </button>
@@ -205,14 +205,16 @@ export default function PortfolioControls({
         <div
           className={`mt-3 text-sm ${
             status.type === 'success'
-              ? 'text-emerald-600 dark:text-emerald-400'
+              ? 'text-brand-600 dark:text-brand-400'
               : 'text-rose-600 dark:text-rose-400'
           }`}
           role="status"
         >
           <p>{status.message}</p>
           {status.requestId && (
-            <span className="mt-1 block font-mono text-xs">Request ID: {status.requestId}</span>
+            <span className="mt-1 block font-mono text-xs text-surface-500">
+              Request ID: {status.requestId}
+            </span>
           )}
         </div>
       )}

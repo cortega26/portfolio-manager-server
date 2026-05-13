@@ -171,7 +171,7 @@ npm install -D @types/node tsx
 | `electron/main.cjs`            | IPC — interfaz con startServer no cambia            |
 | `electron/preload.cjs`         | Bridge — no conoce Express ni Fastify               |
 | `electron/runtimeConfig.js`    | Config de runtime Electron                          |
-| `shared/`                      | Contratos compartidos renderer↔backend             |
+| `shared/`                      | Contratos compartidos renderer↔backend              |
 | `src/`                         | Frontend React — fuera de scope                     |
 | `server/finance/*.js` → `*.ts` | Lógica financiera — solo se tipan, no se reescriben |
 | `server/migrations/index.js`   | Schema SQLite — no tiene coupling HTTP              |

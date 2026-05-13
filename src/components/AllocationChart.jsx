@@ -4,8 +4,8 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recha
 import { useI18n } from '../i18n/I18nProvider.jsx';
 
 const SLICE_COLORS = [
+  '#10b981', // brand/green
   '#6366f1', // indigo
-  '#22c55e', // green
   '#f59e0b', // amber
   '#3b82f6', // blue
   '#ec4899', // pink
@@ -16,7 +16,7 @@ const SLICE_COLORS = [
   '#06b6d4', // cyan
 ];
 
-const CASH_COLOR = '#94a3b8'; // slate-400
+const CASH_COLOR = '#8b8679'; // surface-500
 
 /**
  * Computes allocation slices from open holdings + cash.
@@ -82,9 +82,9 @@ function AllocationTooltip({ active, payload, formatCurrency }) {
   if (!entry) return null;
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{entry.ticker}</p>
-      <p className="text-xs text-slate-600 dark:text-slate-300">
+    <div className="rounded-xl border border-surface-200 bg-white px-3 py-2 shadow-elevated dark:border-surface-700 dark:bg-surface-800">
+      <p className="text-sm font-semibold text-surface-800 dark:text-surface-100">{entry.ticker}</p>
+      <p className="text-xs text-surface-600 dark:text-surface-300">
         {formatCurrency(entry.value)} · {entry.percentage.toFixed(1)}%
       </p>
     </div>
@@ -103,17 +103,14 @@ export default function AllocationChart({
   );
 
   return (
-    <div
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      data-testid="allocation-chart"
-    >
-      <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+    <div className="card-base p-5" data-testid="allocation-chart">
+      <h3 className="font-heading text-sm font-bold text-surface-700 dark:text-surface-300">
         {t('dashboard.allocation.title')}
       </h3>
 
       {slices.length === 0 ? (
         <p
-          className="mt-4 text-sm text-slate-500 dark:text-slate-400"
+          className="mt-4 text-sm text-surface-500 dark:text-surface-400"
           data-testid="allocation-chart-empty"
         >
           {t('dashboard.allocation.empty')}

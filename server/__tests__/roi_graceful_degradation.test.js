@@ -9,24 +9,24 @@
  * returned 503 with no data, even though perfectly valid ROI rows existed in
  * storage from the previous daily-close run.
  */
-import assert from "node:assert/strict";
-import { afterEach, beforeEach, test } from "node:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import path from "node:path";
-import { tmpdir } from "node:os";
+import assert from 'node:assert/strict';
+import { afterEach, beforeEach, test } from 'node:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
 
-import pino from "pino";
+import pino from 'pino';
 
-import JsonTableStorage from "../data/storage.js";
-import { flushPriceCache } from "../cache/priceCache.js";
-import { createSessionTestApp, withSession, closeApp, request } from "./helpers/fastifyTestApp.js";
+import JsonTableStorage from '../data/storage.js';
+import { flushPriceCache } from '../cache/priceCache.js';
+import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
 const silentLogger = pino({ level: 'silent' });
 
 // A price provider that always throws — simulates a provider outage
 class FailingPriceProvider {
   async getDailyAdjustedClose() {
-    throw new Error("upstream_provider_unavailable");
+    throw new Error('upstream_provider_unavailable');
   }
 }
 
@@ -34,13 +34,13 @@ let dataDir;
 let storage;
 
 beforeEach(async () => {
-  dataDir = mkdtempSync(path.join(tmpdir(), "roi-degradation-"));
+  dataDir = mkdtempSync(path.join(tmpdir(), 'roi-degradation-'));
   storage = new JsonTableStorage({ dataDir, logger: silentLogger });
-  await storage.ensureTable("transactions", []);
-  await storage.ensureTable("roi_daily", []);
-  await storage.ensureTable("returns_daily", []);
-  await storage.ensureTable("nav_snapshots", []);
-  await storage.ensureTable("prices", []);
+  await storage.ensureTable('transactions', []);
+  await storage.ensureTable('roi_daily', []);
+  await storage.ensureTable('returns_daily', []);
+  await storage.ensureTable('nav_snapshots', []);
+  await storage.ensureTable('prices', []);
   flushPriceCache();
 });
 
@@ -49,27 +49,27 @@ afterEach(async () => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-test("roi/daily returns 200 with existing data when rebuild fails due to provider outage", async () => {
-  const txDate = "2024-06-03"; // a known trading day
+test('roi/daily returns 200 with existing data when rebuild fails due to provider outage', async () => {
+  const txDate = '2024-06-03'; // a known trading day
 
   // Seed a BUY transaction
   await storage.upsertRow(
-    "transactions",
+    'transactions',
     {
-      id: "tx-1",
+      id: 'tx-1',
       date: txDate,
-      type: "BUY",
-      ticker: "AAPL",
+      type: 'BUY',
+      ticker: 'AAPL',
       shares: 10,
       amount: 1800,
       price_per_share: 180,
     },
-    ["id"],
+    ['id']
   );
 
   // Seed a pre-computed ROI row (as if daily_close had already run)
   await storage.upsertRow(
-    "roi_daily",
+    'roi_daily',
     {
       date: txDate,
       portfolio_nav: 1800,
@@ -78,7 +78,7 @@ test("roi/daily returns 200 with existing data when rebuild fails due to provide
       roi_sp500_pct: 0,
       roi_ndx_pct: 0,
     },
-    ["date"],
+    ['date']
   );
 
   const app = await createSessionTestApp({
@@ -87,38 +87,40 @@ test("roi/daily returns 200 with existing data when rebuild fails due to provide
     priceProvider: new FailingPriceProvider(),
   });
 
-  const response = await withSession(
-    request(app).get(`/api/roi/daily?from=${txDate}`),
-  );
+  const response = await withSession(request(app).get(`/api/roi/daily?from=${txDate}`));
   await closeApp(app);
 
   // Must not return 503 — existing ROI data should be served gracefully
-  assert.equal(response.status, 200, `Expected 200 but got ${response.status}: ${JSON.stringify(response.body)}`);
+  assert.equal(
+    response.status,
+    200,
+    `Expected 200 but got ${response.status}: ${JSON.stringify(response.body)}`
+  );
 
   // Portfolio series should contain the seeded row
   const series = response.body?.series;
-  assert.ok(Array.isArray(series?.portfolio), "series.portfolio should be an array");
-  assert.equal(series.portfolio.length, 1, "should have one portfolio data point");
+  assert.ok(Array.isArray(series?.portfolio), 'series.portfolio should be an array');
+  assert.equal(series.portfolio.length, 1, 'should have one portfolio data point');
   assert.equal(series.portfolio[0].date, txDate);
   assert.equal(series.portfolio[0].value, 0);
 });
 
-test("roi/daily still returns 503 when rebuild fails AND no existing roi rows exist", async () => {
-  const txDate = "2024-06-03";
+test('roi/daily still returns 503 when rebuild fails AND no existing roi rows exist', async () => {
+  const txDate = '2024-06-03';
 
   // Seed a BUY transaction but NO roi_daily rows
   await storage.upsertRow(
-    "transactions",
+    'transactions',
     {
-      id: "tx-1",
+      id: 'tx-1',
       date: txDate,
-      type: "BUY",
-      ticker: "AAPL",
+      type: 'BUY',
+      ticker: 'AAPL',
       shares: 10,
       amount: 1800,
       price_per_share: 180,
     },
-    ["id"],
+    ['id']
   );
 
   const app = await createSessionTestApp({
@@ -127,9 +129,7 @@ test("roi/daily still returns 503 when rebuild fails AND no existing roi rows ex
     priceProvider: new FailingPriceProvider(),
   });
 
-  const response = await withSession(
-    request(app).get(`/api/roi/daily?from=${txDate}`),
-  );
+  const response = await withSession(request(app).get(`/api/roi/daily?from=${txDate}`));
   await closeApp(app);
 
   // With no existing data AND failing provider, 503 is the correct behaviour

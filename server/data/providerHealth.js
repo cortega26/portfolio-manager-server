@@ -16,33 +16,30 @@ function resolveStatusCode(error) {
 }
 
 function classifyFailure(error) {
-  if (
-    error?.code === "PRICE_NOT_FOUND"
-    || error?.code === "PRICE_SYMBOL_UNSUPPORTED"
-  ) {
+  if (error?.code === 'PRICE_NOT_FOUND' || error?.code === 'PRICE_SYMBOL_UNSUPPORTED') {
     return null;
   }
-  if (error?.code === "PRICE_PROVIDER_MISCONFIGURED") {
-    return "auth";
+  if (error?.code === 'PRICE_PROVIDER_MISCONFIGURED') {
+    return 'auth';
   }
   const statusCode = resolveStatusCode(error);
   if (
-    Number.isFinite(statusCode)
-    && statusCode >= 400
-    && statusCode < 500
-    && statusCode !== 408
-    && statusCode !== 429
+    Number.isFinite(statusCode) &&
+    statusCode >= 400 &&
+    statusCode < 500 &&
+    statusCode !== 408 &&
+    statusCode !== 429
   ) {
-    return "auth";
+    return 'auth';
   }
-  return "transient";
+  return 'transient';
 }
 
 function normalizeLogger(logger) {
   if (!logger) {
     return null;
   }
-  if (typeof logger.child === "function") {
+  if (typeof logger.child === 'function') {
     return logger;
   }
   return {
@@ -69,22 +66,22 @@ export function createProviderHealthMonitor({
   const resolvedLogger = normalizeLogger(logger);
   const resolvedPolicy = {
     ...DEFAULT_POLICY,
-    ...(policy && typeof policy === "object" ? policy : {}),
+    ...(policy && typeof policy === 'object' ? policy : {}),
   };
   const stateByProvider = new Map();
 
   function getState(providerKey) {
-    const normalizedKey = String(providerKey ?? "").trim().toLowerCase();
-    const current =
-      stateByProvider.get(normalizedKey)
-      ?? {
-        key: normalizedKey,
-        failureCount: 0,
-        lastFailureKind: null,
-        lastFailureAt: null,
-        lastErrorMessage: null,
-        unhealthyUntil: 0,
-      };
+    const normalizedKey = String(providerKey ?? '')
+      .trim()
+      .toLowerCase();
+    const current = stateByProvider.get(normalizedKey) ?? {
+      key: normalizedKey,
+      failureCount: 0,
+      lastFailureKind: null,
+      lastFailureAt: null,
+      lastErrorMessage: null,
+      unhealthyUntil: 0,
+    };
     stateByProvider.set(normalizedKey, current);
     return current;
   }
@@ -108,17 +105,15 @@ export function createProviderHealthMonitor({
   function markUnhealthy(providerKey, failureKind, error) {
     const state = getState(providerKey);
     const cooldownMs =
-      failureKind === "auth"
-        ? resolvedPolicy.authCooldownMs
-        : resolvedPolicy.transientCooldownMs;
+      failureKind === 'auth' ? resolvedPolicy.authCooldownMs : resolvedPolicy.transientCooldownMs;
     state.unhealthyUntil = now() + cooldownMs;
     state.lastFailureKind = failureKind;
     state.lastFailureAt = new Date(now()).toISOString();
     state.lastErrorMessage =
-      typeof error?.message === "string" && error.message.trim().length > 0
+      typeof error?.message === 'string' && error.message.trim().length > 0
         ? error.message.trim()
         : null;
-    resolvedLogger?.warn?.("price_provider_marked_unhealthy", {
+    resolvedLogger?.warn?.('price_provider_marked_unhealthy', {
       provider: state.key,
       failure_kind: failureKind,
       unhealthy_until: new Date(state.unhealthyUntil).toISOString(),
@@ -138,7 +133,7 @@ export function createProviderHealthMonitor({
       state.lastErrorMessage = null;
       state.unhealthyUntil = 0;
       if (wasUnhealthy) {
-        resolvedLogger?.info?.("price_provider_recovered", {
+        resolvedLogger?.info?.('price_provider_recovered', {
           provider: state.key,
         });
       }
@@ -153,11 +148,11 @@ export function createProviderHealthMonitor({
       state.lastFailureKind = failureKind;
       state.lastFailureAt = new Date(now()).toISOString();
       state.lastErrorMessage =
-        typeof error?.message === "string" && error.message.trim().length > 0
+        typeof error?.message === 'string' && error.message.trim().length > 0
           ? error.message.trim()
           : null;
       const threshold =
-        failureKind === "auth"
+        failureKind === 'auth'
           ? resolvedPolicy.authFailureThreshold
           : resolvedPolicy.transientFailureThreshold;
       if (state.failureCount >= threshold) {
@@ -166,7 +161,7 @@ export function createProviderHealthMonitor({
     },
     logSkip(providerKey, context = {}) {
       const state = getState(providerKey);
-      resolvedLogger?.warn?.("price_provider_skipped_unhealthy", {
+      resolvedLogger?.warn?.('price_provider_skipped_unhealthy', {
         provider: state.key,
         unhealthy_until:
           state.unhealthyUntil > 0 ? new Date(state.unhealthyUntil).toISOString() : null,

@@ -79,7 +79,10 @@ describe('performance monitoring endpoint', () => {
     assert.ok(Array.isArray(body.process.loadAverage), 'load average reported');
 
     assert.ok(body.cache, 'cache stats present');
-    assert.ok(Object.prototype.hasOwnProperty.call(body.cache, 'hitRate'), 'cache hit rate included');
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(body.cache, 'hitRate'),
+      'cache hit rate included'
+    );
 
     assert.ok(body.locks, 'lock metrics present');
     assert.equal(body.locks.totalActive, 1, 'one active lock tracked');

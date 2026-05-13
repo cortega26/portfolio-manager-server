@@ -42,7 +42,7 @@ const monitoringRoutes: FastifyPluginAsyncZod<MonitoringRouteContext> = async (a
     },
     async () => {
       return getPerformanceMetrics() as z.infer<typeof MonitoringResponseSchema>;
-    },
+    }
   );
 };
 

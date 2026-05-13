@@ -1,70 +1,68 @@
 # AGENTS.md
 
-## Propósito
+Context governance for this repository. Does not describe code — that lives in `CLAUDE.md` (commands, architecture, conventions, project structure).
 
-Este repositorio mantiene `portfolio-manager-unified` como una aplicación desktop local basada en:
+## Role boundary
 
-- React + Vite en renderer
-- Fastify como API local
-- Electron como shell desktop
-- SQLite como persistencia
+| File                   | Purpose                                                                 | Loaded        |
+| ---------------------- | ----------------------------------------------------------------------- | ------------- |
+| `CLAUDE.md`            | Commands, architecture, conventions, project structure                  | Every session |
+| `AGENTS.md`            | Context loading policy, document map, task-type strategy, hygiene rules | Every session |
+| `AGENTS_QUICKSTART.md` | Quick operational commands for agents                                   | On demand     |
 
-R1 (`portfolio-manager-server`) es la base obligatoria.
-R2 (`mi_portfolio`) solo aporta funcionalidades selectivas adaptadas al diseño real de R1.
+For build commands, test runners, architecture, project structure → see `CLAUDE.md`.
 
-Este archivo es el hub canónico de contexto. No es una wiki.
+## Document map
 
-## Qué vive en cada documento
+- Operational rules & constraints: `context/CONSTRAINTS.md`
+- Confirmed project invariants: `context/KNOWN_INVARIANTS.md`
+- System boundaries and flows: `context/ARCHITECTURE.md`
+- Module index and entrypoints: `context/MODULE_INDEX.md`
+- Shortcuts by task type: `context/TASK_ENTRYPOINTS.md`
+- Active work, hypotheses: `context/runtime/ACTIVE_TASK.md`
+- Architecture decisions: `docs/adr/`
+- Broad status & backlog: `docs/reference/portfolio-manager-unified-status.md`, `docs/backlog/portfolio-manager-unified-next-steps.md`
 
-- Comandos operativos rápidos para agentes: `AGENTS_QUICKSTART.md`
-- Reglas operativas de trabajo: `context/CONSTRAINTS.md`
-- Invariantes confirmados del proyecto: `context/KNOWN_INVARIANTS.md`
-- Boundaries y flujos del sistema (con diagrama): `context/ARCHITECTURE.md`
-- Mapa de módulos y entrypoints: `context/MODULE_INDEX.md`
-- Atajos por tipo de tarea: `context/TASK_ENTRYPOINTS.md`
-- Trabajo activo, hipótesis y verificación: `context/runtime/ACTIVE_TASK.md`
-- Decisiones de arquitectura: `docs/adr/`
-- Estado amplio y backlog: `docs/reference/portfolio-manager-unified-status.md` y `docs/backlog/portfolio-manager-unified-next-steps.md`
+A link is not an autoload. Only load what the task type needs.
 
-Un link no implica autoload.
-Carga solo lo que el tipo de tarea necesite.
+## Load order
 
-## Orden de precedencia
+1. User's explicit instructions
+2. `AGENTS.md` (this file — governance)
+3. `CLAUDE.md` (codebase facts — commands, architecture)
+4. `AGENTS_QUICKSTART.md` (operational shortcuts)
+5. Code, tests, `package.json`, observable config
+6. `context/KNOWN_INVARIANTS.md`
+7. `context/CONSTRAINTS.md`
+8. `context/ARCHITECTURE.md`
+9. `context/MODULE_INDEX.md`
+10. `context/TASK_ENTRYPOINTS.md`
+11. `context/runtime/ACTIVE_TASK.md`
+12. `docs/reference/portfolio-manager-unified-status.md`
+13. `docs/backlog/portfolio-manager-unified-next-steps.md`
 
-1. Instrucciones explícitas del usuario
-2. `AGENTS.md`
-3. `AGENTS_QUICKSTART.md` (comandos operativos; anula `docs/meta/automation/agents-playbook.md`)
-4. Código real, tests, `package.json` y configuración observable
-5. `context/KNOWN_INVARIANTS.md`
-6. `context/CONSTRAINTS.md`
-7. `context/ARCHITECTURE.md`
-8. `context/MODULE_INDEX.md`
-9. `context/TASK_ENTRYPOINTS.md`
-10. `context/runtime/ACTIVE_TASK.md`
-11. `docs/reference/portfolio-manager-unified-status.md`
-12. `docs/backlog/portfolio-manager-unified-next-steps.md`
+Resolution rules:
 
-Reglas de resolución:
+- If any doc in 5–10 contradicts 4, verify against real code first.
+- If a fact is temporary, don't promote it to a stable doc.
+- If a task has active context, constrain `ACTIVE_TASK.md` to that task — not general repo truth.
 
-- Si cualquier documento del punto 4 al 10 contradice el punto 3, primero verificar el código real.
-- Si un hecho es temporal, no promoverlo a un documento estable.
-- Si una tarea tiene contexto específico vigente, usar `ACTIVE_TASK.md` solo para esa tarea, no como verdad general del repo.
+## Loading policy by task type
 
-## Política de carga
-
-### Siempre
+### Always
 
 - `AGENTS.md`
+- `CLAUDE.md`
 
-### Nuevas features
+### New features
 
 - `context/CONSTRAINTS.md`
 - `context/KNOWN_INVARIANTS.md`
 - `context/ARCHITECTURE.md`
 - `context/MODULE_INDEX.md`
-- `context/TASK_ENTRYPOINTS.md` si necesitas aterrizar rápido por tipo de flujo antes de buscar
-- `context/runtime/ACTIVE_TASK.md` solo si ya existe trabajo en curso relacionado
-- `docs/reference/portfolio-manager-unified-status.md` y `docs/backlog/portfolio-manager-unified-next-steps.md` solo si la feature depende del estado actual o de una fase abierta
+- `context/TASK_ENTRYPOINTS.md` — if you need to land fast by flow type
+- `context/runtime/ACTIVE_TASK.md` — only if related work exists
+- `docs/reference/portfolio-manager-unified-status.md` + `docs/backlog/portfolio-manager-unified-next-steps.md` — only if the feature depends on current state or an open phase
 
 ### Bugs
 
@@ -73,7 +71,7 @@ Reglas de resolución:
 - `context/MODULE_INDEX.md`
 - `context/TASK_ENTRYPOINTS.md`
 - `context/runtime/ACTIVE_TASK.md`
-- `context/ARCHITECTURE.md` solo si el bug cruza Electron, auth, storage o boundaries de proceso
+- `context/ARCHITECTURE.md` — only if the bug crosses Electron, auth, storage, or process boundaries
 
 ### Refactors
 
@@ -81,34 +79,30 @@ Reglas de resolución:
 - `context/ARCHITECTURE.md`
 - `context/MODULE_INDEX.md`
 - `context/TASK_ENTRYPOINTS.md`
-- `context/KNOWN_INVARIANTS.md` solo si toca finanzas, importación, auth, storage o contratos críticos
+- `context/KNOWN_INVARIANTS.md` — only if touching finance, import, auth, storage, or critical contracts
 
-### Auditorías
+### Audits
 
 - `context/CONSTRAINTS.md`
 - `context/KNOWN_INVARIANTS.md`
 - `context/ARCHITECTURE.md`
 - `context/MODULE_INDEX.md`
-- `context/TASK_ENTRYPOINTS.md` si la auditoría necesita starting points por flujo
-- `context/runtime/ACTIVE_TASK.md` solo si la auditoría está acotada a un incidente o cambio activo
+- `context/TASK_ENTRYPOINTS.md` — if audit needs flow entrypoints
+- `context/runtime/ACTIVE_TASK.md` — only if scoped to an active incident or change
 
-## Reglas mínimas
+## Rules
 
-- Inspeccionar código real y tests antes de proponer cambios.
-- Mantener cambios pequeños, trazables y reversibles.
-- Validar con `npm test` después de cambios relevantes.
-- Detenerse si el baseline está roto o si un invariante crítico queda comprometido.
-- No asumir que documentación previa refleja el estado real si contradice el código.
-- Marcar hipótesis y hechos confirmados por separado cuando la tarea dependa de contexto runtime.
+- Inspect real code and tests before proposing changes.
+- Keep changes small, traceable, and reversible.
+- Validate with `npm test` after relevant changes (see `CLAUDE.md` for exact commands).
+- Stop if the baseline is broken or a critical invariant is compromised.
+- Don't assume prior documentation reflects reality if it contradicts code.
+- Mark hypotheses and confirmed facts separately when the task depends on runtime context.
+- **No tooling assumption**: if a tool is unavailable, do directed repo inspection and cite the limitation. Tooling availability is not a stable project truth.
 
-## Tooling
+## Document hygiene
 
-- Si no está disponible, hacer inspección dirigida del repo y citar la limitación.
-- La disponibilidad de tooling no es una verdad estable del proyecto.
-
-## Higiene documental
-
-- No duplicar reglas entre archivos.
-- No guardar historial conversacional en documentos estables.
-- No convertir `ACTIVE_TASK.md` en backlog ni changelog.
-- Usar `status` y `backlog` como contexto amplio, no como autoload universal.
+- No rule duplication across files.
+- No conversational history in stable docs.
+- Don't turn `ACTIVE_TASK.md` into a backlog or changelog.
+- Use `status` and `backlog` as broad context, not universal autoload.

@@ -5,6 +5,18 @@ import { MemoryRouter } from 'react-router-dom';
 import App from '../App.jsx';
 import { I18nProvider } from '../i18n/I18nProvider.jsx';
 
+vi.mock('../utils/api.js', () => ({
+  fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
+  fetchBenchmarkCatalog: vi.fn(async () => ({ data: {} })),
+  fetchDailyRoi: vi.fn(async () => ({
+    data: { series: { portfolio: [], portfolioTwr: [], spy: [], bench: [], exCash: [], cash: [] } },
+  })),
+  retrievePortfolio: vi.fn(async () => ({ data: { transactions: [], signals: {} } })),
+  evaluateSignals: vi.fn(async () => ({
+    data: { rows: [], prices: {}, errors: {}, market: { isOpen: true } },
+  })),
+}));
+
 vi.mock('../components/DashboardTab.jsx', () => ({
   __esModule: true,
   default: () => <div data-testid="stub-dashboard-tab" />,

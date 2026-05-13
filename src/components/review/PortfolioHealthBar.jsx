@@ -12,7 +12,7 @@ const CONFIDENCE_BAR_STYLES = {
   medium: 'bg-amber-400',
   low: 'bg-orange-500',
   degraded: 'bg-rose-500',
-  unknown: 'bg-slate-300 dark:bg-slate-700',
+  unknown: 'bg-surface-300 dark:bg-surface-700',
 };
 
 function resolveHealthStatus(data) {
@@ -59,7 +59,7 @@ export default function PortfolioHealthBar({ portfolioId, onHealthChange }) {
     return (
       <div
         data-testid="portfolio-health-bar"
-        className="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"
+        className="h-10 animate-pulse rounded-lg bg-surface-100 dark:bg-surface-800"
         aria-label="Loading portfolio health..."
       />
     );
@@ -81,7 +81,7 @@ export default function PortfolioHealthBar({ portfolioId, onHealthChange }) {
     return (
       <div
         data-testid="portfolio-health-bar"
-        className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+        className="card-base px-4 py-3 text-sm text-surface-500 dark:text-surface-400"
         aria-label="Portfolio health unavailable"
       >
         Load a portfolio to review data freshness and confidence.
@@ -97,11 +97,11 @@ export default function PortfolioHealthBar({ portfolioId, onHealthChange }) {
     <div
       data-testid="portfolio-health-bar"
       data-health-status={healthStatus}
-      className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      className="card-base flex items-center justify-between px-4 py-3"
     >
       <div className="flex items-center gap-3">
         <span className={`h-3 w-3 rounded-full ${barStyle}`} />
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <span className="text-sm font-medium text-surface-700 dark:text-surface-300">
           {data.confidence_state === 'high'
             ? 'Portfolio data is current'
             : healthStatus === 'needs_attention'
@@ -109,7 +109,7 @@ export default function PortfolioHealthBar({ portfolioId, onHealthChange }) {
               : 'Data quality issues detected'}
         </span>
       </div>
-      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+      <div className="flex items-center gap-4 text-xs text-surface-500 dark:text-surface-400">
         {data.action_count > 0 && (
           <span>
             {data.action_count} item{data.action_count !== 1 ? 's' : ''} need review

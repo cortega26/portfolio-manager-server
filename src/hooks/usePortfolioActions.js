@@ -10,7 +10,7 @@
 import { useCallback } from 'react';
 import { normalizeSettings, mergeSettings, persistSettingsToStorage } from '../utils/settings.js';
 import { persistPortfolio, retrievePortfolio } from '../utils/api.js';
-import { setActivePortfolioId } from '../state/portfolioStore.js';
+import { setActivePortfolioId } from '../utils/activePortfolioStorage.js';
 
 /**
  * @param {object} params

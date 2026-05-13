@@ -1,7 +1,7 @@
 import { beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { loadActivePortfolioId, setActivePortfolioId } from '../state/portfolioStore.js';
+import { loadActivePortfolioId, setActivePortfolioId } from '../utils/activePortfolioStorage.js';
 
 function createMockStorage() {
   let data = {};

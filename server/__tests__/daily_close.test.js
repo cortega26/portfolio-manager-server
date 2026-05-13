@@ -9,7 +9,17 @@ import JsonTableStorage from '../data/storage.js';
 import { writePortfolioState } from '../data/portfolioState.js';
 import { runDailyClose } from '../jobs/daily_close.js';
 
-const noopLogger = { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {}, child() { return this; } };
+const noopLogger = {
+  info() {},
+  warn() {},
+  error() {},
+  debug() {},
+  trace() {},
+  fatal() {},
+  child() {
+    return this;
+  },
+};
 
 class FakePriceProvider {
   constructor(pricesBySymbol) {
@@ -44,20 +54,18 @@ afterEach(() => {
 });
 
 test('runDailyClose accrues interest and is idempotent', async () => {
-  await storage.upsertRow(
-    'cash_rates',
-    { effective_date: '2023-12-01', apy: 0.0365 },
-    ['effective_date'],
-  );
+  await storage.upsertRow('cash_rates', { effective_date: '2023-12-01', apy: 0.0365 }, [
+    'effective_date',
+  ]);
   await storage.upsertRow(
     'transactions',
     { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
   await storage.upsertRow(
     'transactions',
     { id: 'b1', type: 'BUY', ticker: 'SPY', date: '2024-01-01', quantity: 5, amount: 500 },
-    ['id'],
+    ['id']
   );
 
   const provider = new FakePriceProvider({
@@ -97,15 +105,13 @@ test('runDailyClose accrues interest and is idempotent', async () => {
 });
 
 test('runDailyClose posts a single monthly interest entry when enabled', async () => {
-  await storage.upsertRow(
-    'cash_rates',
-    { effective_date: '2023-12-01', apy: 0.0365 },
-    ['effective_date'],
-  );
+  await storage.upsertRow('cash_rates', { effective_date: '2023-12-01', apy: 0.0365 }, [
+    'effective_date',
+  ]);
   await storage.upsertRow(
     'transactions',
     { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 10000 },
-    ['id'],
+    ['id']
   );
 
   const provider = new FakePriceProvider({
@@ -146,7 +152,16 @@ test('runDailyClose persists actionable signal transitions once per trading day'
   await writePortfolioState(storage, 'signals-desktop', {
     transactions: [
       { uid: 'd1', date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
-      { uid: 'b1', date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5, quantity: 5 },
+      {
+        uid: 'b1',
+        date: '2024-01-02',
+        type: 'BUY',
+        ticker: 'AAPL',
+        amount: -500,
+        price: 100,
+        shares: 5,
+        quantity: 5,
+      },
     ],
     signals: { AAPL: { pct: 5 } },
     settings: {
@@ -200,7 +215,16 @@ test('runDailyClose delivers pending signal notification emails once when config
   await writePortfolioState(storage, 'signals-email', {
     transactions: [
       { uid: 'd1', date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
-      { uid: 'b1', date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5, quantity: 5 },
+      {
+        uid: 'b1',
+        date: '2024-01-02',
+        type: 'BUY',
+        ticker: 'AAPL',
+        amount: -500,
+        price: 100,
+        shares: 5,
+        quantity: 5,
+      },
     ],
     signals: { AAPL: { pct: 5 } },
     settings: {
@@ -295,7 +319,16 @@ test('runDailyClose retries eligible failed signal notification emails on the ex
   await writePortfolioState(storage, 'signals-retry', {
     transactions: [
       { uid: 'd1', date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
-      { uid: 'b1', date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5, quantity: 5 },
+      {
+        uid: 'b1',
+        date: '2024-01-02',
+        type: 'BUY',
+        ticker: 'AAPL',
+        amount: -500,
+        price: 100,
+        shares: 5,
+        quantity: 5,
+      },
     ],
     signals: { AAPL: { pct: 5 } },
     settings: {
@@ -417,7 +450,16 @@ test('runDailyClose marks failed signal notification emails as exhausted after t
   await writePortfolioState(storage, 'signals-exhausted', {
     transactions: [
       { uid: 'd1', date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
-      { uid: 'b1', date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5, quantity: 5 },
+      {
+        uid: 'b1',
+        date: '2024-01-02',
+        type: 'BUY',
+        ticker: 'AAPL',
+        amount: -500,
+        price: 100,
+        shares: 5,
+        quantity: 5,
+      },
     ],
     signals: { AAPL: { pct: 5 } },
     settings: {
@@ -532,15 +574,13 @@ test('runDailyClose marks failed signal notification emails as exhausted after t
 });
 
 test('API endpoints expose computed series', async () => {
-  await storage.upsertRow(
-    'cash_rates',
-    { effective_date: '2023-12-01', apy: 0.0365 },
-    ['effective_date'],
-  );
+  await storage.upsertRow('cash_rates', { effective_date: '2023-12-01', apy: 0.0365 }, [
+    'effective_date',
+  ]);
   await storage.upsertRow(
     'transactions',
     { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
   const provider = new FakePriceProvider({
     SPY: [
@@ -565,15 +605,13 @@ test('API endpoints expose computed series', async () => {
     config: { featureFlags: { cashBenchmarks: true } },
   });
   const returnsResponse = await request(app).get(
-    '/api/returns/daily?from=2024-01-01&to=2024-01-02&views=port,bench',
+    '/api/returns/daily?from=2024-01-01&to=2024-01-02&views=port,bench'
   );
   assert.equal(returnsResponse.status, 200);
   assert.ok(Array.isArray(returnsResponse.body.series.r_port));
   assert.ok(returnsResponse.body.meta);
 
-  const roiResponse = await request(app).get(
-    '/api/roi/daily?from=2024-01-01&to=2024-01-02',
-  );
+  const roiResponse = await request(app).get('/api/roi/daily?from=2024-01-01&to=2024-01-02');
   assert.equal(roiResponse.status, 200);
   assert.ok(Array.isArray(roiResponse.body.series.portfolio));
   assert.ok(Array.isArray(roiResponse.body.series.portfolioTwr));
@@ -581,16 +619,14 @@ test('API endpoints expose computed series', async () => {
   assert.equal(roiResponse.body.meta.primaryMetric, 'portfolio');
   assert.equal(roiResponse.body.meta.secondaryMetric, 'portfolioTwr');
 
-  const navResponse = await request(app).get(
-    '/api/nav/daily?from=2024-01-02&to=2024-01-02',
-  );
+  const navResponse = await request(app).get('/api/nav/daily?from=2024-01-02&to=2024-01-02');
   assert.equal(navResponse.status, 200);
   assert.ok(Array.isArray(navResponse.body.data));
   assert.ok(navResponse.body.data.length > 0);
   assert.equal(navResponse.body.data[0].stale_price, false);
 
   const summaryResponse = await request(app).get(
-    '/api/benchmarks/summary?from=2024-01-01&to=2024-01-02',
+    '/api/benchmarks/summary?from=2024-01-01&to=2024-01-02'
   );
   assert.equal(summaryResponse.status, 200);
   assert.ok(summaryResponse.body.summary);
@@ -604,20 +640,18 @@ test('API endpoints expose computed series', async () => {
 });
 
 test('returns endpoint auto-repairs historical rows when returns tables are empty', async () => {
-  await storage.upsertRow(
-    'cash_rates',
-    { effective_date: '2023-12-01', apy: 0.0365 },
-    ['effective_date'],
-  );
+  await storage.upsertRow('cash_rates', { effective_date: '2023-12-01', apy: 0.0365 }, [
+    'effective_date',
+  ]);
   await storage.upsertRow(
     'transactions',
     { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
   await storage.upsertRow(
     'transactions',
     { id: 'b1', type: 'BUY', ticker: 'QQQ', date: '2024-01-02', quantity: 2, amount: 400 },
-    ['id'],
+    ['id']
   );
 
   const provider = new FakePriceProvider({
@@ -641,7 +675,7 @@ test('returns endpoint auto-repairs historical rows when returns tables are empt
   });
 
   const response = await request(app).get(
-    '/api/returns/daily?from=2024-01-01&to=2024-01-03&views=port,spy,bench',
+    '/api/returns/daily?from=2024-01-01&to=2024-01-03&views=port,spy,bench'
   );
 
   assert.equal(response.status, 200);
@@ -658,13 +692,28 @@ test('returns endpoint auto-repairs historical rows when returns tables are empt
 test('roi endpoint repairs missing canonical benchmark returns even when imported roi rows already exist', async () => {
   await storage.upsertRow(
     'transactions',
-    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000, portfolio_id: 'desktop' },
-    ['id'],
+    {
+      id: 'd1',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-01-01',
+      amount: 1000,
+      portfolio_id: 'desktop',
+    },
+    ['id']
   );
   await storage.upsertRow(
     'transactions',
-    { id: 'b1', type: 'BUY', ticker: 'QQQ', date: '2024-01-02', quantity: 2, amount: 400, portfolio_id: 'desktop' },
-    ['id'],
+    {
+      id: 'b1',
+      type: 'BUY',
+      ticker: 'QQQ',
+      date: '2024-01-02',
+      quantity: 2,
+      amount: 400,
+      portfolio_id: 'desktop',
+    },
+    ['id']
   );
   await storage.writeTable('roi_daily', [
     {
@@ -712,7 +761,7 @@ test('roi endpoint repairs missing canonical benchmark returns even when importe
   });
 
   const response = await request(app).get(
-    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-03',
+    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-03'
   );
 
   assert.equal(response.status, 200);
@@ -737,13 +786,28 @@ test('roi endpoint repairs missing canonical benchmark returns even when importe
 test('roi endpoint repairs legacy flat-zero qqq benchmark rows when QQQ price history moved', async () => {
   await storage.upsertRow(
     'transactions',
-    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000, portfolio_id: 'desktop' },
-    ['id'],
+    {
+      id: 'd1',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-01-01',
+      amount: 1000,
+      portfolio_id: 'desktop',
+    },
+    ['id']
   );
   await storage.upsertRow(
     'transactions',
-    { id: 'b1', type: 'BUY', ticker: 'QQQ', date: '2024-01-02', quantity: 2, amount: 400, portfolio_id: 'desktop' },
-    ['id'],
+    {
+      id: 'b1',
+      type: 'BUY',
+      ticker: 'QQQ',
+      date: '2024-01-02',
+      quantity: 2,
+      amount: 400,
+      portfolio_id: 'desktop',
+    },
+    ['id']
   );
   await storage.writeTable('roi_daily', [
     {
@@ -807,7 +871,7 @@ test('roi endpoint repairs legacy flat-zero qqq benchmark rows when QQQ price hi
   });
 
   const response = await request(app).get(
-    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-02',
+    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-02'
   );
 
   assert.equal(response.status, 200);
@@ -822,8 +886,15 @@ test('roi endpoint repairs legacy flat-zero qqq benchmark rows when QQQ price hi
 test('roi endpoint repairs legacy inception returns that still start below zero on day zero', async () => {
   await storage.upsertRow(
     'transactions',
-    { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000, portfolio_id: 'desktop' },
-    ['id'],
+    {
+      id: 'd1',
+      type: 'DEPOSIT',
+      ticker: 'CASH',
+      date: '2024-01-01',
+      amount: 1000,
+      portfolio_id: 'desktop',
+    },
+    ['id']
   );
   await storage.upsertRow(
     'transactions',
@@ -836,7 +907,7 @@ test('roi endpoint repairs legacy inception returns that still start below zero 
       amount: 1000,
       portfolio_id: 'desktop',
     },
-    ['id'],
+    ['id']
   );
   await storage.writeTable('roi_daily', [
     {
@@ -901,7 +972,7 @@ test('roi endpoint repairs legacy inception returns that still start below zero 
   });
 
   const response = await request(app).get(
-    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-02',
+    '/api/roi/daily?portfolioId=desktop&from=2024-01-01&to=2024-01-02'
   );
 
   assert.equal(response.status, 200);
@@ -911,7 +982,7 @@ test('roi endpoint repairs legacy inception returns that still start below zero 
 
   const repairedReturns = await storage.readTable('returns_daily');
   const firstReturn = repairedReturns.find(
-    (row) => row.portfolio_id === 'desktop' && row.date === '2024-01-01',
+    (row) => row.portfolio_id === 'desktop' && row.date === '2024-01-01'
   );
   assert.equal(firstReturn?.r_port ?? null, 0);
   assert.equal(firstReturn?.r_ex_cash ?? null, 0);
@@ -922,12 +993,12 @@ test('historical repair keeps portfolio dates even when SPY history ends earlier
   await storage.upsertRow(
     'transactions',
     { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
   await storage.upsertRow(
     'transactions',
     { id: 'b1', type: 'BUY', ticker: 'QQQ', date: '2024-01-02', quantity: 2, amount: 400 },
-    ['id'],
+    ['id']
   );
 
   const provider = new FakePriceProvider({
@@ -949,14 +1020,12 @@ test('historical repair keeps portfolio dates even when SPY history ends earlier
     config: { featureFlags: { cashBenchmarks: true } },
   });
 
-  const roiResponse = await request(app).get(
-    '/api/roi/daily?from=2024-01-01&to=2024-01-03',
-  );
+  const roiResponse = await request(app).get('/api/roi/daily?from=2024-01-01&to=2024-01-03');
   assert.equal(roiResponse.status, 200);
   assert.equal(roiResponse.body.series.portfolio.at(-1)?.date, '2024-01-03');
 
   const returnsResponse = await request(app).get(
-    '/api/returns/daily?from=2024-01-01&to=2024-01-03&views=port,spy,bench',
+    '/api/returns/daily?from=2024-01-01&to=2024-01-03&views=port,spy,bench'
   );
   assert.equal(returnsResponse.status, 200);
   assert.equal(returnsResponse.body.series.r_port.at(-1)?.date, '2024-01-03');
@@ -968,20 +1037,18 @@ test('historical repair keeps portfolio dates even when SPY history ends earlier
 });
 
 test('stale prices set flag when latest close missing', async () => {
-  await storage.upsertRow(
-    'cash_rates',
-    { effective_date: '2023-12-01', apy: 0.02 },
-    ['effective_date'],
-  );
+  await storage.upsertRow('cash_rates', { effective_date: '2023-12-01', apy: 0.02 }, [
+    'effective_date',
+  ]);
   await storage.upsertRow(
     'transactions',
     { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
   await storage.upsertRow(
     'transactions',
     { id: 'b1', type: 'BUY', ticker: 'SPY', date: '2024-01-01', quantity: 5, amount: 500 },
-    ['id'],
+    ['id']
   );
 
   const provider = new FakePriceProvider({
@@ -1008,7 +1075,7 @@ test('runDailyClose persists configured benchmark prices even without holdings',
   await storage.upsertRow(
     'transactions',
     { id: 'd1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
 
   const provider = new FakePriceProvider({

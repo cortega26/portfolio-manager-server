@@ -130,7 +130,7 @@ export default function DashboardZone1({
     Number.isFinite(navChange) && navChange > 0 && 'text-emerald-600 dark:text-emerald-400',
     Number.isFinite(navChange) && navChange < 0 && 'text-rose-600 dark:text-rose-400',
     (Number.isFinite(navChange) && navChange === 0) ||
-      (!Number.isFinite(navChange) && 'text-slate-500 dark:text-slate-400')
+      (!Number.isFinite(navChange) && 'text-surface-500 dark:text-surface-400')
   );
 
   const status = resolveStatusStyle(priceStatus);
@@ -150,23 +150,22 @@ export default function DashboardZone1({
   const navTrust = trustFromStatus[priceStatus] ?? trustFromStatus.error;
 
   return (
-    <div
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      title={t('dashboard.metrics.nav.title')}
-    >
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+    <div className="relative overflow-hidden rounded-xl border border-surface-200 bg-gradient-to-br from-white to-surface-50 p-6 shadow-card dark:border-surface-800 dark:from-surface-900 dark:to-surface-900/80">
+      {/* subtle decorative gradient */}
+      <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-brand-500/5 blur-3xl dark:bg-brand-400/5" />
+      <div className="relative flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <p className="font-heading text-xs font-semibold uppercase tracking-widest text-surface-500 dark:text-surface-400">
             {t('dashboard.metrics.nav')}
           </p>
-          <p className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <p className="font-heading text-4xl font-bold tracking-tight text-surface-900 dark:text-surface-50">
             {navDisplay}
           </p>
           {description && (
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+            <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">{description}</p>
           )}
           {deltaText && (
-            <p className={clsx('text-sm font-medium', deltaColor)} aria-label="Daily change">
+            <p className={clsx('text-sm font-semibold', deltaColor)} aria-label="Daily change">
               {deltaText}
             </p>
           )}
@@ -175,11 +174,11 @@ export default function DashboardZone1({
           {valuationBadge && (
             <span
               className={clsx(
-                'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium',
+                'inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold',
                 valuationBadge.tone === 'warning' &&
-                  'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/20 dark:text-amber-200',
+                  'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/20 dark:text-amber-200',
                 valuationBadge.tone === 'info' &&
-                  'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-700/60 dark:bg-sky-950/20 dark:text-sky-200'
+                  'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700/60 dark:bg-sky-950/20 dark:text-sky-200'
               )}
             >
               {valuationBadge.label}
@@ -199,8 +198,21 @@ export default function DashboardZone1({
           <button
             type="button"
             onClick={onRefresh}
-            className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+            className="inline-flex items-center rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-brand-700 hover:shadow-tab focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
+            <svg
+              className="-ml-0.5 mr-1.5 h-4 w-4"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8 2.5a5.5 5.5 0 0 0-4.57 2.586.75.75 0 1 1-1.274-.792 7 7 0 0 1 12.032 3.07.75.75 0 0 1-1.46.344A5.5 5.5 0 0 0 8 2.5ZM1.217 8.988a.75.75 0 0 1 .777.647A5.472 5.472 0 0 0 8 13.5a5.5 5.5 0 0 0 4.57-2.586.75.75 0 1 1 1.274.792 7 7 0 0 1-12.032-3.07.75.75 0 0 1 .405-.648Z"
+                clipRule="evenodd"
+              />
+              <path d="M11.36 4.242a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.69a4.004 4.004 0 0 0-7.11-.736.75.75 0 1 1-1.278-.785 5.504 5.504 0 0 1 9.198 1.27V4.992a.75.75 0 0 1 .75-.75Z" />
+            </svg>
             {t('dashboard.quickActions.refresh')}
           </button>
         </div>

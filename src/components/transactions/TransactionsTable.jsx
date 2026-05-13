@@ -47,9 +47,9 @@ function TransactionRow({
     <div
       aria-rowindex={rowIndexOffset + index + 2}
       className={clsx(
-        'grid items-center border-b border-slate-200 px-3 transition-colors last:border-none dark:border-slate-800',
+        'grid items-center border-b border-surface-200 px-3 transition-colors last:border-none dark:border-surface-800',
         compact ? 'py-1 text-xs' : 'py-2 text-sm',
-        index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-900/70'
+        index % 2 === 0 ? 'bg-white dark:bg-surface-900' : 'bg-surface-50 dark:bg-surface-900/70'
       )}
       role="row"
       style={{
@@ -133,7 +133,7 @@ export default function TransactionsTable({
   if (transactions.length === 0) {
     return (
       <p
-        className={clsx('text-sm text-slate-500 dark:text-slate-400', compact && 'text-xs')}
+        className={clsx('text-sm text-surface-500 dark:text-surface-400', compact && 'text-xs')}
         role="status"
       >
         {totalTransactions === 0
@@ -151,12 +151,12 @@ export default function TransactionsTable({
   );
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
+    <div className="overflow-hidden rounded-lg border border-surface-200 dark:border-surface-800">
       <div role="table" aria-label={t('transactions.table.aria')} className="w-full">
         <div
           role="rowgroup"
           className={clsx(
-            'bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-300',
+            'bg-surface-50 text-xs font-semibold uppercase tracking-wide text-surface-500 dark:bg-surface-800/60 dark:text-surface-300',
             compact && 'text-[11px]'
           )}
         >

@@ -28,9 +28,7 @@ test('computeDailyStates handles same-day ordering without negative cash', () =>
     { date: '2024-01-01', type: 'BUY', ticker: 'AAPL', amount: -500, quantity: 2 },
     { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
   ];
-  const pricesByDate = new Map([
-    ['2024-01-01', new Map([['AAPL', 250]])],
-  ]);
+  const pricesByDate = new Map([['2024-01-01', new Map([['AAPL', 250]])]]);
   const states = computeDailyStates({
     transactions,
     pricesByDate,
@@ -68,7 +66,7 @@ test('oversell prevention rejects sales beyond available shares', async () => {
             },
           ],
           settings: { autoClip: false },
-        }),
+        })
     );
     assert.equal(response.status, 400);
     assert.equal(response.body.error, 'E_OVERSELL');
@@ -89,7 +87,7 @@ test('rejects withdrawals that exceed available cash', async () => {
             { date: '2025-10-09', type: 'WITHDRAWAL', amount: 501 },
           ],
           settings: { autoClip: false },
-        }),
+        })
     );
 
     assert.equal(response.status, 400);
@@ -153,7 +151,7 @@ test('signal preview tolerates bounded oversell drift from imported fractional s
             META: { pct: 5 },
           },
           settings: { autoClip: false },
-        }),
+        })
     );
 
     assert.equal(response.status, 200);
@@ -170,15 +168,33 @@ test('signal preview ignores historical cash overdrafts from imported same-day r
         .send({
           transactions: [
             { date: '2024-01-22', type: 'DEPOSIT', amount: 2 },
-            { date: '2024-01-22', type: 'BUY', ticker: 'SPY', amount: -1.06, quantity: 0.002197377 },
-            { date: '2024-01-23', type: 'BUY', ticker: 'NVDA', amount: -1.06, quantity: 0.01783046 },
-            { date: '2024-01-23', type: 'SELL', ticker: 'SPY', amount: 1.06, quantity: -0.002197377 },
+            {
+              date: '2024-01-22',
+              type: 'BUY',
+              ticker: 'SPY',
+              amount: -1.06,
+              quantity: 0.002197377,
+            },
+            {
+              date: '2024-01-23',
+              type: 'BUY',
+              ticker: 'NVDA',
+              amount: -1.06,
+              quantity: 0.01783046,
+            },
+            {
+              date: '2024-01-23',
+              type: 'SELL',
+              ticker: 'SPY',
+              amount: 1.06,
+              quantity: -0.002197377,
+            },
           ],
           signals: {
             NVDA: { pct: 5 },
           },
           settings: { autoClip: false },
-        }),
+        })
     );
 
     assert.equal(response.status, 200);
@@ -199,7 +215,7 @@ test('portfolio save tolerates bounded oversell drift from imported fractional s
             { date: '2024-01-03', type: 'SELL', ticker: 'META', amount: 10, quantity: -0.0220104 },
           ],
           settings: { autoClip: false },
-        }),
+        })
     );
 
     assert.equal(response.status, 200);
@@ -220,7 +236,7 @@ test('portfolio save still rejects oversells beyond the dust tolerance', async (
             { date: '2024-01-03', type: 'SELL', ticker: 'META', amount: 10, quantity: -0.0220124 },
           ],
           settings: { autoClip: false },
-        }),
+        })
     );
 
     assert.equal(response.status, 400);
@@ -271,7 +287,7 @@ test('portfolio save accepts imported same-day rebalances that net cash by end o
             },
           ],
           settings: { autoClip: false },
-        }),
+        })
     );
 
     assert.equal(response.status, 200);
@@ -317,7 +333,7 @@ test('portfolio save rejects manual same-day buy before later sell when cash wou
             },
           ],
           settings: { autoClip: false },
-        }),
+        })
     );
 
     assert.equal(response.status, 400);
@@ -363,7 +379,7 @@ test('portfolio save accepts manual same-day sell before buy when chronology fun
             },
           ],
           settings: { autoClip: false },
-        }),
+        })
     );
 
     assert.equal(response.status, 200);
@@ -388,7 +404,7 @@ test('validation rejects negative prices before persistence', async () => {
               shares: 10,
             },
           ],
-        }),
+        })
     );
     assert.equal(response.status, 400);
     assert.equal(response.body.error, 'VALIDATION_ERROR');

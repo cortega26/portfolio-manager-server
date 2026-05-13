@@ -56,7 +56,7 @@ Mutation testing is powered by [StrykerJS](https://stryker-mutator.io) (`stryker
 Run mutations locally with:
 
 ```bash
-npm run test:mutation
+npm run mutate
 ```
 
 Review `reports/mutation/mutation.html` for surviving mutants and update assertions accordingly.
@@ -101,7 +101,7 @@ Use the following commands during local development and CI:
 | `npm test`                        | Runs the default repository baseline: the shuffled `node:test` harness plus `vitest run`.                           |
 | `npm run test:node -- --repeat=5` | Repeats the backend/shared harness five times to investigate order-sensitive failures.                              |
 | `npm run test:perf`               | Generates a 12k+ transaction ledger and ensures holdings projection completes under 1 000 ms while logging metrics. |
-| `npm run test:mutation`           | Invokes StrykerJS against targeted math modules and reports the mutation score.                                     |
+| `npm run mutate`                  | Invokes StrykerJS against targeted math modules and reports the mutation score.                                     |
 
 For strict deprecation/warning checks, run:
 

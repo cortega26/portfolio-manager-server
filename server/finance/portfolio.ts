@@ -1,6 +1,11 @@
 // server/finance/portfolio.ts
 import { toDateKey, transactionIsExternal } from './cash.js';
 import { d, fromCents, fromMicroShares, roundDecimal, toCents, toMicroShares } from './decimal.js';
+import {
+  TYPE_ORDER,
+  toComparableTimestamp,
+  toComparableSeq,
+} from '../../shared/transactionSort.js';
 import type { Decimal } from 'decimal.js';
 import type { ISODate } from '../types/domain.js';
 
@@ -50,15 +55,7 @@ export const MICRO_SHARE_DUST_TOLERANCE = 5;
 const DAY_NETTED_IMPORT_SOURCE = 'csv-bootstrap';
 const DAY_NETTED_CASH_CHRONOLOGY = 'day-netted';
 
-const HOLDINGS_TYPE_ORDER: Record<string, number> = {
-  DEPOSIT: 1,
-  BUY: 2,
-  SELL: 3,
-  DIVIDEND: 4,
-  INTEREST: 5,
-  WITHDRAWAL: 6,
-  FEE: 7,
-};
+const HOLDINGS_TYPE_ORDER = TYPE_ORDER as Record<string, number>;
 
 const CASH_AUDIT_TYPE_ORDER: Record<string, number> = {
   DEPOSIT: 1,
@@ -82,42 +79,8 @@ function cloneHoldings(holdings: Map<string, number>): Map<string, number> {
   return result;
 }
 
-function toComparableTimestamp(value: unknown): number {
-  if (typeof value === 'number') {
-    if (Number.isFinite(value) && value >= 0) {
-      return Math.trunc(value);
-    }
-    return 0;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      return 0;
-    }
-    const parsed = Number.parseInt(trimmed, 10);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-  return 0;
-}
-
-function toComparableSeq(value: unknown): number {
-  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      return 0;
-    }
-    const parsed = Number.parseInt(trimmed, 10);
-    return Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
-  }
-  return 0;
-}
-
 function compareTransactionIdentity(a: TxRow, b: TxRow): number {
-  const createdAtDiff =
-    toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
+  const createdAtDiff = toComparableTimestamp(a.createdAt) - toComparableTimestamp(b.createdAt);
   if (createdAtDiff !== 0) {
     return createdAtDiff;
   }
@@ -171,7 +134,7 @@ function holdingsToShareMap(holdingsSnapshot: Map<string, number>): Map<string, 
 
 function computeRiskValueCents(
   holdingsSnapshot: Map<string, number>,
-  priceMap: Map<string, unknown>,
+  priceMap: Map<string, unknown>
 ): number {
   let riskValueCents = 0;
   for (const [ticker, qtyMicro] of holdingsSnapshot.entries()) {
@@ -270,7 +233,7 @@ export function normalizeMicroShareBalance(value: unknown): number {
 export function setNormalizedHoldingMicro(
   holdings: Map<string, number>,
   ticker: string,
-  value: number,
+  value: number
 ): number {
   const normalized = normalizeMicroShareBalance(value);
   if (normalized === 0) {
@@ -305,8 +268,7 @@ export function sortTransactionsForCashAudit(transactions: TxRow[]): TxRow[] {
       return dateDiff;
     }
 
-    const sameDayNettedImport =
-      isDayNettedImportTransaction(a) && isDayNettedImportTransaction(b);
+    const sameDayNettedImport = isDayNettedImportTransaction(a) && isDayNettedImportTransaction(b);
     if (sameDayNettedImport) {
       const bucketA = CASH_AUDIT_TYPE_ORDER[a.type ?? ''] ?? 99;
       const bucketB = CASH_AUDIT_TYPE_ORDER[b.type ?? ''] ?? 99;
@@ -339,7 +301,7 @@ export interface ProjectedState {
 
 export function projectStateUntil(
   transactions: TxRow[],
-  date: string | Date | number | unknown,
+  date: string | Date | number | unknown
 ): ProjectedState {
   const dateKey = toDateKey(date);
   const state = createLedgerState();
@@ -359,9 +321,7 @@ export function projectStateUntil(
   };
 }
 
-export function externalFlowsByDate(
-  transactions: TxRow[],
-): Map<string, Decimal> {
+export function externalFlowsByDate(transactions: TxRow[]): Map<string, Decimal> {
   const flows = new Map<string, number>();
   for (const tx of transactions) {
     if (!transactionIsExternal(tx)) {
@@ -409,15 +369,13 @@ export function computeDailyStates({
         dateKey,
         ledgerState,
         priceMap,
-      }),
+      })
     );
   }
   return states;
 }
 
-export function holdingsToObject(
-  holdings: Map<string, number>,
-): Record<string, number> {
+export function holdingsToObject(holdings: Map<string, number>): Record<string, number> {
   const result: Record<string, number> = {};
   for (const [ticker, qty] of holdings.entries()) {
     result[ticker] = qty;
@@ -431,7 +389,7 @@ export interface PortfolioWeights {
 }
 
 export function weightsFromState(
-  state: { nav?: number; cash?: number; riskValue?: number } | null | undefined,
+  state: { nav?: number; cash?: number; riskValue?: number } | null | undefined
 ): PortfolioWeights {
   if (!state || (state.nav ?? 0) <= 0) {
     return { cash: 0, risk: 0 };

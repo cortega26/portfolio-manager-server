@@ -74,12 +74,7 @@ const SYNTHETIC_HYCA_INTEREST_POSTINGS = [
   { date: '2026-02-27', amount: '0.05' },
 ];
 
-function buildImportMetadata({
-  fileName,
-  lineNumber,
-  original,
-  adjustment = null,
-}) {
+function buildImportMetadata({ fileName, lineNumber, original, adjustment = null }) {
   return {
     system: {
       import: {
@@ -95,7 +90,9 @@ function buildImportMetadata({
 }
 
 function normalizeLineEndings(value) {
-  return String(value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  return String(value ?? '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
 }
 
 async function readCsvLines(filePath) {
@@ -213,17 +210,10 @@ function normalizeImportedNumericInput(value) {
 
 function createDeterministicCreatedAt(date, lineNumber, variantIndex = 0) {
   const [year, month, day] = date.split('-').map((part) => Number.parseInt(part, 10));
-  return Date.UTC(year, month - 1, day, 0, 0, 0, 0) + (lineNumber * 10) + variantIndex;
+  return Date.UTC(year, month - 1, day, 0, 0, 0, 0) + lineNumber * 10 + variantIndex;
 }
 
-function withBaseTransactionFields({
-  id,
-  date,
-  lineNumber,
-  seq,
-  note,
-  metadata,
-}) {
+function withBaseTransactionFields({ id, date, lineNumber, seq, note, metadata }) {
   return {
     id,
     uid: id,
@@ -243,15 +233,16 @@ function withBaseTransactionFields({
  * @param {Array} corporateActions - loaded from server/data/corporateActions.json
  * @returns {{ quantity: Decimal, adjustment: object|null }}
  */
-function maybeApplyDatasetQuantityAdjustment({ ticker, date, type, quantity }, corporateActions = []) {
+function maybeApplyDatasetQuantityAdjustment(
+  { ticker, date, type, quantity },
+  corporateActions = []
+) {
   for (const action of corporateActions) {
     if (action.type !== 'split') continue;
     if (action.ticker !== ticker) continue;
     if (date >= action.date) continue;
 
-    const appliesToTransaction =
-      action.applies_to === 'ALL' ||
-      action.applies_to === type;
+    const appliesToTransaction = action.applies_to === 'ALL' || action.applies_to === type;
 
     if (!appliesToTransaction) continue;
 
@@ -283,23 +274,22 @@ function buildBuyOrSellTransaction({
   const normalizedAmount = normalizeImportedNumericInput(amount);
   const normalizedQuantity = normalizeImportedNumericInput(quantity);
   const decimalAmount = d(normalizedAmount).abs();
-  const quantityAdjustment = maybeApplyDatasetQuantityAdjustment({
-    ticker,
-    date: normalizedDate,
-    type,
-    quantity: d(normalizedQuantity).abs(),
-  }, corporateActions);
-  const signedQuantity = type === 'SELL'
-    ? quantityAdjustment.quantity.neg()
-    : quantityAdjustment.quantity;
+  const quantityAdjustment = maybeApplyDatasetQuantityAdjustment(
+    {
+      ticker,
+      date: normalizedDate,
+      type,
+      quantity: d(normalizedQuantity).abs(),
+    },
+    corporateActions
+  );
+  const signedQuantity =
+    type === 'SELL' ? quantityAdjustment.quantity.neg() : quantityAdjustment.quantity;
   const price = decimalAmount.div(quantityAdjustment.quantity);
   const id = `csv:${fileName}:${lineNumber}`;
-  const note = [
-    assetName,
-    `category=${category}`,
-    `source=${fileName}`,
-    `line=${lineNumber}`,
-  ].join(' | ');
+  const note = [assetName, `category=${category}`, `source=${fileName}`, `line=${lineNumber}`].join(
+    ' | '
+  );
 
   return {
     ...withBaseTransactionFields({
@@ -322,23 +312,14 @@ function buildBuyOrSellTransaction({
     }),
     ticker,
     type,
-    amount: type === 'BUY'
-      ? -toFiniteNumber(decimalAmount, 2)
-      : toFiniteNumber(decimalAmount, 2),
+    amount: type === 'BUY' ? -toFiniteNumber(decimalAmount, 2) : toFiniteNumber(decimalAmount, 2),
     price: toFiniteNumber(price, 8),
     quantity: toFiniteNumber(signedQuantity, 9),
     shares: toFiniteNumber(quantityAdjustment.quantity, 9),
   };
 }
 
-function buildDepositTransaction({
-  fileName,
-  lineNumber,
-  seq,
-  date,
-  usdAmount,
-  clpAmount,
-}) {
+function buildDepositTransaction({ fileName, lineNumber, seq, date, usdAmount, clpAmount }) {
   const normalizedDate = parseIsoDate(date);
   const normalizedUsdAmount = normalizeImportedNumericInput(usdAmount);
   const normalizedClpAmount = normalizeImportedNumericInput(clpAmount);
@@ -558,7 +539,8 @@ export function reconcileImportedTransactions(transactions) {
   const holdings = new Map();
 
   for (const transaction of transactions) {
-    const currency = typeof transaction.currency === 'string' ? transaction.currency : CASH_CURRENCY;
+    const currency =
+      typeof transaction.currency === 'string' ? transaction.currency : CASH_CURRENCY;
     const amount = d(transaction.amount ?? 0).abs();
     const previousCash = cashByCurrency.get(currency) ?? d(0);
     let nextCash = previousCash;
@@ -588,7 +570,9 @@ export function reconcileImportedTransactions(transactions) {
   }
 
   const normalizedHoldings = {};
-  for (const [ticker, quantity] of [...holdings.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+  for (const [ticker, quantity] of [...holdings.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0])
+  )) {
     if (quantity.isZero()) {
       continue;
     }
@@ -597,10 +581,9 @@ export function reconcileImportedTransactions(transactions) {
 
   return {
     cashByCurrency: Object.fromEntries(
-      [...cashByCurrency.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([currency, value]) => [
-        currency,
-        value.toFixed(2),
-      ]),
+      [...cashByCurrency.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([currency, value]) => [currency, value.toFixed(2)])
     ),
     holdings: normalizedHoldings,
   };
@@ -610,7 +593,7 @@ export function assertExpectedCsvImportReconciliation(summary) {
   const actualCash = summary.cashByCurrency[CASH_CURRENCY] ?? '0.00';
   if (actualCash !== CSV_IMPORT_EXPECTED_RECONCILIATION.cash) {
     throw new Error(
-      `CSV import cash reconciliation mismatch. Expected ${CSV_IMPORT_EXPECTED_RECONCILIATION.cash} ${CASH_CURRENCY}, received ${actualCash} ${CASH_CURRENCY}.`,
+      `CSV import cash reconciliation mismatch. Expected ${CSV_IMPORT_EXPECTED_RECONCILIATION.cash} ${CASH_CURRENCY}, received ${actualCash} ${CASH_CURRENCY}.`
     );
   }
 
@@ -619,7 +602,7 @@ export function assertExpectedCsvImportReconciliation(summary) {
   const expectedTickers = Object.keys(expectedHoldings).sort();
   if (JSON.stringify(actualTickers) !== JSON.stringify(expectedTickers)) {
     throw new Error(
-      `CSV import holdings reconciliation mismatch. Expected tickers ${expectedTickers.join(', ')}, received ${actualTickers.join(', ')}.`,
+      `CSV import holdings reconciliation mismatch. Expected tickers ${expectedTickers.join(', ')}, received ${actualTickers.join(', ')}.`
     );
   }
 
@@ -627,7 +610,7 @@ export function assertExpectedCsvImportReconciliation(summary) {
     const actualQuantity = summary.holdings[ticker];
     if (actualQuantity !== expectedQuantity) {
       throw new Error(
-        `CSV import holdings reconciliation mismatch for ${ticker}. Expected ${expectedQuantity}, received ${actualQuantity}.`,
+        `CSV import holdings reconciliation mismatch for ${ticker}. Expected ${expectedQuantity}, received ${actualQuantity}.`
       );
     }
   }
@@ -647,7 +630,7 @@ export async function buildCsvPortfolioImport({ sourceDir, sourceFiles } = {}) {
         index,
         date: posting.date,
         amount: posting.amount,
-      }),
+      })
     );
   }
 
@@ -670,7 +653,7 @@ export async function buildCsvPortfolioImport({ sourceDir, sourceFiles } = {}) {
         quantity,
         type: 'BUY',
         corporateActions,
-      }),
+      })
     );
   }
 
@@ -693,7 +676,7 @@ export async function buildCsvPortfolioImport({ sourceDir, sourceFiles } = {}) {
         quantity,
         type: 'SELL',
         corporateActions,
-      }),
+      })
     );
   }
 
@@ -711,25 +694,18 @@ export async function buildCsvPortfolioImport({ sourceDir, sourceFiles } = {}) {
         date,
         usdAmount,
         clpAmount,
-      }),
+      })
     );
   }
 
-  const dividendHeader = normalizeLineEndings(await fs.readFile(resolvedFiles.dividends, 'utf8'))
-    .split('\n')[0] ?? '';
-  const parseDividendRows =
-    dividendHeader.includes(';') ? parseSemicolonSeparatedFile : parseCommaSeparatedFile;
+  const dividendHeader =
+    normalizeLineEndings(await fs.readFile(resolvedFiles.dividends, 'utf8')).split('\n')[0] ?? '';
+  const parseDividendRows = dividendHeader.includes(';')
+    ? parseSemicolonSeparatedFile
+    : parseCommaSeparatedFile;
   const dividendRows = await parseDividendRows(resolvedFiles.dividends);
   for (const { lineNumber, columns } of dividendRows) {
-    const [
-      brokerId,
-      grossCents,
-      ,
-      taxCents,
-      ,
-      createdAtRaw,
-      dateRaw,
-    ] = columns;
+    const [brokerId, grossCents, , taxCents, , createdAtRaw, dateRaw] = columns;
     const dividendTransactions = buildDividendTransactions({
       fileName: path.basename(resolvedFiles.dividends),
       lineNumber,

@@ -5,7 +5,7 @@ import { getCacheStats } from '../cache/priceCache.js';
 import { getLockMetrics } from '../utils/locks.js';
 
 function formatLoadAverage(values) {
-  return values.map((value) => Number.isFinite(value) ? Number(value.toFixed(2)) : 0);
+  return values.map((value) => (Number.isFinite(value) ? Number(value.toFixed(2)) : 0));
 }
 
 function formatMemoryUsage(memory) {

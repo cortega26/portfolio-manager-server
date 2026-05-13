@@ -30,7 +30,10 @@ import { tmpdir } from 'node:os';
 
 import pino from 'pino';
 import { createFastifyApp } from '../../app.fastify.js';
-import { createConfiguredPriceProvider, createConfiguredLatestQuoteProvider } from '../../data/priceProviderFactory.js';
+import {
+  createConfiguredPriceProvider,
+  createConfiguredLatestQuoteProvider,
+} from '../../data/priceProviderFactory.js';
 import createHistoricalPriceLoader from '../../services/historicalPriceLoader.js';
 import JsonTableStorage from '../../data/storage.js';
 import { normalizeBenchmarkConfig } from '../../../shared/benchmarks.js';
@@ -55,13 +58,19 @@ const noopHistoricalPriceLoader = {
  * Reads the 'prices' table and returns the latest row for the given symbol.
  */
 function makePersistedLatestCloseLookup(testDataDir, logger) {
-  const storage = new JsonTableStorage({ dataDir: testDataDir, logger: logger ?? pino({ level: 'silent' }) });
+  const storage = new JsonTableStorage({
+    dataDir: testDataDir,
+    logger: logger ?? pino({ level: 'silent' }),
+  });
   return async (symbol) => {
     try {
       const rows = await storage.readTable('prices');
       if (!Array.isArray(rows)) return null;
       const matching = rows
-        .filter((row) => typeof row?.ticker === 'string' && row.ticker.toUpperCase() === symbol.toUpperCase())
+        .filter(
+          (row) =>
+            typeof row?.ticker === 'string' && row.ticker.toUpperCase() === symbol.toUpperCase()
+        )
         .sort((a, b) => String(a.date).localeCompare(String(b.date)));
       const latest = matching[matching.length - 1];
       return latest ?? null;
@@ -79,7 +88,9 @@ function makePersistedLatestCloseLookup(testDataDir, logger) {
 export function adaptPriceProvider(priceProvider) {
   let callCount = 0;
   const loader = {
-    get callCount() { return callCount; },
+    get callCount() {
+      return callCount;
+    },
     async fetchSeries(symbol, _opts) {
       callCount += 1;
       const prices = await priceProvider.getDailyAdjustedClose(symbol);
@@ -193,8 +204,14 @@ function deepMerge(target, source) {
   for (const key of Object.keys(source)) {
     const srcVal = source[key];
     const tgtVal = result[key];
-    if (srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal)
-      && tgtVal && typeof tgtVal === 'object' && !Array.isArray(tgtVal)) {
+    if (
+      srcVal &&
+      typeof srcVal === 'object' &&
+      !Array.isArray(srcVal) &&
+      tgtVal &&
+      typeof tgtVal === 'object' &&
+      !Array.isArray(tgtVal)
+    ) {
       result[key] = deepMerge(tgtVal, srcVal);
     } else {
       result[key] = srcVal;
@@ -242,16 +259,46 @@ export async function buildFastifyApp(opts = {}) {
   if (!resolvedLoader && priceProvider && fetchImpl) {
     // Both priceProvider (EOD) and fetchImpl (alpaca) provided:
     // use priceProvider for historical prices, fetchImpl for live quotes.
-    const latestQuoteProvider = createConfiguredLatestQuoteProvider({ config: appConfig, fetchImpl, logger: effectiveLogger });
-    const persistedLatestCloseLookup = dataDir ? makePersistedLatestCloseLookup(dataDir, effectiveLogger) : null;
-    resolvedLoader = createHistoricalPriceLoader({ priceProvider, latestQuoteProvider, persistedLatestCloseLookup, marketClock });
+    const latestQuoteProvider = createConfiguredLatestQuoteProvider({
+      config: appConfig,
+      fetchImpl,
+      logger: effectiveLogger,
+    });
+    const persistedLatestCloseLookup = dataDir
+      ? makePersistedLatestCloseLookup(dataDir, effectiveLogger)
+      : null;
+    resolvedLoader = createHistoricalPriceLoader({
+      priceProvider,
+      latestQuoteProvider,
+      persistedLatestCloseLookup,
+      marketClock,
+    });
   } else if (!resolvedLoader && priceProvider) {
-    const persistedLatestCloseLookup = dataDir ? makePersistedLatestCloseLookup(dataDir, effectiveLogger) : null;
-    resolvedLoader = createHistoricalPriceLoader({ priceProvider, latestQuoteProvider: null, persistedLatestCloseLookup, marketClock });
+    const persistedLatestCloseLookup = dataDir
+      ? makePersistedLatestCloseLookup(dataDir, effectiveLogger)
+      : null;
+    resolvedLoader = createHistoricalPriceLoader({
+      priceProvider,
+      latestQuoteProvider: null,
+      persistedLatestCloseLookup,
+      marketClock,
+    });
   } else if (!resolvedLoader && fetchImpl) {
-    const pp = createConfiguredPriceProvider({ config: appConfig, fetchImpl, logger: effectiveLogger });
-    const latestQuoteProvider = createConfiguredLatestQuoteProvider({ config: appConfig, fetchImpl, logger: effectiveLogger });
-    resolvedLoader = createHistoricalPriceLoader({ priceProvider: pp, latestQuoteProvider, marketClock });
+    const pp = createConfiguredPriceProvider({
+      config: appConfig,
+      fetchImpl,
+      logger: effectiveLogger,
+    });
+    const latestQuoteProvider = createConfiguredLatestQuoteProvider({
+      config: appConfig,
+      fetchImpl,
+      logger: effectiveLogger,
+    });
+    resolvedLoader = createHistoricalPriceLoader({
+      priceProvider: pp,
+      latestQuoteProvider,
+      marketClock,
+    });
   }
 
   resolvedLoader = resolvedLoader ?? noopHistoricalPriceLoader;
@@ -373,7 +420,12 @@ class InjectChain {
       await pipeline(
         Readable.from(rawPayload),
         createGunzip(),
-        new Writable({ write(chunk, _, cb) { chunks.push(chunk); cb(); } }),
+        new Writable({
+          write(chunk, _, cb) {
+            chunks.push(chunk);
+            cb();
+          },
+        })
       );
       rawPayload = Buffer.concat(chunks);
     } else if (encoding === 'br') {
@@ -381,7 +433,12 @@ class InjectChain {
       await pipeline(
         Readable.from(rawPayload),
         createBrotliDecompress(),
-        new Writable({ write(chunk, _, cb) { chunks.push(chunk); cb(); } }),
+        new Writable({
+          write(chunk, _, cb) {
+            chunks.push(chunk);
+            cb();
+          },
+        })
       );
       rawPayload = Buffer.concat(chunks);
     }
@@ -420,14 +477,14 @@ class InjectChain {
         assert.equal(
           response.status,
           statusOrHeader,
-          `Expected HTTP ${statusOrHeader}, got ${response.status}`,
+          `Expected HTTP ${statusOrHeader}, got ${response.status}`
         );
       } else if (typeof statusOrHeader === 'string') {
         const headerVal = String(response.headers[statusOrHeader.toLowerCase()] ?? '');
         if (matcher instanceof RegExp) {
           assert.ok(
             matcher.test(headerVal),
-            `Header "${statusOrHeader}" expected to match ${matcher}, got "${headerVal}"`,
+            `Header "${statusOrHeader}" expected to match ${matcher}, got "${headerVal}"`
           );
         } else if (typeof matcher === 'string') {
           assert.equal(headerVal, matcher);
@@ -452,10 +509,6 @@ class InjectChain {
 /**
  * Mirrors sessionTestUtils.withSession() — sets the session token header on the chain.
  */
-export function withSession(
-  chain,
-  token = TEST_SESSION_TOKEN,
-  headerName = TEST_SESSION_HEADER,
-) {
+export function withSession(chain, token = TEST_SESSION_TOKEN, headerName = TEST_SESSION_HEADER) {
   return chain.set(headerName, token);
 }

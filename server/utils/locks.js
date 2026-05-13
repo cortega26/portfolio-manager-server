@@ -26,9 +26,7 @@ export async function withLock(key, task) {
     release = resolve;
   });
 
-  entry.chain = previous
-    .catch(() => {})
-    .then(() => current);
+  entry.chain = previous.catch(() => {}).then(() => current);
   queues.set(key, entry);
 
   try {

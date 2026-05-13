@@ -60,7 +60,7 @@ async function main() {
       level: 'info',
       message: 'backfill_complete',
       processed_days: dates.length,
-    }),
+    })
   );
 }
 
@@ -71,7 +71,7 @@ if (import.meta.url === `file://${path.resolve(process.argv[1])}`) {
         level: 'error',
         message: 'backfill_failed',
         error: error.message,
-      }),
+      })
     );
     process.exitCode = 1;
   });

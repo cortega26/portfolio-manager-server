@@ -19,7 +19,7 @@ export class AppError extends Error {
       code?: string;
       details?: unknown;
       expose?: boolean;
-    } = {},
+    } = {}
   ) {
     super(message);
     this.name = 'AppError';
@@ -38,11 +38,7 @@ export class NotFoundError extends AppError {
 }
 
 export class ValidationError extends AppError {
-  constructor(
-    message = 'Validation failed',
-    details?: unknown,
-    code = 'VALIDATION_ERROR',
-  ) {
+  constructor(message = 'Validation failed', details?: unknown, code = 'VALIDATION_ERROR') {
     super(message, { statusCode: 400, code, details, expose: true });
     this.name = 'ValidationError';
   }

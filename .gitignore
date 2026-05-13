@@ -1,6 +1,10 @@
 # Build artifacts
 node_modules/
 dist/
+.playwright-cli/
+.agents/
+.claude/
+.continue/
 
 # Runtime data (generated at runtime, not committed)
 data/*
@@ -25,3 +29,4 @@ npm-debug.log*
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+

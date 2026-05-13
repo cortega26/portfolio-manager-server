@@ -23,13 +23,12 @@ export interface LatestPriceSnapshot {
 
 export function paginateRows<T>(
   rows: T[],
-  { page = 1, perPage = 100 }: { page?: number; perPage?: number } = {},
+  { page = 1, perPage = 100 }: { page?: number; perPage?: number } = {}
 ) {
   const total = rows.length;
   const normalizedPerPage = Number.isFinite(perPage) && perPage > 0 ? perPage : 100;
   const totalPages = total === 0 ? 0 : Math.ceil(total / normalizedPerPage);
-  const safePage =
-    totalPages === 0 ? Math.max(1, page) : Math.min(Math.max(1, page), totalPages);
+  const safePage = totalPages === 0 ? Math.max(1, page) : Math.min(Math.max(1, page), totalPages);
   const start = (safePage - 1) * normalizedPerPage;
   return {
     items: rows.slice(start, start + normalizedPerPage),
@@ -45,7 +44,7 @@ export function paginateRows<T>(
 export function filterRowsByRange<T extends DatedRow>(
   rows: T[],
   from: string | null,
-  to: string | null,
+  to: string | null
 ) {
   return rows.filter((row) => {
     const date = typeof row.date === 'string' ? row.date : null;
@@ -60,15 +59,11 @@ export function normalizeScopedPortfolioId(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
-export function filterRowsByPortfolioScope<T extends ScopedRow>(
-  rows: T[],
-  portfolioId: unknown,
-) {
+export function filterRowsByPortfolioScope<T extends ScopedRow>(rows: T[], portfolioId: unknown) {
   const normalizedPortfolioId = normalizeScopedPortfolioId(portfolioId);
   if (!normalizedPortfolioId) {
     const unscoped = rows.filter(
-      (row) =>
-        typeof row.portfolio_id !== 'string' || row.portfolio_id.trim().length === 0,
+      (row) => typeof row.portfolio_id !== 'string' || row.portfolio_id.trim().length === 0
     );
     return unscoped.length > 0 ? unscoped : rows;
   }
@@ -117,7 +112,7 @@ export function resolveHistoricalClose(point: HistoricalPricePoint | null): numb
 export function buildAdjustedPriceMap(
   rows: Array<Record<string, unknown>>,
   ticker: string,
-  { from, to }: { from?: string | null; to?: string | null } = {},
+  { from, to }: { from?: string | null; to?: string | null } = {}
 ) {
   const normalizedTicker = normalizeTickerSymbol(ticker);
   const map = new Map<string, number>();
@@ -137,14 +132,12 @@ export function buildAdjustedPriceMap(
     }
     map.set(point.date, price);
   }
-  return new Map(
-    Array.from(map.entries()).sort((left, right) => left[0].localeCompare(right[0])),
-  );
+  return new Map(Array.from(map.entries()).sort((left, right) => left[0].localeCompare(right[0])));
 }
 
 export function buildFreshPriceSnapshot(
   value: unknown,
-  maxStaleTradingDays: number,
+  maxStaleTradingDays: number
 ): LatestPriceSnapshot {
   const point = asHistoricalPricePoint(value);
   const asOf = point?.date ?? null;
@@ -156,4 +149,62 @@ export function buildFreshPriceSnapshot(
     price: resolveHistoricalClose(point),
     asOf,
   };
+}
+
+export function normalizePricingStatusSummary(
+  symbolMeta: Record<string, unknown>,
+  errors: Record<string, unknown>
+): Record<string, unknown> {
+  const summary = {
+    status: 'unavailable',
+    liveSymbols: [] as string[],
+    eodSymbols: [] as string[],
+    cacheSymbols: [] as string[],
+    degradedSymbols: [] as string[],
+    unavailableSymbols: [] as string[],
+  };
+
+  for (const [symbol, meta] of Object.entries(symbolMeta)) {
+    const status =
+      typeof (meta as Record<string, unknown>)?.['status'] === 'string'
+        ? (meta as Record<string, string>)['status']
+        : 'unavailable';
+    if (status === 'live') {
+      summary.liveSymbols.push(symbol);
+      continue;
+    }
+    if (status === 'eod_fresh') {
+      summary.eodSymbols.push(symbol);
+      continue;
+    }
+    if (status === 'cache_fresh') {
+      summary.cacheSymbols.push(symbol);
+      continue;
+    }
+    if (status === 'degraded') {
+      summary.degradedSymbols.push(symbol);
+      continue;
+    }
+    summary.unavailableSymbols.push(symbol);
+  }
+
+  for (const symbol of Object.keys(errors)) {
+    if (!summary.unavailableSymbols.includes(symbol)) {
+      summary.unavailableSymbols.push(symbol);
+    }
+  }
+
+  if (summary.unavailableSymbols.length > 0) {
+    summary.status = 'unavailable';
+  } else if (summary.degradedSymbols.length > 0) {
+    summary.status = 'degraded';
+  } else if (summary.liveSymbols.length > 0) {
+    summary.status = 'live';
+  } else if (summary.eodSymbols.length > 0) {
+    summary.status = 'eod_fresh';
+  } else if (summary.cacheSymbols.length > 0) {
+    summary.status = 'cache_fresh';
+  }
+
+  return summary as unknown as Record<string, unknown>;
 }

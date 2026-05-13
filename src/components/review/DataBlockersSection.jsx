@@ -4,21 +4,25 @@
  */
 
 import PropTypes from 'prop-types';
+import { useI18n } from '../../i18n/I18nProvider.jsx';
 
 export default function DataBlockersSection({ degradedReasons = [], staleTickers = [] }) {
+  const { t } = useI18n();
   const hasBlockers = degradedReasons.length > 0 || staleTickers.length > 0;
 
   return (
     <section
       data-testid="data-blockers-section"
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      className="card-base p-5"
       aria-label="Data blockers"
     >
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Data Blockers
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400">
+        {t('review.dataBlockers')}
       </h2>
       {!hasBlockers ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">All data is current.</p>
+        <p className="text-sm text-surface-500 dark:text-surface-400">
+          {t('review.dataBlockers.empty')}
+        </p>
       ) : (
         <div className="space-y-3">
           {degradedReasons.length > 0 && (
@@ -32,8 +36,8 @@ export default function DataBlockersSection({ degradedReasons = [], staleTickers
           )}
           {staleTickers.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                Stale or missing prices:
+              <p className="mb-1 text-xs font-medium text-surface-500 dark:text-surface-400">
+                {t('review.dataBlockers.staleLabel')}
               </p>
               <p className="text-sm text-amber-600 dark:text-amber-400">
                 {staleTickers.join(', ')}

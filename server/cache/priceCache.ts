@@ -42,10 +42,7 @@ function createCache({
   ttlSeconds = DEFAULT_TTL_SECONDS,
   checkPeriodSeconds = DEFAULT_CHECK_PERIOD_SECONDS,
 }: CacheConfig = {}): NodeCache {
-  const stdTTL =
-    Number.isFinite(ttlSeconds) && ttlSeconds > 0
-      ? ttlSeconds
-      : DEFAULT_TTL_SECONDS;
+  const stdTTL = Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : DEFAULT_TTL_SECONDS;
   const checkperiod =
     Number.isFinite(checkPeriodSeconds) && checkPeriodSeconds > 0
       ? Math.round(checkPeriodSeconds)
@@ -59,12 +56,9 @@ function createCache({
 }
 
 function buildKey(symbol: unknown, range: unknown): string {
-  const normalizedSymbol =
-    typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
+  const normalizedSymbol = typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
   const normalizedRange =
-    typeof range === 'string' && range.trim()
-      ? range.trim().toLowerCase()
-      : '1y';
+    typeof range === 'string' && range.trim() ? range.trim().toLowerCase() : '1y';
   return `${normalizedSymbol}:${normalizedRange}`;
 }
 
@@ -80,10 +74,7 @@ function calculateHitRate(stats: { hits?: number; misses?: number }): number {
 // Exported functions
 // ---------------------------------------------------------------------------
 
-export function configurePriceCache({
-  ttlSeconds,
-  checkPeriodSeconds,
-}: CacheConfig = {}): void {
+export function configurePriceCache({ ttlSeconds, checkPeriodSeconds }: CacheConfig = {}): void {
   priceCache = createCache({
     ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
     ...(checkPeriodSeconds !== undefined ? { checkPeriodSeconds } : {}),
@@ -103,7 +94,7 @@ export function setCachedPrice(
   symbol: unknown,
   range: unknown,
   data: unknown,
-  { ttlSeconds }: { ttlSeconds?: number } = {},
+  { ttlSeconds }: { ttlSeconds?: number } = {}
 ): string {
   const key = buildKey(symbol, range);
   const etag = generateETag(data);
@@ -123,7 +114,7 @@ export function setCachedPrice(
 export function getCachedPrice(
   symbol: unknown,
   range: unknown,
-  { maxAgeMs }: { maxAgeMs?: number } = {},
+  { maxAgeMs }: { maxAgeMs?: number } = {}
 ): CacheEntry | undefined {
   const cached = priceCache.get<CacheEntry>(buildKey(symbol, range));
   if (!cached) {

@@ -25,8 +25,12 @@ export default function TabBar({
   const { t } = useI18n();
   const visibleTabs = showTodayTab ? [TODAY_TAB, ...tabs] : tabs;
   return (
-    <div className="mb-6 rounded-xl bg-white/80 p-1 shadow dark:bg-slate-900/80">
-      <div className="flex gap-2" role="tablist" aria-label={t('nav.aria')}>
+    <div className="overflow-x-auto">
+      <div
+        className="inline-flex min-w-0 gap-1 rounded-xl bg-surface-100/80 p-1 shadow-tab backdrop-blur-sm dark:bg-surface-900/80"
+        role="tablist"
+        aria-label={t('nav.aria')}
+      >
         {visibleTabs.map(({ id, labelKey }) => {
           const slug = id.toLowerCase();
           const tabId = `tab-${slug}`;

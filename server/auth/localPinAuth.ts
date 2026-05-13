@@ -8,7 +8,7 @@ const scrypt = promisify(scryptCallback) as (
   password: string,
   salt: string,
   keylen: number,
-  options: { N: number; r: number; p: number },
+  options: { N: number; r: number; p: number }
 ) => Promise<Buffer>;
 
 const PORTFOLIO_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
@@ -31,7 +31,7 @@ export interface AuthStorage {
   upsertRow<T extends Record<string, unknown>>(
     table: string,
     row: T,
-    keys: string[],
+    keys: string[]
   ): Promise<void>;
 }
 
@@ -118,7 +118,7 @@ function parseStoredHash(pinHash: unknown): ParsedHash | null {
 async function derivePinDigest(
   pin: string,
   salt: string,
-  keylen: number = SCRYPT_PARAMS.keylen,
+  keylen: number = SCRYPT_PARAMS.keylen
 ): Promise<string> {
   const derived = await scrypt(pin, salt, keylen, {
     N: SCRYPT_PARAMS.N,
@@ -139,17 +139,14 @@ async function readPinRows(storage: AuthStorage): Promise<PinRecord[]> {
 
 export async function getPinRecord(
   storage: AuthStorage,
-  portfolioId: PortfolioId,
+  portfolioId: PortfolioId
 ): Promise<PinRecord | null> {
   const normalizedPortfolioId = normalizePortfolioId(portfolioId);
   const rows = await readPinRows(storage);
   return rows.find((row) => row?.portfolio_id === normalizedPortfolioId) ?? null;
 }
 
-export async function hasPin(
-  storage: AuthStorage,
-  portfolioId: PortfolioId,
-): Promise<boolean> {
+export async function hasPin(storage: AuthStorage, portfolioId: PortfolioId): Promise<boolean> {
   const record = await getPinRecord(storage, portfolioId);
   return Boolean(record?.pin_hash);
 }
@@ -157,7 +154,7 @@ export async function hasPin(
 export async function setPin(
   storage: AuthStorage,
   portfolioId: PortfolioId,
-  pin: string,
+  pin: string
 ): Promise<{ portfolio_id: string; created_at: string; updated_at: string }> {
   const normalizedPortfolioId = normalizePortfolioId(portfolioId);
   const normalizedPin = normalizePin(pin);
@@ -182,7 +179,7 @@ export async function setPin(
 export async function verifyPin(
   storage: AuthStorage,
   portfolioId: PortfolioId,
-  pin: string,
+  pin: string
 ): Promise<boolean> {
   const normalizedPortfolioId = normalizePortfolioId(portfolioId);
   const normalizedPin = normalizePin(pin);

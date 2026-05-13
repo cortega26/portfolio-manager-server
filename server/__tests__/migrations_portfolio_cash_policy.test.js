@@ -99,14 +99,14 @@ test('migration 005 backfills legacy NVDA pre-split csv sells in persisted portf
   assert.equal(buy.shares, 0.01783046);
   assert.equal(
     buy.metadata?.system?.import?.adjustment?.rule,
-    'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES',
+    'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES'
   );
   assert.equal(sell.shares, 0.01783046);
   assert.equal(sell.quantity, -0.01783046);
   assert.equal(sell.price, 62.25302095);
   assert.equal(
     sell.metadata?.system?.import?.adjustment?.rule,
-    'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES',
+    'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES'
   );
 });
 

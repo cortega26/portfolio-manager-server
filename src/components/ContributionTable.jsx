@@ -27,50 +27,47 @@ export default function ContributionTable({
   );
 
   return (
-    <div
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      data-testid="contribution-table"
-    >
-      <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+    <div className="card-base p-5" data-testid="contribution-table">
+      <h3 className="font-heading text-sm font-bold text-surface-700 dark:text-surface-300">
         {t('dashboard.contribution.title')}
       </h3>
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+      <p className="mt-1 text-xs text-surface-500 dark:text-surface-400">
         {t('dashboard.contribution.subtitle')}
       </p>
 
       {rows.length === 0 ? (
         <p
-          className="mt-4 text-sm text-slate-500 dark:text-slate-400"
+          className="mt-4 text-sm text-surface-500 dark:text-surface-400"
           data-testid="contribution-table-empty"
         >
           {t('dashboard.contribution.empty')}
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto" data-testid="contribution-table-content">
-          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+          <table className="min-w-full divide-y divide-surface-200 text-sm dark:divide-surface-700">
             <thead>
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
                   {t('dashboard.contribution.col.ticker')}
                 </th>
-                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
                   {t('dashboard.contribution.col.weight')}
                 </th>
-                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
                   {t('dashboard.contribution.col.individualReturn')}
                 </th>
-                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
                   {t('dashboard.contribution.col.contribution')}
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
               {rows.map((row) => (
                 <tr key={row.ticker} data-testid={`contribution-row-${row.ticker}`}>
-                  <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">
+                  <td className="px-3 py-2 font-medium text-surface-800 dark:text-surface-200">
                     {row.ticker}
                   </td>
-                  <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">
+                  <td className="px-3 py-2 text-right text-surface-600 dark:text-surface-300">
                     {(row.weight * 100).toFixed(1)}%
                   </td>
                   <td

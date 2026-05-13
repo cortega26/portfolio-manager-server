@@ -12,15 +12,17 @@ import {
 // Yahoo v8 chart JSON fixture (replaces the deprecated v7 CSV endpoint)
 const yahooV8Json = {
   chart: {
-    result: [{
-      meta: { symbol: 'SPY' },
-      // 2024-01-01 17:00 UTC = 2024-01-01 12:00 America/New_York
-      timestamp: [1704124800],
-      indicators: {
-        quote: [{ close: [10.0] }],
-        adjclose: [{ adjclose: [9.5] }],
+    result: [
+      {
+        meta: { symbol: 'SPY' },
+        // 2024-01-01 17:00 UTC = 2024-01-01 12:00 America/New_York
+        timestamp: [1704124800],
+        indicators: {
+          quote: [{ close: [10.0] }],
+          adjclose: [{ adjclose: [9.5] }],
+        },
       },
-    }],
+    ],
     error: null,
   },
 };
@@ -93,8 +95,8 @@ test('YahooPriceProvider parses adjusted close values and logs latency', async (
   assert.equal(rows[0].adjClose, 9.5);
   assert.ok(
     logger.entries.some(
-      (entry) => entry.event === 'price_provider_latency' && entry.meta.provider === 'yahoo',
-    ),
+      (entry) => entry.event === 'price_provider_latency' && entry.meta.provider === 'yahoo'
+    )
   );
 });
 
@@ -104,13 +106,11 @@ test('YahooPriceProvider surfaces upstream failures', async () => {
   const provider = new YahooPriceProvider({ fetchImpl, timeoutMs: 1000, logger });
   // Pre-populate crumb cache so the test exercises only the chart-fetch path
   provider._crumbCache = { crumb: 'test-crumb', cookies: 'A1=test', fetchedAt: Date.now() };
-  await assert.rejects(() =>
-    provider.getDailyAdjustedClose('SPY', '2024-01-01', '2024-01-02'),
-  );
+  await assert.rejects(() => provider.getDailyAdjustedClose('SPY', '2024-01-01', '2024-01-02'));
   assert.ok(
     logger.entries.some(
-      (entry) => entry.level === 'error' && entry.event === 'price_provider_failed',
-    ),
+      (entry) => entry.level === 'error' && entry.event === 'price_provider_failed'
+    )
   );
 });
 
@@ -127,8 +127,8 @@ test('StooqPriceProvider normalizes US symbols into adjusted series', async () =
   assert.equal(requests[0], 'https://stooq.com/q/d/l/?s=nvda.us&d1=20240101&d2=20240110&i=d');
   assert.ok(
     logger.entries.some(
-      (entry) => entry.event === 'price_provider_latency' && entry.meta.provider === 'stooq',
-    ),
+      (entry) => entry.event === 'price_provider_latency' && entry.meta.provider === 'stooq'
+    )
   );
 });
 
@@ -138,12 +138,12 @@ test('StooqPriceProvider treats "No data" as an upstream error', async () => {
   const provider = new StooqPriceProvider({ fetchImpl, timeoutMs: 1000, logger });
   await assert.rejects(
     () => provider.getDailyAdjustedClose('NVDA', '2024-01-01', '2024-01-10'),
-    (error) => error.code === 'PRICE_NOT_FOUND' && error.status === 404,
+    (error) => error.code === 'PRICE_NOT_FOUND' && error.status === 404
   );
   assert.ok(
     logger.entries.some(
-      (entry) => entry.level === 'error' && entry.event === 'price_provider_failed',
-    ),
+      (entry) => entry.level === 'error' && entry.event === 'price_provider_failed'
+    )
   );
 });
 
@@ -167,8 +167,9 @@ test('TwelveDataQuoteProvider parses latest quote payloads and logs latency', as
   assert.ok(requests[0].includes('prepost=true'));
   assert.ok(
     logger.entries.some(
-      (entry) => entry.event === 'latest_quote_provider_latency' && entry.meta.provider === 'twelvedata',
-    ),
+      (entry) =>
+        entry.event === 'latest_quote_provider_latency' && entry.meta.provider === 'twelvedata'
+    )
   );
 });
 
@@ -196,8 +197,8 @@ test('AlpacaLatestQuoteProvider parses snapshot payloads and logs latency', asyn
   assert.equal(requests[0].headers['APCA-API-SECRET-KEY'], 'alpaca-secret');
   assert.ok(
     logger.entries.some(
-      (entry) => entry.event === 'latest_quote_provider_latency' && entry.meta.provider === 'alpaca',
-    ),
+      (entry) => entry.event === 'latest_quote_provider_latency' && entry.meta.provider === 'alpaca'
+    )
   );
 });
 
@@ -217,7 +218,7 @@ test('AlpacaLatestQuoteProvider treats 404 as symbol-level no data', async () =>
   });
   await assert.rejects(
     () => provider.getLatestQuote('INVALID'),
-    (error) => error.code === 'PRICE_NOT_FOUND' && error.status === 404,
+    (error) => error.code === 'PRICE_NOT_FOUND' && error.status === 404
   );
 });
 
@@ -233,12 +234,14 @@ test('DualPriceProvider returns primary data when successful and avoids fallback
   assert.ok(
     logger.entries.some(
       (entry) =>
-        entry.event === 'price_provider_success' && entry.meta.role === 'primary' && entry.level === 'info',
-    ),
+        entry.event === 'price_provider_success' &&
+        entry.meta.role === 'primary' &&
+        entry.level === 'info'
+    )
   );
   assert.equal(
     logger.entries.filter((entry) => entry.event === 'price_provider_failure').length,
-    0,
+    0
   );
 });
 
@@ -255,18 +258,21 @@ test('DualPriceProvider falls back when primary fails and logs failure', async (
   assert.ok(
     logger.entries.some(
       (entry) =>
-        entry.event === 'price_provider_failure' && entry.meta.role === 'primary' && entry.level === 'warn',
-    ),
+        entry.event === 'price_provider_failure' &&
+        entry.meta.role === 'primary' &&
+        entry.level === 'warn'
+    )
   );
   assert.ok(
     logger.entries.some(
-      (entry) => entry.event === 'price_provider_fallback' && entry.meta.failed_provider === 'PrimaryStub',
-    ),
+      (entry) =>
+        entry.event === 'price_provider_fallback' && entry.meta.failed_provider === 'PrimaryStub'
+    )
   );
   assert.ok(
     logger.entries.some(
-      (entry) => entry.event === 'price_provider_success' && entry.meta.role === 'fallback',
-    ),
+      (entry) => entry.event === 'price_provider_success' && entry.meta.role === 'fallback'
+    )
   );
 });
 
@@ -279,7 +285,7 @@ test('DualPriceProvider propagates final error when all providers fail', async (
   const provider = new DualPriceProvider({ primary, fallback, logger });
   await assert.rejects(
     () => provider.getDailyAdjustedClose('SPY', '2024-01-01', '2024-01-10'),
-    (error) => error === fallbackError,
+    (error) => error === fallbackError
   );
   assert.equal(primary.calls, 1);
   assert.equal(fallback.calls, 1);
@@ -287,7 +293,10 @@ test('DualPriceProvider propagates final error when all providers fail', async (
   assert.equal(failureEvents.length, 2);
   assert.ok(
     logger.entries.some(
-      (entry) => entry.level === 'warn' && entry.event === 'price_provider_failure' && entry.meta.role === 'fallback',
-    ),
+      (entry) =>
+        entry.level === 'warn' &&
+        entry.event === 'price_provider_failure' &&
+        entry.meta.role === 'fallback'
+    )
   );
 });

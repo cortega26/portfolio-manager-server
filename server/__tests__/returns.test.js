@@ -31,9 +31,7 @@ test('cash flows on non-valuation days align to the next available state', () =>
     ['2024-01-05', 100],
     ['2024-01-08', 100],
   ]);
-  const transactions = [
-    { date: '2024-01-06', type: 'DEPOSIT', amount: 500 },
-  ];
+  const transactions = [{ date: '2024-01-06', type: 'DEPOSIT', amount: 500 }];
   const rows = computeDailyReturnRows({ states, rates, spyPrices, transactions });
   assert.equal(rows.length, 2);
   const mondayRow = rows[1];
@@ -138,15 +136,9 @@ test('All-SPY track equals TWR of synthetic SPY with same flows', () => {
 });
 
 test('first day time-weighted return starts at zero to provide a clean benchmark baseline', () => {
-  const states = [
-    { date: '2024-01-01', nav: 10200, cash: 200, riskValue: 10000 },
-  ];
-  const transactions = [
-    { date: '2024-01-01', type: 'DEPOSIT', amount: 10000 },
-  ];
-  const spyPrices = new Map([
-    ['2024-01-01', 100],
-  ]);
+  const states = [{ date: '2024-01-01', nav: 10200, cash: 200, riskValue: 10000 }];
+  const transactions = [{ date: '2024-01-01', type: 'DEPOSIT', amount: 10000 }];
+  const spyPrices = new Map([['2024-01-01', 100]]);
   const rates = [{ effective_date: '2023-12-01', apy: 0.04 }];
 
   const rows = computeDailyReturnRows({ states, rates, spyPrices, transactions });
@@ -176,9 +168,7 @@ test('computeReturnStep reconstructs random sequences without drift', () => {
 });
 
 test('daily return rows survive JSON save/load round-trip for long sequences', () => {
-  const transactions = [
-    { date: '2024-01-01', type: 'DEPOSIT', amount: 10000 },
-  ];
+  const transactions = [{ date: '2024-01-01', type: 'DEPOSIT', amount: 10000 }];
   const tickers = ['SPY', 'QQQ'];
   let runningDate = new Date('2024-01-01T00:00:00Z');
   for (let i = 0; i < 60; i += 1) {
@@ -200,9 +190,7 @@ test('daily return rows survive JSON save/load round-trip for long sequences', (
     });
   }
 
-  const dates = transactions
-    .map((tx) => tx.date)
-    .sort((a, b) => a.localeCompare(b));
+  const dates = transactions.map((tx) => tx.date).sort((a, b) => a.localeCompare(b));
   const uniqueDates = Array.from(new Set(dates));
   const pricesByDate = new Map();
   for (const date of uniqueDates) {
@@ -230,8 +218,8 @@ test('daily return rows survive JSON save/load round-trip for long sequences', (
       states.map((state) => ({
         ...state,
         holdings: Object.fromEntries(state.holdings.entries()),
-      })),
-    ),
+      }))
+    )
   );
 
   const restoredStates = stored.map((state) => ({
@@ -253,9 +241,7 @@ test('daily return rows survive JSON save/load round-trip for long sequences', (
 });
 
 test('computeMoneyWeightedReturn annualises single deposit', () => {
-  const transactions = [
-    { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
-  ];
+  const transactions = [{ date: '2024-01-01', type: 'DEPOSIT', amount: 1000 }];
   const navRows = [
     { date: '2024-01-01', portfolio_nav: 1000 },
     { date: '2024-01-31', portfolio_nav: 1100 },
@@ -326,10 +312,7 @@ test('computeMatchedBenchmarkMoneyWeightedReturn matches a synthetic benchmark w
     endDate: '2024-01-31',
   });
 
-  const terminalValue = d(1000)
-    .dividedBy(100)
-    .plus(d(500).dividedBy(110))
-    .times(121);
+  const terminalValue = d(1000).dividedBy(100).plus(d(500).dividedBy(110)).times(121);
   const expected = computeMoneyWeightedReturn({
     transactions,
     navRows: [
@@ -367,10 +350,7 @@ test('computeMatchedBenchmarkMoneyWeightedReturn reflects withdrawals in the syn
     endDate: '2024-01-31',
   });
 
-  const terminalValue = d(1000)
-    .dividedBy(100)
-    .minus(d(300).dividedBy(120))
-    .times(132);
+  const terminalValue = d(1000).dividedBy(100).minus(d(300).dividedBy(120)).times(132);
   const expected = computeMoneyWeightedReturn({
     transactions,
     navRows: [
@@ -408,10 +388,7 @@ test('computeMatchedBenchmarkMoneyWeightedReturn aligns external flows to the ne
     endDate: '2024-01-12',
   });
 
-  const terminalValue = d(1000)
-    .dividedBy(100)
-    .plus(d(500).dividedBy(125))
-    .times(150);
+  const terminalValue = d(1000).dividedBy(100).plus(d(500).dividedBy(125)).times(150);
   const expected = computeMoneyWeightedReturn({
     transactions: [
       { date: '2024-01-05', type: 'DEPOSIT', amount: 1000 },
@@ -453,17 +430,10 @@ test('cumulativeDifference compares blended drag to portfolio growth', () => {
     { r_port: -0.002, r_ex_cash: 0.001 },
   ];
   const drag = cumulativeDifference(rows);
-  const blended = d(1)
-    .plus(rows[0].r_port)
-    .times(d(1).plus(rows[1].r_port));
-  const exCash = d(1)
-    .plus(rows[0].r_ex_cash)
-    .times(d(1).plus(rows[1].r_ex_cash));
+  const blended = d(1).plus(rows[0].r_port).times(d(1).plus(rows[1].r_port));
+  const exCash = d(1).plus(rows[0].r_ex_cash).times(d(1).plus(rows[1].r_ex_cash));
   const expected = exCash.minus(blended).dividedBy(blended);
-  assert.ok(
-    expected.minus(d(drag)).abs().lt(5e-6),
-    'drag mismatch exceeds rounding tolerance',
-  );
+  assert.ok(expected.minus(d(drag)).abs().lt(5e-6), 'drag mismatch exceeds rounding tolerance');
 });
 
 test('computeDailyReturnRows includes a QQQ benchmark track when QQQ prices are available', () => {
@@ -494,19 +464,19 @@ test('computeDailyReturnRows includes a QQQ benchmark track when QQQ prices are 
 // --- annualizeReturn tests (PM-AUD-008) ---
 
 test('annualizeReturn golden: 50% cumulative over 730 days → ~0.2247', () => {
-  const result = annualizeReturn(0.50, 730);
+  const result = annualizeReturn(0.5, 730);
   assert.ok(result !== null);
   assert.ok(Math.abs(result - 0.2247) < 1e-4, `expected ~0.2247, got ${result}`);
 });
 
 test('annualizeReturn golden: -20% over exactly 365 days → -0.20 (identity)', () => {
-  const result = annualizeReturn(-0.20, 365);
+  const result = annualizeReturn(-0.2, 365);
   assert.ok(result !== null);
-  assert.ok(Math.abs(result - (-0.20)) < 1e-8, `expected -0.20, got ${result}`);
+  assert.ok(Math.abs(result - -0.2) < 1e-8, `expected -0.20, got ${result}`);
 });
 
 test('annualizeReturn edge: 10% over 180 days → null (period < 365)', () => {
-  const result = annualizeReturn(0.10, 180);
+  const result = annualizeReturn(0.1, 180);
   assert.equal(result, null);
 });
 
@@ -518,7 +488,7 @@ test('annualizeReturn edge: 0% cumulative over 730 days → 0', () => {
 test('annualizeReturn edge: -100% cumulative over 730 days → -1.0 (total loss)', () => {
   const result = annualizeReturn(-1.0, 730);
   assert.ok(result !== null);
-  assert.ok(Math.abs(result - (-1.0)) < 1e-8, `expected -1.0, got ${result}`);
+  assert.ok(Math.abs(result - -1.0) < 1e-8, `expected -1.0, got ${result}`);
 });
 
 // --- computeMaxDrawdown tests (PM-AUD-011) ---
@@ -528,14 +498,17 @@ test('computeMaxDrawdown golden: [100, 110, 77, 90, 115] → maxDD = -0.30, peak
   // Daily returns: day1=0%, day2=+10%, day3=-30%, day4=+16.88%, day5=+27.78%
   const rows = [
     { date: '2024-01-01', r_port: 0 },
-    { date: '2024-01-02', r_port: 0.10 },
-    { date: '2024-01-03', r_port: -0.30 },
+    { date: '2024-01-02', r_port: 0.1 },
+    { date: '2024-01-03', r_port: -0.3 },
     { date: '2024-01-04', r_port: 90 / 77 - 1 },
     { date: '2024-01-05', r_port: 115 / 90 - 1 },
   ];
   const result = computeMaxDrawdown(rows);
   assert.ok(result !== null);
-  assert.ok(Math.abs(result.maxDrawdown - (-0.30)) < 1e-4, `expected ~-0.30, got ${result.maxDrawdown}`);
+  assert.ok(
+    Math.abs(result.maxDrawdown - -0.3) < 1e-4,
+    `expected ~-0.30, got ${result.maxDrawdown}`
+  );
   assert.equal(result.peakDate, '2024-01-02');
   assert.equal(result.troughDate, '2024-01-03');
 });
@@ -566,13 +539,16 @@ test('computeMaxDrawdown edge: all declining → maxDD = total decline from firs
   const rows = [
     { date: '2024-01-01', r_port: 0 },
     { date: '2024-01-02', r_port: -0.05 },
-    { date: '2024-01-03', r_port: -0.10 },
-    { date: '2024-01-04', r_port: -0.10 },
+    { date: '2024-01-03', r_port: -0.1 },
+    { date: '2024-01-04', r_port: -0.1 },
   ];
   const result = computeMaxDrawdown(rows);
   assert.ok(result !== null);
   // Expected: (0.7695 - 1.0) / 1.0 = -0.2305
-  assert.ok(Math.abs(result.maxDrawdown - (-0.2305)) < 1e-4, `expected ~-0.2305, got ${result.maxDrawdown}`);
+  assert.ok(
+    Math.abs(result.maxDrawdown - -0.2305) < 1e-4,
+    `expected ~-0.2305, got ${result.maxDrawdown}`
+  );
   assert.equal(result.peakDate, '2024-01-01');
   assert.equal(result.troughDate, '2024-01-04');
 });

@@ -4,10 +4,21 @@
 import { z } from 'zod';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import type { FastifyPluginOptions } from 'fastify';
-import { portfolioIdSchema, paginationSchema, isoDateSchema, transactionTypeSchema, cashRateSchema, portfolioBodySchema } from './_schemas.js';
+import {
+  portfolioIdSchema,
+  paginationSchema,
+  isoDateSchema,
+  transactionTypeSchema,
+  cashRateSchema,
+  portfolioBodySchema,
+} from './_schemas.js';
 import { withLock } from '../utils/locks.js';
 import { readPortfolioState, writePortfolioState } from '../data/portfolioState.js';
-import { ensureTransactionUids, enforceNonNegativeCash, enforceOversellPolicy } from '../services/portfolioTransactions.js';
+import {
+  ensureTransactionUids,
+  enforceNonNegativeCash,
+  enforceOversellPolicy,
+} from '../services/portfolioTransactions.js';
 import { listPortfolioSignalNotifications } from '../services/signalNotifications.js';
 import { requeueSignalNotificationEmailDelivery } from '../services/signalNotificationEmail.js';
 import { matchLots } from '../finance/lotMatcher.js';
@@ -17,6 +28,7 @@ import { computeInbox } from '../finance/inboxComputer.js';
 import type { InboxReviewRecord } from '../types/inbox.js';
 import type { HistoricalPriceLoader } from './prices.js';
 import { buildFreshPriceSnapshot, paginateRows } from './_helpers.js';
+import { NotFoundError } from '../types/errors.js';
 
 // Minimal storage interface used by this route
 export interface StorageAdapter {
@@ -95,7 +107,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         return reply.code(200).send({});
       }
       return app.sendWithEtag(request, reply, portfolio);
-    },
+    }
   );
 
   // ── POST /portfolio/:id ──────────────────────────────────────────────────
@@ -115,22 +127,33 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
     async (request, reply) => {
       const { id } = request.params;
       const payload = request.body;
-      const autoClip = Boolean((payload.settings as Record<string, unknown> | undefined)?.['autoClip']);
+      const autoClip = Boolean(
+        (payload.settings as Record<string, unknown> | undefined)?.['autoClip']
+      );
       const logger = {
-        info: (msg: string, meta?: object) => app.log.info({ ...(meta as Record<string, unknown>) }, msg),
-        warn: (msg: string, meta?: object) => app.log.warn({ ...(meta as Record<string, unknown>) }, msg),
+        info: (msg: string, meta?: object) =>
+          app.log.info({ ...(meta as Record<string, unknown>) }, msg),
+        warn: (msg: string, meta?: object) =>
+          app.log.warn({ ...(meta as Record<string, unknown>) }, msg),
       };
 
       let normalizedTransactions: object[];
       try {
         normalizedTransactions = ensureTransactionUids(payload.transactions ?? [], id, logger);
       } catch (error) {
-        const err = error as { statusCode?: number; code?: string; message?: string; details?: unknown };
-        (reply as unknown as { code(n: number): { send(v: unknown): void } }).code(err.statusCode ?? 400).send({
-          error: err.code ?? 'VALIDATION_ERROR',
-          message: err.message ?? 'Validation failed',
-          ...(err.details !== undefined ? { details: err.details } : {}),
-        });
+        const err = error as {
+          statusCode?: number;
+          code?: string;
+          message?: string;
+          details?: unknown;
+        };
+        (reply as unknown as { code(n: number): { send(v: unknown): void } })
+          .code(err.statusCode ?? 400)
+          .send({
+            error: err.code ?? 'VALIDATION_ERROR',
+            message: err.message ?? 'Validation failed',
+            ...(err.details !== undefined ? { details: err.details } : {}),
+          });
         return reply;
       }
 
@@ -138,21 +161,32 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         enforceOversellPolicy(normalizedTransactions, { portfolioId: id, autoClip, logger });
         enforceNonNegativeCash(normalizedTransactions, { portfolioId: id, logger });
       } catch (error) {
-        const err = error as { statusCode?: number; code?: string; message?: string; details?: unknown };
-        (reply as unknown as { code(n: number): { send(v: unknown): void } }).code(err.statusCode ?? 400).send({
-          error: err.code ?? 'VALIDATION_ERROR',
-          message: err.message ?? 'Validation failed',
-          ...(err.details !== undefined ? { details: err.details } : {}),
-        });
+        const err = error as {
+          statusCode?: number;
+          code?: string;
+          message?: string;
+          details?: unknown;
+        };
+        (reply as unknown as { code(n: number): { send(v: unknown): void } })
+          .code(err.statusCode ?? 400)
+          .send({
+            error: err.code ?? 'VALIDATION_ERROR',
+            message: err.message ?? 'Validation failed',
+            ...(err.details !== undefined ? { details: err.details } : {}),
+          });
         return reply;
       }
 
       const cashCurrency =
         typeof (payload.cash as Record<string, unknown> | undefined)?.['currency'] === 'string'
-          ? (payload.cash as Record<string, unknown>)['currency'] as string
+          ? ((payload.cash as Record<string, unknown>)['currency'] as string)
           : 'USD';
-      const cashTimeline = Array.isArray((payload.cash as Record<string, unknown> | undefined)?.['apyTimeline'])
-        ? ((payload.cash as Record<string, unknown>)['apyTimeline'] as Record<string, unknown>[]).map((entry) => ({
+      const cashTimeline = Array.isArray(
+        (payload.cash as Record<string, unknown> | undefined)?.['apyTimeline']
+      )
+        ? (
+            (payload.cash as Record<string, unknown>)['apyTimeline'] as Record<string, unknown>[]
+          ).map((entry) => ({
             from: entry['from'],
             to: entry['to'] ?? null,
             apy: Number(entry['apy']),
@@ -171,7 +205,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
 
       analyticsCache?.flush();
       return reply.code(200).send({ status: 'ok' });
-    },
+    }
   );
 
   // ── GET /portfolio/:id/transactions ──────────────────────────────────────
@@ -205,11 +239,13 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         : [];
 
       if (type) rows = rows.filter((r) => r['type'] === type);
-      if (from) rows = rows.filter((r) => typeof r['date'] === 'string' && (r['date'] as string) >= from);
-      if (to) rows = rows.filter((r) => typeof r['date'] === 'string' && (r['date'] as string) <= to);
+      if (from)
+        rows = rows.filter((r) => typeof r['date'] === 'string' && (r['date'] as string) >= from);
+      if (to)
+        rows = rows.filter((r) => typeof r['date'] === 'string' && (r['date'] as string) <= to);
 
       return paginateRows(rows, { page, perPage: per_page });
-    },
+    }
   );
 
   // ── POST /portfolio/:id/transactions ─────────────────────────────────────
@@ -241,10 +277,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
           cash?: unknown;
         } | null;
 
-        const merged = [
-          ...((existing?.transactions ?? []) as unknown[]),
-          ...newTransactions,
-        ];
+        const merged = [...((existing?.transactions ?? []) as unknown[]), ...newTransactions];
 
         await writePortfolioState(storage, id, {
           transactions: merged,
@@ -255,7 +288,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       });
 
       return reply.code(200).send({ status: 'ok' });
-    },
+    }
   );
 
   // ── GET /portfolio/:id/performance ────────────────────────────────────────
@@ -283,7 +316,10 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       const portfolio = (await readPortfolioState(storage, id)) as Record<string, unknown> | null;
 
       if (!portfolio) {
-        throw Object.assign(new Error('Portfolio not found.'), { statusCode: 404, code: 'NOT_FOUND' });
+        throw Object.assign(new Error('Portfolio not found.'), {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+        });
       }
 
       // Return a placeholder until full performance computation is wired in Phase 3
@@ -295,7 +331,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       };
 
       return app.sendWithEtag(request, reply, performancePayload);
-    },
+    }
   );
 
   // ── GET /portfolio/:id/holdings ───────────────────────────────────────────
@@ -318,7 +354,10 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       } | null;
 
       if (!portfolio) {
-        throw Object.assign(new Error('Portfolio not found.'), { statusCode: 404, code: 'NOT_FOUND' });
+        throw Object.assign(new Error('Portfolio not found.'), {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+        });
       }
 
       // Derive holdings by summing BUY/SELL transactions
@@ -343,7 +382,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         .map(([ticker, shares]) => ({ ticker, shares }));
 
       return app.sendWithEtag(request, reply, { holdings, asOf: lastDate });
-    },
+    }
   );
 
   // ── GET /portfolio/:id/cashRates ──────────────────────────────────────────
@@ -366,14 +405,17 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       } | null;
 
       if (!portfolio) {
-        throw Object.assign(new Error('Portfolio not found.'), { statusCode: 404, code: 'NOT_FOUND' });
+        throw Object.assign(new Error('Portfolio not found.'), {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+        });
       }
 
       return reply.code(200).send({
         currency: portfolio.cash?.currency ?? 'USD',
         apyTimeline: (portfolio.cash?.apyTimeline ?? []) as z.infer<typeof cashRateSchema>[],
       });
-    },
+    }
   );
 
   // ── POST /portfolio/:id/cashRates ─────────────────────────────────────────
@@ -417,7 +459,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       });
 
       return reply.code(200).send({ status: 'ok' });
-    },
+    }
   );
 
   // ── GET /portfolio/:id/signal-notifications ───────────────────────────────
@@ -436,7 +478,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       const storage = await getStorage();
       const data = await listPortfolioSignalNotifications(storage, id, { limit });
       return reply.code(200).send({ data });
-    },
+    }
   );
 
   // ── POST /portfolio/:id/signal-notifications/:notificationId/requeue-email ─
@@ -451,18 +493,27 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
     async (request, reply) => {
       const { id, notificationId } = request.params;
       const storage = await getStorage();
-      const result = await (requeueSignalNotificationEmailDelivery as (opts: {
-        storage: unknown; portfolioId: string; notificationId: string;
-      }) => Promise<{ changed: boolean; reason: string; notification: unknown } | null>)({
+      const result = await (
+        requeueSignalNotificationEmailDelivery as (opts: {
+          storage: unknown;
+          portfolioId: string;
+          notificationId: string;
+        }) => Promise<{ changed: boolean; reason: string; notification: unknown } | null>
+      )({
         storage,
         portfolioId: id,
         notificationId,
       });
       if (!result) {
-        return reply.code(404).send({ error: 'SIGNAL_NOTIFICATION_NOT_FOUND', message: 'Signal notification not found.' });
+        throw new NotFoundError('Signal notification not found.', 'SIGNAL_NOTIFICATION_NOT_FOUND');
       }
-      return reply.code(200).send({ status: 'ok', changed: result.changed, reason: result.reason, data: result.notification });
-    },
+      return reply.code(200).send({
+        status: 'ok',
+        changed: result.changed,
+        reason: result.reason,
+        data: result.notification,
+      });
+    }
   );
 
   // ── GET /portfolio/:id/realized-gains ─────────────────────────────────────
@@ -485,7 +536,10 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       } | null;
 
       if (!portfolio) {
-        throw Object.assign(new Error('Portfolio not found.'), { statusCode: 404, code: 'NOT_FOUND' });
+        throw Object.assign(new Error('Portfolio not found.'), {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+        });
       }
 
       // Map stored transactions to the minimal shape expected by the lot matcher.
@@ -546,7 +600,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         years,
         unrealizedToday,
       });
-    },
+    }
   );
 
   // ── GET /portfolio/:id/inbox ──────────────────────────────────────────────
@@ -592,7 +646,10 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       } | null;
 
       if (!portfolio) {
-        throw Object.assign(new Error('Portfolio not found.'), { statusCode: 404, code: 'NOT_FOUND' });
+        throw Object.assign(new Error('Portfolio not found.'), {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+        });
       }
 
       const transactions = (portfolio.transactions ?? []) as Record<string, unknown>[];
@@ -600,7 +657,8 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
 
       // Derive open tickers from portfolio state.
       const { isOpenSignalHolding } = await import('../../shared/signals.js');
-      const { sortTransactions: sortTxs, projectStateUntil: project } = await import('../finance/portfolio.js');
+      const { sortTransactions: sortTxs, projectStateUntil: project } =
+        await import('../finance/portfolio.js');
       const sorted = sortTxs(transactions as never[]) as unknown as Record<string, unknown>[];
       const lastDate = sorted.length > 0 ? String(sorted[sorted.length - 1]?.['date'] ?? '') : '';
       const projected = lastDate ? project(sorted as never[], lastDate) : { holdings: new Map() };
@@ -612,15 +670,22 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       const priceSnapshots = new Map<string, { price: number | null; asOf: string | null }>();
       if (opts.historicalPriceLoader && openTickers.length > 0) {
         const maxStaleDays = opts.config.freshness?.maxStaleTradingDays ?? 30;
-        await Promise.all(openTickers.map(async (symbol) => {
-          try {
-            const result = await opts.historicalPriceLoader!.fetchSeries(symbol, { range: '1y', latestOnly: true });
-            const latest = Array.isArray(result.prices) ? result.prices[result.prices.length - 1] : null;
-            priceSnapshots.set(symbol, buildFreshPriceSnapshot(latest, maxStaleDays));
-          } catch {
-            priceSnapshots.set(symbol, { price: null, asOf: null });
-          }
-        }));
+        await Promise.all(
+          openTickers.map(async (symbol) => {
+            try {
+              const result = await opts.historicalPriceLoader!.fetchSeries(symbol, {
+                range: '1y',
+                latestOnly: true,
+              });
+              const latest = Array.isArray(result.prices)
+                ? result.prices[result.prices.length - 1]
+                : null;
+              priceSnapshots.set(symbol, buildFreshPriceSnapshot(latest, maxStaleDays));
+            } catch {
+              priceSnapshots.set(symbol, { price: null, asOf: null });
+            }
+          })
+        );
       } else {
         for (const t of openTickers) {
           priceSnapshots.set(t, { price: null, asOf: null });
@@ -630,7 +695,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       // Load dismiss history for this portfolio.
       const allReviews = await storage.readTable('inbox_reviews');
       const dismissHistory = allReviews.filter(
-        (r) => r['portfolio_id'] === id,
+        (r) => r['portfolio_id'] === id
       ) as unknown as InboxReviewRecord[];
 
       const items = computeInbox({
@@ -641,14 +706,23 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       });
 
       return reply.code(200).send({ items, computedAt: new Date().toISOString() });
-    },
+    }
   );
 
   // ── POST /portfolio/:id/inbox/dismiss ─────────────────────────────────────
   // Zod schema for the dismiss body.
   const DismissBodySchema = z.object({
-    ticker: z.string().min(1).max(32).transform((v) => v.trim().toUpperCase()),
-    eventType: z.enum(['THRESHOLD_TRIGGERED', 'LARGE_MOVE_UNREVIEWED', 'LONG_UNREVIEWED', 'NO_THRESHOLD_CONFIGURED']),
+    ticker: z
+      .string()
+      .min(1)
+      .max(32)
+      .transform((v) => v.trim().toUpperCase()),
+    eventType: z.enum([
+      'THRESHOLD_TRIGGERED',
+      'LARGE_MOVE_UNREVIEWED',
+      'LONG_UNREVIEWED',
+      'NO_THRESHOLD_CONFIGURED',
+    ]),
     eventKey: z.string().min(1).max(256),
   });
 
@@ -677,11 +751,14 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
           dismissed_at: new Date().toISOString(),
         };
         const existing = await storage.readTable('inbox_reviews');
-        await storage.writeTable('inbox_reviews', [...existing, record as unknown as Record<string, unknown>]);
+        await storage.writeTable('inbox_reviews', [
+          ...existing,
+          record as unknown as Record<string, unknown>,
+        ]);
       });
 
       return reply.code(200).send({ ok: true });
-    },
+    }
   );
 };
 

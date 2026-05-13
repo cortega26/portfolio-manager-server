@@ -33,7 +33,7 @@ test('HTTP logs redact API key and session token headers', async () => {
       level: 'info',
       redact: ['req.headers["x-session-token"]', 'req.headers["x-api-key"]'],
     },
-    stream,
+    stream
   );
 
   const app = await createSessionTestApp({
@@ -41,11 +41,7 @@ test('HTTP logs redact API key and session token headers', async () => {
     logger: captureLogger,
   });
 
-  const response = await withSession(
-    request(app)
-      .get('/api/returns/daily'),
-    'DesktopSecret789!',
-  );
+  const response = await withSession(request(app).get('/api/returns/daily'), 'DesktopSecret789!');
   await closeApp(app);
 
   assert.equal(response.status, 200);

@@ -4,11 +4,7 @@ import { computeDailyStates } from '../finance/portfolio.js';
 import { computeDailyReturnRows } from '../finance/returns.js';
 import { runMigrations } from '../migrations/index.js';
 import { listPortfolioStates } from '../data/portfolioState.js';
-import {
-  DualPriceProvider,
-  YahooPriceProvider,
-  StooqPriceProvider,
-} from '../data/prices.js';
+import { DualPriceProvider, YahooPriceProvider, StooqPriceProvider } from '../data/prices.js';
 import { createConfiguredPriceProvider } from '../data/priceProviderFactory.js';
 import { normalizeBenchmarkConfig } from '../../shared/benchmarks.js';
 import { readPortfolioState } from '../data/portfolioState.js';
@@ -16,9 +12,7 @@ import {
   buildPriceSnapshotsFromPriceRows,
   syncPortfolioSignalNotifications,
 } from '../services/signalNotifications.js';
-import {
-  processPendingSignalNotificationEmails,
-} from '../services/signalNotificationEmail.js';
+import { processPendingSignalNotificationEmails } from '../services/signalNotificationEmail.js';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -143,28 +137,21 @@ async function ensurePrices({ storage, provider, tickers, from, to, logger }) {
   for (const ticker of tickers) {
     if (ticker === 'CASH') {
       for (const date of dates) {
-        await storage.upsertRow(
-          'prices',
-          { ticker: 'CASH', date, adj_close: 1 },
-          ['ticker', 'date'],
-        );
+        await storage.upsertRow('prices', { ticker: 'CASH', date, adj_close: 1 }, [
+          'ticker',
+          'date',
+        ]);
       }
       continue;
     }
-    const missingDates = dates.filter(
-      (date) => !existing.has(`${ticker}_${date}`),
-    );
+    const missingDates = dates.filter((date) => !existing.has(`${ticker}_${date}`));
     if (missingDates.length === 0) {
       continue;
     }
     const rangeFrom = missingDates[0];
     const rangeTo = missingDates[missingDates.length - 1];
     const startedAt = Date.now();
-    const fetched = await provider.getDailyAdjustedClose(
-      ticker,
-      rangeFrom,
-      rangeTo,
-    );
+    const fetched = await provider.getDailyAdjustedClose(ticker, rangeFrom, rangeTo);
     const durationMs = Date.now() - startedAt;
     logger?.info?.('price_provider_latency', {
       ticker,
@@ -184,7 +171,7 @@ async function ensurePrices({ storage, provider, tickers, from, to, logger }) {
       await storage.upsertRow(
         'prices',
         { ticker, date: item.date, adj_close: Number(item.adjClose) },
-        ['ticker', 'date'],
+        ['ticker', 'date']
       );
     }
   }
@@ -269,7 +256,7 @@ export async function runDailyClose({
   const storage = await runMigrations({ dataDir, logger });
   const targetDateKey = toDateKey(targetDate);
   const previousDate = toDateKey(
-    new Date(new Date(`${targetDateKey}T00:00:00Z`).getTime() - MS_PER_DAY),
+    new Date(new Date(`${targetDateKey}T00:00:00Z`).getTime() - MS_PER_DAY)
   );
 
   const rates = await storage.readTable('cash_rates');
@@ -337,9 +324,9 @@ export async function runDailyClose({
   const tickers = resolveTrackedTickers(transactions, config);
 
   const provider =
-    priceProvider
-    ?? createConfiguredPriceProvider({ config, logger })
-    ?? new DualPriceProvider({
+    priceProvider ??
+    createConfiguredPriceProvider({ config, logger }) ??
+    new DualPriceProvider({
       primary: new YahooPriceProvider({ logger }),
       fallback: new StooqPriceProvider({ logger }),
       logger,
@@ -354,11 +341,10 @@ export async function runDailyClose({
   });
 
   const priceRecords = await storage.readTable('prices');
-  const pricesByDate = buildPriceMaps(
-    priceRecords,
-    Array.from(tickers),
-    [previousDate, targetDateKey],
-  );
+  const pricesByDate = buildPriceMaps(priceRecords, Array.from(tickers), [
+    previousDate,
+    targetDateKey,
+  ]);
   const states = computeDailyStates({
     transactions,
     pricesByDate,
@@ -371,7 +357,7 @@ export async function runDailyClose({
       continue;
     }
     const hasFresh = priceRecords.some(
-      (record) => record.ticker === ticker && record.date === targetDateKey,
+      (record) => record.ticker === ticker && record.date === targetDateKey
     );
     if (!hasFresh) {
       priceStale = true;
@@ -391,14 +377,11 @@ export async function runDailyClose({
         risk_assets_value: targetState.riskValue,
         stale_price: priceStale,
       },
-      ['date'],
+      ['date']
     );
   }
 
-  const signalPriceSnapshots = buildPriceSnapshotsFromPriceRows(
-    priceRecords,
-    targetDateKey,
-  );
+  const signalPriceSnapshots = buildPriceSnapshotsFromPriceRows(priceRecords, targetDateKey);
   const portfolioStates = await listPortfolioStates(storage);
   for (const state of portfolioStates) {
     if (!state?.id) {
@@ -453,7 +436,7 @@ export async function runDailyClose({
       last_run_date: targetDateKey,
       updated_at: new Date().toISOString(),
     },
-    ['job'],
+    ['job']
   );
 
   return {

@@ -7,11 +7,13 @@ import { d, roundDecimal } from '../finance/decimal.js';
 const NVDA_ALL_TRADES_ADJUSTMENT_RULE = 'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES';
 
 function isLegacyNvdaPreSplitCsvBootstrapTransaction(row) {
-  return row?.ticker === 'NVDA'
-    && (row?.type === 'BUY' || row?.type === 'SELL')
-    && typeof row?.date === 'string'
-    && row.date < '2024-06-10'
-    && row?.metadata?.system?.import?.source === 'csv-bootstrap';
+  return (
+    row?.ticker === 'NVDA' &&
+    (row?.type === 'BUY' || row?.type === 'SELL') &&
+    typeof row?.date === 'string' &&
+    row.date < '2024-06-10' &&
+    row?.metadata?.system?.import?.source === 'csv-bootstrap'
+  );
 }
 
 function buildAdjustedNvdaTransaction(row) {
@@ -22,13 +24,9 @@ function buildAdjustedNvdaTransaction(row) {
   }
 
   const adjustedShares = roundDecimal(baseQuantity.times(10), 9);
-  const quantity = row.type === 'SELL'
-    ? adjustedShares.neg()
-    : adjustedShares;
+  const quantity = row.type === 'SELL' ? adjustedShares.neg() : adjustedShares;
   const amount = d(row?.amount ?? 0).abs();
-  const price = amount.isZero()
-    ? d(0)
-    : roundDecimal(amount.div(adjustedShares), 8);
+  const price = amount.isZero() ? d(0) : roundDecimal(amount.div(adjustedShares), 8);
 
   return {
     ...row,
@@ -90,7 +88,8 @@ const MIGRATIONS = [
   },
   {
     id: '005_nvda_presplit_split_backfill',
-    description: 'Backfill NVDA pre-split csv transactions to apply the 10:1 adjustment to all trades',
+    description:
+      'Backfill NVDA pre-split csv transactions to apply the 10:1 adjustment to all trades',
     async up({ storage, logger }) {
       const transactions = await storage.readTable('transactions');
       if (!Array.isArray(transactions) || transactions.length === 0) {
@@ -106,11 +105,11 @@ const MIGRATIONS = [
 
         const nextRow = buildAdjustedNvdaTransaction(row);
         const changed =
-          nextRow.shares !== row.shares
-          || nextRow.quantity !== row.quantity
-          || nextRow.price !== row.price
-          || nextRow.metadata?.system?.import?.adjustment?.rule
-            !== row.metadata?.system?.import?.adjustment?.rule;
+          nextRow.shares !== row.shares ||
+          nextRow.quantity !== row.quantity ||
+          nextRow.price !== row.price ||
+          nextRow.metadata?.system?.import?.adjustment?.rule !==
+            row.metadata?.system?.import?.adjustment?.rule;
 
         if (changed) {
           migrated += 1;

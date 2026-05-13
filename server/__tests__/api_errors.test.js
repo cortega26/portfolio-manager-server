@@ -26,9 +26,7 @@ afterEach(async () => {
 });
 
 test('returns 400 for invalid portfolio identifier formatting', async () => {
-  const response = await withSession(
-    request(app).get('/api/portfolio/invalid id with spaces'),
-  );
+  const response = await withSession(request(app).get('/api/portfolio/invalid id with spaces'));
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, 'VALIDATION_ERROR');
@@ -39,7 +37,7 @@ test('returns 400 when JSON payload is malformed', async () => {
     request(app)
       .post('/api/portfolio/badjson')
       .set('Content-Type', 'application/json')
-      .send('{ invalid json }'),
+      .send('{ invalid json }')
   );
 
   assert.equal(response.status, 400);
@@ -48,10 +46,8 @@ test('returns 400 when JSON payload is malformed', async () => {
 
 test('returns 403 when an invalid desktop session token is provided', async () => {
   const response = await withSession(
-    request(app)
-      .post('/api/portfolio/invalid-session-test')
-      .send({ transactions: [] }),
-    'bad-session-token',
+    request(app).post('/api/portfolio/invalid-session-test').send({ transactions: [] }),
+    'bad-session-token'
   );
 
   assert.equal(response.status, 403);
@@ -72,7 +68,7 @@ test('returns 413 for payloads larger than the JSON body limit', async () => {
             note: oversizeNote,
           },
         ],
-      }),
+      })
   );
 
   assert.equal(response.status, 413);

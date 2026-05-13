@@ -18,7 +18,7 @@ export default defineConfig({
       'src/__smoke__/**/*.test.tsx',
       'tests/redesign/**/*.{test,spec}.{ts,tsx}',
     ],
-    exclude: ['src/__tests__/**/*.test.jsx', 'src/__tests__/**/*.spec.jsx', 'server/**'],
+    exclude: ['server/**'],
     testTimeout: 10000,
     hookTimeout: 10000,
     clearMocks: true,

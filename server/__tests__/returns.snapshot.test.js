@@ -5,10 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 import { computeDailyStates } from '../finance/portfolio.js';
-import {
-  computeDailyReturnRows,
-  summarizeReturns,
-} from '../finance/returns.js';
+import { computeDailyReturnRows, summarizeReturns } from '../finance/returns.js';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const fixtureDir = path.join(currentDir, 'fixtures/returns');
@@ -27,7 +24,7 @@ test('daily returns stay aligned with stored snapshots', () => {
 
   const dates = Object.keys(spyPriceObject).sort((a, b) => a.localeCompare(b));
   const pricesByDate = new Map(
-    dates.map((date) => [date, new Map([['SPY', spyPriceObject[date]]])]),
+    dates.map((date) => [date, new Map([['SPY', spyPriceObject[date]]])])
   );
 
   const states = computeDailyStates({ transactions, pricesByDate, dates });

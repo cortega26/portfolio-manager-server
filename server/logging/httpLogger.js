@@ -1,13 +1,11 @@
-import { randomUUID } from "crypto";
-import pinoHttp from "pino-http";
+import { randomUUID } from 'crypto';
+import pinoHttp from 'pino-http';
 
-export const SENSITIVE_HEADER_PATHS = [
-  'req.headers["x-session-token"]',
-];
+export const SENSITIVE_HEADER_PATHS = ['req.headers["x-session-token"]'];
 
 export const HTTP_LOG_REDACT_CONFIG = {
   paths: SENSITIVE_HEADER_PATHS,
-  censor: "[REDACTED]",
+  censor: '[REDACTED]',
 };
 
 export function buildHttpLoggerOptions(baseLogger = null) {
@@ -15,23 +13,20 @@ export function buildHttpLoggerOptions(baseLogger = null) {
     logger: baseLogger ?? undefined,
     redact: HTTP_LOG_REDACT_CONFIG,
     genReqId(req) {
-      return req.headers["x-request-id"] ?? randomUUID();
+      return req.headers['x-request-id'] ?? randomUUID();
     },
     customSuccessMessage() {
-      return "request_complete";
+      return 'request_complete';
     },
     customErrorMessage() {
-      return "request_error";
+      return 'request_error';
     },
   };
 }
 
-export function createHttpLogger({
-  logger = null,
-  factory = null,
-} = {}) {
+export function createHttpLogger({ logger = null, factory = null } = {}) {
   const options = buildHttpLoggerOptions(logger);
-  if (typeof factory === "function") {
+  if (typeof factory === 'function') {
     return factory(options);
   }
   return pinoHttp(options);

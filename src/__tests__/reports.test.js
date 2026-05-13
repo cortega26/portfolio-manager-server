@@ -21,10 +21,7 @@ test('buildPerformanceCsv includes benchmark series columns in the header and ro
     lines[0],
     'date,portfolio_roi,spy_roi,qqq_roi,blended_roi,ex_cash_roi,cash_roi,spy_spread,qqq_spread'
   );
-  assert.equal(
-    lines[1],
-    "2024-01-02,0.0123%,0.0100%,0.0152%,0.0095%,0.0111%,0.0005%,0.0023%,'-0.0029%"
-  );
+  assert.equal(lines[1], "2024-01-02,0.01%,0.01%,0.02%,0.01%,0.01%,0.00%,0.00%,'-0.00%");
 });
 
 test('buildSecurityEventsCsv serialises security events with request metadata', () => {

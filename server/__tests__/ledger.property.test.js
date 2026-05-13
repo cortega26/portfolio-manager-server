@@ -4,19 +4,9 @@ import { test } from 'node:test';
 import fc from 'fast-check';
 
 import { toDateKey } from '../finance/cash.js';
-import {
-  computeDailyStates,
-  sortTransactions,
-  externalFlowsByDate,
-} from '../finance/portfolio.js';
+import { computeDailyStates, sortTransactions, externalFlowsByDate } from '../finance/portfolio.js';
 import { computeDailyReturnRows, computeReturnStep } from '../finance/returns.js';
-import {
-  d,
-  fromCents,
-  fromMicroShares,
-  toCents,
-  toMicroShares,
-} from '../finance/decimal.js';
+import { d, fromCents, fromMicroShares, toCents, toMicroShares } from '../finance/decimal.js';
 
 const DAY_MS = 86_400_000;
 const TICKERS = ['SPY', 'QQQ', 'IWM'];
@@ -33,14 +23,14 @@ const dayPlanArb = fc.record({
       tickerIndex: fc.integer({ min: 0, max: TICKERS.length - 1 }),
       fraction: fc.double({ min: 0, max: 0.6, noNaN: true }),
     }),
-    { maxLength: 4 },
+    { maxLength: 4 }
   ),
   sellInstructions: fc.array(
     fc.record({
       tickerIndex: fc.integer({ min: 0, max: TICKERS.length - 1 }),
       fraction: fc.double({ min: 0, max: 1, noNaN: true }),
     }),
-    { maxLength: 4 },
+    { maxLength: 4 }
   ),
 });
 
@@ -51,7 +41,7 @@ const ratePlanArb = fc.array(
     offset: fc.integer({ min: 0, max: 30 }),
     apy: fc.double({ min: 0, max: 0.12, noNaN: true }),
   }),
-  { minLength: 1, maxLength: 6 },
+  { minLength: 1, maxLength: 6 }
 );
 
 function dateKeyFromOffset(baseDate, offset) {
@@ -122,18 +112,14 @@ test('ledger transactions preserve invariants under random scenarios', async () 
           }
 
           const availableQuantityMicro = Math.floor(
-            d(cashCents)
-              .div(100)
-              .div(price)
-              .times(1_000_000)
-              .toNumber(),
+            d(cashCents).div(100).div(price).times(1_000_000).toNumber()
           );
           if (availableQuantityMicro <= 0) {
             continue;
           }
 
           const quantityMicro = Math.floor(
-            availableQuantityMicro * Math.min(1, instruction.fraction),
+            availableQuantityMicro * Math.min(1, instruction.fraction)
           );
           if (quantityMicro <= 0) {
             continue;
@@ -154,10 +140,7 @@ test('ledger transactions preserve invariants under random scenarios', async () 
             amount: fromCents(amountCents).toNumber(),
           });
           cashCents -= amountCents;
-          holdingsMicro.set(
-            ticker,
-            (holdingsMicro.get(ticker) ?? 0) + quantityMicro,
-          );
+          holdingsMicro.set(ticker, (holdingsMicro.get(ticker) ?? 0) + quantityMicro);
         }
 
         for (const instruction of plan.sellInstructions) {
@@ -197,7 +180,7 @@ test('ledger transactions preserve invariants under random scenarios', async () 
 
         const withdrawCents = Math.min(
           cashCents,
-          Math.floor(cashCents * Math.min(1, plan.withdrawFraction)),
+          Math.floor(cashCents * Math.min(1, plan.withdrawFraction))
         );
         if (withdrawCents > 0) {
           cashCents -= withdrawCents;
@@ -226,10 +209,7 @@ test('ledger transactions preserve invariants under random scenarios', async () 
         const expectedMicro = holdingsMicro.get(ticker) ?? 0;
         const actualQty = finalState.holdings.get(ticker) ?? 0;
         const actualMicro = toMicroShares(actualQty);
-        assert.ok(
-          Math.abs(actualMicro - expectedMicro) <= 2,
-          `share imbalance for ${ticker}`,
-        );
+        assert.ok(Math.abs(actualMicro - expectedMicro) <= 2, `share imbalance for ${ticker}`);
       }
 
       for (const state of states) {
@@ -248,16 +228,13 @@ test('ledger transactions preserve invariants under random scenarios', async () 
 
         assert.ok(
           Math.abs(expectedRiskValue - state.riskValue) < 0.25,
-          `risk value mismatch on ${state.date}`,
+          `risk value mismatch on ${state.date}`
         );
         assert.ok(
           Math.abs(state.cash + expectedRiskValue - state.nav) < 0.25,
-          `nav mismatch on ${state.date}`,
+          `nav mismatch on ${state.date}`
         );
-        assert.ok(
-          state.cash >= -0.01,
-          `cash dipped negative on ${state.date}: ${state.cash}`,
-        );
+        assert.ok(state.cash >= -0.01, `cash dipped negative on ${state.date}: ${state.cash}`);
       }
 
       const spyPrices = new Map();
@@ -268,10 +245,7 @@ test('ledger transactions preserve invariants under random scenarios', async () 
       const rateEntries = new Map();
       rateEntries.set(dates[0], 0);
       for (const entry of ratePlans) {
-        const effectiveDate = dateKeyFromOffset(
-          baseDate,
-          Math.min(entry.offset, plans.length - 1),
-        );
+        const effectiveDate = dateKeyFromOffset(baseDate, Math.min(entry.offset, plans.length - 1));
         const apy = Number.parseFloat(entry.apy.toFixed(6));
         rateEntries.set(effectiveDate, apy >= 0 ? apy : 0);
       }
@@ -297,10 +271,7 @@ test('ledger transactions preserve invariants under random scenarios', async () 
         if (!prevState) {
           if (flow.gt(0) && state.nav > 0) {
             const expected = d(state.nav).minus(flow).dividedBy(flow);
-            assert.ok(
-              expected.minus(d(row.r_port)).abs().lt(1e-6),
-              'inception return drift',
-            );
+            assert.ok(expected.minus(d(row.r_port)).abs().lt(1e-6), 'inception return drift');
           } else {
             assert.ok(Math.abs(row.r_port) < 1e-8);
           }
@@ -308,16 +279,10 @@ test('ledger transactions preserve invariants under random scenarios', async () 
         }
 
         const expectedPort = computeReturnStep(prevState.nav, state.nav, flow);
-        assert.ok(
-          expectedPort.minus(d(row.r_port)).abs().lt(1e-6),
-          'twr mismatch',
-        );
+        assert.ok(expectedPort.minus(d(row.r_port)).abs().lt(1e-6), 'twr mismatch');
 
         const expectedRisk = computeReturnStep(prevState.riskValue, state.riskValue, d(0));
-        assert.ok(
-          expectedRisk.minus(d(row.r_ex_cash)).abs().lt(1e-6),
-          'ex cash return mismatch',
-        );
+        assert.ok(expectedRisk.minus(d(row.r_ex_cash)).abs().lt(1e-6), 'ex cash return mismatch');
       }
 
       const serializedStates = states.map((state) => ({
@@ -339,6 +304,6 @@ test('ledger transactions preserve invariants under random scenarios', async () 
 
       assert.deepEqual(rowsReloaded, rows);
     }),
-    { numRuns: 50 },
+    { numRuns: 50 }
   );
 });

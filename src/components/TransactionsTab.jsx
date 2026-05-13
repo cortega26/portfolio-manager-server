@@ -107,10 +107,7 @@ function normalizeSearchValue(value) {
   if (value === null || value === undefined) {
     return '';
   }
-  return String(value)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+  return String(value).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
 function getTransactionTypeSearchTokens(type, t) {
@@ -547,18 +544,18 @@ export default function TransactionsTab({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
+      <div className="card-base p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2
             id="add-transaction-heading"
-            className="text-lg font-semibold text-slate-700 dark:text-slate-200"
+            className="font-heading text-lg font-bold text-surface-700 dark:text-surface-200"
           >
             {t('transactions.form.title')}
           </h2>
           <button
             type="button"
             onClick={handleDepositorOpen}
-            className="inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex items-center justify-center rounded-md border border-surface-300 px-3 py-2 text-sm font-medium text-surface-600 transition hover:bg-surface-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200 dark:hover:bg-surface-800"
           >
             {t('transactions.form.addDepositor')}
           </button>
@@ -570,14 +567,14 @@ export default function TransactionsTab({
           noValidate
         >
           <div className="grid gap-4 md:grid-cols-6">
-            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+            <label className="flex flex-col text-sm font-medium text-surface-600 dark:text-surface-300">
               {t('transactions.form.date')}
               <input
                 type="date"
                 value={form.date}
                 max={new Date().toISOString().split('T')[0]}
                 onChange={(event) => updateForm('date', event.target.value)}
-                className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                className="mt-1 rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100"
                 aria-invalid={Boolean(fieldErrors.date)}
               />
               {fieldErrors.date ? (
@@ -586,7 +583,7 @@ export default function TransactionsTab({
                 </span>
               ) : null}
             </label>
-            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+            <label className="flex flex-col text-sm font-medium text-surface-600 dark:text-surface-300">
               {t('transactions.form.ticker')}
               <input
                 type="text"
@@ -594,10 +591,10 @@ export default function TransactionsTab({
                 onChange={(event) => updateForm('ticker', event.target.value)}
                 onBlur={tickerDisabled ? undefined : handleTickerBlurFull}
                 className={clsx(
-                  'mt-1 rounded-md border px-3 py-2 text-sm uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+                  'mt-1 rounded-md border px-3 py-2 text-sm uppercase focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100',
                   tickerDisabled
-                    ? 'cursor-not-allowed border-dashed border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400'
-                    : 'border-slate-300'
+                    ? 'cursor-not-allowed border-dashed border-surface-300 text-surface-500 dark:border-surface-700 dark:text-surface-400'
+                    : 'border-surface-300'
                 )}
                 placeholder={
                   tickerDisabled
@@ -609,7 +606,7 @@ export default function TransactionsTab({
                 aria-disabled={tickerDisabled ? 'true' : undefined}
               />
               {tickerDisabled ? (
-                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <span className="mt-1 text-xs text-surface-500 dark:text-surface-400">
                   {t('transactions.form.ticker.disabledHelper')}
                 </span>
               ) : fieldErrors.ticker ? (
@@ -618,12 +615,12 @@ export default function TransactionsTab({
                 </span>
               ) : null}
             </label>
-            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+            <label className="flex flex-col text-sm font-medium text-surface-600 dark:text-surface-300">
               {t('transactions.form.type')}
               <select
                 value={form.type}
                 onChange={(event) => updateForm('type', event.target.value)}
-                className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                className="mt-1 rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100"
                 aria-invalid={Boolean(fieldErrors.type)}
               >
                 <option value="BUY">{t('transactions.type.buy')}</option>
@@ -639,17 +636,17 @@ export default function TransactionsTab({
                 </span>
               ) : null}
             </label>
-            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+            <label className="flex flex-col text-sm font-medium text-surface-600 dark:text-surface-300">
               {t('transactions.form.amount')}
               <input
                 type="number"
                 value={form.amount}
                 onChange={(event) => updateForm('amount', event.target.value)}
                 className={clsx(
-                  'mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+                  'mt-1 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100',
                   computedField === 'amount'
-                    ? 'border-slate-300 bg-slate-50 italic dark:bg-slate-800/50'
-                    : 'border-slate-300'
+                    ? 'border-surface-300 bg-surface-50 italic dark:bg-surface-800/50'
+                    : 'border-surface-300'
                 )}
                 step="0.01"
                 placeholder={t('transactions.form.amount.placeholder')}
@@ -666,7 +663,7 @@ export default function TransactionsTab({
                 </span>
               ) : remainingCashInfo !== null ? (
                 remainingCashInfo.sufficient ? (
-                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="mt-1 text-xs text-surface-500 dark:text-surface-400">
                     {t('transactions.form.amount.remainingCash', {
                       amount: remainingCashInfo.remaining.toLocaleString('en-US', {
                         style: 'currency',
@@ -687,17 +684,17 @@ export default function TransactionsTab({
               ) : null}
             </label>
             {requiresPrice ? (
-              <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+              <label className="flex flex-col text-sm font-medium text-surface-600 dark:text-surface-300">
                 {t('transactions.form.price')}
                 <input
                   type="number"
                   value={form.price}
                   onChange={(event) => updateForm('price', event.target.value)}
                   className={clsx(
-                    'mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+                    'mt-1 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100',
                     computedField === 'price'
-                      ? 'border-slate-300 bg-slate-50 italic dark:bg-slate-800/50'
-                      : 'border-slate-300'
+                      ? 'border-surface-300 bg-surface-50 italic dark:bg-surface-800/50'
+                      : 'border-surface-300'
                   )}
                   step="0.000000001"
                   placeholder={t('transactions.form.price.placeholder')}
@@ -720,20 +717,20 @@ export default function TransactionsTab({
                     {t('transactions.form.price.autoFillUnavailable')}
                   </span>
                 ) : priceAutoFill !== null ? (
-                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="mt-1 text-xs text-surface-500 dark:text-surface-400">
                     {t('transactions.form.price.autoFilled', {
                       source: priceAutoFill.source,
                       time: priceAutoFill.timestamp,
                     })}
                   </span>
                 ) : (
-                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="mt-1 text-xs text-surface-500 dark:text-surface-400">
                     {t('transactions.form.price.helper')}
                   </span>
                 )}
               </label>
             ) : null}
-            <label className="flex flex-col text-sm font-medium text-slate-600 dark:text-slate-300">
+            <label className="flex flex-col text-sm font-medium text-surface-600 dark:text-surface-300">
               {t('transactions.form.shares')}
               <input
                 type="number"
@@ -745,12 +742,12 @@ export default function TransactionsTab({
                 aria-readonly={sharesDisabled ? 'true' : undefined}
                 step="0.000000001"
                 className={clsx(
-                  'mt-1 rounded-md border px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+                  'mt-1 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100',
                   sharesDisabled
-                    ? 'border-dashed border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400'
+                    ? 'border-dashed border-surface-300 text-surface-500 dark:border-surface-700 dark:text-surface-400'
                     : computedField === 'shares'
-                      ? 'border-slate-300 bg-slate-50 italic dark:bg-slate-800/50'
-                      : 'border-slate-300'
+                      ? 'border-surface-300 bg-surface-50 italic dark:bg-surface-800/50'
+                      : 'border-surface-300'
                 )}
                 placeholder={
                   sharesDisabled
@@ -767,7 +764,7 @@ export default function TransactionsTab({
                 }
               />
               {sharesDisabled ? (
-                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <span className="mt-1 text-xs text-surface-500 dark:text-surface-400">
                   {form.type === 'DEPOSIT'
                     ? t('transactions.form.shares.disabledDepositHelper')
                     : t('transactions.form.shares.disabledCashHelper')}
@@ -777,7 +774,7 @@ export default function TransactionsTab({
                   {fieldErrors.shares}
                 </span>
               ) : (
-                <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <span className="mt-1 text-xs text-surface-500 dark:text-surface-400">
                   {t('transactions.form.shares.helper')}
                 </span>
               )}
@@ -793,7 +790,7 @@ export default function TransactionsTab({
           <div className="flex justify-end">
             <button
               type="submit"
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
               {t('transactions.form.title')}
             </button>
@@ -812,23 +809,25 @@ export default function TransactionsTab({
       >
         <h2
           className={clsx(
-            'font-semibold text-slate-700 dark:text-slate-200',
+            'font-heading font-bold text-surface-700 dark:text-surface-200',
             compact ? 'text-base' : 'text-lg'
           )}
         >
           {t('transactions.section.recent')}
         </h2>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className={clsx('text-sm text-slate-600 dark:text-slate-300', compact && 'text-xs')}>
+          <p
+            className={clsx('text-sm text-surface-600 dark:text-surface-300', compact && 'text-xs')}
+          >
             {summaryText}
           </p>
           {totalTransactions > 0 ? (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+              <label className="flex items-center gap-2 text-sm font-medium text-surface-600 dark:text-surface-300">
                 <span className="whitespace-nowrap">{t('transactions.pagination.rows')}</span>
                 <select
                   aria-label={t('transactions.pagination.rows')}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  className="rounded-md border border-surface-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100"
                   onChange={(event) => {
                     const nextValue = Number.parseInt(event.target.value, 10);
                     setPageSize(Number.isFinite(nextValue) ? nextValue : DEFAULT_PAGE_SIZE);
@@ -843,7 +842,7 @@ export default function TransactionsTab({
                   ))}
                 </select>
               </label>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+              <label className="flex items-center gap-2 text-sm font-medium text-surface-600 dark:text-surface-300">
                 <span className="whitespace-nowrap">{t('transactions.search.label')}</span>
                 <input
                   type="search"
@@ -851,7 +850,7 @@ export default function TransactionsTab({
                   onChange={(event) => setSearchInput(event.target.value)}
                   placeholder={t('transactions.search.placeholder')}
                   className={clsx(
-                    'w-full min-w-[200px] rounded-md border border-slate-300 px-3 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+                    'w-full min-w-[200px] rounded-md border border-surface-300 px-3 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100',
                     compact ? 'py-0.5 text-xs' : 'py-1 text-sm'
                   )}
                   aria-label={t('transactions.search.label')}
@@ -878,7 +877,7 @@ export default function TransactionsTab({
             <button
               type="button"
               className={clsx(
-                'rounded-md border border-slate-300 text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+                'rounded-md border border-surface-300 text-surface-600 transition hover:bg-surface-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200 dark:hover:bg-surface-800',
                 compact ? 'px-2.5 py-0.5 text-xs' : 'px-3 py-1 text-sm'
               )}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
@@ -887,7 +886,12 @@ export default function TransactionsTab({
             >
               {t('transactions.pagination.previous')}
             </button>
-            <p className={clsx('text-sm text-slate-600 dark:text-slate-300', compact && 'text-xs')}>
+            <p
+              className={clsx(
+                'text-sm text-surface-600 dark:text-surface-300',
+                compact && 'text-xs'
+              )}
+            >
               {t('transactions.pagination.page', {
                 current: currentPage,
                 total: totalPages,
@@ -896,7 +900,7 @@ export default function TransactionsTab({
             <button
               type="button"
               className={clsx(
-                'rounded-md border border-slate-300 text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+                'rounded-md border border-surface-300 text-surface-600 transition hover:bg-surface-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200 dark:hover:bg-surface-800',
                 compact ? 'px-2.5 py-0.5 text-xs' : 'px-3 py-1 text-sm'
               )}
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}

@@ -12,7 +12,7 @@ export const planArb = fc.record({
       spyReturn: fc.double({ min: -0.04, max: 0.04, noNaN: true }),
       flow: fc.double({ min: -6000, max: 6000, noNaN: true }),
     }),
-    { minLength: 2, maxLength: 8 },
+    { minLength: 2, maxLength: 8 }
   ),
 });
 

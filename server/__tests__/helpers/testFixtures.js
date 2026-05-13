@@ -31,9 +31,7 @@ export const DEFAULT_TRANSACTIONS = [
   },
 ];
 
-export const DEFAULT_CASH_RATES = [
-  { currency: 'USD', from: '2024-01-01', to: null, apy: 4.5 },
-];
+export const DEFAULT_CASH_RATES = [{ currency: 'USD', from: '2024-01-01', to: null, apy: 4.5 }];
 
 export const DEFAULT_RETURNS_DAILY = [
   {
