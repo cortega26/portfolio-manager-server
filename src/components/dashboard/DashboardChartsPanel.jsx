@@ -70,7 +70,7 @@ function BenchmarkControls({ options, selected, onToggle, onReset, resetDisabled
 
   return (
     <fieldset className="flex flex-col gap-2" aria-label={t('dashboard.benchmarks.controls')}>
-      <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      <legend className="text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
         {t('dashboard.benchmarks.legend')}
       </legend>
       <div
@@ -87,10 +87,10 @@ function BenchmarkControls({ options, selected, onToggle, onReset, resetDisabled
               onClick={() => onToggle(option.id)}
               aria-pressed={active}
               className={clsx(
-                'flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
                 active
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-600 focus-visible:outline-indigo-500 dark:border-indigo-400/80 dark:bg-indigo-500/20 dark:text-indigo-200'
-                  : 'border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-600 focus-visible:outline-indigo-500 dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-200'
+                  ? 'border-brand-500 bg-brand-50 text-brand-700 focus-visible:outline-brand-500 dark:border-brand-400/80 dark:bg-brand-500/20 dark:text-brand-200'
+                  : 'border-surface-200 text-surface-600 hover:border-brand-400 hover:text-brand-600 focus-visible:outline-brand-500 dark:border-surface-700 dark:text-surface-300 dark:hover:border-brand-400 dark:hover:text-brand-200'
               )}
               title={option.description}
             >
@@ -107,10 +107,10 @@ function BenchmarkControls({ options, selected, onToggle, onReset, resetDisabled
           type="button"
           onClick={onReset}
           className={clsx(
-            'rounded-md border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+            'rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
             resetDisabled
-              ? 'cursor-not-allowed border-slate-200 text-slate-400 dark:border-slate-700 dark:text-slate-600'
-              : 'border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-600 focus-visible:outline-indigo-500 dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-200'
+              ? 'cursor-not-allowed border-surface-200 text-surface-400 dark:border-surface-700 dark:text-surface-600'
+              : 'border-surface-200 text-surface-600 hover:border-brand-400 hover:text-brand-600 focus-visible:outline-brand-500 dark:border-surface-700 dark:text-surface-300 dark:hover:border-brand-400 dark:hover:text-brand-200'
           )}
           aria-disabled={resetDisabled}
           disabled={resetDisabled}
@@ -162,16 +162,16 @@ function RoiChart({
   }, [benchmarkOptions, selectedBenchmarks, t]);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="card-base p-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+            <h3 className="font-heading text-sm font-bold text-surface-700 dark:text-surface-300">
               {t('dashboard.roi.title')}
             </h3>
             {roiSource === 'fallback' && (
               <span
-                className="inline-flex items-center rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-amber-200"
+                className="tag border border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500/60 dark:bg-amber-500/10 dark:text-amber-200"
                 title={t('dashboard.roi.approximate.tooltip')}
                 data-testid="approximate-badge"
               >
@@ -180,7 +180,7 @@ function RoiChart({
             )}
           </div>
           {loading && (
-            <span className="text-xs font-medium text-indigo-500">{t('common.loading')}</span>
+            <span className="text-xs font-medium text-brand-600">{t('common.loading')}</span>
           )}
         </div>
         <BenchmarkControls
@@ -193,7 +193,7 @@ function RoiChart({
         />
       </div>
       {Array.isArray(benchmarkHealth?.unavailable) && benchmarkHealth.unavailable.length > 0 ? (
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
           {t('dashboard.roi.benchmarkNotice', {
             benchmarks: benchmarkHealth.unavailable.join(', '),
           })}
@@ -201,7 +201,7 @@ function RoiChart({
       ) : null}
       <div className="mt-4 h-72 w-full">
         {data.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-surface-500 dark:text-surface-400">
             {t('dashboard.roi.chartEmpty')}
           </p>
         ) : (
@@ -212,14 +212,21 @@ function RoiChart({
             aria-label={t('dashboard.roi.chartAria')}
           >
             <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#cbd5f5" opacity={0.5} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                opacity={0.4}
+                className="stroke-surface-200 dark:stroke-surface-800"
+              />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10 }}
-                stroke="#94a3b8"
+                className="text-surface-500"
                 tickFormatter={formatShortDate}
               />
-              <YAxis tickFormatter={(value) => formatPercent(value, 1)} stroke="#94a3b8" />
+              <YAxis
+                tickFormatter={(value) => formatPercent(value, 1)}
+                className="text-surface-500"
+              />
               <Tooltip
                 formatter={(value) => formatPercent(Number(value), ROI_DETAIL_PERCENT_DIGITS)}
                 labelFormatter={formatFullDate}
@@ -286,13 +293,13 @@ function NavGrowthChart({ data, transactions, t, formatCurrency }) {
   }, [data, transactions]);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+    <div className="card-base p-4">
+      <h3 className="font-heading text-sm font-bold text-surface-700 dark:text-surface-300">
         {t('dashboard.navChart.title')}
       </h3>
       <div className="mt-4 h-72 w-full">
         {chartData.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-surface-500 dark:text-surface-400">
             {t('dashboard.navChart.empty')}
           </p>
         ) : (
@@ -303,18 +310,22 @@ function NavGrowthChart({ data, transactions, t, formatCurrency }) {
             aria-label={t('dashboard.navChart.aria')}
           >
             <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#cbd5f5" opacity={0.5} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                opacity={0.4}
+                className="stroke-surface-200 dark:stroke-surface-800"
+              />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10 }}
-                stroke="#94a3b8"
+                className="text-surface-500"
                 tickFormatter={formatShortDate}
                 interval="preserveStartEnd"
                 tickCount={8}
               />
               <YAxis
                 tickFormatter={(value) => formatCurrency(Math.round(value))}
-                stroke="#94a3b8"
+                className="text-surface-500"
                 width={90}
               />
               <Tooltip
@@ -473,20 +484,20 @@ export default function DashboardChartsPanel({
   }, [normalizedDefaultSelection, selectedBenchmarks]);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="card-base overflow-hidden">
       <button
         type="button"
         onClick={handleToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
+        className="flex w-full items-center justify-between px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
         aria-expanded={open}
         aria-controls="dashboard-charts-content"
       >
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <span className="font-heading text-sm font-bold text-surface-700 dark:text-surface-200">
           {t('dashboard.charts.title', { defaultValue: 'Portfolio charts' })}
         </span>
         <svg
           className={clsx(
-            'h-4 w-4 text-slate-500 transition-transform dark:text-slate-400',
+            'h-4 w-4 text-surface-500 transition-transform duration-200 dark:text-surface-400',
             open && 'rotate-180'
           )}
           viewBox="0 0 20 20"

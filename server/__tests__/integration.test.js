@@ -12,7 +12,7 @@ import { runDailyClose } from '../jobs/daily_close.js';
 import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
 const silentLogger = pino({ level: 'silent' });
-const API_BASES = ['/api', '/api/v1'];
+const API_BASES = ['/api'];
 
 let dataDir;
 let buildApp;
@@ -70,15 +70,11 @@ for (const basePath of API_BASES) {
       request(app)
         .post(withBase('/portfolio/' + portfolioId))
         .set('X-Request-ID', ' inbound-trace ')
-        .send({ transactions: [], signals: {} }),
+        .send({ transactions: [], signals: {} })
     );
     assert.equal(bootstrap.status, 200);
     assert.deepEqual(bootstrap.body, { status: 'ok' });
     assert.equal(bootstrap.headers['x-request-id'], 'inbound-trace');
-    assert.equal(bootstrap.headers['x-api-version'], basePath === '/api' ? 'legacy' : 'v1');
-    if (basePath === '/api') {
-      assert.ok(String(bootstrap.headers.warning ?? '').includes('/api/v1'));
-    }
 
     const updatePayload = {
       transactions: [
@@ -113,14 +109,12 @@ for (const basePath of API_BASES) {
     const update = await withSession(
       request(app)
         .post(withBase('/portfolio/' + portfolioId))
-        .send(updatePayload),
+        .send(updatePayload)
     );
     assert.equal(update.status, 200);
     assert.deepEqual(update.body, { status: 'ok' });
 
-    const fetched = await withSession(
-      request(app).get(withBase('/portfolio/' + portfolioId)),
-    );
+    const fetched = await withSession(request(app).get(withBase('/portfolio/' + portfolioId)));
     assert.equal(fetched.status, 200);
     assert.equal(fetched.body.transactions.length, 2);
     const tickers = fetched.body.transactions.map((tx) => tx.ticker).filter(Boolean);
@@ -131,7 +125,9 @@ for (const basePath of API_BASES) {
     const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
     const persisted = await readPortfolioState(storage, portfolioId);
     assert.equal(persisted.transactions.length, 2);
-    assert.ok(persisted.transactions.every((tx) => typeof tx.uid === 'string' && tx.uid.length > 0));
+    assert.ok(
+      persisted.transactions.every((tx) => typeof tx.uid === 'string' && tx.uid.length > 0)
+    );
     assert.deepEqual(persisted.settings, updatePayload.settings);
     await closeApp(app);
   });
@@ -146,7 +142,7 @@ for (const basePath of API_BASES) {
     await withSession(
       request(app)
         .post(withBase('/portfolio/' + portfolioId))
-        .send({ transactions: [], signals: {} }),
+        .send({ transactions: [], signals: {} })
     );
 
     const payloadA = {
@@ -168,34 +164,31 @@ for (const basePath of API_BASES) {
       withSession(
         request(app)
           .post(withBase('/portfolio/' + portfolioId))
-          .send(payloadA),
+          .send(payloadA)
       ),
       withSession(
         request(app)
           .post(withBase('/portfolio/' + portfolioId))
-          .send(payloadB),
+          .send(payloadB)
       ),
     ]);
 
     assert.equal(responseA.status, 200);
     assert.equal(responseB.status, 200);
 
-    const final = await withSession(
-      request(app).get(withBase('/portfolio/' + portfolioId)),
-    );
+    const final = await withSession(request(app).get(withBase('/portfolio/' + portfolioId)));
     assert.equal(final.status, 200);
     assert.ok(
-      final.body.transactions.length === payloadA.transactions.length
-        || final.body.transactions.length === payloadB.transactions.length,
+      final.body.transactions.length === payloadA.transactions.length ||
+        final.body.transactions.length === payloadB.transactions.length
     );
     final.body.transactions.forEach((tx) => {
       assert.equal(typeof tx.uid, 'string');
       assert.ok(tx.uid.length > 0);
     });
 
-    const expectedSignals = final.body.transactions[0].ticker === 'MSFT'
-      ? {}
-      : { NVDA: { pct: 10 } };
+    const expectedSignals =
+      final.body.transactions[0].ticker === 'MSFT' ? {} : { NVDA: { pct: 10 } };
     assert.deepEqual(final.body.signals, expectedSignals);
     await closeApp(app);
   });
@@ -212,7 +205,7 @@ for (const basePath of API_BASES) {
 
     const invalid = await withSession(
       request(app).get(withBase('/portfolio/' + randomUUID())),
-      'invalid-session-token',
+      'invalid-session-token'
     );
     assert.equal(invalid.status, 403);
     assert.equal(invalid.body.error, 'INVALID_SESSION_TOKEN');
@@ -231,8 +224,8 @@ for (const basePath of API_BASES) {
       priceProvider: {
         async getDailyAdjustedClose(symbol) {
           return [
-            { date: yesterdayKey, adjClose: symbol === "MSFT" ? 118 : 100 },
-            { date: todayKey, adjClose: symbol === "MSFT" ? 121 : 105 },
+            { date: yesterdayKey, adjClose: symbol === 'MSFT' ? 118 : 100 },
+            { date: todayKey, adjClose: symbol === 'MSFT' ? 121 : 105 },
           ];
         },
       },
@@ -246,34 +239,41 @@ for (const basePath of API_BASES) {
         .post(`${basePath}/signals`)
         .send({
           transactions: [
-            { date: "2024-01-01", type: "DEPOSIT", amount: 1000 },
-            { date: "2024-01-02", type: "BUY", ticker: "msft", amount: -500, price: 100, shares: 5 },
+            { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
+            {
+              date: '2024-01-02',
+              type: 'BUY',
+              ticker: 'msft',
+              amount: -500,
+              price: 100,
+              shares: 5,
+            },
           ],
           signals: {
             msft: { pct: 5 },
           },
-        }),
+        })
     );
 
     assert.equal(response.status, 200);
     assert.deepEqual(response.body.prices, { MSFT: 121 });
     assert.equal(response.body.rows.length, 1);
     assert.deepEqual(response.body.rows[0], {
-      ticker: "MSFT",
+      ticker: 'MSFT',
       pctWindow: 5,
-      status: "TRIM_ZONE",
+      status: 'TRIM_ZONE',
       currentPrice: 121,
       currentPriceAsOf: todayKey,
       lowerBound: 95,
       upperBound: 105,
       referencePrice: 100,
-      referenceDate: "2024-01-02",
-      referenceType: "BUY",
+      referenceDate: '2024-01-02',
+      referenceType: 'BUY',
       sanityRejected: false,
     });
 
     const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
-    const persisted = await readPortfolioState(storage, "signals-preview");
+    const persisted = await readPortfolioState(storage, 'signals-preview');
     assert.equal(persisted, null);
     await closeApp(app);
   });
@@ -288,14 +288,21 @@ for (const basePath of API_BASES) {
         .post(`${basePath}/signals`)
         .send({
           transactions: [
-            { date: "2024-01-02", type: "BUY", ticker: "AAPL", amount: -100, price: -10, shares: 1 },
+            {
+              date: '2024-01-02',
+              type: 'BUY',
+              ticker: 'AAPL',
+              amount: -100,
+              price: -10,
+              shares: 1,
+            },
           ],
           signals: {},
-        }),
+        })
     );
 
     assert.equal(response.status, 400);
-    assert.equal(response.body.error, "VALIDATION_ERROR");
+    assert.equal(response.body.error, 'VALIDATION_ERROR');
     await closeApp(app);
   });
 }
@@ -312,7 +319,14 @@ for (const basePath of API_BASES) {
         .send({
           transactions: [
             { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
-            { date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5 },
+            {
+              date: '2024-01-02',
+              type: 'BUY',
+              ticker: 'AAPL',
+              amount: -500,
+              price: 100,
+              shares: 5,
+            },
           ],
           signals: { AAPL: { pct: 5 } },
           settings: {
@@ -322,7 +336,7 @@ for (const basePath of API_BASES) {
               signalTransitions: true,
             },
           },
-        }),
+        })
     );
     assert.equal(saveResponse.status, 200);
 
@@ -342,9 +356,7 @@ for (const basePath of API_BASES) {
               { date: '2024-01-03', adjClose: 94 },
             ],
           };
-          return (rowsBySymbol[symbol] ?? []).filter(
-            (row) => row.date >= from && row.date <= to,
-          );
+          return (rowsBySymbol[symbol] ?? []).filter((row) => row.date >= from && row.date <= to);
         },
       },
       config: {
@@ -353,7 +365,7 @@ for (const basePath of API_BASES) {
     });
 
     const response = await withSession(
-      request(app).get(withBase('/portfolio/' + portfolioId + '/signal-notifications')),
+      request(app).get(withBase('/portfolio/' + portfolioId + '/signal-notifications'))
     );
     assert.equal(response.status, 200);
     assert.equal(response.body.data.length, 1);
@@ -376,7 +388,14 @@ for (const basePath of API_BASES) {
         .send({
           transactions: [
             { date: '2024-01-01', type: 'DEPOSIT', amount: 1000 },
-            { date: '2024-01-02', type: 'BUY', ticker: 'AAPL', amount: -500, price: 100, shares: 5 },
+            {
+              date: '2024-01-02',
+              type: 'BUY',
+              ticker: 'AAPL',
+              amount: -500,
+              price: 100,
+              shares: 5,
+            },
           ],
           signals: { AAPL: { pct: 5 } },
           settings: {
@@ -386,7 +405,7 @@ for (const basePath of API_BASES) {
               signalTransitions: true,
             },
           },
-        }),
+        })
     );
     assert.equal(saveResponse.status, 200);
 
@@ -406,9 +425,7 @@ for (const basePath of API_BASES) {
               { date: '2024-01-03', adjClose: 94 },
             ],
           };
-          return (rowsBySymbol[symbol] ?? []).filter(
-            (row) => row.date >= from && row.date <= to,
-          );
+          return (rowsBySymbol[symbol] ?? []).filter((row) => row.date >= from && row.date <= to);
         },
       },
       config: {
@@ -436,19 +453,19 @@ for (const basePath of API_BASES) {
           },
         },
       },
-      ['id'],
+      ['id']
     );
 
     const requeueResponse = await withSession(
       request(app).post(
         withBase(
-          '/portfolio/'
-            + portfolioId
-            + '/signal-notifications/'
-            + encodeURIComponent(notification.id)
-            + '/requeue-email',
-        ),
-      ),
+          '/portfolio/' +
+            portfolioId +
+            '/signal-notifications/' +
+            encodeURIComponent(notification.id) +
+            '/requeue-email'
+        )
+      )
     );
     assert.equal(requeueResponse.status, 200);
     assert.equal(requeueResponse.body.status, 'ok');

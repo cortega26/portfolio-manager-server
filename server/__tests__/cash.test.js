@@ -64,10 +64,7 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'USD',
         },
       ],
-      expectedAmount: roundDecimal(
-        d(1000).times(dailyRateFromApy(0.0365)),
-        2,
-      ).toNumber(),
+      expectedAmount: roundDecimal(d(1000).times(dailyRateFromApy(0.0365)), 2).toNumber(),
     },
     {
       name: 'usd deposits and withdrawals same day',
@@ -94,10 +91,7 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'USD',
         },
       ],
-      expectedAmount: roundDecimal(
-        d(1250).times(dailyRateFromApy(0.05)),
-        2,
-      ).toNumber(),
+      expectedAmount: roundDecimal(d(1250).times(dailyRateFromApy(0.05)), 2).toNumber(),
     },
     {
       name: 'clp large balance uses zero decimal precision',
@@ -115,10 +109,7 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'CLP',
         },
       ],
-      expectedAmount: roundDecimal(
-        d(25_000_000).times(dailyRateFromApy(0.07)),
-        0,
-      ).toNumber(),
+      expectedAmount: roundDecimal(d(25_000_000).times(dailyRateFromApy(0.07)), 0).toNumber(),
     },
     {
       name: 'apy change mid month applies new rate',
@@ -142,10 +133,7 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'USD',
         },
       ],
-      expectedAmount: roundDecimal(
-        d(5000).times(dailyRateFromApy(0.08)),
-        2,
-      ).toNumber(),
+      expectedAmount: roundDecimal(d(5000).times(dailyRateFromApy(0.08)), 2).toNumber(),
     },
     {
       name: 'negative cash accrues negative interest',
@@ -172,10 +160,7 @@ test('postInterestForDate produces deterministic interest across scenarios', () 
           currency: 'USD',
         },
       ],
-      expectedAmount: roundDecimal(
-        d(-1500).times(dailyRateFromApy(0.04)),
-        2,
-      ).toNumber(),
+      expectedAmount: roundDecimal(d(-1500).times(dailyRateFromApy(0.04)), 2).toNumber(),
     },
     {
       name: 'zero apy yields no posting',
@@ -244,7 +229,7 @@ test('accrueInterest inserts transaction when balance positive', async () => {
   await storage.upsertRow(
     'transactions',
     { id: 't1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
   const policy = {
     currency: 'USD',
@@ -263,17 +248,14 @@ test('accrueInterest inserts transaction when balance positive', async () => {
   assert.equal(interest.date, '2024-01-02');
   assert.equal(interest.currency, 'USD');
   const expected = dailyRateFromApy(0.0365).times(1000);
-  assert.equal(
-    interest.amount,
-    fromCents(toCents(expected)).toNumber(),
-  );
+  assert.equal(interest.amount, fromCents(toCents(expected)).toNumber());
 });
 
 test('accrueInterest is idempotent across reruns', async () => {
   await storage.upsertRow(
     'transactions',
     { id: 't1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
   const policy = {
     currency: 'USD',
@@ -284,10 +266,7 @@ test('accrueInterest is idempotent across reruns', async () => {
   const transactions = await storage.readTable('transactions');
   const interestRecords = transactions.filter((tx) => tx.type === 'INTEREST');
   assert.equal(interestRecords.length, 1);
-  const delta = roundDecimal(
-    dailyRateFromApy(0.0365).times(1000),
-    6,
-  );
+  const delta = roundDecimal(dailyRateFromApy(0.0365).times(1000), 6);
   assert.equal(interestRecords[0].amount, fromCents(toCents(delta)).toNumber());
   assert.equal(interestRecords[0].currency, 'USD');
 });
@@ -296,7 +275,7 @@ test('monthly interest accrual buffers and posts once per month', async () => {
   await storage.upsertRow(
     'transactions',
     { id: 't1', type: 'DEPOSIT', ticker: 'CASH', date: '2024-01-01', amount: 1000 },
-    ['id'],
+    ['id']
   );
   const policy = {
     currency: 'USD',
@@ -319,10 +298,7 @@ test('monthly interest accrual buffers and posts once per month', async () => {
     portfolioId: 'pf-monthly',
   });
   let transactions = await storage.readTable('transactions');
-  assert.equal(
-    transactions.filter((tx) => tx.type === 'INTEREST').length,
-    0,
-  );
+  assert.equal(transactions.filter((tx) => tx.type === 'INTEREST').length, 0);
 
   const posting = await postMonthlyInterest({
     storage,
@@ -369,7 +345,7 @@ test('monthly interest accrual respects portfolio boundaries and policies', asyn
       amount: 5000,
       currency: 'USD',
     },
-    ['id'],
+    ['id']
   );
   await storage.upsertRow(
     'transactions',
@@ -382,7 +358,7 @@ test('monthly interest accrual respects portfolio boundaries and policies', asyn
       amount: 7500,
       currency: 'USD',
     },
-    ['id'],
+    ['id']
   );
 
   const earningPolicy = {
@@ -434,12 +410,12 @@ test('monthly interest accrual respects portfolio boundaries and policies', asyn
   const transactions = await storage.readTable('transactions');
   const pf1Interest = transactions.filter(
     (tx) =>
-      tx.type === 'INTEREST'
-      && tx.portfolio_id === 'pf-1'
-      && tx.note === 'Automated monthly cash interest posting',
+      tx.type === 'INTEREST' &&
+      tx.portfolio_id === 'pf-1' &&
+      tx.note === 'Automated monthly cash interest posting'
   );
   const pf2Interest = transactions.filter(
-    (tx) => tx.type === 'INTEREST' && tx.portfolio_id === 'pf-2',
+    (tx) => tx.type === 'INTEREST' && tx.portfolio_id === 'pf-2'
   );
 
   assert.equal(pf1Interest.length, 1);
@@ -457,7 +433,7 @@ test('accrueInterest respects custom day count conventions', async () => {
       amount: 1000,
       currency: 'USD',
     },
-    ['id'],
+    ['id']
   );
 
   const basePolicy = {
@@ -474,13 +450,10 @@ test('accrueInterest respects custom day count conventions', async () => {
   assert.ok(defaultDayCountRecord);
   assert.equal(
     defaultDayCountRecord.amount,
-    fromCents(toCents(dailyRateFromApy(0.1).times(1000))).toNumber(),
+    fromCents(toCents(dailyRateFromApy(0.1).times(1000))).toNumber()
   );
 
-  await storage.deleteWhere(
-    'transactions',
-    (tx) => tx.id === defaultDayCountRecord?.id,
-  );
+  await storage.deleteWhere('transactions', (tx) => tx.id === defaultDayCountRecord?.id);
 
   const customPolicy = {
     ...basePolicy,
@@ -496,6 +469,6 @@ test('accrueInterest respects custom day count conventions', async () => {
   assert.ok(customDayCountRecord);
   assert.equal(
     customDayCountRecord.amount,
-    fromCents(toCents(dailyRateFromApy(0.1, { dayCount: 360 }).times(1000))).toNumber(),
+    fromCents(toCents(dailyRateFromApy(0.1, { dayCount: 360 }).times(1000))).toNumber()
   );
 });

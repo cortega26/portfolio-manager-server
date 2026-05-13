@@ -21,10 +21,7 @@ function sell(date: string, ticker: string, shares: string, price: string, uid?:
 describe('lotMatcher — FIFO', () => {
   // 1. Single buy + full sell
   it('single buy then full sell emits one ClosedLot', () => {
-    const txs = [
-      buy('2023-01-10', 'AAPL', '10', '150'),
-      sell('2023-06-01', 'AAPL', '10', '180'),
-    ];
+    const txs = [buy('2023-01-10', 'AAPL', '10', '150'), sell('2023-06-01', 'AAPL', '10', '180')];
     const { closedLots, openLots } = matchLots(txs);
 
     assert.equal(closedLots.length, 1);
@@ -44,10 +41,7 @@ describe('lotMatcher — FIFO', () => {
 
   // 2. Single buy + partial sell (lot split)
   it('partial sell leaves residual in open lots', () => {
-    const txs = [
-      buy('2023-01-10', 'AAPL', '10', '150'),
-      sell('2023-06-01', 'AAPL', '6', '180'),
-    ];
+    const txs = [buy('2023-01-10', 'AAPL', '10', '150'), sell('2023-06-01', 'AAPL', '6', '180')];
     const { closedLots, openLots } = matchLots(txs);
 
     assert.equal(closedLots.length, 1);
@@ -106,7 +100,7 @@ describe('lotMatcher — FIFO', () => {
       buy('2021-07-01', 'NVDA', '10', '200'),
       sell('2021-09-01', 'NVDA', '12', '250'), // consumes all 10 from buy1 + 2 from buy2
       buy('2022-01-01', 'NVDA', '5', '300'),
-      sell('2022-06-01', 'NVDA', '8', '350'),  // consumes 8 from buy2 (has 8 left)
+      sell('2022-06-01', 'NVDA', '8', '350'), // consumes 8 from buy2 (has 8 left)
     ];
     const { closedLots, openLots } = matchLots(txs);
 
@@ -152,7 +146,7 @@ describe('lotMatcher — FIFO', () => {
         assert.ok(err.message.includes('LotMatcher'));
         assert.ok(err.message.includes('AMD'));
         return true;
-      },
+      }
     );
   });
 

@@ -7,7 +7,7 @@ import SignalTableCard from './SignalTableCard.jsx';
 function HoldingsTable({ holdings, currentPrices, t, formatNumber, compact = false }) {
   if (holdings.length === 0) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">{t('holdings.table.empty')}</p>
+      <p className="text-sm text-surface-500 dark:text-surface-400">{t('holdings.table.empty')}</p>
     );
   }
 
@@ -15,15 +15,15 @@ function HoldingsTable({ holdings, currentPrices, t, formatNumber, compact = fal
     <div className="overflow-x-auto">
       <table
         className={clsx(
-          'min-w-full divide-y divide-slate-200 dark:divide-slate-700',
+          'min-w-full divide-y divide-surface-200 dark:divide-surface-700',
           compact ? 'text-xs' : 'text-sm'
         )}
         aria-label={t('holdings.table.aria')}
       >
-        <thead className="bg-slate-50 dark:bg-slate-800/60">
+        <thead className="bg-surface-50 dark:bg-surface-800/60">
           <tr
             className={clsx(
-              'text-left font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300',
+              'text-left font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-300',
               compact ? 'text-[11px]' : 'text-xs'
             )}
           >
@@ -51,7 +51,7 @@ function HoldingsTable({ holdings, currentPrices, t, formatNumber, compact = fal
           </tr>
         </thead>
         <tbody
-          className="divide-y divide-slate-200 dark:divide-slate-800"
+          className="divide-y divide-surface-200 dark:divide-surface-800"
           data-testid="holdings-tbody"
         >
           {holdings.map((holding) => {
@@ -80,20 +80,61 @@ function HoldingsTable({ holdings, currentPrices, t, formatNumber, compact = fal
                 : '—';
             })();
             return (
-              <tr key={holding.ticker} className="bg-white dark:bg-slate-900">
-                <td className={clsx('px-3 font-semibold', compact ? 'py-1.5' : 'py-2')}>
+              <tr key={holding.ticker} className="bg-white dark:bg-surface-950">
+                <td
+                  className={clsx(
+                    'px-3 font-semibold text-surface-900 dark:text-surface-100',
+                    compact ? 'py-1.5' : 'py-2'
+                  )}
+                >
                   {holding.ticker}
                 </td>
-                <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>{sharesLabel}</td>
-                <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>
+                <td
+                  className={clsx(
+                    'px-3 text-surface-700 dark:text-surface-300',
+                    compact ? 'py-1.5' : 'py-2'
+                  )}
+                >
+                  {sharesLabel}
+                </td>
+                <td
+                  className={clsx(
+                    'px-3 text-surface-700 dark:text-surface-300',
+                    compact ? 'py-1.5' : 'py-2'
+                  )}
+                >
                   {enriched.avgCostLabel}
                 </td>
-                <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>{enriched.priceLabel}</td>
-                <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>{enriched.valueLabel}</td>
-                <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>
+                <td
+                  className={clsx(
+                    'px-3 text-surface-700 dark:text-surface-300',
+                    compact ? 'py-1.5' : 'py-2'
+                  )}
+                >
+                  {enriched.priceLabel}
+                </td>
+                <td
+                  className={clsx(
+                    'px-3 text-surface-700 dark:text-surface-300',
+                    compact ? 'py-1.5' : 'py-2'
+                  )}
+                >
+                  {enriched.valueLabel}
+                </td>
+                <td
+                  className={clsx(
+                    'px-3 text-surface-700 dark:text-surface-300',
+                    compact ? 'py-1.5' : 'py-2'
+                  )}
+                >
                   {enriched.unrealisedLabel}
                 </td>
-                <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>
+                <td
+                  className={clsx(
+                    'px-3 text-surface-700 dark:text-surface-300',
+                    compact ? 'py-1.5' : 'py-2'
+                  )}
+                >
                   {enriched.realisedLabel ?? '—'}
                 </td>
               </tr>
@@ -117,15 +158,10 @@ export default function HoldingsTab({
   const { t, formatNumber } = useI18n();
   return (
     <div className="space-y-6">
-      <div
-        className={clsx(
-          'rounded-xl border border-slate-200 bg-white shadow dark:border-slate-800 dark:bg-slate-900',
-          compact ? 'p-3' : 'p-4'
-        )}
-      >
+      <div className={clsx('card-base', compact ? 'p-3' : 'p-4')}>
         <h2
           className={clsx(
-            'font-semibold text-slate-700 dark:text-slate-200',
+            'font-heading font-bold text-surface-700 dark:text-surface-200',
             compact ? 'text-base' : 'text-lg'
           )}
         >

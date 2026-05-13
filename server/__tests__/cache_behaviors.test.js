@@ -217,9 +217,7 @@ test('GET /api/returns/daily negotiates 304 when If-None-Match matches cached ET
   const etag = first.headers.etag;
   assert.ok(typeof etag === 'string' && etag.length > 0);
 
-  const second = await request(app)
-    .get('/api/returns/daily')
-    .set('If-None-Match', etag);
+  const second = await request(app).get('/api/returns/daily').set('If-None-Match', etag);
   assert.equal(second.status, 304);
   assert.equal(second.headers.etag, etag);
   assert.equal(second.headers['cache-control'], `private, max-age=${CACHE_TTL_SECONDS}`);
@@ -267,7 +265,7 @@ test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
   assert.equal(
     cached.body.series.r_port[0].value,
     initialValue,
-    'cache should still serve stale data before invalidation',
+    'cache should still serve stale data before invalidation'
   );
 
   const payload = {
@@ -277,9 +275,7 @@ test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
     cash: { currency: 'USD', apyTimeline: [] },
   };
   const saveResponse = await withSession(
-    request(app)
-      .post('/api/portfolio/cache-test')
-      .send(payload),
+    request(app).post('/api/portfolio/cache-test').send(payload)
   );
   assert.equal(saveResponse.status, 200);
 
@@ -288,7 +284,7 @@ test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
   assert.equal(
     refreshed.body.series.r_port[0].value,
     updatedRows[0].r_port,
-    'portfolio save should flush cached analytics data',
+    'portfolio save should flush cached analytics data'
   );
   await closeApp(app);
 });

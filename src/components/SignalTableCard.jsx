@@ -70,7 +70,9 @@ function SignalsTable({
 }) {
   if (holdings.length === 0) {
     return (
-      <p className="text-sm text-slate-500 dark:text-slate-400">{t('holdings.signals.empty')}</p>
+      <p className="text-sm text-surface-500 dark:text-surface-400">
+        {t('holdings.signals.empty')}
+      </p>
     );
   }
 
@@ -78,15 +80,15 @@ function SignalsTable({
     <div className="overflow-x-auto">
       <table
         className={clsx(
-          'min-w-full divide-y divide-slate-200 dark:divide-slate-700',
+          'min-w-full divide-y divide-surface-200 dark:divide-surface-700',
           compact ? 'text-xs' : 'text-sm'
         )}
         aria-label={t('holdings.signals.aria')}
       >
-        <thead className="bg-slate-50 dark:bg-slate-800/60">
+        <thead className="bg-surface-50 dark:bg-surface-800/60">
           <tr
             className={clsx(
-              'text-left font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300',
+              'text-left font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-300',
               compact ? 'text-[11px]' : 'text-xs'
             )}
           >
@@ -110,7 +112,7 @@ function SignalsTable({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+        <tbody className="divide-y divide-surface-200 dark:divide-surface-800">
           {(() => {
             const signalRowsByTicker = new Map(
               Array.isArray(signalRows)
@@ -129,8 +131,13 @@ function SignalsTable({
                 signalRowsByTicker,
               });
               return (
-                <tr key={holding.ticker} className="bg-white dark:bg-slate-900">
-                  <td className={clsx('px-3 font-semibold', compact ? 'py-1.5' : 'py-2')}>
+                <tr key={holding.ticker} className="bg-white dark:bg-surface-950">
+                  <td
+                    className={clsx(
+                      'px-3 font-semibold text-surface-900 dark:text-surface-100',
+                      compact ? 'py-1.5' : 'py-2'
+                    )}
+                  >
                     {holding.ticker}
                   </td>
                   <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>
@@ -139,7 +146,7 @@ function SignalsTable({
                       step="0.1"
                       min="0"
                       className={clsx(
-                        'w-20 rounded-md border border-slate-300 px-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
+                        'w-20 rounded-lg border border-surface-200 bg-white px-2 text-surface-900 shadow-sm transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-950 dark:text-surface-100',
                         compact ? 'py-0.5 text-xs' : 'py-1 text-sm'
                       )}
                       value={pctWindow}
@@ -148,9 +155,30 @@ function SignalsTable({
                       title={t('holdings.signals.windowAria', { ticker: holding.ticker })}
                     />
                   </td>
-                  <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>{row.price}</td>
-                  <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>{row.lower}</td>
-                  <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>{row.upper}</td>
+                  <td
+                    className={clsx(
+                      'px-3 text-surface-700 dark:text-surface-300',
+                      compact ? 'py-1.5' : 'py-2'
+                    )}
+                  >
+                    {row.price}
+                  </td>
+                  <td
+                    className={clsx(
+                      'px-3 text-surface-700 dark:text-surface-300',
+                      compact ? 'py-1.5' : 'py-2'
+                    )}
+                  >
+                    {row.lower}
+                  </td>
+                  <td
+                    className={clsx(
+                      'px-3 text-surface-700 dark:text-surface-300',
+                      compact ? 'py-1.5' : 'py-2'
+                    )}
+                  >
+                    {row.upper}
+                  </td>
                   <td className={clsx('px-3', compact ? 'py-1.5' : 'py-2')}>
                     {(() => {
                       const translationKey = SIGNAL_LABEL_KEYS[row.signal];
@@ -158,7 +186,7 @@ function SignalsTable({
                       return (
                         <span
                           className={clsx(
-                            'rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide',
+                            'tag',
                             row.signal === 'BUY zone' &&
                               'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200',
                             row.signal === 'TRIM zone' &&
@@ -166,7 +194,7 @@ function SignalsTable({
                             row.signal === 'HOLD' &&
                               'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200',
                             row.signal === 'NO DATA' &&
-                              'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                              'bg-surface-100 text-surface-600 dark:bg-surface-700 dark:text-surface-300'
                           )}
                         >
                           {signalLabel}
@@ -198,22 +226,19 @@ export default function SignalTableCard({
   const { t } = useI18n();
 
   return (
-    <div
-      className={clsx(
-        'rounded-xl border border-slate-200 bg-white shadow dark:border-slate-800 dark:bg-slate-900',
-        compact ? 'p-3' : 'p-4'
-      )}
-    >
+    <div className={clsx('card-base', compact ? 'p-3' : 'p-4')}>
       <div className="flex flex-col gap-1">
         <h2
           className={clsx(
-            'font-semibold text-slate-700 dark:text-slate-200',
+            'font-heading font-bold text-surface-700 dark:text-surface-200',
             compact ? 'text-base' : 'text-lg'
           )}
         >
           {title ?? t('holdings.signals.title')}
         </h2>
-        {subtitle ? <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p> : null}
+        {subtitle ? (
+          <p className="text-sm text-surface-500 dark:text-surface-400">{subtitle}</p>
+        ) : null}
       </div>
       <div className="mt-4">
         <SignalsTable

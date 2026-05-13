@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import TodayTab from '../../src/components/review/TodayTab.jsx';
 import NeedsAttentionSection from '../../src/components/review/NeedsAttentionSection.jsx';
 import RecentChangesSection from '../../src/components/review/RecentChangesSection.jsx';
+import { I18nProvider } from '../../src/i18n/I18nProvider.jsx';
 import { requestJson } from '../../src/lib/apiClient.js';
+
+function renderWithI18n(ui) {
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 
 vi.mock('../../src/lib/apiClient.js', () => ({
   requestJson: vi.fn(),
@@ -37,7 +42,7 @@ describe('SR-021/SR-024 Today shell health states', () => {
       version: 'v1',
     });
 
-    render(<TodayTab portfolioId="demo" />);
+    renderWithI18n(<TodayTab portfolioId="demo" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('today-tab')).toHaveAttribute('data-today-status', 'healthy');
@@ -63,7 +68,7 @@ describe('SR-021/SR-024 Today shell health states', () => {
       version: 'v1',
     });
 
-    render(<TodayTab portfolioId="demo" />);
+    renderWithI18n(<TodayTab portfolioId="demo" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('today-tab')).toHaveAttribute('data-today-status', 'blocked');
@@ -80,7 +85,7 @@ describe('SR-022 NeedsAttentionSection populated state', () => {
   });
 
   test('shows a descriptive empty state when there are no HIGH urgency items', () => {
-    render(
+    renderWithI18n(
       <NeedsAttentionSection
         items={[
           { eventKey: 'medium', ticker: 'MMM', urgency: 'MEDIUM', description: 'Medium item' },
@@ -104,7 +109,7 @@ describe('SR-022 NeedsAttentionSection populated state', () => {
       { eventKey: 'high-5', ticker: 'EEE', urgency: 'HIGH', description: 'Fifth high item' },
     ];
 
-    render(<NeedsAttentionSection items={items} />);
+    renderWithI18n(<NeedsAttentionSection items={items} />);
 
     const renderedItems = screen.getAllByTestId('needs-attention-item');
     expect(renderedItems).toHaveLength(5);
@@ -126,7 +131,7 @@ describe('SR-023 RecentChangesSection NAV snapshot', () => {
   });
 
   test('stores the latest NAV snapshot when no previous snapshot exists', () => {
-    render(
+    renderWithI18n(
       <RecentChangesSection
         portfolioId="demo"
         navDaily={[{ date: '2026-04-22', portfolio_nav: 1000 }]}
@@ -145,7 +150,7 @@ describe('SR-023 RecentChangesSection NAV snapshot', () => {
       JSON.stringify({ date: '2026-04-22', portfolio_nav: '1000' })
     );
 
-    render(
+    renderWithI18n(
       <RecentChangesSection
         portfolioId="demo"
         navDaily={[{ date: '2026-04-23', portfolio_nav: 1025.5 }]}

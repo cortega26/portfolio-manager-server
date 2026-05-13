@@ -13,7 +13,11 @@
 import { d, roundDecimal } from './decimal.js';
 import { computeTradingDayAge } from '../utils/calendar.js';
 import { buildPortfolioSignalRows } from '../services/signalNotifications.js';
-import { isSignalStatusActionable, isOpenSignalHolding, resolveSignalWindow } from '../../shared/signals.js';
+import {
+  isSignalStatusActionable,
+  isOpenSignalHolding,
+  resolveSignalWindow,
+} from '../../shared/signals.js';
 import { sortTransactions, projectStateUntil } from './portfolio.js';
 import type { InboxItem, InboxEventType, InboxReviewRecord } from '../types/inbox.js';
 import { URGENCY_ORDER } from '../types/inbox.js';
@@ -60,7 +64,7 @@ export function buildThresholdEventKey(
   ticker: string,
   signalStatus: string,
   thresholdPct: number,
-  priceAsOf: string | null,
+  priceAsOf: string | null
 ): string {
   const direction = signalStatus === 'BUY_ZONE' ? 'below' : 'above';
   const dateTag = priceAsOf ?? 'unknown';
@@ -70,7 +74,7 @@ export function buildThresholdEventKey(
 export function buildLargeMoveEventKey(
   ticker: string,
   movePct: number,
-  periodStartDate: string | null,
+  periodStartDate: string | null
 ): string {
   const sign = movePct >= 0 ? 'up' : 'down';
   const absPct = Math.round(Math.abs(movePct));
@@ -78,17 +82,11 @@ export function buildLargeMoveEventKey(
   return `${ticker}:${sign}:${absPct}:${dateTag}`;
 }
 
-export function buildLongUnreviewedEventKey(
-  ticker: string,
-  periodDate: string,
-): string {
+export function buildLongUnreviewedEventKey(ticker: string, periodDate: string): string {
   return `${ticker}:LONG_UNREVIEWED:${periodDate}`;
 }
 
-export function buildNoThresholdEventKey(
-  ticker: string,
-  periodDate: string,
-): string {
+export function buildNoThresholdEventKey(ticker: string, periodDate: string): string {
   return `${ticker}:NO_THRESHOLD_CONFIGURED:${periodDate}`;
 }
 
@@ -98,13 +96,10 @@ function isDismissed(
   ticker: string,
   eventType: InboxEventType,
   eventKey: string,
-  dismissHistory: InboxReviewRecord[],
+  dismissHistory: InboxReviewRecord[]
 ): boolean {
   return dismissHistory.some(
-    (r) =>
-      r.ticker === ticker &&
-      r.event_type === eventType &&
-      r.event_key === eventKey,
+    (r) => r.ticker === ticker && r.event_type === eventType && r.event_key === eventKey
   );
 }
 
@@ -112,15 +107,11 @@ function isDismissed(
 function latestDismiss(
   ticker: string,
   eventType: InboxEventType,
-  dismissHistory: InboxReviewRecord[],
+  dismissHistory: InboxReviewRecord[]
 ): InboxReviewRecord | null {
-  const matching = dismissHistory.filter(
-    (r) => r.ticker === ticker && r.event_type === eventType,
-  );
+  const matching = dismissHistory.filter((r) => r.ticker === ticker && r.event_type === eventType);
   if (matching.length === 0) return null;
-  return matching.reduce((prev, cur) =>
-    cur.dismissed_at > prev.dismissed_at ? cur : prev,
-  );
+  return matching.reduce((prev, cur) => (cur.dismissed_at > prev.dismissed_at ? cur : prev));
 }
 
 // ── Average cost helper ───────────────────────────────────────────────────────
@@ -129,23 +120,21 @@ function latestDismiss(
  * Returns the weighted average purchase price for a ticker, derived from
  * all BUY transactions in chronological order.
  */
-function deriveAverageCost(
-  transactions: Transaction[],
-  ticker: string,
-): number | null {
+function deriveAverageCost(transactions: Transaction[], ticker: string): number | null {
   const sorted = sortTransactions(transactions as never[]) as unknown as Transaction[];
   let totalShares = d(0);
   let totalCost = d(0);
 
   for (const tx of sorted) {
-    if (
-      typeof tx.ticker !== 'string' ||
-      tx.ticker.toUpperCase() !== ticker.toUpperCase()
-    ) continue;
+    if (typeof tx.ticker !== 'string' || tx.ticker.toUpperCase() !== ticker.toUpperCase()) continue;
 
     if (tx.type?.toUpperCase() === 'BUY') {
       const qty = d(tx.shares ?? tx.quantity ?? 0).abs();
-      const price = qty.isZero() ? d(0) : d(tx.amount ?? 0).abs().div(qty);
+      const price = qty.isZero()
+        ? d(0)
+        : d(tx.amount ?? 0)
+            .abs()
+            .div(qty);
       if (!qty.isZero()) {
         totalShares = totalShares.plus(qty);
         totalCost = totalCost.plus(price.times(qty));
@@ -195,7 +184,7 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
   // Derive open holdings from the projected portfolio state.
   const sorted = sortTransactions(transactions as never[]) as unknown as Transaction[];
   const lastDate =
-    sorted.length > 0 ? (sorted[sorted.length - 1] as Transaction).date ?? todayKey : todayKey;
+    sorted.length > 0 ? ((sorted[sorted.length - 1] as Transaction).date ?? todayKey) : todayKey;
   const projected = projectStateUntil(sorted as never[], lastDate);
   const openTickers = Array.from((projected.holdings as Map<string, number>).entries())
     .filter(([, qty]) => isOpenSignalHolding(qty))
@@ -225,9 +214,7 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
     const sharesRaw = (projected.holdings as Map<string, number>).get(ticker) ?? 0;
     const shares = roundDecimal(d(sharesRaw), 9).toFixed(9);
     const currentValue =
-      currentPrice != null
-        ? roundDecimal(d(sharesRaw).times(d(currentPrice)), 2).toFixed(2)
-        : null;
+      currentPrice != null ? roundDecimal(d(sharesRaw).times(d(currentPrice)), 2).toFixed(2) : null;
     const currentValueNum = currentValue != null ? Number(currentValue) : null;
 
     // ── THRESHOLD_TRIGGERED ────────────────────────────────────────────────
@@ -239,28 +226,17 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
           typeof row['pctWindow'] === 'number'
             ? row['pctWindow']
             : Number(resolveSignalWindow(signals, ticker));
-        const eventKey = buildThresholdEventKey(
-          ticker,
-          status,
-          thresholdPct,
-          currentPriceAsOf,
-        );
+        const eventKey = buildThresholdEventKey(ticker, status, thresholdPct, currentPriceAsOf);
         if (!isDismissed(ticker, 'THRESHOLD_TRIGGERED', eventKey, dismissHistory)) {
           const direction = status === 'BUY_ZONE' ? 'below' : 'above';
-          const refPrice =
-            typeof row['referencePrice'] === 'number'
-              ? row['referencePrice']
-              : null;
+          const refPrice = typeof row['referencePrice'] === 'number' ? row['referencePrice'] : null;
           const pctFromRef =
             currentPrice != null && refPrice != null && refPrice > 0
               ? d(currentPrice).minus(d(refPrice)).div(d(refPrice)).times(100)
               : null;
           const pctStr =
-            pctFromRef != null
-              ? `${pctFromRef.gte(0) ? '+' : ''}${pctFromRef.toFixed(1)}%`
-              : '';
-          const description =
-            `Threshold crossed ${direction} ${thresholdPct}% window${pctStr ? ` (currently ${pctStr})` : ''}`;
+            pctFromRef != null ? `${pctFromRef.gte(0) ? '+' : ''}${pctFromRef.toFixed(1)}%` : '';
+          const description = `Threshold crossed ${direction} ${thresholdPct}% window${pctStr ? ` (currently ${pctStr})` : ''}`;
           items.push({
             ticker,
             eventType: 'THRESHOLD_TRIGGERED',
@@ -291,7 +267,7 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
         // We store the eventKey; parse period start date from it.
         // Key format: {ticker}:{sign}:{pct}:{periodStartDate}
         const parts = lastDismiss.event_key.split(':');
-        periodStartDate = parts.length >= 4 ? parts[3] ?? null : null;
+        periodStartDate = parts.length >= 4 ? (parts[3] ?? null) : null;
         // For reference price after dismiss, fall back to avg cost.
         refPrice = deriveAverageCost(transactions, ticker);
       } else {
@@ -300,11 +276,7 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
       }
 
       if (currentPrice != null && refPrice != null && refPrice > 0) {
-        const movePct = d(currentPrice)
-          .minus(d(refPrice))
-          .div(d(refPrice))
-          .times(100)
-          .toNumber();
+        const movePct = d(currentPrice).minus(d(refPrice)).div(d(refPrice)).times(100).toNumber();
         if (Math.abs(movePct) >= LARGE_MOVE_PCT) {
           const eventKey = buildLargeMoveEventKey(ticker, movePct, periodStartDate);
           if (!isDismissed(ticker, 'LARGE_MOVE_UNREVIEWED', eventKey, dismissHistory)) {
@@ -332,8 +304,8 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
     // Only when position ≥ $500.
     if (currentValueNum != null && currentValueNum >= MIN_POSITION_VALUE_USD) {
       const lastDismiss = latestDismiss(ticker, 'LONG_UNREVIEWED', dismissHistory);
-      const referenceDate2 = lastDismiss?.dismissed_at.slice(0, 10) ??
-        firstTransactionDate(transactions, ticker);
+      const referenceDate2 =
+        lastDismiss?.dismissed_at.slice(0, 10) ?? firstTransactionDate(transactions, ticker);
 
       if (referenceDate2) {
         const tradingDays = computeTradingDayAge(referenceDate2, referenceDate);

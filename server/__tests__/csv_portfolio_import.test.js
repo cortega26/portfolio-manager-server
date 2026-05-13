@@ -19,11 +19,7 @@ const noopLogger = {
   error() {},
 };
 
-const projectRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '..',
-);
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const tempDirs = [];
 
@@ -43,58 +39,51 @@ test('buildCsvPortfolioImport reconciles exact holdings and cash with explicit d
   const result = await buildCsvPortfolioImport({ sourceDir: projectRoot });
 
   assert.deepEqual(result.reconciliation.holdings, CSV_IMPORT_EXPECTED_RECONCILIATION.holdings);
-  assert.equal(
-    result.reconciliation.cashByCurrency.USD,
-    CSV_IMPORT_EXPECTED_RECONCILIATION.cash,
-  );
+  assert.equal(result.reconciliation.cashByCurrency.USD, CSV_IMPORT_EXPECTED_RECONCILIATION.cash);
   assert.equal(result.snapshot.transactions.length > 0, true);
 
   const adjustedNvdaBuys = result.snapshot.transactions.filter(
-    (tx) =>
-      tx.type === 'BUY'
-      && tx.ticker === 'NVDA'
-      && tx.date < '2024-06-10',
+    (tx) => tx.type === 'BUY' && tx.ticker === 'NVDA' && tx.date < '2024-06-10'
   );
   assert.ok(adjustedNvdaBuys.length > 0);
   assert.ok(
     adjustedNvdaBuys.every(
-      (tx) => tx.metadata?.system?.import?.adjustment?.rule === 'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES',
-    ),
+      (tx) =>
+        tx.metadata?.system?.import?.adjustment?.rule === 'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES'
+    )
   );
 
   const preSplitNvdaSells = result.snapshot.transactions.filter(
-    (tx) =>
-      tx.type === 'SELL'
-      && tx.ticker === 'NVDA'
-      && tx.date < '2024-06-10',
+    (tx) => tx.type === 'SELL' && tx.ticker === 'NVDA' && tx.date < '2024-06-10'
   );
   assert.ok(preSplitNvdaSells.length > 0);
   assert.ok(
     preSplitNvdaSells.every(
-      (tx) => tx.metadata?.system?.import?.adjustment?.rule === 'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES',
-    ),
+      (tx) =>
+        tx.metadata?.system?.import?.adjustment?.rule === 'NVDA_10_FOR_1_PRE_2024_06_10_ALL_TRADES'
+    )
   );
   const samplePreSplitNvdaSell = preSplitNvdaSells[0];
   assert.equal(
     samplePreSplitNvdaSell.shares,
-    Number(samplePreSplitNvdaSell.metadata.system.import.original.quantity) * 10,
+    Number(samplePreSplitNvdaSell.metadata.system.import.original.quantity) * 10
   );
 
   const lrcxAdjustedBuy = result.snapshot.transactions.find(
-    (tx) => tx.type === 'BUY' && tx.ticker === 'LRCX' && tx.date === '2024-07-15',
+    (tx) => tx.type === 'BUY' && tx.ticker === 'LRCX' && tx.date === '2024-07-15'
   );
   assert.ok(lrcxAdjustedBuy);
   assert.equal(
     lrcxAdjustedBuy.metadata?.system?.import?.adjustment?.rule,
-    'LRCX_10_FOR_1_DATASET_RECONCILIATION_PRE_2024_10_03_BUY_ONLY',
+    'LRCX_10_FOR_1_DATASET_RECONCILIATION_PRE_2024_10_03_BUY_ONLY'
   );
   assert.equal(lrcxAdjustedBuy.quantity, 0.28038955);
 
   const dividendGross = result.snapshot.transactions.find(
-    (tx) => tx.id === 'csv:tailormade-broker-dividends-2026-03-18.csv:2:gross',
+    (tx) => tx.id === 'csv:tailormade-broker-dividends-2026-03-18.csv:2:gross'
   );
   const dividendTax = result.snapshot.transactions.find(
-    (tx) => tx.id === 'csv:tailormade-broker-dividends-2026-03-18.csv:2:tax',
+    (tx) => tx.id === 'csv:tailormade-broker-dividends-2026-03-18.csv:2:tax'
   );
   assert.ok(dividendGross);
   assert.ok(dividendTax);
@@ -104,7 +93,7 @@ test('buildCsvPortfolioImport reconciles exact holdings and cash with explicit d
   assert.equal(dividendTax.amount, 0.14);
 
   const giftCardDeposit = result.snapshot.transactions.find(
-    (tx) => tx.id === 'synthetic:gift-card-usd-1',
+    (tx) => tx.id === 'synthetic:gift-card-usd-1'
   );
   assert.ok(giftCardDeposit);
   assert.equal(giftCardDeposit.type, 'DEPOSIT');
@@ -112,24 +101,23 @@ test('buildCsvPortfolioImport reconciles exact holdings and cash with explicit d
   assert.equal(giftCardDeposit.date, '2023-11-27');
   assert.equal(
     giftCardDeposit.metadata?.system?.import?.adjustment?.rule,
-    'FINTUAL_GIFT_CARD_INITIAL_DEPOSIT',
+    'FINTUAL_GIFT_CARD_INITIAL_DEPOSIT'
   );
 
   const hycaInterest = result.snapshot.transactions.filter(
-    (tx) => tx.metadata?.system?.import?.adjustment?.rule === 'FINTUAL_HYCA_MONTHLY_INTEREST_CONFIRMED_BY_SUPPORT',
+    (tx) =>
+      tx.metadata?.system?.import?.adjustment?.rule ===
+      'FINTUAL_HYCA_MONTHLY_INTEREST_CONFIRMED_BY_SUPPORT'
   );
   assert.equal(hycaInterest.length, 10);
-  assert.equal(
-    Number(hycaInterest.reduce((total, tx) => total + tx.amount, 0).toFixed(2)),
-    4.96,
-  );
+  assert.equal(Number(hycaInterest.reduce((total, tx) => total + tx.amount, 0).toFixed(2)), 4.96);
   assert.ok(hycaInterest.every((tx) => tx.type === 'INTEREST'));
 });
 
 test('buildCsvPortfolioImport normalizes comma-decimal numeric fields from broker CSVs', async () => {
   const result = await buildCsvPortfolioImport({ sourceDir: projectRoot });
   const firstBuy = result.snapshot.transactions.find(
-    (tx) => tx.id === 'csv:32996_asset_market_buys.csv:2',
+    (tx) => tx.id === 'csv:32996_asset_market_buys.csv:2'
   );
 
   assert.ok(firstBuy);
@@ -184,9 +172,6 @@ test('importCsvPortfolio writes SQLite-backed portfolio state and remains idempo
   assert.equal(first.transactionCount, second.transactionCount);
   assert.equal(portfolio?.cash?.currency, 'USD');
   assert.equal(portfolio?.transactions?.length, first.transactionCount);
-  assert.equal(
-    second.reconciliation.cashByCurrency.USD,
-    CSV_IMPORT_EXPECTED_RECONCILIATION.cash,
-  );
+  assert.equal(second.reconciliation.cashByCurrency.USD, CSV_IMPORT_EXPECTED_RECONCILIATION.cash);
   assert.ok(statSync(path.join(dataDir, 'storage.sqlite')).mtimeMs >= firstStats.mtimeMs);
 });

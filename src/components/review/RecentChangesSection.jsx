@@ -6,6 +6,7 @@
 import { useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import Decimal from 'decimal.js';
+import { useI18n } from '../../i18n/I18nProvider.jsx';
 
 const STORAGE_PREFIX = 'portfolio-manager-recent-nav-snapshot';
 const MIN_NAV_DELTA = new Decimal('0.01');
@@ -82,6 +83,7 @@ export default function RecentChangesSection({
   navDaily = [],
   portfolioId = 'default',
 }) {
+  const { t } = useI18n();
   const latestSnapshot = useMemo(() => resolveLatestNavSnapshot(navDaily), [navDaily]);
   const storedSnapshot = useMemo(() => {
     const storage = getStorage();
@@ -104,20 +106,20 @@ export default function RecentChangesSection({
   return (
     <section
       data-testid="recent-changes-section"
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      className="card-base p-5"
       aria-label="Recent changes"
     >
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        Recent Changes
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400">
+        {t('review.recentChanges')}
       </h2>
       {visibleChanges.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          No meaningful changes since your last review.
+        <p className="text-sm text-surface-500 dark:text-surface-400">
+          {t('review.recentChanges.empty')}
         </p>
       ) : (
         <ul className="space-y-2">
           {visibleChanges.map((change, i) => (
-            <li key={change.key ?? i} className="text-sm text-slate-700 dark:text-slate-300">
+            <li key={change.key ?? i} className="text-sm text-surface-700 dark:text-surface-300">
               {change.label}
             </li>
           ))}

@@ -138,7 +138,7 @@ export class JsonTableStorage {
 
   hasTableInDatabase(db, name) {
     const statement = db.prepare(
-      'SELECT 1 AS present FROM json_tables WHERE table_name = $tableName LIMIT 1',
+      'SELECT 1 AS present FROM json_tables WHERE table_name = $tableName LIMIT 1'
     );
     try {
       statement.bind({ $tableName: name });
@@ -155,7 +155,7 @@ export class JsonTableStorage {
         FROM json_table_rows
         WHERE table_name = $tableName
         ORDER BY row_index ASC
-      `,
+      `
     );
     try {
       statement.bind({ $tableName: name });
@@ -177,7 +177,7 @@ export class JsonTableStorage {
           VALUES ($tableName, $updatedAt)
           ON CONFLICT(table_name) DO UPDATE SET updated_at = excluded.updated_at
         `,
-        { $tableName: name, $updatedAt: timestamp },
+        { $tableName: name, $updatedAt: timestamp }
       );
 
       if (!Array.isArray(rows) || rows.length === 0) {
@@ -188,7 +188,7 @@ export class JsonTableStorage {
         `
           INSERT INTO json_table_rows (table_name, row_index, row_json)
           VALUES ($tableName, $rowIndex, $rowJson)
-        `,
+        `
       );
       try {
         rows.forEach((row, index) => {
@@ -248,11 +248,10 @@ export class JsonTableStorage {
       const rows = await this.ensureBootstrap(name, { createIfMissing: true, defaultValue: [] });
       const nextRows = cloneRows(rows);
       const normalizedKeyFields = normalizeKeyFields(keyFields);
-      const effectiveKeyFields =
-        normalizedKeyFields.length > 0 ? normalizedKeyFields : ['id'];
+      const effectiveKeyFields = normalizedKeyFields.length > 0 ? normalizedKeyFields : ['id'];
       const nextRow = cloneRow(row);
       const index = nextRows.findIndex((candidate) =>
-        matchByKeyFields(nextRow, candidate, effectiveKeyFields),
+        matchByKeyFields(nextRow, candidate, effectiveKeyFields)
       );
       if (index >= 0) {
         nextRows[index] = { ...nextRows[index], ...nextRow };
@@ -319,12 +318,12 @@ export class JsonTableStorage {
             `INSERT INTO json_tables (table_name, updated_at)
              VALUES ($tableName, $updatedAt)
              ON CONFLICT(table_name) DO UPDATE SET updated_at = excluded.updated_at`,
-            { $tableName: table, $updatedAt: timestamp },
+            { $tableName: table, $updatedAt: timestamp }
           );
           if (nextRows.length > 0) {
             const insert = db.prepare(
               `INSERT INTO json_table_rows (table_name, row_index, row_json)
-               VALUES ($tableName, $rowIndex, $rowJson)`,
+               VALUES ($tableName, $rowIndex, $rowJson)`
             );
             try {
               nextRows.forEach((row, index) => {

@@ -79,8 +79,7 @@ function normalizeStooqSymbol(symbol) {
   return `${normalized.replace(/[/.]/g, '-').toLowerCase()}.us`;
 }
 
-const YAHOO_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0';
+const YAHOO_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0';
 
 export class YahooPriceProvider {
   constructor({ fetchImpl = fetch, timeoutMs = 5000, logger, crumbTtlMs } = {}) {
@@ -89,8 +88,7 @@ export class YahooPriceProvider {
     this.logger = normalizeLogger(logger, { provider: 'yahoo' });
     this.providerKey = 'yahoo';
     this._crumbCache = null; // { crumb: string, cookies: string, fetchedAt: number }
-    this._crumbTtlMs =
-      Number.isFinite(crumbTtlMs) && crumbTtlMs > 0 ? crumbTtlMs : 30 * 60 * 1000;
+    this._crumbTtlMs = Number.isFinite(crumbTtlMs) && crumbTtlMs > 0 ? crumbTtlMs : 30 * 60 * 1000;
   }
 
   async _refreshCrumb() {
@@ -111,16 +109,13 @@ export class YahooPriceProvider {
       .filter(Boolean)
       .join('; ');
 
-    const crumbRes = await this.fetch(
-      'https://query1.finance.yahoo.com/v1/test/getcrumb',
-      {
-        headers: {
-          'User-Agent': ua,
-          Accept: 'text/plain,*/*;q=0.9',
-          Cookie: cookies,
-        },
+    const crumbRes = await this.fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+      headers: {
+        'User-Agent': ua,
+        Accept: 'text/plain,*/*;q=0.9',
+        Cookie: cookies,
       },
-    );
+    });
     const crumb = (await crumbRes.text()).trim();
     if (!crumb || crumb.length < 4) {
       const err = new Error('Failed to obtain Yahoo Finance crumb');
@@ -148,7 +143,7 @@ export class YahooPriceProvider {
     const period1 = toUnixStart(from);
     const period2 = toUnixEnd(to);
     const baseUrl = new URL(
-      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`,
+      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
     );
     baseUrl.searchParams.set('period1', String(period1));
     baseUrl.searchParams.set('period2', String(period2));
@@ -168,7 +163,7 @@ export class YahooPriceProvider {
         baseUrl,
         this._crumbCache.crumb,
         this._crumbCache.cookies,
-        controller.signal,
+        controller.signal
       );
 
       // On 401 or 403 the crumb has expired — refresh once and retry
@@ -179,7 +174,7 @@ export class YahooPriceProvider {
           baseUrl,
           this._crumbCache.crumb,
           this._crumbCache.cookies,
-          controller.signal,
+          controller.signal
         );
       }
 
@@ -196,7 +191,7 @@ export class YahooPriceProvider {
           const err = new Error(
             `Yahoo Finance error for ${symbol}: ${
               chartError.description ?? chartError.code ?? 'unknown'
-            }`,
+            }`
           );
           err.code = chartError.code === 'Not Found' ? 'PRICE_NOT_FOUND' : 'PRICE_FETCH_FAILED';
           throw err;
@@ -452,12 +447,7 @@ function normalizeQuoteDate(value) {
 }
 
 function resolveLatestQuotePrice(payload) {
-  const candidates = [
-    payload?.price,
-    payload?.close,
-    payload?.last,
-    payload?.previous_close,
-  ];
+  const candidates = [payload?.price, payload?.close, payload?.last, payload?.previous_close];
   for (const candidate of candidates) {
     const parsed = Number.parseFloat(candidate);
     if (Number.isFinite(parsed) && parsed > 0) {
@@ -468,13 +458,7 @@ function resolveLatestQuotePrice(payload) {
 }
 
 export class TwelveDataQuoteProvider {
-  constructor({
-    fetchImpl = fetch,
-    timeoutMs = 5000,
-    logger,
-    apiKey = '',
-    prepost = true,
-  } = {}) {
+  constructor({ fetchImpl = fetch, timeoutMs = 5000, logger, apiKey = '', prepost = true } = {}) {
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.logger = normalizeLogger(logger, { provider: 'twelvedata' });
@@ -518,9 +502,7 @@ export class TwelveDataQuoteProvider {
         throw createNoDataError(symbol);
       }
       const date = normalizeQuoteDate(
-        payload?.datetime
-        ?? payload?.timestamp
-        ?? payload?.last_trade_time,
+        payload?.datetime ?? payload?.timestamp ?? payload?.last_trade_time
       );
       const durationMs = Date.now() - startedAt;
       this.logger?.info?.('latest_quote_provider_latency', {
@@ -529,13 +511,16 @@ export class TwelveDataQuoteProvider {
         date,
         prepost: this.prepost,
       });
-      return attachProviderMeta({
-        date,
-        adjClose: price,
-      }, {
-        provider: this.providerKey,
-        degraded: false,
-      });
+      return attachProviderMeta(
+        {
+          date,
+          adjClose: price,
+        },
+        {
+          provider: this.providerKey,
+          degraded: false,
+        }
+      );
     } catch (error) {
       this.logger?.error?.('latest_quote_provider_failed', {
         symbol,
@@ -570,10 +555,10 @@ function resolveAlpacaSnapshotPrice(payload) {
 
 function resolveAlpacaSnapshotDate(payload) {
   return normalizeQuoteDate(
-    payload?.latestTrade?.t
-    ?? payload?.minuteBar?.t
-    ?? payload?.dailyBar?.t
-    ?? payload?.prevDailyBar?.t,
+    payload?.latestTrade?.t ??
+      payload?.minuteBar?.t ??
+      payload?.dailyBar?.t ??
+      payload?.prevDailyBar?.t
   );
 }
 
@@ -626,7 +611,9 @@ export class AlpacaHistoricalProvider {
           throw createNoDataError(symbol);
         }
         const body = await response.text().catch(() => '');
-        const error = new Error(`Failed to fetch historical prices for ${symbol}: ${body.slice(0, 120)}`);
+        const error = new Error(
+          `Failed to fetch historical prices for ${symbol}: ${body.slice(0, 120)}`
+        );
         error.status = response.status;
         if (response.status === 401 || response.status === 403) {
           error.code = 'PRICE_PROVIDER_AUTH_FAILED';
@@ -682,13 +669,7 @@ export class AlpacaHistoricalProvider {
 }
 
 export class AlpacaLatestQuoteProvider {
-  constructor({
-    fetchImpl = fetch,
-    timeoutMs = 5000,
-    logger,
-    apiKey = '',
-    apiSecret = '',
-  } = {}) {
+  constructor({ fetchImpl = fetch, timeoutMs = 5000, logger, apiKey = '', apiSecret = '' } = {}) {
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.logger = normalizeLogger(logger, { provider: 'alpaca' });
@@ -737,13 +718,16 @@ export class AlpacaLatestQuoteProvider {
         duration_ms: durationMs,
         date,
       });
-      return attachProviderMeta({
-        date,
-        adjClose: price,
-      }, {
-        provider: this.providerKey,
-        degraded: false,
-      });
+      return attachProviderMeta(
+        {
+          date,
+          adjClose: price,
+        },
+        {
+          provider: this.providerKey,
+          degraded: false,
+        }
+      );
     } catch (error) {
       this.logger?.error?.('latest_quote_provider_failed', {
         symbol,
@@ -801,13 +785,17 @@ export class AlphaVantageHistoricalProvider {
       const payload = await response.json();
       // Free-tier rate limit
       if (payload?.['Note']) {
-        const error = new Error(`Alpha Vantage rate limit reached: ${String(payload['Note']).slice(0, 120)}`);
+        const error = new Error(
+          `Alpha Vantage rate limit reached: ${String(payload['Note']).slice(0, 120)}`
+        );
         error.code = 'PRICE_PROVIDER_RATE_LIMITED';
         throw error;
       }
       // Premium endpoint guard
       if (payload?.['Information']) {
-        const error = new Error(`Alpha Vantage access denied: ${String(payload['Information']).slice(0, 120)}`);
+        const error = new Error(
+          `Alpha Vantage access denied: ${String(payload['Information']).slice(0, 120)}`
+        );
         error.code = 'PRICE_PROVIDER_AUTH_FAILED';
         throw error;
       }
@@ -892,7 +880,9 @@ export class FinnhubLatestQuoteProvider {
       const response = await this.fetch(url, { signal: controller.signal });
       if (!response.ok) {
         const body = await response.text().catch(() => '');
-        const error = new Error(`Failed to fetch latest quote for ${symbol}: ${body.slice(0, 120)}`);
+        const error = new Error(
+          `Failed to fetch latest quote for ${symbol}: ${body.slice(0, 120)}`
+        );
         error.status = response.status;
         if (response.status === 401 || response.status === 403) {
           error.code = 'PRICE_PROVIDER_AUTH_FAILED';
@@ -912,10 +902,13 @@ export class FinnhubLatestQuoteProvider {
         duration_ms: durationMs,
         date,
       });
-      return attachProviderMeta({ date, adjClose: price }, {
-        provider: this.providerKey,
-        degraded: false,
-      });
+      return attachProviderMeta(
+        { date, adjClose: price },
+        {
+          provider: this.providerKey,
+          degraded: false,
+        }
+      );
     } catch (error) {
       this.logger?.error?.('latest_quote_provider_failed', {
         symbol,

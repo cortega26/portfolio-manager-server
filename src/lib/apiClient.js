@@ -151,10 +151,10 @@ function normalizeAbortError(reason, timeoutMs) {
 }
 
 function buildTimeoutController(timeoutMs, externalSignal) {
-  if (!timeoutMs) {
-    return { signal: externalSignal, cleanup: () => {} };
-  }
   const controller = new AbortController();
+  if (!timeoutMs) {
+    return { signal: controller.signal, cleanup: () => {} };
+  }
   const timer = setTimeout(() => {
     controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, 'TimeoutError'));
   }, timeoutMs);
@@ -413,5 +413,5 @@ export async function requestJson(path, options = {}) {
 }
 
 export async function getRealizedGains(portfolioId, options = {}) {
-  return requestJson(`/api/portfolio/${encodeURIComponent(portfolioId)}/realized-gains`, options);
+  return requestJson(`/portfolio/${encodeURIComponent(portfolioId)}/realized-gains`, options);
 }

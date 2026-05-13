@@ -11,24 +11,55 @@ import {
   formatInvestorMwrDetail,
   resolveInvestorMwrTone,
   toPercentPoints,
+  formatSharpeRatio,
+  formatRollingReturn,
 } from './dashboardFormatters.js';
 
 // ---------------------------------------------------------------------------
 // Inner components
 // ---------------------------------------------------------------------------
 
-function MetricCard({ label, value, description, title }) {
+function MetricIcon({ type }) {
+  const paths = {
+    return:
+      'M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941',
+    contributions:
+      'M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s1.806-.879 2.912-.659A3.1 3.1 0 0012 9',
+    change:
+      'M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25',
+  };
   return (
-    <div
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-      title={title}
-    >
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 dark:bg-brand-500/10">
+      <svg
+        className="h-5 w-5 text-brand-600 dark:text-brand-400"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d={paths[type] ?? paths.return} />
+      </svg>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, description, title, iconType }) {
+  return (
+    <div className="card-base p-5" title={title}>
+      {iconType && <MetricIcon type={iconType} />}
+      <p className="text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
+      <p className="mt-1.5 font-heading text-2xl font-bold tracking-tight text-surface-900 dark:text-surface-50">
+        {value}
+      </p>
       {description && (
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-surface-500 dark:text-surface-400">
+          {description}
+        </p>
       )}
     </div>
   );
@@ -38,13 +69,13 @@ function MetricCardBadge({ label, tone = 'default' }) {
   return (
     <span
       className={clsx(
-        'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium',
+        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
         tone === 'warning' &&
-          'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/20 dark:text-amber-200',
+          'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/20 dark:text-amber-200',
         tone === 'info' &&
-          'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-700/60 dark:bg-sky-950/20 dark:text-sky-200',
+          'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700/60 dark:bg-sky-950/20 dark:text-sky-200',
         tone === 'default' &&
-          'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+          'border-surface-200 bg-surface-50 text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300'
       )}
     >
       {label}
@@ -57,17 +88,25 @@ function ContextCard({ label, value, detail, tone = 'default', title }) {
     <div
       title={title}
       className={clsx(
-        'rounded-lg border p-4',
+        'rounded-xl border p-4 transition-shadow duration-200',
         tone === 'positive' &&
-          'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20',
+          'border-emerald-200 bg-emerald-50/60 shadow-sm dark:border-emerald-900/50 dark:bg-emerald-950/15',
         tone === 'negative' &&
-          'border-rose-200 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/20',
-        tone === 'default' && 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
+          'border-rose-200 bg-rose-50/60 shadow-sm dark:border-rose-900/50 dark:bg-rose-950/15',
+        tone === 'default' && 'card-base'
       )}
     >
-      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">{value}</p>
-      {detail ? <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{detail}</p> : null}
+      <p className="text-xs font-medium uppercase tracking-wider text-surface-500 dark:text-surface-400">
+        {label}
+      </p>
+      <p className="mt-2 font-heading text-xl font-bold tracking-tight text-surface-900 dark:text-surface-50">
+        {value}
+      </p>
+      {detail ? (
+        <p className="mt-1 text-sm leading-relaxed text-surface-600 dark:text-surface-400">
+          {detail}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -163,19 +202,45 @@ function PerformanceContext({
         title: t('dashboard.context.maxDrawdown.title'),
       };
     })(),
+    {
+      label: t('dashboard.context.sharpeRatio.label'),
+      value: formatSharpeRatio(returnsSummary?.sharpe_ratio),
+      detail: t('dashboard.context.sharpeRatio.detail'),
+      tone: 'default',
+    },
+    (() => {
+      const cd = returnsSummary?.current_drawdown;
+      const cdPct = typeof cd?.currentDrawdown === 'number' ? cd.currentDrawdown * 100 : null;
+      const peakDate = cd?.peakDate ?? null;
+      const currentDate = cd?.currentDate ?? null;
+      return {
+        label: t('dashboard.context.currentDrawdown.label'),
+        value: Number.isFinite(cdPct)
+          ? formatNullablePercent(formatSignedPercent, cdPct, ROI_PRIMARY_PERCENT_DIGITS)
+          : '—',
+        detail:
+          Number.isFinite(cdPct) && peakDate
+            ? formatDrawdownPeriod(peakDate, currentDate)
+            : t('dashboard.context.currentDrawdown.insufficient'),
+        tone: Number.isFinite(cdPct) && cdPct < -5 ? 'negative' : 'default',
+        title: t('dashboard.context.currentDrawdown.title'),
+      };
+    })(),
   ];
 
+  const rr = returnsSummary?.rolling_returns;
+
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <section className="card-base p-5">
       <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        <h3 className="font-heading text-sm font-bold text-surface-700 dark:text-surface-200">
           {t('dashboard.context.title')}
         </h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-surface-500 dark:text-surface-400">
           {t('dashboard.context.subtitle')}
         </p>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => (
           <ContextCard
             key={card.label}
@@ -187,6 +252,38 @@ function PerformanceContext({
           />
         ))}
       </div>
+      {rr && (
+        <div className="mt-4 border-t border-surface-200 pt-4 dark:border-surface-700">
+          <div className="flex items-center gap-6">
+            <span className="text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
+              {t('dashboard.context.rollingReturns.label')}
+            </span>
+            {[
+              { key: 'oneMonth', label: t('dashboard.context.rollingReturns.oneMonth') },
+              { key: 'threeMonth', label: t('dashboard.context.rollingReturns.threeMonth') },
+              { key: 'oneYear', label: t('dashboard.context.rollingReturns.oneYear') },
+            ].map(({ key, label }) => {
+              const window_ = rr[key];
+              const cum = window_?.cumulative;
+              const ann = window_?.annualized;
+              return (
+                <div key={key} className="text-sm">
+                  <span className="text-surface-500 dark:text-surface-400">{label}</span>{' '}
+                  <span className="font-medium text-surface-900 dark:text-surface-50">
+                    {formatRollingReturn(cum, formatSignedPercent)}
+                  </span>
+                  {ann != null && (
+                    <span className="ml-1 text-xs text-surface-400">
+                      ({formatRollingReturn(ann, formatSignedPercent)}{' '}
+                      {t('dashboard.context.rollingReturns.annualized')})
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -278,6 +375,7 @@ export default function DashboardZone3({
               : t('dashboard.metrics.return.unavailable'),
       title: t('dashboard.metrics.return.title'),
       badge: valuationBadge,
+      iconType: 'return',
     },
     {
       label: t('dashboard.metrics.externalContributions'),
@@ -287,6 +385,7 @@ export default function DashboardZone3({
         sells: formatCurrency(grossSells),
         income: formatCurrency(netIncome),
       }),
+      iconType: 'contributions',
     },
     {
       label: t('dashboard.metrics.historicalChange'),
@@ -304,6 +403,7 @@ export default function DashboardZone3({
               : t('dashboard.metrics.historicalChange.unavailable'),
       title: t('dashboard.metrics.historicalChange.title'),
       badge: valuationBadge,
+      iconType: 'change',
     },
   ];
 
@@ -317,6 +417,7 @@ export default function DashboardZone3({
               value={card.value}
               description={card.description}
               title={card.title}
+              iconType={card.iconType}
             />
             {card.badge ? (
               <MetricCardBadge label={card.badge.label} tone={card.badge.tone} />

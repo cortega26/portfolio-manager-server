@@ -179,11 +179,13 @@ function normalizeApyTimeline(raw: unknown): NormalizedApyEntry[] {
 }
 
 function normalizeCashPolicy(input: unknown): NormalizedCashPolicy {
-  if (input && typeof input === 'object' && Array.isArray((input as Record<string, unknown>).apyTimeline)) {
+  if (
+    input &&
+    typeof input === 'object' &&
+    Array.isArray((input as Record<string, unknown>).apyTimeline)
+  ) {
     const rawCurrency = (input as Record<string, unknown>).currency;
-    const currency = typeof rawCurrency === 'string'
-      ? rawCurrency.trim().toUpperCase()
-      : 'USD';
+    const currency = typeof rawCurrency === 'string' ? rawCurrency.trim().toUpperCase() : 'USD';
     return {
       currency: /^[A-Z]{3}$/u.test(currency) ? currency : 'USD',
       apyTimeline: normalizeApyTimeline((input as Record<string, unknown>).apyTimeline),
@@ -199,7 +201,7 @@ function normalizeCashPolicy(input: unknown): NormalizedCashPolicy {
             from: row['effective_date'] as string,
             to: null,
             apy: Number.isFinite(row['apy']) ? Number(row['apy']) : 0,
-          })),
+          }))
       ),
     };
   }
@@ -214,15 +216,10 @@ export function annualizeReturn(cumulative: number, days: number): number | null
   if (d(cumulative).isZero()) {
     return 0;
   }
-  return roundDecimal(
-    d(1).plus(cumulative).pow(d(365).div(dDays)).minus(1),
-    8,
-  ).toNumber();
+  return roundDecimal(d(1).plus(cumulative).pow(d(365).div(dDays)).minus(1), 8).toNumber();
 }
 
-export function computeMaxDrawdown(
-  dailyReturnRows: ReturnRow[],
-): DrawdownResult | null {
+export function computeMaxDrawdown(dailyReturnRows: ReturnRow[]): DrawdownResult | null {
   if (!Array.isArray(dailyReturnRows) || dailyReturnRows.length < 2) {
     return null;
   }
@@ -261,7 +258,7 @@ export function computeMaxDrawdown(
 export function computeReturnStep(
   prevNav: number | Decimal,
   nav: number | Decimal,
-  flow: number | Decimal,
+  flow: number | Decimal
 ): Decimal {
   const prev = d(prevNav as Decimal.Value);
   if (prev.lte(0)) {
@@ -278,9 +275,7 @@ function buildIndexReturnSeries({
 }: {
   pricesByDate: Map<string, number | Decimal | unknown>;
 }): Map<string, Decimal> {
-  const entries = Array.from(pricesByDate.entries()).sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
+  const entries = Array.from(pricesByDate.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   const result = new Map<string, Decimal>();
   for (let i = 1; i < entries.length; i += 1) {
     const entry = entries[i];
@@ -320,7 +315,9 @@ export function buildCashReturnSeries({
   to: unknown;
 }): Map<string, Decimal> {
   const series = buildCashSeries({
-    ...(policy !== undefined ? { policy: policy as NonNullable<Parameters<typeof buildCashSeries>[0]['policy']> } : {}),
+    ...(policy !== undefined
+      ? { policy: policy as NonNullable<Parameters<typeof buildCashSeries>[0]['policy']> }
+      : {}),
     from,
     to,
   });
@@ -348,13 +345,11 @@ function alignFlowsToDates({
     return new Map(flowsByDate as Map<string, Decimal>);
   }
   const dateSet = new Set(sortedDates);
-  const sortedFlows = [...flowsByDate.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
+  const sortedFlows = [...flowsByDate.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const aligned = new Map<string, Decimal>();
 
   for (const [dateKey, amount] of sortedFlows) {
-    const decimalAmount = d(amount as Decimal.Value ?? 0);
+    const decimalAmount = d((amount as Decimal.Value) ?? 0);
     if (decimalAmount.isZero()) {
       continue;
     }
@@ -366,15 +361,12 @@ function alignFlowsToDates({
         dateKey;
     }
     const existing = aligned.get(targetDate);
-    aligned.set(
-      targetDate,
-      existing ? existing.plus(decimalAmount) : decimalAmount,
-    );
+    aligned.set(targetDate, existing ? existing.plus(decimalAmount) : decimalAmount);
   }
 
   for (const dateKey of sortedDates) {
     if (!aligned.has(dateKey) && flowsByDate.has(dateKey)) {
-      aligned.set(dateKey, d(flowsByDate.get(dateKey) as Decimal.Value ?? 0));
+      aligned.set(dateKey, d((flowsByDate.get(dateKey) as Decimal.Value) ?? 0));
     }
   }
 
@@ -499,9 +491,7 @@ function computeAllIndexSeries({
   flowsByDate: Map<string, Decimal | number>;
   pricesByDate: Map<string, number | unknown>;
 }): AllIndexSeriesResult {
-  const prices = Array.from(pricesByDate.entries()).sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  );
+  const prices = Array.from(pricesByDate.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   const priceMap = new Map(prices);
   let prevDate: string | null = null;
   let prevNavCents = 0;
@@ -532,11 +522,7 @@ function computeAllIndexSeries({
       .dividedBy(d(prevPrice as Decimal.Value).isZero() ? 1 : d(prevPrice as Decimal.Value));
     const navBeforeCents = toCents(navBeforeFlows);
     const navAfterCents = navBeforeCents + toCents(d(flow as Decimal.Value));
-    const dailyReturn = computeReturnStep(
-      fromCents(prevNavCents),
-      fromCents(navBeforeCents),
-      ZERO,
-    );
+    const dailyReturn = computeReturnStep(fromCents(prevNavCents), fromCents(navBeforeCents), ZERO);
     returns.set(date, dailyReturn);
     navByDate.set(date, fromCents(navAfterCents));
     prevNavCents = navAfterCents;
@@ -577,7 +563,7 @@ function computeRollingReturns({
 
 function resolveWeightSource(
   prevState: DailyStateRow | undefined,
-  flow: Decimal,
+  flow: Decimal
 ): { nav: number; cash: number } {
   if (prevState) {
     return prevState;
@@ -599,10 +585,7 @@ function computeBenchmarkReturn({
   rSpy: Decimal;
 }): Decimal {
   const weightCash = d(weightSource.cash).dividedBy(weightSource.nav || 1);
-  return roundDecimal(
-    weightCash.times(rCash).plus(d(1).minus(weightCash).times(rSpy)),
-    10,
-  );
+  return roundDecimal(weightCash.times(rCash).plus(d(1).minus(weightCash).times(rSpy)), 10);
 }
 
 export function computeDailyReturnRows({
@@ -661,9 +644,7 @@ export function summarizeReturns(rows: ReturnRow[]): SummarizedReturns {
   for (const row of rows) {
     summary.r_port = summary.r_port.times(d(1).plus(row.r_port));
     summary.r_ex_cash = summary.r_ex_cash.times(d(1).plus(row.r_ex_cash));
-    summary.r_bench_blended = summary.r_bench_blended.times(
-      d(1).plus(row.r_bench_blended),
-    );
+    summary.r_bench_blended = summary.r_bench_blended.times(d(1).plus(row.r_bench_blended));
     summary.r_spy_100 = summary.r_spy_100.times(d(1).plus(row.r_spy_100));
     summary.r_qqq_100 = summary.r_qqq_100.times(d(1).plus(row.r_qqq_100 ?? 0));
     summary.r_cash = summary.r_cash.times(d(1).plus(row.r_cash));
@@ -683,10 +664,7 @@ export function summarizeReturns(rows: ReturnRow[]): SummarizedReturns {
     if (days >= 365) {
       cumulative.annualized_r_port = annualizeReturn(cumulative.r_port, days);
       cumulative.annualized_r_ex_cash = annualizeReturn(cumulative.r_ex_cash, days);
-      cumulative.annualized_r_bench_blended = annualizeReturn(
-        cumulative.r_bench_blended,
-        days,
-      );
+      cumulative.annualized_r_bench_blended = annualizeReturn(cumulative.r_bench_blended, days);
       cumulative.annualized_r_spy_100 = annualizeReturn(cumulative.r_spy_100, days);
       cumulative.annualized_r_qqq_100 = annualizeReturn(cumulative.r_qqq_100, days);
       cumulative.annualized_r_cash = annualizeReturn(cumulative.r_cash, days);
@@ -717,10 +695,7 @@ function computeYearFraction(startDate: Date, currentDate: Date): Decimal {
   return d(diffMs).div(MS_PER_DAY).div(365);
 }
 
-function evaluateNpv(
-  flows: PreparedXirrFlow[],
-  rate: number,
-): Decimal {
+function evaluateNpv(flows: PreparedXirrFlow[], rate: number): Decimal {
   if (rate <= -0.999999) {
     return d(Number.POSITIVE_INFINITY);
   }
@@ -735,12 +710,12 @@ function evaluateNpv(
 
 function computeXirr(
   flows: XirrFlowInput[],
-  { tolerance = 1e-7, maxIterations = 100 }: { tolerance?: number; maxIterations?: number } = {},
+  { tolerance = 1e-7, maxIterations = 100 }: { tolerance?: number; maxIterations?: number } = {}
 ): Decimal {
   const prepared: PreparedXirrFlow[] = flows
     .map((flow) => ({
       date: normalizeToUtcDate(flow.date),
-      amount: d(flow.amount as Decimal.Value ?? 0),
+      amount: d((flow.amount as Decimal.Value) ?? 0),
       years: ZERO,
     }))
     .filter((flow) => flow.amount.isFinite() && !flow.amount.isZero())
@@ -823,9 +798,9 @@ function computeXirr(
 function addMoneyWeightedFlow(
   flows: Map<string, Decimal>,
   dateKey: string | null | undefined,
-  amount: Decimal | number | null | undefined,
+  amount: Decimal | number | null | undefined
 ): void {
-  const decimalAmount = d(amount as Decimal.Value ?? 0);
+  const decimalAmount = d((amount as Decimal.Value) ?? 0);
   if (!dateKey || !decimalAmount.isFinite() || decimalAmount.isZero()) {
     return;
   }
@@ -847,13 +822,13 @@ function buildMoneyWeightedFlowEntries({
   terminalValue: Decimal | number;
 }): MoneyWeightedFlowEntry[] {
   const flows = new Map<string, Decimal>();
-  addMoneyWeightedFlow(flows, startDate, d(initialCapital as Decimal.Value ?? 0).neg());
+  addMoneyWeightedFlow(flows, startDate, d((initialCapital as Decimal.Value) ?? 0).neg());
 
   for (const [dateKey, flow] of externalFlows.entries()) {
-    addMoneyWeightedFlow(flows, dateKey, d(flow as Decimal.Value ?? 0).neg());
+    addMoneyWeightedFlow(flows, dateKey, d((flow as Decimal.Value) ?? 0).neg());
   }
 
-  const terminal = d(terminalValue as Decimal.Value ?? 0);
+  const terminal = d((terminalValue as Decimal.Value) ?? 0);
   if (terminal.gt(0) || flows.has(endDate)) {
     addMoneyWeightedFlow(flows, endDate, terminal);
   }
@@ -867,9 +842,7 @@ function canComputeXirr(flowEntries: MoneyWeightedFlowEntry[]): boolean {
   if (!Array.isArray(flowEntries) || flowEntries.length < 2) {
     return false;
   }
-  const nonZeroEntries = flowEntries.filter(
-    (entry) => d(entry?.amount ?? 0).isZero() === false,
-  );
+  const nonZeroEntries = flowEntries.filter((entry) => d(entry?.amount ?? 0).isZero() === false);
   if (nonZeroEntries.length < 2) {
     return false;
   }
@@ -887,7 +860,7 @@ function filterExternalFlowsInRange(
   }: { startKey: string; endKey: string; excludeStartDate?: boolean } = {
     startKey: '',
     endKey: '',
-  },
+  }
 ): Map<string, Decimal> {
   const filtered = new Map<string, Decimal>();
   if (!(flowsByDate instanceof Map)) {
@@ -907,20 +880,20 @@ function filterExternalFlowsInRange(
 
 function normalizeBenchmarkPriceMap(
   benchmarkPrices: Map<string, number | unknown>,
-  { startKey, endKey }: { startKey: string; endKey: string },
+  { startKey, endKey }: { startKey: string; endKey: string }
 ): Map<string, Decimal> {
   if (!(benchmarkPrices instanceof Map)) {
     return new Map<string, Decimal>();
   }
   const entries = Array.from(benchmarkPrices.entries())
-    .map(([dateKey, price]): [string, Decimal] => [dateKey, d(price as Decimal.Value ?? 0)])
+    .map(([dateKey, price]): [string, Decimal] => [dateKey, d((price as Decimal.Value) ?? 0)])
     .filter(
       ([dateKey, price]) =>
-        typeof dateKey === 'string'
-        && dateKey >= startKey
-        && dateKey <= endKey
-        && price.isFinite()
-        && price.gt(0),
+        typeof dateKey === 'string' &&
+        dateKey >= startKey &&
+        dateKey <= endKey &&
+        price.isFinite() &&
+        price.gt(0)
     )
     .sort((a, b) => a[0].localeCompare(b[0]));
   return new Map(entries);
@@ -946,11 +919,9 @@ export function computeMoneyWeightedReturn({
     return ZERO;
   }
 
-  const navByDate = new Map(
-    navRows.map((row) => [row.date, d(row.portfolio_nav ?? 0)]),
-  );
+  const navByDate = new Map(navRows.map((row) => [row.date, d(row.portfolio_nav ?? 0)]));
   const flowsByDate = externalFlowsByDate(
-    (transactions ?? []) as Parameters<typeof externalFlowsByDate>[0],
+    (transactions ?? []) as Parameters<typeof externalFlowsByDate>[0]
   );
   const startNav = navByDate.get(startKey) ?? ZERO;
   const endNav = navByDate.get(endKey) ?? ZERO;
@@ -996,42 +967,31 @@ export function computeMatchedBenchmarkMoneyWeightedReturn({
     return null;
   }
 
-  const navByDate = new Map(
-    navRows.map((row) => [row.date, d(row.portfolio_nav ?? 0)]),
-  );
+  const navByDate = new Map(navRows.map((row) => [row.date, d(row.portfolio_nav ?? 0)]));
   const startNav = navByDate.get(startKey) ?? ZERO;
   if (!startNav.isFinite() || startNav.lte(0)) {
     return null;
   }
 
   const priceMap = normalizeBenchmarkPriceMap(benchmarkPrices, { startKey, endKey });
-  const priceDates = Array.from(priceMap.keys()).sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const priceDates = Array.from(priceMap.keys()).sort((a, b) => a.localeCompare(b));
   if (priceDates.length === 0) {
     return null;
   }
 
   const startPrice = priceMap.get(startKey) ?? ZERO;
   const endPrice = priceMap.get(endKey) ?? ZERO;
-  if (
-    !startPrice.isFinite()
-    || startPrice.lte(0)
-    || !endPrice.isFinite()
-    || endPrice.lte(0)
-  ) {
+  if (!startPrice.isFinite() || startPrice.lte(0) || !endPrice.isFinite() || endPrice.lte(0)) {
     return null;
   }
 
   const rawFlows = filterExternalFlowsInRange(
-    externalFlowsByDate(
-      (transactions ?? []) as Parameters<typeof externalFlowsByDate>[0],
-    ),
+    externalFlowsByDate((transactions ?? []) as Parameters<typeof externalFlowsByDate>[0]),
     {
       startKey,
       endKey,
       excludeStartDate: true,
-    },
+    }
   );
   const alignedFlows = alignFlowsToDates({
     flowsByDate: rawFlows,
@@ -1082,4 +1042,111 @@ export function cumulativeDifference(rows: ReturnRow[]): number {
     blended = blended.times(d(1).plus(row.r_port));
   }
   return roundDecimal(drag.minus(blended).dividedBy(blended), 6).toNumber();
+}
+
+// ---------------------------------------------------------------------------
+// Risk metrics: Sharpe ratio, current drawdown, rolling returns
+// ---------------------------------------------------------------------------
+
+/**
+ * Annualized Sharpe ratio computed from daily portfolio returns.
+ * Uses the cash return series as the risk-free rate.
+ */
+export function computeSharpeRatio(rows: ReturnRow[], annualRiskFreeRate?: number): number | null {
+  if (!Array.isArray(rows) || rows.length < 2) return null;
+
+  const annualRf = Number.isFinite(annualRiskFreeRate) ? (annualRiskFreeRate as number) : 0.05;
+  const dailyRf = d(1).plus(annualRf).pow(d(1).div(252)).minus(1);
+  const excessReturns: number[] = [];
+
+  for (const row of rows) {
+    const rf = dailyRf;
+    const rPort = d(row.r_port);
+    // Use r_cash as the daily risk-free proxy when available; fall back to constant
+    const dailyRfRate = Number.isFinite(row.r_cash) ? d(row.r_cash) : rf;
+    excessReturns.push(rPort.minus(dailyRfRate).toNumber());
+  }
+
+  const n = excessReturns.length;
+  const mean = excessReturns.reduce((sum, val) => sum + val, 0) / n;
+  const variance = excessReturns.reduce((sum, val) => sum + (val - mean) ** 2, 0) / (n - 1);
+  const std = Math.sqrt(variance);
+
+  if (std < 1e-15) return null;
+  return roundDecimal(d(mean / std).times(d(252).sqrt()), 4).toNumber();
+}
+
+/**
+ * Current drawdown from peak (how far the portfolio is from its all-time high).
+ */
+export function computeCurrentDrawdown(rows: ReturnRow[]): {
+  currentDrawdown: number;
+  peakDate: string | null;
+  currentDate: string | null;
+} | null {
+  if (!Array.isArray(rows) || rows.length < 2) return null;
+
+  let cumulative = d(1);
+  let peak = cumulative;
+  let peakDate: string | null = rows[0]?.date ?? null;
+
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    if (!row) continue;
+    if (i > 0) {
+      cumulative = cumulative.times(d(1).plus(row.r_port));
+    }
+    if (cumulative.gte(peak)) {
+      peak = cumulative;
+      peakDate = row.date;
+    }
+  }
+
+  const currentDrawdown = peak.isZero()
+    ? 0
+    : roundDecimal(cumulative.minus(peak).dividedBy(peak), 6).toNumber();
+  const lastRow = rows[rows.length - 1];
+
+  return {
+    currentDrawdown,
+    peakDate,
+    currentDate: lastRow?.date ?? null,
+  };
+}
+
+/**
+ * Rolling window returns — cumulative return over the latest complete window
+ * of N trading days. Returns values for 1-month (21), 3-month (63), and 1-year (252).
+ */
+export function computeRollingWindowReturns(rows: ReturnRow[]): {
+  oneMonth: { cumulative: number | null; annualized: number | null };
+  threeMonth: { cumulative: number | null; annualized: number | null };
+  oneYear: { cumulative: number | null; annualized: number | null };
+} {
+  const empty = { cumulative: null, annualized: null };
+  const result = { oneMonth: empty, threeMonth: empty, oneYear: empty };
+  if (!Array.isArray(rows) || rows.length < 2) return result;
+
+  const windows = [
+    { key: 'oneMonth' as const, days: 21 },
+    { key: 'threeMonth' as const, days: 63 },
+    { key: 'oneYear' as const, days: 252 },
+  ];
+
+  for (const { key, days } of windows) {
+    if (rows.length < days + 1) {
+      result[key] = empty;
+      continue;
+    }
+    const windowRows = rows.slice(rows.length - days);
+    let cum = d(1);
+    for (const row of windowRows) {
+      cum = cum.times(d(1).plus(row.r_port));
+    }
+    const cumulativeReturn = roundDecimal(cum.minus(1), 6).toNumber();
+    const annualized = days >= 252 ? annualizeReturn(cumulativeReturn, days) : null;
+    result[key] = { cumulative: cumulativeReturn, annualized };
+  }
+
+  return result;
 }

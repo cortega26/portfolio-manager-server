@@ -1,35 +1,30 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 
-import initSqlJs from "sql.js";
+import initSqlJs from 'sql.js';
 
-import { normalizeBenchmarkConfig } from "../../shared/benchmarks.js";
-import {
-  ROI_CANONICAL_PERCENT_DIGITS,
-} from "../../shared/precision.js";
-import { readPortfolioState } from "../data/portfolioState.js";
-import { toDateKey } from "../finance/cash.js";
-import { d, roundDecimal } from "../finance/decimal.js";
-import {
-  computeDailyStates,
-  externalFlowsByDate,
-} from "../finance/portfolio.js";
-import { computeDailyReturnRows } from "../finance/returns.js";
-import { getMarketClock } from "../../src/utils/marketHours.js";
+import { normalizeBenchmarkConfig } from '../../shared/benchmarks.js';
+import { ROI_CANONICAL_PERCENT_DIGITS } from '../../shared/precision.js';
+import { readPortfolioState } from '../data/portfolioState.js';
+import { toDateKey } from '../finance/cash.js';
+import { d, roundDecimal } from '../finance/decimal.js';
+import { computeDailyStates, externalFlowsByDate } from '../finance/portfolio.js';
+import { computeDailyReturnRows } from '../finance/returns.js';
+import { getMarketClock } from '../../src/utils/marketHours.js';
 
-const SOURCE_R2_IMPORT = "r2_import";
-const SOURCE_RECONSTRUCTED = "reconstructed";
-const SOURCE_EXTENDED = "extended";
-const R2_SOURCE_NAME = "mi_portfolio";
-const R2_SYNC_VERSION = "2";
+const SOURCE_R2_IMPORT = 'r2_import';
+const SOURCE_RECONSTRUCTED = 'reconstructed';
+const SOURCE_EXTENDED = 'extended';
+const R2_SOURCE_NAME = 'mi_portfolio';
+const R2_SYNC_VERSION = '2';
 const DEFAULT_R2_DB_PATH = path.resolve(
-  process.env.R2_PORTFOLIO_DB_PATH ?? "../mi_portfolio/portfolio.db",
+  process.env.R2_PORTFOLIO_DB_PATH ?? '../mi_portfolio/portfolio.db'
 );
 
 let sqlModulePromise;
 
 function normalizePortfolioId(value) {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
   const trimmed = value.trim();
@@ -118,9 +113,9 @@ function buildPriceFetchWindows(rows, from, to) {
   const dates = Array.from(
     new Set(
       rows
-        .map((row) => (typeof row?.date === "string" ? row.date.trim() : ""))
-        .filter((date) => date.length > 0),
-    ),
+        .map((row) => (typeof row?.date === 'string' ? row.date.trim() : ''))
+        .filter((date) => date.length > 0)
+    )
   ).sort((left, right) => left.localeCompare(right));
 
   if (dates.length === 0) {
@@ -166,8 +161,8 @@ function buildPriceMaps(records, tickers, dates) {
 
     const map = new Map();
     for (const ticker of tickers) {
-      if (ticker === "CASH") {
-        map.set("CASH", 1);
+      if (ticker === 'CASH') {
+        map.set('CASH', 1);
         continue;
       }
       if (lastPrices.has(ticker)) {
@@ -189,7 +184,7 @@ function buildFreshPriceLookup(records) {
 
 function buildCumulativeFlowMap(dates, transactions) {
   const rawFlows = [...externalFlowsByDate(transactions).entries()].sort((left, right) =>
-    left[0].localeCompare(right[0]),
+    left[0].localeCompare(right[0])
   );
   const running = new Map();
   let total = d(0);
@@ -206,7 +201,7 @@ function buildCumulativeFlowMap(dates, transactions) {
 }
 
 function buildCompositeKey(row, keyFields) {
-  return keyFields.map((field) => String(row?.[field] ?? "")).join("\u0000");
+  return keyFields.map((field) => String(row?.[field] ?? '')).join('\u0000');
 }
 
 function upsertRowsInMemory(existingRows, incomingRows, keyFields) {
@@ -226,7 +221,7 @@ function toSourceSummary(rows) {
   const summary = {};
   for (const row of rows) {
     const source =
-      typeof row?.source === "string" && row.source.trim().length > 0
+      typeof row?.source === 'string' && row.source.trim().length > 0
         ? row.source.trim()
         : SOURCE_RECONSTRUCTED;
     summary[source] = (summary[source] ?? 0) + 1;
@@ -245,7 +240,7 @@ function toNullableNumeric(value, fractionDigits = ROI_CANONICAL_PERCENT_DIGITS)
   if (value === null || value === undefined) {
     return null;
   }
-  if (typeof value === "string" && value.trim().length === 0) {
+  if (typeof value === 'string' && value.trim().length === 0) {
     return null;
   }
   const numeric = Number(value);
@@ -265,10 +260,12 @@ function hasCanonicalInceptionBaseline(returnRows, inceptionDate) {
   }
   const rPort = Number(inceptionRow?.r_port);
   const rExCash = Number(inceptionRow?.r_ex_cash);
-  return Number.isFinite(rPort)
-    && Number.isFinite(rExCash)
-    && Math.abs(rPort) <= 1e-8
-    && Math.abs(rExCash) <= 1e-8;
+  return (
+    Number.isFinite(rPort) &&
+    Number.isFinite(rExCash) &&
+    Math.abs(rPort) <= 1e-8 &&
+    Math.abs(rExCash) <= 1e-8
+  );
 }
 
 function hasFlatZeroBenchmarkSeries(returnRows, key) {
@@ -285,18 +282,20 @@ function hasFlatZeroBenchmarkSeries(returnRows, key) {
 }
 
 function benchmarkPriceHistoryMoved(priceRows, ticker, from, to) {
-  const normalizedTicker = typeof ticker === "string" ? ticker.trim().toUpperCase() : "";
+  const normalizedTicker = typeof ticker === 'string' ? ticker.trim().toUpperCase() : '';
   if (!normalizedTicker || !Array.isArray(priceRows)) {
     return false;
   }
   const values = priceRows
     .filter(
       (row) =>
-        String(row?.ticker ?? "").trim().toUpperCase() === normalizedTicker
-        && typeof row?.date === "string"
-        && row.date >= from
-        && row.date <= to
-        && Number.isFinite(Number(row?.adj_close)),
+        String(row?.ticker ?? '')
+          .trim()
+          .toUpperCase() === normalizedTicker &&
+        typeof row?.date === 'string' &&
+        row.date >= from &&
+        row.date <= to &&
+        Number.isFinite(Number(row?.adj_close))
     )
     .map((row) => Number(row.adj_close));
   if (values.length < 2) {
@@ -313,10 +312,7 @@ function buildCumulativeReturnSeries(rows, key) {
     cumulative = cumulative.times(d(1).plus(step));
     return {
       date: row.date,
-      value: roundDecimal(
-        cumulative.minus(1).times(100),
-        ROI_CANONICAL_PERCENT_DIGITS,
-      ).toNumber(),
+      value: roundDecimal(cumulative.minus(1).times(100), ROI_CANONICAL_PERCENT_DIGITS).toNumber(),
     };
   });
 }
@@ -342,11 +338,7 @@ function rebaseRoiSeries(points) {
       return { ...point, value: null };
     }
 
-    const rebasedValue = d(1)
-      .plus(d(value).div(100))
-      .div(baselineRatio)
-      .minus(1)
-      .times(100);
+    const rebasedValue = d(1).plus(d(value).div(100)).div(baselineRatio).minus(1).times(100);
 
     return {
       ...point,
@@ -362,8 +354,8 @@ function buildFlowMatchedRoiSeries({ roiRows, returnRows, returnKey }) {
   const sortedRoiRows = [...roiRows].sort((a, b) => a.date.localeCompare(b.date));
   const returnByDate = new Map(
     (Array.isArray(returnRows) ? returnRows : [])
-      .filter((row) => typeof row?.date === "string")
-      .map((row) => [row.date, row]),
+      .filter((row) => typeof row?.date === 'string')
+      .map((row) => [row.date, row])
   );
 
   const series = [];
@@ -372,7 +364,7 @@ function buildFlowMatchedRoiSeries({ roiRows, returnRows, returnKey }) {
 
   for (const row of sortedRoiRows) {
     const date = row?.date;
-    if (typeof date !== "string" || date.trim().length === 0) {
+    if (typeof date !== 'string' || date.trim().length === 0) {
       continue;
     }
     const netContributions = d(row?.net_contributions ?? 0);
@@ -402,7 +394,7 @@ function buildFlowMatchedRoiSeries({ roiRows, returnRows, returnKey }) {
       date,
       value: roundDecimal(
         syntheticNav.minus(netContributions).div(netContributions).times(100),
-        ROI_CANONICAL_PERCENT_DIGITS,
+        ROI_CANONICAL_PERCENT_DIGITS
       ).toNumber(),
     });
   }
@@ -424,7 +416,7 @@ function mergeSeriesByDate(seriesMap) {
     }
   }
   return Array.from(entriesByDate.values()).sort((left, right) =>
-    left.date.localeCompare(right.date),
+    left.date.localeCompare(right.date)
   );
 }
 
@@ -439,53 +431,54 @@ export function buildRoiSeriesPayload({ roiRows, returnRows }) {
   const importedPortfolioSeries = rebaseRoiSeries(absoluteSeries);
   const importedSpySeries = rebaseRoiSeries(
     sortedRoiRows
-    .map((row) => ({
-      date: row.date,
-      value: toNullableNumeric(row?.roi_sp500_pct),
-    }))
-    .filter((row) => row.value !== null)
-    .map((row) => ({
-      date: row.date,
-      value: row.value,
-    })),
+      .map((row) => ({
+        date: row.date,
+        value: toNullableNumeric(row?.roi_sp500_pct),
+      }))
+      .filter((row) => row.value !== null)
+      .map((row) => ({
+        date: row.date,
+        value: row.value,
+      }))
   );
   const importedBenchSeries = rebaseRoiSeries(
     sortedRoiRows
-    .map((row) => ({
-      date: row.date,
-      value: toNullableNumeric(row?.roi_ndx_pct),
-    }))
-    .filter((row) => row.value !== null)
-    .map((row) => ({
-      date: row.date,
-      value: row.value,
-    })),
+      .map((row) => ({
+        date: row.date,
+        value: toNullableNumeric(row?.roi_ndx_pct),
+      }))
+      .filter((row) => row.value !== null)
+      .map((row) => ({
+        date: row.date,
+        value: row.value,
+      }))
   );
-  const portfolioSeries = sortedReturnRows.length > 0
-    ? buildFlowMatchedRoiSeries({
-      roiRows: sortedRoiRows,
-      returnRows: sortedReturnRows,
-      returnKey: "r_port",
-    })
-    : importedPortfolioSeries;
-  const portfolioTwrSeries = sortedReturnRows.length > 0
-    ? buildCumulativeReturnSeries(sortedReturnRows, "r_port")
-    : [];
-  const spySeries = sortedReturnRows.length > 0
-    ? buildCumulativeReturnSeries(sortedReturnRows, "r_spy_100")
-    : importedSpySeries;
-  const qqqSeries = sortedReturnRows.length > 0
-    ? buildCumulativeReturnSeries(sortedReturnRows, "r_qqq_100")
-    : importedBenchSeries;
-  const benchSeries = sortedReturnRows.length > 0
-    ? buildCumulativeReturnSeries(sortedReturnRows, "r_bench_blended")
-    : importedBenchSeries;
-  const exCashSeries = sortedReturnRows.length > 0
-    ? buildCumulativeReturnSeries(sortedReturnRows, "r_ex_cash")
-    : [];
-  const cashSeries = sortedReturnRows.length > 0
-    ? buildCumulativeReturnSeries(sortedReturnRows, "r_cash")
-    : [];
+  const portfolioSeries =
+    sortedReturnRows.length > 0
+      ? buildFlowMatchedRoiSeries({
+          roiRows: sortedRoiRows,
+          returnRows: sortedReturnRows,
+          returnKey: 'r_port',
+        })
+      : importedPortfolioSeries;
+  const portfolioTwrSeries =
+    sortedReturnRows.length > 0 ? buildCumulativeReturnSeries(sortedReturnRows, 'r_port') : [];
+  const spySeries =
+    sortedReturnRows.length > 0
+      ? buildCumulativeReturnSeries(sortedReturnRows, 'r_spy_100')
+      : importedSpySeries;
+  const qqqSeries =
+    sortedReturnRows.length > 0
+      ? buildCumulativeReturnSeries(sortedReturnRows, 'r_qqq_100')
+      : importedBenchSeries;
+  const benchSeries =
+    sortedReturnRows.length > 0
+      ? buildCumulativeReturnSeries(sortedReturnRows, 'r_bench_blended')
+      : importedBenchSeries;
+  const exCashSeries =
+    sortedReturnRows.length > 0 ? buildCumulativeReturnSeries(sortedReturnRows, 'r_ex_cash') : [];
+  const cashSeries =
+    sortedReturnRows.length > 0 ? buildCumulativeReturnSeries(sortedReturnRows, 'r_cash') : [];
 
   return {
     series: {
@@ -509,15 +502,15 @@ export function buildRoiSeriesPayload({ roiRows, returnRows }) {
     benchmarkHealth: {
       spy: {
         available: spySeries.length > 0,
-        source: sortedReturnRows.length > 0 ? "returns_daily" : "roi_daily",
+        source: sortedReturnRows.length > 0 ? 'returns_daily' : 'roi_daily',
       },
       qqq: {
         available: qqqSeries.length > 0,
-        source: sortedReturnRows.length > 0 ? "returns_daily" : "roi_daily",
+        source: sortedReturnRows.length > 0 ? 'returns_daily' : 'roi_daily',
       },
       blended: {
         available: benchSeries.length > 0,
-        source: sortedReturnRows.length > 0 ? "returns_daily" : "roi_daily",
+        source: sortedReturnRows.length > 0 ? 'returns_daily' : 'roi_daily',
       },
     },
   };
@@ -555,13 +548,13 @@ async function readR2Snapshot(dbPath) {
           FROM portfolio
           WHERE date IS NOT NULL
           ORDER BY date ASC
-        `,
-      ),
+        `
+      )
     );
     const priceRows = statementRows(
       db.prepare(
-        "SELECT ticker, fetched_at, price FROM prices WHERE ticker IS NOT NULL AND fetched_at IS NOT NULL ORDER BY ticker ASC, fetched_at ASC",
-      ),
+        'SELECT ticker, fetched_at, price FROM prices WHERE ticker IS NOT NULL AND fetched_at IS NOT NULL ORDER BY ticker ASC, fetched_at ASC'
+      )
     );
     return { portfolioRows, priceRows };
   } finally {
@@ -572,9 +565,9 @@ async function readR2Snapshot(dbPath) {
 function normalizeR2PriceRows(rows) {
   const deduped = new Map();
   for (const row of rows) {
-    const ticker = typeof row?.ticker === "string" ? row.ticker.trim().toUpperCase() : "";
-    const fetchedAt = typeof row?.fetched_at === "string" ? row.fetched_at.trim() : "";
-    const date = fetchedAt ? fetchedAt.slice(0, 10) : "";
+    const ticker = typeof row?.ticker === 'string' ? row.ticker.trim().toUpperCase() : '';
+    const fetchedAt = typeof row?.fetched_at === 'string' ? row.fetched_at.trim() : '';
+    const date = fetchedAt ? fetchedAt.slice(0, 10) : '';
     const price = Number(row?.price);
     if (!ticker || !date || !Number.isFinite(price)) {
       continue;
@@ -612,7 +605,7 @@ async function fingerprintFile(filePath) {
       mtimeMs: stats.mtimeMs,
     });
   } catch (error) {
-    if (error.code === "ENOENT") {
+    if (error.code === 'ENOENT') {
       return null;
     }
     throw error;
@@ -626,33 +619,31 @@ export function createPerformanceHistoryService({
   config = {},
   r2DbPath = DEFAULT_R2_DB_PATH,
 } = {}) {
-  if (typeof getStorage !== "function") {
-    throw new Error("createPerformanceHistoryService requires getStorage");
+  if (typeof getStorage !== 'function') {
+    throw new Error('createPerformanceHistoryService requires getStorage');
   }
-  if (!priceLoader || typeof priceLoader.fetchSeries !== "function") {
-    throw new Error("createPerformanceHistoryService requires priceLoader");
+  if (!priceLoader || typeof priceLoader.fetchSeries !== 'function') {
+    throw new Error('createPerformanceHistoryService requires priceLoader');
   }
   const r2PortfolioIds = new Set(
     Array.isArray(config?.roi?.r2PortfolioIds) && config.roi.r2PortfolioIds.length > 0
-      ? config.roi.r2PortfolioIds
-          .map((value) => normalizePortfolioId(value))
-          .filter(Boolean)
-      : ["desktop"],
+      ? config.roi.r2PortfolioIds.map((value) => normalizePortfolioId(value)).filter(Boolean)
+      : ['desktop']
   );
 
   async function loadScopedTransactions(storage, portfolioId) {
-    const transactions = await storage.readTable("transactions");
+    const transactions = await storage.readTable('transactions');
     return selectTransactions(transactions, portfolioId).sort((left, right) =>
-      String(left?.date ?? "").localeCompare(String(right?.date ?? "")),
+      String(left?.date ?? '').localeCompare(String(right?.date ?? ''))
     );
   }
 
   async function loadCashPolicy(storage, portfolioId) {
     if (!portfolioId) {
-      return await storage.readTable("cash_rates");
+      return await storage.readTable('cash_rates');
     }
     const state = await readPortfolioState(storage, portfolioId);
-    return state?.cash ?? { currency: "USD", apyTimeline: [] };
+    return state?.cash ?? { currency: 'USD', apyTimeline: [] };
   }
 
   async function syncR2Seed(storage, portfolioId, transactions, dateRange) {
@@ -660,37 +651,36 @@ export function createPerformanceHistoryService({
       return {
         imported: false,
         available: false,
-        reason: "portfolio_not_mapped_to_r2",
+        reason: 'portfolio_not_mapped_to_r2',
       };
     }
     const fingerprint = await fingerprintFile(r2DbPath);
-    const syncRows = await storage.readTable("roi_sync_state");
+    const syncRows = await storage.readTable('roi_sync_state');
     const existingState = syncRows.find(
-      (row) =>
-        rowMatchesPortfolio(row, portfolioId) && row?.source_name === R2_SOURCE_NAME,
+      (row) => rowMatchesPortfolio(row, portfolioId) && row?.source_name === R2_SOURCE_NAME
     );
 
     if (!fingerprint) {
       return {
         imported: false,
         available: false,
-        reason: "missing_r2_db",
+        reason: 'missing_r2_db',
       };
     }
     if (
-      existingState?.source_fingerprint === fingerprint
-      && existingState?.sync_version === R2_SYNC_VERSION
+      existingState?.source_fingerprint === fingerprint &&
+      existingState?.sync_version === R2_SYNC_VERSION
     ) {
       return {
         imported: false,
         available: true,
-        reason: "unchanged",
+        reason: 'unchanged',
         coverage_from: existingState.coverage_from ?? null,
         coverage_to: existingState.coverage_to ?? null,
       };
     }
 
-    logger?.info?.("r2_sync_started", {
+    logger?.info?.('r2_sync_started', {
       portfolioId,
       source_path: r2DbPath,
     });
@@ -698,7 +688,7 @@ export function createPerformanceHistoryService({
     const { portfolioRows, priceRows } = await readR2Snapshot(r2DbPath);
     const cumulativeFlows = buildCumulativeFlowMap(dateRange, transactions);
     const roiRows = portfolioRows
-      .filter((row) => typeof row?.date === "string" && row.date.length > 0)
+      .filter((row) => typeof row?.date === 'string' && row.date.length > 0)
       .map((row) => {
         const date = row.date;
         const portfolioNav = Number(row?.avg_price);
@@ -712,7 +702,7 @@ export function createPerformanceHistoryService({
             ? 0
             : roundDecimal(
                 d(portfolioNav).minus(netContributions).div(netContributions).times(100),
-                6,
+                6
               ).toNumber();
 
         return decorateScopedRow(
@@ -730,38 +720,42 @@ export function createPerformanceHistoryService({
             source: SOURCE_R2_IMPORT,
             updated_at: new Date().toISOString(),
           },
-          portfolioId,
+          portfolioId
         );
       });
 
     const importedPrices = normalizeR2PriceRows(priceRows);
 
-    const existingRoiDaily = await storage.readTable("roi_daily");
+    const existingRoiDaily = await storage.readTable('roi_daily');
     const preservedRoiRows = existingRoiDaily.filter(
-      (row) => !(rowMatchesPortfolio(row, portfolioId) && row?.source === SOURCE_R2_IMPORT),
+      (row) => !(rowMatchesPortfolio(row, portfolioId) && row?.source === SOURCE_R2_IMPORT)
     );
-    const mergedRoiRows = upsertRowsInMemory(preservedRoiRows, roiRows, ["portfolio_id", "date"])
-      .sort((left, right) => {
-        const portfolioDiff = String(left?.portfolio_id ?? "").localeCompare(
-          String(right?.portfolio_id ?? ""),
-        );
-        if (portfolioDiff !== 0) {
-          return portfolioDiff;
-        }
-        return String(left?.date ?? "").localeCompare(String(right?.date ?? ""));
-      });
-    await storage.writeTable("roi_daily", mergedRoiRows);
+    const mergedRoiRows = upsertRowsInMemory(preservedRoiRows, roiRows, [
+      'portfolio_id',
+      'date',
+    ]).sort((left, right) => {
+      const portfolioDiff = String(left?.portfolio_id ?? '').localeCompare(
+        String(right?.portfolio_id ?? '')
+      );
+      if (portfolioDiff !== 0) {
+        return portfolioDiff;
+      }
+      return String(left?.date ?? '').localeCompare(String(right?.date ?? ''));
+    });
+    await storage.writeTable('roi_daily', mergedRoiRows);
 
-    const existingPrices = await storage.readTable("prices");
-    const mergedPrices = upsertRowsInMemory(existingPrices, importedPrices, ["ticker", "date"])
-      .sort((left, right) => {
-        const tickerDiff = String(left?.ticker ?? "").localeCompare(String(right?.ticker ?? ""));
-        if (tickerDiff !== 0) {
-          return tickerDiff;
-        }
-        return String(left?.date ?? "").localeCompare(String(right?.date ?? ""));
-      });
-    await storage.writeTable("prices", mergedPrices);
+    const existingPrices = await storage.readTable('prices');
+    const mergedPrices = upsertRowsInMemory(existingPrices, importedPrices, [
+      'ticker',
+      'date',
+    ]).sort((left, right) => {
+      const tickerDiff = String(left?.ticker ?? '').localeCompare(String(right?.ticker ?? ''));
+      if (tickerDiff !== 0) {
+        return tickerDiff;
+      }
+      return String(left?.date ?? '').localeCompare(String(right?.date ?? ''));
+    });
+    await storage.writeTable('prices', mergedPrices);
 
     const coverageFrom = roiRows[0]?.date ?? null;
     const coverageTo = roiRows[roiRows.length - 1]?.date ?? null;
@@ -775,17 +769,17 @@ export function createPerformanceHistoryService({
         coverage_to: coverageTo,
         last_synced_at: new Date().toISOString(),
       },
-      portfolioId,
+      portfolioId
     );
-    const existingSyncRows = await storage.readTable("roi_sync_state");
+    const existingSyncRows = await storage.readTable('roi_sync_state');
     const mergedSyncRows = upsertRowsInMemory(
       existingSyncRows,
       [syncStateRow],
-      ["portfolio_id", "source_name"],
+      ['portfolio_id', 'source_name']
     );
-    await storage.writeTable("roi_sync_state", mergedSyncRows);
+    await storage.writeTable('roi_sync_state', mergedSyncRows);
 
-    logger?.info?.("r2_sync_completed", {
+    logger?.info?.('r2_sync_completed', {
       portfolioId,
       source_path: r2DbPath,
       imported_roi_rows: roiRows.length,
@@ -804,12 +798,18 @@ export function createPerformanceHistoryService({
 
   async function ensurePriceCoverage(storage, tickers, from, to) {
     const normalizedTickers = [...new Set(tickers)]
-      .map((ticker) => String(ticker ?? "").trim().toUpperCase())
-      .filter((ticker) => ticker.length > 0 && ticker !== "CASH");
-    const existingRows = await storage.readTable("prices");
+      .map((ticker) =>
+        String(ticker ?? '')
+          .trim()
+          .toUpperCase()
+      )
+      .filter((ticker) => ticker.length > 0 && ticker !== 'CASH');
+    const existingRows = await storage.readTable('prices');
     const rowsByTicker = new Map();
     for (const row of existingRows) {
-      const ticker = String(row?.ticker ?? "").trim().toUpperCase();
+      const ticker = String(row?.ticker ?? '')
+        .trim()
+        .toUpperCase();
       if (!ticker) {
         continue;
       }
@@ -832,7 +832,7 @@ export function createPerformanceHistoryService({
       fetchPlans.map(async ({ ticker, from: windowFrom, to: windowTo }) => {
         try {
           const { prices } = await priceLoader.fetchSeries(ticker, {
-            range: "max",
+            range: 'max',
             from: windowFrom,
             to: windowTo,
           });
@@ -843,7 +843,7 @@ export function createPerformanceHistoryService({
             updated_at: new Date().toISOString(),
           }));
         } catch (error) {
-          logger?.warn?.("historical_price_fetch_failed_for_rebuild", {
+          logger?.warn?.('historical_price_fetch_failed_for_rebuild', {
             ticker,
             from: windowFrom,
             to: windowTo,
@@ -852,23 +852,21 @@ export function createPerformanceHistoryService({
           missingSymbols.add(ticker);
           return [];
         }
-      }),
+      })
     );
 
     for (const rows of fetchedRows) {
       for (const row of rows) {
-        await storage.upsertRow("prices", row, ["ticker", "date"]);
+        await storage.upsertRow('prices', row, ['ticker', 'date']);
       }
     }
 
     if (missingSymbols.size > 0) {
       const sortedMissingSymbols = Array.from(missingSymbols).sort((left, right) =>
-        left.localeCompare(right),
+        left.localeCompare(right)
       );
-      const error = new Error(
-        `Missing historical prices for: ${sortedMissingSymbols.join(", ")}`,
-      );
-      error.code = "ROI_PRICE_HISTORY_MISSING";
+      const error = new Error(`Missing historical prices for: ${sortedMissingSymbols.join(', ')}`);
+      error.code = 'ROI_PRICE_HISTORY_MISSING';
       error.details = { missingSymbols: sortedMissingSymbols };
       throw error;
     }
@@ -876,7 +874,7 @@ export function createPerformanceHistoryService({
 
   async function rebuildPersistentSeries(storage, portfolioId, transactions, from, to) {
     const benchmarkConfig = normalizeBenchmarkConfig(config?.benchmarks ?? {});
-    const trackedTickers = new Set(["SPY"]);
+    const trackedTickers = new Set(['SPY']);
     for (const ticker of benchmarkConfig.tickers) {
       trackedTickers.add(ticker);
     }
@@ -888,15 +886,13 @@ export function createPerformanceHistoryService({
 
     await ensurePriceCoverage(storage, Array.from(trackedTickers), from, to);
 
-    const priceRecords = (await storage.readTable("prices")).filter(
-      (row) => typeof row?.date === "string" && row.date >= from && row.date <= to,
+    const priceRecords = (await storage.readTable('prices')).filter(
+      (row) => typeof row?.date === 'string' && row.date >= from && row.date <= to
     );
     const dates = normalizePriceRecords(priceRecords)
       .filter((row) => trackedTickers.has(row.ticker) && row.date >= from && row.date <= to)
       .map((row) => row.date);
-    const uniqueDates = Array.from(new Set(dates)).sort((left, right) =>
-      left.localeCompare(right),
-    );
+    const uniqueDates = Array.from(new Set(dates)).sort((left, right) => left.localeCompare(right));
 
     if (uniqueDates.length === 0) {
       return {
@@ -917,7 +913,7 @@ export function createPerformanceHistoryService({
     const freshPriceLookup = buildFreshPriceLookup(priceRecords);
     const navRows = states.map((state) => {
       const stalePrice = Object.entries(state.holdings ?? {}).some(([ticker, shares]) => {
-        if (ticker === "CASH" || !Number.isFinite(Number(shares)) || Number(shares) === 0) {
+        if (ticker === 'CASH' || !Number.isFinite(Number(shares)) || Number(shares) === 0) {
           return false;
         }
         return !freshPriceLookup.has(`${ticker}:${state.date}`);
@@ -933,20 +929,20 @@ export function createPerformanceHistoryService({
           stale_price: stalePrice,
           updated_at: new Date().toISOString(),
         },
-        portfolioId,
+        portfolioId
       );
     });
 
     const cashPolicy = await loadCashPolicy(storage, portfolioId);
     const spyPrices = new Map(
       normalizePriceRecords(priceRecords)
-        .filter((row) => row.ticker === "SPY")
-        .map((row) => [row.date, row.adj_close]),
+        .filter((row) => row.ticker === 'SPY')
+        .map((row) => [row.date, row.adj_close])
     );
     const qqqPrices = new Map(
       normalizePriceRecords(priceRecords)
-        .filter((row) => row.ticker === "QQQ")
-        .map((row) => [row.date, row.adj_close]),
+        .filter((row) => row.ticker === 'QQQ')
+        .map((row) => [row.date, row.adj_close])
     );
     const returnRows = computeDailyReturnRows({
       states,
@@ -954,15 +950,17 @@ export function createPerformanceHistoryService({
       spyPrices,
       qqqPrices,
       transactions,
-    }).map((row) => decorateScopedRow({ ...row, updated_at: new Date().toISOString() }, portfolioId));
+    }).map((row) =>
+      decorateScopedRow({ ...row, updated_at: new Date().toISOString() }, portfolioId)
+    );
 
-    await storage.deleteWhere("nav_snapshots", (row) => rowMatchesPortfolio(row, portfolioId));
-    await storage.deleteWhere("returns_daily", (row) => rowMatchesPortfolio(row, portfolioId));
+    await storage.deleteWhere('nav_snapshots', (row) => rowMatchesPortfolio(row, portfolioId));
+    await storage.deleteWhere('returns_daily', (row) => rowMatchesPortfolio(row, portfolioId));
     for (const row of navRows) {
-      await storage.upsertRow("nav_snapshots", row, ["portfolio_id", "date"]);
+      await storage.upsertRow('nav_snapshots', row, ['portfolio_id', 'date']);
     }
     for (const row of returnRows) {
-      await storage.upsertRow("returns_daily", row, ["portfolio_id", "date"]);
+      await storage.upsertRow('returns_daily', row, ['portfolio_id', 'date']);
     }
 
     return { dates: uniqueDates, states, returnRows, navRows };
@@ -975,9 +973,9 @@ export function createPerformanceHistoryService({
     const transactions = await loadScopedTransactions(storage, portfolioId);
     const cumulativeFlows = buildCumulativeFlowMap(
       states.map((state) => state.date),
-      transactions,
+      transactions
     );
-    const existingRows = filterRowsByPortfolio(await storage.readTable("roi_daily"), portfolioId);
+    const existingRows = filterRowsByPortfolio(await storage.readTable('roi_daily'), portfolioId);
     const existingByDate = new Map(existingRows.map((row) => [row.date, row]));
     const importedStart = importedCoverage?.coverage_from ?? null;
     const importedEnd = importedCoverage?.coverage_to ?? null;
@@ -1000,7 +998,7 @@ export function createPerformanceHistoryService({
         ? 0
         : roundDecimal(
             d(state.nav).minus(netContributions).div(netContributions).times(100),
-            6,
+            6
           ).toNumber();
       const source =
         importedStart && state.date < importedStart
@@ -1018,13 +1016,13 @@ export function createPerformanceHistoryService({
             source,
             updated_at: new Date().toISOString(),
           },
-          portfolioId,
-        ),
+          portfolioId
+        )
       );
     }
 
     for (const row of rowsToWrite) {
-      await storage.upsertRow("roi_daily", row, ["portfolio_id", "date"]);
+      await storage.upsertRow('roi_daily', row, ['portfolio_id', 'date']);
     }
     return rowsToWrite;
   }
@@ -1036,7 +1034,7 @@ export function createPerformanceHistoryService({
     if (transactions.length === 0) {
       return {
         repaired: false,
-        reason: "no_transactions",
+        reason: 'no_transactions',
         portfolioId: normalizedPortfolioId,
         roiRows: [],
         returnRows: [],
@@ -1045,17 +1043,14 @@ export function createPerformanceHistoryService({
     }
 
     const orderedDates = transactions
-      .map((tx) => String(tx?.date ?? "").trim())
+      .map((tx) => String(tx?.date ?? '').trim())
       .filter((date) => date.length > 0)
       .sort((left, right) => left.localeCompare(right));
-    const requestedFrom = typeof from === "string" && from.trim().length > 0
-      ? from.trim()
-      : orderedDates[0];
+    const requestedFrom =
+      typeof from === 'string' && from.trim().length > 0 ? from.trim() : orderedDates[0];
     const todayKey = toDateKey(new Date());
     const upperBound = clampToLastTradingDay(todayKey);
-    const requestedTo = typeof to === "string" && to.trim().length > 0
-      ? to.trim()
-      : upperBound;
+    const requestedTo = typeof to === 'string' && to.trim().length > 0 ? to.trim() : upperBound;
     const effectiveFrom = requestedFrom < orderedDates[0] ? orderedDates[0] : requestedFrom;
     const effectiveTo = requestedTo > upperBound ? upperBound : requestedTo;
 
@@ -1063,36 +1058,39 @@ export function createPerformanceHistoryService({
       storage,
       normalizedPortfolioId,
       transactions,
-      createDateRange(orderedDates[0], effectiveTo),
+      createDateRange(orderedDates[0], effectiveTo)
     );
     const rebuilt = await rebuildPersistentSeries(
       storage,
       normalizedPortfolioId,
       transactions,
       orderedDates[0],
-      effectiveTo,
+      effectiveTo
     );
     const roiRows = await ensureAbsoluteRoiRows(
       storage,
       normalizedPortfolioId,
       rebuilt.states,
-      r2Sync,
+      r2Sync
     );
 
     const filteredRoiRows = filterRowsByPortfolio(
-      await storage.readTable("roi_daily"),
-      normalizedPortfolioId,
-    ).filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
+      await storage.readTable('roi_daily'),
+      normalizedPortfolioId
+    )
+      .filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
       .sort((left, right) => left.date.localeCompare(right.date));
     const filteredReturnRows = filterRowsByPortfolio(
-      await storage.readTable("returns_daily"),
-      normalizedPortfolioId,
-    ).filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
+      await storage.readTable('returns_daily'),
+      normalizedPortfolioId
+    )
+      .filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
       .sort((left, right) => left.date.localeCompare(right.date));
     const filteredNavRows = filterRowsByPortfolio(
-      await storage.readTable("nav_snapshots"),
-      normalizedPortfolioId,
-    ).filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
+      await storage.readTable('nav_snapshots'),
+      normalizedPortfolioId
+    )
+      .filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
       .sort((left, right) => left.date.localeCompare(right.date));
 
     return {
@@ -1124,8 +1122,8 @@ export function createPerformanceHistoryService({
         },
         merged: [],
         meta: {
-          primaryMetric: "portfolio",
-          secondaryMetric: "portfolioTwr",
+          primaryMetric: 'portfolio',
+          secondaryMetric: 'portfolioTwr',
           portfolioId: normalizedPortfolioId,
           from: null,
           to: null,
@@ -1133,23 +1131,25 @@ export function createPerformanceHistoryService({
           importedR2: {
             imported: false,
             available: false,
-            reason: "no_transactions",
+            reason: 'no_transactions',
           },
         },
       };
     }
     const orderedDates = transactions
-      .map((tx) => String(tx?.date ?? "").trim())
+      .map((tx) => String(tx?.date ?? '').trim())
       .filter((date) => date.length > 0)
       .sort((left, right) => left.localeCompare(right));
-    const requestedFrom = typeof options?.from === "string" && options.from.trim().length > 0
-      ? options.from.trim()
-      : orderedDates[0];
+    const requestedFrom =
+      typeof options?.from === 'string' && options.from.trim().length > 0
+        ? options.from.trim()
+        : orderedDates[0];
     const todayKey = toDateKey(new Date());
     const upperBound = clampToLastTradingDay(todayKey);
-    const requestedTo = typeof options?.to === "string" && options.to.trim().length > 0
-      ? options.to.trim()
-      : upperBound;
+    const requestedTo =
+      typeof options?.to === 'string' && options.to.trim().length > 0
+        ? options.to.trim()
+        : upperBound;
     const effectiveFrom = requestedFrom < orderedDates[0] ? orderedDates[0] : requestedFrom;
     const effectiveTo = requestedTo > upperBound ? upperBound : requestedTo;
 
@@ -1157,44 +1157,44 @@ export function createPerformanceHistoryService({
       storage,
       normalizedPortfolioId,
       transactions,
-      createDateRange(orderedDates[0], effectiveTo),
+      createDateRange(orderedDates[0], effectiveTo)
     );
     const allRoiRows = filterRowsByPortfolio(
-      await storage.readTable("roi_daily"),
-      normalizedPortfolioId,
-    )
-      .sort((left, right) => left.date.localeCompare(right.date));
+      await storage.readTable('roi_daily'),
+      normalizedPortfolioId
+    ).sort((left, right) => left.date.localeCompare(right.date));
     const allReturnRows = filterRowsByPortfolio(
-      await storage.readTable("returns_daily"),
-      normalizedPortfolioId,
-    )
-      .sort((left, right) => left.date.localeCompare(right.date));
+      await storage.readTable('returns_daily'),
+      normalizedPortfolioId
+    ).sort((left, right) => left.date.localeCompare(right.date));
     let roiRows = allRoiRows
       .filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
       .sort((left, right) => left.date.localeCompare(right.date));
     let returnRows = allReturnRows
       .filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
       .sort((left, right) => left.date.localeCompare(right.date));
-    const allPriceRows = await storage.readTable("prices");
+    const allPriceRows = await storage.readTable('prices');
     const needsQqqRepair =
-      hasFlatZeroBenchmarkSeries(returnRows, "r_qqq_100")
-      && benchmarkPriceHistoryMoved(allPriceRows, "QQQ", effectiveFrom, effectiveTo);
+      hasFlatZeroBenchmarkSeries(returnRows, 'r_qqq_100') &&
+      benchmarkPriceHistoryMoved(allPriceRows, 'QQQ', effectiveFrom, effectiveTo);
 
     const needsReturnsRepair =
-      returnRows.length === 0
-      || (effectiveFrom && (!returnRows[0]?.date || returnRows[0].date > effectiveFrom))
-      || (effectiveTo && (!returnRows[returnRows.length - 1]?.date || returnRows[returnRows.length - 1].date < effectiveTo))
-      || !returnRows.every(
+      returnRows.length === 0 ||
+      (effectiveFrom && (!returnRows[0]?.date || returnRows[0].date > effectiveFrom)) ||
+      (effectiveTo &&
+        (!returnRows[returnRows.length - 1]?.date ||
+          returnRows[returnRows.length - 1].date < effectiveTo)) ||
+      !returnRows.every(
         (row) =>
-          typeof row?.r_spy_100 === "number"
-          && Number.isFinite(row.r_spy_100)
-          && typeof row?.r_qqq_100 === "number"
-          && Number.isFinite(row.r_qqq_100)
-          && typeof row?.r_bench_blended === "number"
-          && Number.isFinite(row.r_bench_blended),
-      )
-      || needsQqqRepair
-      || !hasCanonicalInceptionBaseline(allReturnRows, orderedDates[0]);
+          typeof row?.r_spy_100 === 'number' &&
+          Number.isFinite(row.r_spy_100) &&
+          typeof row?.r_qqq_100 === 'number' &&
+          Number.isFinite(row.r_qqq_100) &&
+          typeof row?.r_bench_blended === 'number' &&
+          Number.isFinite(row.r_bench_blended)
+      ) ||
+      needsQqqRepair ||
+      !hasCanonicalInceptionBaseline(allReturnRows, orderedDates[0]);
 
     if (roiRows.length === 0 || needsReturnsRepair) {
       try {
@@ -1208,8 +1208,8 @@ export function createPerformanceHistoryService({
         return {
           ...payload,
           meta: {
-            primaryMetric: "portfolio",
-            secondaryMetric: "portfolioTwr",
+            primaryMetric: 'portfolio',
+            secondaryMetric: 'portfolioTwr',
             portfolioId: repaired.portfolioId,
             from: repaired.from ?? null,
             to: repaired.to ?? null,
@@ -1219,7 +1219,7 @@ export function createPerformanceHistoryService({
           },
         };
       } catch (repairError) {
-        logger?.warn?.("roi_repair_failed_serving_existing", {
+        logger?.warn?.('roi_repair_failed_serving_existing', {
           error: repairError.message,
           code: repairError.code,
           hasExistingRows: roiRows.length > 0,
@@ -1237,8 +1237,8 @@ export function createPerformanceHistoryService({
     return {
       ...payload,
       meta: {
-        primaryMetric: "portfolio",
-        secondaryMetric: "portfolioTwr",
+        primaryMetric: 'portfolio',
+        secondaryMetric: 'portfolioTwr',
         portfolioId: normalizedPortfolioId,
         from: effectiveFrom,
         to: roiRows[roiRows.length - 1]?.date ?? effectiveTo,

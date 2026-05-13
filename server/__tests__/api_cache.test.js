@@ -6,12 +6,19 @@ import { tmpdir } from 'node:os';
 
 import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestApp.js';
 
-import {
-  configurePriceCache,
-  flushPriceCache,
-} from '../cache/priceCache.js';
+import { configurePriceCache, flushPriceCache } from '../cache/priceCache.js';
 
-const noopLogger = { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {}, child() { return this; } };
+const noopLogger = {
+  info() {},
+  warn() {},
+  error() {},
+  debug() {},
+  trace() {},
+  fatal() {},
+  child() {
+    return this;
+  },
+};
 
 function todayKey(offsetDays = 0) {
   const date = new Date();
@@ -55,13 +62,11 @@ test('returns cached price on subsequent requests', async () => {
     priceProvider: provider,
   });
 
-  const first = await request(app)
-    .get('/api/prices/AAPL?range=1y');
+  const first = await request(app).get('/api/prices/AAPL?range=1y');
   assert.equal(first.status, 200);
   assert.equal(first.body.length, 2);
 
-  const second = await request(app)
-    .get('/api/prices/AAPL?range=1y');
+  const second = await request(app).get('/api/prices/AAPL?range=1y');
   assert.equal(second.status, 200);
   assert.equal(second.headers['x-cache'], 'HIT');
   assert.equal(second.body.length, 2);
@@ -79,15 +84,12 @@ test('supports conditional requests with ETag', async () => {
     priceProvider: provider,
   });
 
-  const first = await request(app)
-    .get('/api/prices/AAPL?range=1y');
+  const first = await request(app).get('/api/prices/AAPL?range=1y');
   assert.equal(first.status, 200);
   const etag = first.headers.etag;
   assert.ok(etag);
 
-  const second = await request(app)
-    .get('/api/prices/AAPL?range=1y')
-    .set('If-None-Match', etag);
+  const second = await request(app).get('/api/prices/AAPL?range=1y').set('If-None-Match', etag);
   assert.equal(second.status, 304);
   await closeApp(app);
 });

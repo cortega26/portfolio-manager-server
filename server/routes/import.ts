@@ -17,7 +17,7 @@ const ImportResponseSchema = z.object({
     z.object({
       row: z.number(),
       message: z.string(),
-    }),
+    })
   ),
 });
 
@@ -42,18 +42,23 @@ const importRoutes: FastifyPluginAsyncZod<ImportRouteContext> = async (app, opts
       const { portfolioId, dryRun } = request.body;
 
       const { importCsvPortfolio } = await import('../import/csvPortfolioImport.js');
-      type ImportFn = (opts: { dataDir?: string; portfolioId?: string; dryRun?: boolean }) => Promise<unknown>;
-      const result = await (importCsvPortfolio as ImportFn)({ dataDir, portfolioId, dryRun }) as {
+      type ImportFn = (opts: {
+        dataDir?: string;
+        portfolioId?: string;
+        dryRun?: boolean;
+      }) => Promise<unknown>;
+      const result = (await (importCsvPortfolio as ImportFn)({ dataDir, portfolioId, dryRun })) as {
         transactionCount?: number;
         reconciliation?: { summary?: { totalTransactions?: number } };
       };
 
       return {
-        imported: result?.reconciliation?.summary?.totalTransactions ?? result?.transactionCount ?? 0,
+        imported:
+          result?.reconciliation?.summary?.totalTransactions ?? result?.transactionCount ?? 0,
         skipped: 0,
         errors: [] as Array<{ row: number; message: string }>,
       };
-    },
+    }
   );
 };
 

@@ -1,11 +1,8 @@
-import {
-  CASH_POLICY_SCHEMA_VERSION,
-  PORTFOLIO_SCHEMA_VERSION,
-} from "../../shared/constants.js";
-import { normalizeSettings } from "../../shared/settings.js";
+import { CASH_POLICY_SCHEMA_VERSION, PORTFOLIO_SCHEMA_VERSION } from '../../shared/constants.js';
+import { normalizeSettings } from '../../shared/settings.js';
 
-const PORTFOLIO_STATE_TABLE = "portfolio_states";
-const TRANSACTIONS_TABLE = "transactions";
+const PORTFOLIO_STATE_TABLE = 'portfolio_states';
+const TRANSACTIONS_TABLE = 'transactions';
 
 function cloneValue(value) {
   try {
@@ -17,9 +14,9 @@ function cloneValue(value) {
 
 function normalizeCashPolicy(cash) {
   const currency =
-    typeof cash?.currency === "string" && cash.currency.trim().length === 3
+    typeof cash?.currency === 'string' && cash.currency.trim().length === 3
       ? cash.currency.trim().toUpperCase()
-      : "USD";
+      : 'USD';
   const apyTimeline = Array.isArray(cash?.apyTimeline)
     ? cash.apyTimeline.map((entry) => ({
         from: entry?.from,
@@ -42,16 +39,14 @@ function normalizePortfolioRecord(record, portfolioId) {
         ? record.schemaVersion
         : PORTFOLIO_SCHEMA_VERSION,
     signals:
-      record?.signals && typeof record.signals === "object"
-        ? cloneValue(record.signals)
-        : {},
+      record?.signals && typeof record.signals === 'object' ? cloneValue(record.signals) : {},
     settings: normalizeSettings(cloneValue(record?.settings)),
     cash: normalizeCashPolicy(record?.cash),
   };
 }
 
 function stripPortfolioId(row) {
-  if (!row || typeof row !== "object") {
+  if (!row || typeof row !== 'object') {
     return row;
   }
   const { portfolio_id: portfolioId, ...rest } = row;
@@ -92,7 +87,7 @@ export async function writePortfolioState(storage, portfolioId, state) {
   // then append the new rows for this portfolio — all written atomically.
   const existingTransactions = await storage.readTable(TRANSACTIONS_TABLE);
   const otherPortfolioTransactions = existingTransactions.filter(
-    (row) => row?.portfolio_id !== portfolioId,
+    (row) => row?.portfolio_id !== portfolioId
   );
   const nextTransactions = [...otherPortfolioTransactions, ...transactions];
 

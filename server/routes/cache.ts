@@ -26,7 +26,7 @@ const cacheRoutes: FastifyPluginAsyncZod<CacheRouteContext> = async (app) => {
     },
     async () => {
       return getCacheStats();
-    },
+    }
   );
 };
 

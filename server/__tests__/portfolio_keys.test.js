@@ -27,9 +27,7 @@ afterEach(async () => {
 
 test('session auth portfolio writes do not persist portfolio key records', async () => {
   await withSession(
-    request(app)
-      .post('/api/portfolio/session-only')
-      .send({ transactions: [] }),
+    request(app).post('/api/portfolio/session-only').send({ transactions: [] })
   ).expect(200);
 
   const keyRows = await storage.readTable('portfolio_keys');

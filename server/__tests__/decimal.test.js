@@ -1,13 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import {
-  d,
-  fromCents,
-  fromMicroShares,
-  toCents,
-  toMicroShares,
-} from '../finance/decimal.js';
+import { d, fromCents, fromMicroShares, toCents, toMicroShares } from '../finance/decimal.js';
 
 test('toCents and fromCents round-trip to the nearest cent', () => {
   const samples = [0, 0.004, 0.005, 1.234, -5.5555, 1024.999];

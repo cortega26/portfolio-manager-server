@@ -7,17 +7,19 @@ function ToggleField({ id, label, description, checked, onChange, disabled = fal
       <label
         htmlFor={id}
         className={clsx(
-          'flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition dark:border-slate-800 dark:bg-slate-900',
+          'card-base flex items-start justify-between gap-4 p-4',
           disabled
             ? 'cursor-not-allowed opacity-60'
-            : 'hover:border-indigo-300 dark:hover:border-indigo-500/50'
+            : 'hover:border-brand-300 dark:hover:border-brand-500/50'
         )}
         aria-disabled={disabled}
       >
         <div>
-          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+          <span className="text-sm font-semibold text-surface-800 dark:text-surface-100">
+            {label}
+          </span>
           {description && (
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{description}</p>
+            <p className="mt-1 text-xs text-surface-500 dark:text-surface-400">{description}</p>
           )}
         </div>
         <input
@@ -30,11 +32,11 @@ function ToggleField({ id, label, description, checked, onChange, disabled = fal
             }
           }}
           disabled={disabled}
-          className="mt-1 h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800"
+          className="mt-1 h-5 w-5 rounded border-surface-300 text-brand-600 focus:ring-brand-500 dark:border-surface-700 dark:bg-surface-800"
         />
       </label>
       {helperText ? (
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{helperText}</p>
+        <p className="mt-2 text-xs text-surface-500 dark:text-surface-400">{helperText}</p>
       ) : null}
     </div>
   );
@@ -42,21 +44,20 @@ function ToggleField({ id, label, description, checked, onChange, disabled = fal
 
 function SelectField({ id, label, description, value, options, onChange }) {
   return (
-    <label
-      htmlFor={id}
-      className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-    >
+    <label htmlFor={id} className="card-base flex flex-col gap-2 p-4">
       <div>
-        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+        <span className="text-sm font-semibold text-surface-800 dark:text-surface-100">
+          {label}
+        </span>
         {description && (
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{description}</p>
+          <p className="mt-1 text-xs text-surface-500 dark:text-surface-400">{description}</p>
         )}
       </div>
       <select
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        className="rounded-md border border-surface-300 bg-white px-3 py-2 text-sm text-surface-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -70,14 +71,13 @@ function SelectField({ id, label, description, value, options, onChange }) {
 
 function NumberField({ id, label, description, value, min, max, step, onChange }) {
   return (
-    <label
-      htmlFor={id}
-      className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-    >
+    <label htmlFor={id} className="card-base flex flex-col gap-2 p-4">
       <div>
-        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+        <span className="text-sm font-semibold text-surface-800 dark:text-surface-100">
+          {label}
+        </span>
         {description && (
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{description}</p>
+          <p className="mt-1 text-xs text-surface-500 dark:text-surface-400">{description}</p>
         )}
       </div>
       <input
@@ -93,7 +93,7 @@ function NumberField({ id, label, description, value, min, max, step, onChange }
             onChange(nextValue);
           }
         }}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        className="rounded-md border border-surface-300 px-3 py-2 text-sm text-surface-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-100"
       />
     </label>
   );
@@ -108,7 +108,7 @@ function SchedulerStatusCard({ schedulerStatus }) {
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200'
       : active === false
         ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200'
-        : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300';
+        : 'border-surface-200 bg-surface-50 text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300';
   const stateLabel =
     active === true
       ? t('settings.scheduler.state.active')
@@ -117,12 +117,12 @@ function SchedulerStatusCard({ schedulerStatus }) {
         : t('settings.scheduler.state.unknown');
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
+    <section className="card-base p-5">
       <header>
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+        <h2 className="font-heading text-lg font-bold text-surface-800 dark:text-surface-100">
           {t('settings.sections.scheduler.title')}
         </h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
           {t('settings.sections.scheduler.description')}
         </p>
       </header>
@@ -140,16 +140,16 @@ function SchedulerStatusCard({ schedulerStatus }) {
                 : t('settings.scheduler.runtime.unknown')}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+        <div className="rounded-lg border border-surface-200 bg-surface-50 px-4 py-3 dark:border-surface-700 dark:bg-surface-800">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-surface-500 dark:text-surface-400">
             {t('settings.scheduler.hour.label')}
           </p>
-          <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <p className="mt-2 text-sm font-semibold text-surface-800 dark:text-surface-100">
             {hourUtc === null
               ? t('settings.scheduler.hour.unavailable')
               : t('settings.scheduler.hour.value', { hour: hourUtc })}
           </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs text-surface-500 dark:text-surface-400">
             {t('settings.scheduler.hour.description')}
           </p>
         </div>
@@ -163,13 +163,13 @@ export default function SettingsTab({ settings, schedulerStatus, onSettingChange
   const autoClipEnabled = Boolean(settings?.autoClip);
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
+      <section className="card-base p-5">
         <header className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+            <h2 className="font-heading text-lg font-bold text-surface-800 dark:text-surface-100">
               {t('settings.sections.notifications.title')}
             </h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
               {t('settings.sections.notifications.description')}
             </p>
           </div>
@@ -260,12 +260,12 @@ export default function SettingsTab({ settings, schedulerStatus, onSettingChange
         />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow dark:border-slate-800 dark:bg-slate-900">
+      <section className="card-base p-5">
         <header>
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          <h2 className="font-heading text-lg font-bold text-surface-800 dark:text-surface-100">
             {t('settings.sections.workspace.title')}
           </h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
             {t('settings.sections.workspace.description')}
           </p>
         </header>
@@ -295,7 +295,7 @@ export default function SettingsTab({ settings, schedulerStatus, onSettingChange
         <button
           type="button"
           onClick={onReset}
-          className="mt-6 inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-indigo-400 hover:text-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-400 dark:hover:text-indigo-300"
+          className="mt-6 inline-flex items-center justify-center rounded-md border border-surface-300 px-4 py-2 text-sm font-semibold text-surface-700 transition hover:border-brand-400 hover:text-brand-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-surface-700 dark:text-surface-200 dark:hover:border-brand-400 dark:hover:text-brand-300"
         >
           {t('settings.reset')}
         </button>

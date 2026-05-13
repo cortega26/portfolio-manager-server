@@ -21,4 +21,3 @@ describe('sanitizeCsvCell', () => {
     assert.equal(sanitizeCsvCell('123'), '123');
   });
 });
-

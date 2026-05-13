@@ -214,7 +214,7 @@ describe('DashboardTab benchmark controls', () => {
     );
 
     expect(screen.getByText('+77.94%')).toBeInTheDocument();
-    expect(screen.getAllByTestId('chart-tooltip')[0]).toHaveTextContent('77.9444%');
+    expect(screen.getAllByTestId('chart-tooltip')[0]).toHaveTextContent('77.94%');
   });
 
   test('replaces the cash drag card with the investor MWR card', () => {
@@ -373,7 +373,10 @@ describe('DashboardTab benchmark controls', () => {
     );
 
     expect(screen.getByText(/Max Drawdown/i)).toBeInTheDocument();
-    expect(screen.getByText(/Insufficient data/i)).toBeInTheDocument();
+    // Both Max Drawdown and Current Drawdown show "Insufficient data" when no data
+    expect(screen.getAllByText(/Insufficient data/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Sharpe Ratio/i)).toBeInTheDocument();
+    expect(screen.getByText(/Current Drawdown/i)).toBeInTheDocument();
   });
 
   // --- PM-AUD-013: Dashboard renders exactly 4 metric cards ---

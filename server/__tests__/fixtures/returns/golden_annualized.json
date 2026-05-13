@@ -23,20 +23,20 @@
     "  Expected: { cash: 0, risk: 0 } (guard against inverted weights)"
   ],
   "annualized": {
-    "cumulative_return": 0.50,
+    "cumulative_return": 0.5,
     "days": 730,
     "expected_annualized": 0.2247
   },
   "annualized_edge_cases": [
     {
       "label": "negative cumulative over 1 year (identity)",
-      "cumulative": -0.20,
+      "cumulative": -0.2,
       "days": 365,
-      "expected": -0.20
+      "expected": -0.2
     },
     {
       "label": "short period returns null",
-      "cumulative": 0.10,
+      "cumulative": 0.1,
       "days": 180,
       "expected": null
     },
@@ -62,14 +62,14 @@
   ],
   "drawdown_series": [
     { "date": "2024-01-01", "r_port": 0 },
-    { "date": "2024-01-02", "r_port": 0.10 },
-    { "date": "2024-01-03", "r_port": -0.30 },
+    { "date": "2024-01-02", "r_port": 0.1 },
+    { "date": "2024-01-03", "r_port": -0.3 },
     { "date": "2024-01-04", "r_port": 0.1688 },
     { "date": "2024-01-05", "r_port": 0.2778 },
     { "date": "2024-01-06", "r_port": 0.3043 }
   ],
   "drawdown_expected": {
-    "maxDrawdown": -0.30,
+    "maxDrawdown": -0.3,
     "peakDate": "2024-01-02",
     "troughDate": "2024-01-03"
   },

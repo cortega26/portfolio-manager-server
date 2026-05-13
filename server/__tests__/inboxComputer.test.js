@@ -5,15 +5,36 @@
 import assert from 'node:assert/strict';
 import { test, describe } from 'node:test';
 
-import { computeInbox, buildThresholdEventKey, buildLargeMoveEventKey, buildLongUnreviewedEventKey, buildNoThresholdEventKey } from '../finance/inboxComputer.js';
+import {
+  computeInbox,
+  buildThresholdEventKey,
+  buildLargeMoveEventKey,
+  buildLongUnreviewedEventKey,
+  buildNoThresholdEventKey,
+} from '../finance/inboxComputer.js';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
 /** A reference date well after all test transactions so staleness rules fire. */
 const FAR_FUTURE = new Date('2060-01-02T00:00:00.000Z');
 
-function makeTransaction({ ticker = 'AAPL', type = 'BUY', date = '2020-01-02', shares = 10, amount = 1500, price = 150 } = {}) {
-  return { ticker, type, date, shares, quantity: type === 'SELL' ? -shares : shares, amount, price };
+function makeTransaction({
+  ticker = 'AAPL',
+  type = 'BUY',
+  date = '2020-01-02',
+  shares = 10,
+  amount = 1500,
+  price = 150,
+} = {}) {
+  return {
+    ticker,
+    type,
+    date,
+    shares,
+    quantity: type === 'SELL' ? -shares : shares,
+    amount,
+    price,
+  };
 }
 
 function makePrice(price) {
@@ -142,13 +163,15 @@ describe('computeInbox — THRESHOLD_TRIGGERED', () => {
       transactions: txs,
       signals: { AAPL: { pct: 10 } },
       priceSnapshots: pricesMap({ AAPL: 120 }),
-      dismissHistory: [{
-        portfolio_id: 'demo',
-        ticker: 'AAPL',
-        event_type: 'THRESHOLD_TRIGGERED',
-        event_key: eventKey,
-        dismissed_at: '2024-01-15T00:00:00.000Z',
-      }],
+      dismissHistory: [
+        {
+          portfolio_id: 'demo',
+          ticker: 'AAPL',
+          event_type: 'THRESHOLD_TRIGGERED',
+          event_key: eventKey,
+          dismissed_at: '2024-01-15T00:00:00.000Z',
+        },
+      ],
       referenceDate: FAR_FUTURE,
     });
     const thresh = result.find((i) => i.eventType === 'THRESHOLD_TRIGGERED');
@@ -203,7 +226,9 @@ describe('computeInbox — LARGE_MOVE_UNREVIEWED', () => {
 describe('computeInbox — LONG_UNREVIEWED', () => {
   test('surfaces LONG_UNREVIEWED when position ≥ $500 and 30+ trading days elapsed', () => {
     // Transaction in early 2020, reference date far in future → many trading days.
-    const txs = [makeTransaction({ type: 'BUY', shares: 10, amount: 1000, price: 100, date: '2020-01-02' })];
+    const txs = [
+      makeTransaction({ type: 'BUY', shares: 10, amount: 1000, price: 100, date: '2020-01-02' }),
+    ];
     const result = computeInbox({
       transactions: txs,
       signals: { AAPL: { pct: 50 } }, // wide threshold — no trigger
@@ -219,7 +244,9 @@ describe('computeInbox — LONG_UNREVIEWED', () => {
 
   test('does not surface LONG_UNREVIEWED when position < $500', () => {
     // 2 shares at $10 each = $20 position.
-    const txs = [makeTransaction({ type: 'BUY', shares: 2, amount: 20, price: 10, date: '2020-01-02' })];
+    const txs = [
+      makeTransaction({ type: 'BUY', shares: 2, amount: 20, price: 10, date: '2020-01-02' }),
+    ];
     const result = computeInbox({
       transactions: txs,
       signals: {},
@@ -234,7 +261,9 @@ describe('computeInbox — LONG_UNREVIEWED', () => {
 
 describe('computeInbox — NO_THRESHOLD_CONFIGURED', () => {
   test('surfaces NO_THRESHOLD_CONFIGURED when position ≥ $500 and no signal', () => {
-    const txs = [makeTransaction({ type: 'BUY', shares: 10, amount: 1000, price: 100, date: '2020-01-02' })];
+    const txs = [
+      makeTransaction({ type: 'BUY', shares: 10, amount: 1000, price: 100, date: '2020-01-02' }),
+    ];
     const result = computeInbox({
       transactions: txs,
       signals: {},
@@ -248,7 +277,9 @@ describe('computeInbox — NO_THRESHOLD_CONFIGURED', () => {
   });
 
   test('does not surface NO_THRESHOLD_CONFIGURED when signal is configured', () => {
-    const txs = [makeTransaction({ type: 'BUY', shares: 10, amount: 1000, price: 100, date: '2020-01-02' })];
+    const txs = [
+      makeTransaction({ type: 'BUY', shares: 10, amount: 1000, price: 100, date: '2020-01-02' }),
+    ];
     const result = computeInbox({
       transactions: txs,
       signals: { AAPL: { pct: 10 } },
@@ -265,8 +296,24 @@ describe('computeInbox — sort order', () => {
   test('HIGH urgency items come before MEDIUM and LOW', () => {
     // Two tickers: AAPL triggers threshold (HIGH), MSFT has no signal ($500+ position, LOW).
     const txs = [
-      { ticker: 'AAPL', type: 'BUY', date: '2020-01-02', shares: 10, quantity: 10, amount: 1000, price: 100 },
-      { ticker: 'MSFT', type: 'BUY', date: '2020-01-02', shares: 10, quantity: 10, amount: 1000, price: 100 },
+      {
+        ticker: 'AAPL',
+        type: 'BUY',
+        date: '2020-01-02',
+        shares: 10,
+        quantity: 10,
+        amount: 1000,
+        price: 100,
+      },
+      {
+        ticker: 'MSFT',
+        type: 'BUY',
+        date: '2020-01-02',
+        shares: 10,
+        quantity: 10,
+        amount: 1000,
+        price: 100,
+      },
     ];
     // AAPL: price 130 > 110 (ref 100 × 1.1) → TRIM_ZONE; also +30% large move
     // MSFT: price 100 → no threshold, no large move, no signal (LOW)
@@ -287,7 +334,7 @@ describe('computeInbox — sort order', () => {
       const afterFirstNonHigh = urgencies.slice(firstNonHigh);
       assert.ok(
         !afterFirstNonHigh.includes('HIGH'),
-        'HIGH urgency items must all appear before MEDIUM/LOW items',
+        'HIGH urgency items must all appear before MEDIUM/LOW items'
       );
     }
   });

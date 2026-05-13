@@ -30,7 +30,7 @@ test('anti-test: blended benchmark drops cash weighting', async () => {
         const delta = Math.abs(rows[index].r_bench_blended - expected);
         assert.ok(delta < 1.5e-5, `bench mismatch at ${rows[index].date}: ${delta}`);
       }
-    }),
+    })
   );
 });
 
@@ -57,13 +57,13 @@ test('anti-test: summary drift is detected when compounding is skipped', async (
           r_bench_blended: 1,
           r_spy_100: 1,
           r_cash: 1,
-        },
+        }
       );
       assert.ok(Math.abs(summary.r_port - (cumulative.r_port - 1)) < 1e-6);
       assert.ok(Math.abs(summary.r_ex_cash - (cumulative.r_ex_cash - 1)) < 1e-6);
       assert.ok(Math.abs(summary.r_bench_blended - (cumulative.r_bench_blended - 1)) < 1e-6);
       assert.ok(Math.abs(summary.r_spy_100 - (cumulative.r_spy_100 - 1)) < 1e-6);
       assert.ok(Math.abs(summary.r_cash - (cumulative.r_cash - 1)) < 1e-6);
-    }),
+    })
   );
 });

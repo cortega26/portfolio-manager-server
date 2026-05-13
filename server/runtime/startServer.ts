@@ -22,16 +22,11 @@ import { createHistoricalPriceLoader } from '../services/historicalPriceLoader.j
 import JsonTableStorage from '../data/storage.js';
 import { getMarketClock } from '../../src/utils/marketHours.js';
 
-// Re-exported so callers that previously imported from middleware/sessionAuth.js
-// can get it here after that file is removed in Phase 4.
 export const DEFAULT_SESSION_AUTH_HEADER = 'x-session-token';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-export function normalizePort(
-  value: string | number | null | undefined,
-  fallback = 3000,
-): number {
+export function normalizePort(value: string | number | null | undefined, fallback = 3000): number {
   const parsed = Number.parseInt(String(value ?? fallback), 10);
   if (!Number.isFinite(parsed) || parsed < 0) {
     return fallback;
@@ -71,7 +66,10 @@ export function buildServerConfig({
       ...(auth
         ? {
             auth: {
-              ...(baseConfig.security?.auth ?? { sessionToken: '', headerName: DEFAULT_SESSION_AUTH_HEADER }),
+              ...(baseConfig.security?.auth ?? {
+                sessionToken: '',
+                headerName: DEFAULT_SESSION_AUTH_HEADER,
+              }),
               ...auth,
             },
           }
@@ -102,7 +100,7 @@ export function getBaseUrl({
 
 export function resolveSchedulerEnabled(
   startScheduler: boolean | undefined,
-  config: { jobs?: { nightlyEnabled?: boolean } } | null | undefined,
+  config: { jobs?: { nightlyEnabled?: boolean } } | null | undefined
 ): boolean {
   if (typeof startScheduler === 'boolean') {
     return startScheduler;
@@ -114,7 +112,7 @@ export function resolveSchedulerEnabled(
 // Used to fill in defaults when a partial ServerConfig is provided to startServer.
 function deepMerge(
   target: Record<string, unknown>,
-  source: Record<string, unknown>,
+  source: Record<string, unknown>
 ): Record<string, unknown> {
   const result: Record<string, unknown> = { ...target };
   for (const key of Object.keys(source)) {
@@ -128,10 +126,7 @@ function deepMerge(
       typeof tgtVal === 'object' &&
       !Array.isArray(tgtVal)
     ) {
-      result[key] = deepMerge(
-        tgtVal as Record<string, unknown>,
-        srcVal as Record<string, unknown>,
-      );
+      result[key] = deepMerge(tgtVal as Record<string, unknown>, srcVal as Record<string, unknown>);
     } else {
       result[key] = srcVal;
     }
@@ -163,19 +158,15 @@ export async function startServer({
   const resolvedPort = port ?? normalizePort(env['PORT'], 3000);
   const rootLogger = logger ?? pino({ base: { module: 'server' } });
   const appLogger =
-    typeof rootLogger.child === 'function'
-      ? rootLogger.child({ module: 'http' })
-      : rootLogger;
+    typeof rootLogger.child === 'function' ? rootLogger.child({ module: 'http' }) : rootLogger;
   const schedulerLogger =
-    typeof rootLogger.child === 'function'
-      ? rootLogger.child({ module: 'scheduler' })
-      : rootLogger;
+    typeof rootLogger.child === 'function' ? rootLogger.child({ module: 'scheduler' }) : rootLogger;
 
   const defaultConfig = loadConfig(env);
   const resolvedConfig: ServerConfig = config
     ? (deepMerge(
         defaultConfig as unknown as Record<string, unknown>,
-        config as unknown as Record<string, unknown>,
+        config as unknown as Record<string, unknown>
       ) as unknown as ServerConfig)
     : defaultConfig;
   const resolvedStaticDir = normalizeStaticDir(staticDir);
@@ -186,7 +177,9 @@ export async function startServer({
 
   const healthMonitor = createProviderHealthMonitor({ logger: appLogger });
 
-  const priceProvider = (createConfiguredPriceProvider as (opts: Record<string, unknown>) => unknown)({
+  const priceProvider = (
+    createConfiguredPriceProvider as (opts: Record<string, unknown>) => unknown
+  )({
     config: resolvedConfig,
     fetchImpl: fetch,
     timeoutMs: fetchTimeoutMs,
@@ -194,7 +187,9 @@ export async function startServer({
     healthMonitor,
   });
 
-  const latestQuoteProvider = (createConfiguredLatestQuoteProvider as (opts: Record<string, unknown>) => unknown)({
+  const latestQuoteProvider = (
+    createConfiguredLatestQuoteProvider as (opts: Record<string, unknown>) => unknown
+  )({
     config: resolvedConfig,
     fetchImpl: fetch,
     timeoutMs: fetchTimeoutMs,
@@ -204,19 +199,23 @@ export async function startServer({
   // Lazy persisted-close lookup — reads the 'prices' table as a last-resort
   // fallback when live providers are unavailable (mirrors app.js behavior).
   let storageInstance: InstanceType<typeof JsonTableStorage> | null = null;
-  const persistedLatestCloseLookup = async (symbol: string): Promise<Record<string, unknown> | null> => {
+  const persistedLatestCloseLookup = async (
+    symbol: string
+  ): Promise<Record<string, unknown> | null> => {
     if (!storageInstance) {
       storageInstance = new JsonTableStorage({ dataDir, logger: appLogger });
     }
     try {
-      const rows = (await (storageInstance as unknown as { readTable(t: string): Promise<unknown[]> }).readTable('prices')) as Array<Record<string, unknown>>;
+      const rows = (await (
+        storageInstance as unknown as { readTable(t: string): Promise<unknown[]> }
+      ).readTable('prices')) as Array<Record<string, unknown>>;
       if (!Array.isArray(rows)) return null;
       const normalizedSymbol = typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
       const matching = rows
         .filter(
           (row) =>
             typeof row['ticker'] === 'string' &&
-            (row['ticker'] as string).toUpperCase() === normalizedSymbol,
+            (row['ticker'] as string).toUpperCase() === normalizedSymbol
         )
         .sort((a, b) => String(a['date']).localeCompare(String(b['date'])));
       return (matching[matching.length - 1] as Record<string, unknown>) ?? null;
@@ -225,7 +224,9 @@ export async function startServer({
     }
   };
 
-  const historicalPriceLoader = (createHistoricalPriceLoader as (opts: Record<string, unknown>) => unknown)({
+  const historicalPriceLoader = (
+    createHistoricalPriceLoader as (opts: Record<string, unknown>) => unknown
+  )({
     priceProvider,
     latestQuoteProvider,
     persistedLatestCloseLookup,
@@ -262,24 +263,19 @@ export async function startServer({
     {
       event: 'server_listening',
       port: typeof address === 'object' && address ? address.port : resolvedPort,
-      host:
-        host ??
-        (typeof address === 'object' && address ? address.address : undefined),
+      host: host ?? (typeof address === 'object' && address ? address.address : undefined),
       staticDir: resolvedStaticDir,
       spaFallback: Boolean(resolvedStaticDir && spaFallback),
     },
-    'server_listening',
+    'server_listening'
   );
 
   return {
     app,
     config: resolvedConfig,
     baseUrl,
-    host:
-      host ??
-      (typeof address === 'object' && address ? address.address : undefined),
-    port:
-      typeof address === 'object' && address ? address.port : resolvedPort,
+    host: host ?? (typeof address === 'object' && address ? address.address : undefined),
+    port: typeof address === 'object' && address ? address.port : resolvedPort,
     async close() {
       await app.close();
     },

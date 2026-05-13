@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import {
-  isTradingDay,
-  computeTradingDayAge,
-  nextTradingDay,
-} from '../utils/calendar.js';
+import { isTradingDay, computeTradingDayAge, nextTradingDay } from '../utils/calendar.js';
 
 test('isTradingDay returns false for weekends and true for weekdays', () => {
   assert.equal(isTradingDay(new Date('2024-02-10T00:00:00Z')), false); // Saturday

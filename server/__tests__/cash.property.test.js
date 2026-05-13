@@ -50,7 +50,7 @@ test('accrueInterest posts deterministic interest for random balances', async ()
               date: '2024-01-01',
               amount,
             },
-            ['id'],
+            ['id']
           );
           const policy = {
             currency: 'USD',
@@ -66,8 +66,8 @@ test('accrueInterest posts deterministic interest for random balances', async ()
           const normalized = fromCents(expectedCents).toNumber();
           assert.equal(record.amount, normalized);
         });
-      },
-    ),
+      }
+    )
   );
 });
 
@@ -90,14 +90,24 @@ test('accrueInterest remains idempotent under repeated execution', async () => {
               date: '2024-01-01',
               amount,
             },
-            ['id'],
+            ['id']
           );
           const policy = {
             currency: 'USD',
             apyTimeline: [{ from: '2023-12-01', to: null, apy }],
           };
-          const first = await accrueInterest({ storage, date: '2024-01-02', policy, logger: noopLogger });
-          const second = await accrueInterest({ storage, date: '2024-01-02', policy, logger: noopLogger });
+          const first = await accrueInterest({
+            storage,
+            date: '2024-01-02',
+            policy,
+            logger: noopLogger,
+          });
+          const second = await accrueInterest({
+            storage,
+            date: '2024-01-02',
+            policy,
+            logger: noopLogger,
+          });
           const table = await storage.readTable('transactions');
           const interestRows = table.filter((tx) => tx.type === 'INTEREST');
           if (first) {
@@ -112,8 +122,8 @@ test('accrueInterest remains idempotent under repeated execution', async () => {
             assert.equal(interestRows.length, 0);
           }
         });
-      },
-    ),
+      }
+    )
   );
 });
 
@@ -149,7 +159,7 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
               amount,
               portfolio_id: portfolioId,
             },
-            ['id'],
+            ['id']
           );
           await withStorage(async (monthlyStorage) => {
             await monthlyStorage.upsertRow(
@@ -162,19 +172,13 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
                 amount,
                 portfolio_id: portfolioId,
               },
-              ['id'],
+              ['id']
             );
 
             for (let monthIndex = 0; monthIndex < monthCount; monthIndex += 1) {
               const monthEnd = new Date(Date.UTC(2024, monthIndex + 1, 0));
-              for (
-                let day = 0;
-                day < monthEnd.getUTCDate();
-                day += 1
-              ) {
-                const current = new Date(
-                  Date.UTC(2024, monthIndex, day + 1),
-                );
+              for (let day = 0; day < monthEnd.getUTCDate(); day += 1) {
+                const current = new Date(Date.UTC(2024, monthIndex, day + 1));
                 const dateKey = current.toISOString().slice(0, 10);
                 await accrueInterest({
                   storage: dailyStorage,
@@ -224,12 +228,10 @@ test.skip('monthly posting matches cumulative daily interest within one cent', a
           });
         });
 
-        const delta = Math.abs(
-          roundCents(dailyInterest) - roundCents(monthlyInterest),
-        );
+        const delta = Math.abs(roundCents(dailyInterest) - roundCents(monthlyInterest));
         // Monthly postings coalesce daily rounded cents; allow up to a one-dollar drift.
         assert.ok(delta <= 1);
-      },
-    ),
+      }
+    )
   );
 });

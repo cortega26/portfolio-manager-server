@@ -1,22 +1,16 @@
-import { toDateKey } from "../finance/cash.js";
-import {
-  generateETag,
-  getCachedPrice,
-  setCachedPrice,
-} from "../cache/priceCache.js";
-import { computeTradingDayAge } from "../utils/calendar.js";
-import { createNoDataError } from "../data/prices.js";
-import { getMarketClock } from "../../src/utils/marketHours.js";
+import { toDateKey } from '../finance/cash.js';
+import { generateETag, getCachedPrice, setCachedPrice } from '../cache/priceCache.js';
+import { computeTradingDayAge } from '../utils/calendar.js';
+import { createNoDataError } from '../data/prices.js';
+import { getMarketClock } from '../../src/utils/marketHours.js';
 
 function normalizeSymbol(symbol) {
-  return typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
+  return typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
 }
 
 function normalizeRange(range) {
   const normalized =
-    typeof range === "string" && range.trim().length > 0
-      ? range.trim().toLowerCase()
-      : "1y";
+    typeof range === 'string' && range.trim().length > 0 ? range.trim().toLowerCase() : '1y';
   return normalized;
 }
 
@@ -29,7 +23,7 @@ function resolveDateWindow(range, from, to) {
       toDate: resolvedTo,
     };
   }
-  if (normalizeRange(range) === "1y") {
+  if (normalizeRange(range) === '1y') {
     const oneYearAgo = new Date(today);
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     return {
@@ -38,7 +32,7 @@ function resolveDateWindow(range, from, to) {
     };
   }
   return {
-    fromDate: "1900-01-01",
+    fromDate: '1900-01-01',
     toDate: resolvedTo,
   };
 }
@@ -66,17 +60,12 @@ function sliceLatest(prices) {
 }
 
 function normalizePersistedLatestClose(row) {
-  if (!row || typeof row !== "object") {
+  if (!row || typeof row !== 'object') {
     return null;
   }
 
-  const date =
-    typeof row.date === "string" && row.date.trim().length > 0
-      ? row.date.trim()
-      : null;
-  const close = Number.parseFloat(
-    row.close ?? row.adjClose ?? row.adj_close ?? row.price,
-  );
+  const date = typeof row.date === 'string' && row.date.trim().length > 0 ? row.date.trim() : null;
+  const close = Number.parseFloat(row.close ?? row.adjClose ?? row.adj_close ?? row.price);
   if (!date || !Number.isFinite(close) || close <= 0) {
     return null;
   }
@@ -113,42 +102,45 @@ export function createHistoricalPriceLoader({
   cachePolicy = {},
   maxStaleTradingDays = null,
 } = {}) {
-  if (!priceProvider || typeof priceProvider.getDailyAdjustedClose !== "function") {
-    throw new Error("createHistoricalPriceLoader requires a price provider");
+  if (!priceProvider || typeof priceProvider.getDailyAdjustedClose !== 'function') {
+    throw new Error('createHistoricalPriceLoader requires a price provider');
   }
 
   return {
-    async fetchSeries(symbol, { range = "1y", from, to, latestOnly = false } = {}) {
+    async fetchSeries(symbol, { range = '1y', from, to, latestOnly = false } = {}) {
       const normalizedSymbol = normalizeSymbol(symbol);
       if (!normalizedSymbol) {
         return {
           prices: [],
           etag: generateETag([]),
           cacheHit: false,
-          rangeKey: buildCacheKey(range, "1900-01-01", toDateKey(new Date())),
+          rangeKey: buildCacheKey(range, '1900-01-01', toDateKey(new Date())),
           resolution: buildResolution({
-            status: "unavailable",
-            source: "none",
+            status: 'unavailable',
+            source: 'none',
           }),
         };
       }
 
       const { fromDate, toDate } = resolveDateWindow(range, from, to);
       const rangeKey = buildCacheKey(range, fromDate, toDate);
-      const market =
-        latestOnly && typeof marketClock === "function"
-          ? marketClock()
-          : null;
+      const market = latestOnly && typeof marketClock === 'function' ? marketClock() : null;
       const liveMarketOpen = market?.isOpen === true;
       const extendedHoursActive = market?.isExtendedHours === true;
       const latestQuoteEligible =
-        latestOnly && (liveMarketOpen || extendedHoursActive) && Boolean(latestQuoteProvider?.getLatestQuote);
-      const cacheMode = latestOnly ? ((liveMarketOpen || extendedHoursActive) ? "open" : "closed") : "historical";
+        latestOnly &&
+        (liveMarketOpen || extendedHoursActive) &&
+        Boolean(latestQuoteProvider?.getLatestQuote);
+      const cacheMode = latestOnly
+        ? liveMarketOpen || extendedHoursActive
+          ? 'open'
+          : 'closed'
+        : 'historical';
       const sessionCacheKey = latestOnly ? buildLiveCacheKey(rangeKey, cacheMode) : rangeKey;
       const liveCacheMaxAgeMs = latestOnly
-        ? (liveMarketOpen
+        ? liveMarketOpen
           ? Math.max(1, Number(cachePolicy?.liveOpenTtlSeconds ?? 60)) * 1000
-          : Math.max(1, Number(cachePolicy?.liveClosedTtlSeconds ?? 15 * 60)) * 1000)
+          : Math.max(1, Number(cachePolicy?.liveClosedTtlSeconds ?? 15 * 60)) * 1000
         : null;
       if (!latestOnly) {
         const cached = getCachedPrice(normalizedSymbol, rangeKey);
@@ -159,8 +151,8 @@ export function createHistoricalPriceLoader({
             cacheHit: true,
             rangeKey,
             resolution: buildResolution({
-              status: "cache_fresh",
-              source: "cache",
+              status: 'cache_fresh',
+              source: 'cache',
               asOf: cached.data[cached.data.length - 1]?.date ?? null,
               cacheHit: true,
               latestQuoteAttempted: false,
@@ -170,19 +162,15 @@ export function createHistoricalPriceLoader({
       }
       const resolutionWarnings = [];
       const isFreshEnoughForLatestOnly = (prices) => {
-        if (
-          !latestOnly
-          || !Number.isFinite(maxStaleTradingDays)
-          || maxStaleTradingDays < 0
-        ) {
+        if (!latestOnly || !Number.isFinite(maxStaleTradingDays) || maxStaleTradingDays < 0) {
           return true;
         }
-        const latestDate = Array.isArray(prices) ? prices[prices.length - 1]?.date ?? null : null;
+        const latestDate = Array.isArray(prices) ? (prices[prices.length - 1]?.date ?? null) : null;
         if (!latestDate) {
           return false;
         }
         const referenceDate =
-          typeof market?.lastTradingDate === "string" && market.lastTradingDate.length > 0
+          typeof market?.lastTradingDate === 'string' && market.lastTradingDate.length > 0
             ? new Date(`${market.lastTradingDate}T12:00:00Z`)
             : new Date();
         return computeTradingDayAge(latestDate, referenceDate) <= maxStaleTradingDays;
@@ -191,7 +179,7 @@ export function createHistoricalPriceLoader({
         warnings = [],
         latestQuoteAttempted = false,
       } = {}) => {
-        if (!latestOnly || typeof persistedLatestCloseLookup !== "function") {
+        if (!latestOnly || typeof persistedLatestCloseLookup !== 'function') {
           return null;
         }
 
@@ -203,7 +191,7 @@ export function createHistoricalPriceLoader({
               toDate,
               latestOnly,
               market,
-            }),
+            })
           );
           if (!persisted) {
             return null;
@@ -211,7 +199,7 @@ export function createHistoricalPriceLoader({
 
           const prices = [{ date: persisted.date, close: persisted.close }];
           const warningSet = new Set(Array.isArray(warnings) ? warnings : []);
-          warningSet.add("LAST_CLOSE_FALLBACK_USED");
+          warningSet.add('LAST_CLOSE_FALLBACK_USED');
 
           return {
             prices,
@@ -219,16 +207,16 @@ export function createHistoricalPriceLoader({
             cacheHit: false,
             rangeKey,
             resolution: buildResolution({
-              status: liveMarketOpen ? "degraded" : "eod_fresh",
-              source: "persisted",
-              provider: "storage",
+              status: liveMarketOpen ? 'degraded' : 'eod_fresh',
+              source: 'persisted',
+              provider: 'storage',
               warnings: Array.from(warningSet),
               asOf: persisted.date,
               latestQuoteAttempted,
             }),
           };
         } catch (error) {
-          logger?.warn?.("persisted_latest_close_lookup_failed", {
+          logger?.warn?.('persisted_latest_close_lookup_failed', {
             symbol: normalizedSymbol,
             error: error.message,
           });
@@ -239,9 +227,9 @@ export function createHistoricalPriceLoader({
         ? getCachedPrice(normalizedSymbol, sessionCacheKey, { maxAgeMs: liveCacheMaxAgeMs })
         : null;
       if (
-        sessionCached
-        && Array.isArray(sessionCached.data)
-        && isFreshEnoughForLatestOnly(sessionCached.data)
+        sessionCached &&
+        Array.isArray(sessionCached.data) &&
+        isFreshEnoughForLatestOnly(sessionCached.data)
       ) {
         return {
           prices: sliceLatest(sessionCached.data),
@@ -249,8 +237,8 @@ export function createHistoricalPriceLoader({
           cacheHit: true,
           rangeKey,
           resolution: buildResolution({
-            status: "cache_fresh",
-            source: "cache",
+            status: 'cache_fresh',
+            source: 'cache',
             asOf: sessionCached.data[sessionCached.data.length - 1]?.date ?? null,
             cacheHit: true,
             latestQuoteAttempted: latestQuoteEligible,
@@ -273,16 +261,17 @@ export function createHistoricalPriceLoader({
             cacheHit: false,
             rangeKey,
             resolution: buildResolution({
-              status: "live",
-              source: "latest",
-              provider: latestQuote?.providerMeta?.provider ?? latestQuoteProvider?.providerKey ?? null,
+              status: 'live',
+              source: 'latest',
+              provider:
+                latestQuote?.providerMeta?.provider ?? latestQuoteProvider?.providerKey ?? null,
               asOf: latestQuote?.date ?? null,
               latestQuoteAttempted: true,
             }),
           };
         } catch (error) {
-          resolutionWarnings.push("LATEST_QUOTE_UNAVAILABLE");
-          logger?.warn?.("latest_quote_fetch_failed", {
+          resolutionWarnings.push('LATEST_QUOTE_UNAVAILABLE');
+          logger?.warn?.('latest_quote_fetch_failed', {
             symbol: normalizedSymbol,
             error: error.message,
           });
@@ -300,8 +289,8 @@ export function createHistoricalPriceLoader({
           cacheHit: true,
           rangeKey,
           resolution: buildResolution({
-            status: "cache_fresh",
-            source: "cache",
+            status: 'cache_fresh',
+            source: 'cache',
             asOf: historicalCached.data[historicalCached.data.length - 1]?.date ?? null,
             cacheHit: true,
             latestQuoteAttempted: latestQuoteEligible,
@@ -314,7 +303,7 @@ export function createHistoricalPriceLoader({
         const fetched = await priceProvider.getDailyAdjustedClose(
           normalizedSymbol,
           fromDate,
-          toDate,
+          toDate
         );
         const prices = normalizeSeries(fetched);
         const etag = setCachedPrice(normalizedSymbol, rangeKey, prices);
@@ -334,10 +323,8 @@ export function createHistoricalPriceLoader({
           rangeKey,
           resolution: buildResolution({
             status:
-              usedFallbackProvider || resolutionWarnings.length > 0
-                ? "degraded"
-                : "eod_fresh",
-            source: "historical",
+              usedFallbackProvider || resolutionWarnings.length > 0 ? 'degraded' : 'eod_fresh',
+            source: 'historical',
             provider: providerMeta?.provider ?? null,
             warnings: resolutionWarnings,
             asOf: prices[prices.length - 1]?.date ?? null,
@@ -346,8 +333,8 @@ export function createHistoricalPriceLoader({
         };
       } catch (error) {
         historicalFetchError = error;
-        resolutionWarnings.push("HISTORICAL_CLOSE_FETCH_FAILED");
-        logger?.warn?.("historical_price_fetch_failed", {
+        resolutionWarnings.push('HISTORICAL_CLOSE_FETCH_FAILED');
+        logger?.warn?.('historical_price_fetch_failed', {
           symbol: normalizedSymbol,
           from: fromDate,
           to: toDate,
@@ -364,12 +351,12 @@ export function createHistoricalPriceLoader({
       }
 
       if (historicalCached?.data?.length && isFreshEnoughForLatestOnly(historicalCached.data)) {
-        resolutionWarnings.push("CACHE_FALLBACK_USED");
-        logger?.warn?.("historical_price_fetch_serving_cached_fallback", {
+        resolutionWarnings.push('CACHE_FALLBACK_USED');
+        logger?.warn?.('historical_price_fetch_serving_cached_fallback', {
           symbol: normalizedSymbol,
           from: fromDate,
           to: toDate,
-          error: historicalFetchError?.message ?? "using historical cache fallback",
+          error: historicalFetchError?.message ?? 'using historical cache fallback',
         });
         return {
           prices: sliceLatest(historicalCached.data),
@@ -377,8 +364,8 @@ export function createHistoricalPriceLoader({
           cacheHit: true,
           rangeKey,
           resolution: buildResolution({
-            status: "cache_fresh",
-            source: "cache",
+            status: 'cache_fresh',
+            source: 'cache',
             warnings: resolutionWarnings,
             asOf: historicalCached.data[historicalCached.data.length - 1]?.date ?? null,
             cacheHit: true,
@@ -400,8 +387,8 @@ export function createHistoricalPriceLoader({
           cacheHit: false,
           rangeKey,
           resolution: buildResolution({
-            status: "market_closed",
-            source: "none",
+            status: 'market_closed',
+            source: 'none',
             warnings: resolutionWarnings,
             asOf: null,
             latestQuoteAttempted: latestQuoteEligible,

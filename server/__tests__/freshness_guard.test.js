@@ -8,7 +8,17 @@ import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestAp
 import { flushPriceCache } from '../cache/priceCache.js';
 import JsonTableStorage from '../data/storage.js';
 
-const noopLogger = { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {}, child() { return this; } };
+const noopLogger = {
+  info() {},
+  warn() {},
+  error() {},
+  debug() {},
+  trace() {},
+  fatal() {},
+  child() {
+    return this;
+  },
+};
 
 class StaticPriceProvider {
   constructor(rows) {
@@ -36,9 +46,7 @@ afterEach(() => {
 });
 
 test('prices endpoint returns 503 for stale data', async () => {
-  const staleProvider = new StaticPriceProvider([
-    { date: '2000-01-03', adjClose: 100 },
-  ]);
+  const staleProvider = new StaticPriceProvider([{ date: '2000-01-03', adjClose: 100 }]);
   const app = await createSessionTestApp({
     dataDir,
     logger: noopLogger,
@@ -49,7 +57,7 @@ test('prices endpoint returns 503 for stale data', async () => {
   });
   const response = await request(app).get('/api/prices/SPY');
   assert.equal(response.status, 503);
-  assert.deepEqual(response.body, { error: 'STALE_DATA' });
+  assert.deepEqual(response.body, { error: 'STALE_DATA', message: 'Stale data' });
   await closeApp(app);
 });
 
@@ -98,7 +106,7 @@ test('benchmarks summary returns 503 when latest return is stale', async () => {
       r_spy_100: 0,
       r_cash: 0,
     },
-    ['date'],
+    ['date']
   );
   const app = await createSessionTestApp({
     dataDir,
@@ -109,6 +117,6 @@ test('benchmarks summary returns 503 when latest return is stale', async () => {
   });
   const response = await request(app).get('/api/benchmarks/summary');
   assert.equal(response.status, 503);
-  assert.deepEqual(response.body, { error: 'STALE_DATA' });
+  assert.deepEqual(response.body, { error: 'STALE_DATA', message: 'Stale data' });
   await closeApp(app);
 });

@@ -16,7 +16,7 @@ import { fetchInbox, dismissInboxItem } from '../utils/api.js';
 const URGENCY_CLASS = {
   HIGH: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200',
   MEDIUM: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200',
-  LOW: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+  LOW: 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-400',
 };
 
 // ── Inbox reducer ─────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ function InboxItemCard({ item, onDismiss, onViewPosition }) {
 
   return (
     <div
-      className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-start sm:gap-4"
+      className="card-base flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:gap-4"
       data-testid="inbox-item"
     >
       {/* Urgency badge */}
@@ -67,13 +67,13 @@ function InboxItemCard({ item, onDismiss, onViewPosition }) {
 
       {/* Main content */}
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-slate-900 dark:text-slate-100">{item.ticker}</p>
-        <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">{item.description}</p>
+        <p className="font-semibold text-surface-900 dark:text-surface-100">{item.ticker}</p>
+        <p className="mt-0.5 text-sm text-surface-600 dark:text-surface-300">{item.description}</p>
         {item.rationale && (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.rationale}</p>
+          <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">{item.rationale}</p>
         )}
         {item.currentValue != null && (
-          <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+          <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">
             {t('inbox.item.valueLabel', { defaultValue: 'Position value' })}
             {': '}
             <span className="font-mono">${item.currentValue}</span>{' '}
@@ -87,7 +87,7 @@ function InboxItemCard({ item, onDismiss, onViewPosition }) {
         <button
           type="button"
           onClick={() => onViewPosition(item.ticker)}
-          className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+          className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-700 dark:bg-brand-950/30 dark:text-brand-300 dark:hover:bg-brand-950/50"
         >
           {t('inbox.item.viewPosition', { defaultValue: 'View position' })}
         </button>
@@ -95,7 +95,7 @@ function InboxItemCard({ item, onDismiss, onViewPosition }) {
           type="button"
           onClick={handleDismiss}
           disabled={dismissing}
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          className="rounded-lg border border-surface-200 bg-white px-3 py-1.5 text-xs font-medium text-surface-600 transition-colors hover:bg-surface-50 disabled:opacity-50 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700"
         >
           {dismissing
             ? t('inbox.item.dismissing', { defaultValue: 'Dismissing…' })
@@ -180,11 +180,11 @@ export default function InboxTab({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+      <section className="card-base p-5">
+        <h2 className="font-heading text-lg font-bold text-surface-900 dark:text-surface-100">
           {t('inbox.title', { defaultValue: 'Action Inbox' })}
         </h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        <p className="mt-1 text-sm text-surface-600 dark:text-surface-400">
           {t('inbox.subtitle', {
             defaultValue: 'Actionable position alerts and milestones, ordered by urgency.',
           })}
@@ -194,7 +194,7 @@ export default function InboxTab({
       {/* Feed */}
       <section aria-label={t('inbox.feed.aria', { defaultValue: 'Inbox feed' })}>
         {state.loading && (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-surface-500 dark:text-surface-400">
             {t('common.loading', { defaultValue: 'Loading…' })}
           </p>
         )}
@@ -203,10 +203,10 @@ export default function InboxTab({
         )}
         {!state.loading && !state.error && state.items.length === 0 && (
           <div
-            className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center dark:border-slate-800 dark:bg-slate-900/40"
+            className="rounded-xl border border-dashed border-surface-300 bg-surface-50/60 px-4 py-6 text-center dark:border-surface-700 dark:bg-surface-900/40"
             data-testid="inbox-empty"
           >
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            <p className="text-sm font-medium text-surface-600 dark:text-surface-400">
               {t('inbox.empty', { defaultValue: 'Portfolio is on track. No alerts.' })}
             </p>
           </div>
@@ -226,18 +226,18 @@ export default function InboxTab({
       </section>
 
       {/* Collapsible "Configure thresholds" panel */}
-      <section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="card-base overflow-hidden">
         <button
           type="button"
           className="flex w-full items-center justify-between px-5 py-4 text-left"
           aria-expanded={configOpen}
           onClick={() => setConfigOpen((v) => !v)}
         >
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <span className="font-heading text-sm font-bold text-surface-700 dark:text-surface-200">
             {t('inbox.configure.title', { defaultValue: 'Configure thresholds' })}
           </span>
           <svg
-            className={`h-4 w-4 text-slate-400 transition-transform dark:text-slate-500 ${configOpen ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-surface-400 transition-transform duration-200 dark:text-surface-500 ${configOpen ? 'rotate-180' : ''}`}
             viewBox="0 0 20 20"
             fill="currentColor"
             aria-hidden="true"
@@ -250,7 +250,7 @@ export default function InboxTab({
           </svg>
         </button>
         {configOpen && (
-          <div className="border-t border-slate-200 p-5 dark:border-slate-800">
+          <div className="border-t border-surface-200 p-5 dark:border-surface-800">
             <SignalTableCard
               holdings={holdings}
               transactions={transactions}

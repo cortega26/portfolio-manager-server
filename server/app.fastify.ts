@@ -5,7 +5,12 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import compress from '@fastify/compress';
-import { serializerCompiler, validatorCompiler, hasZodFastifySchemaValidationErrors, type ZodTypeProvider } from 'fastify-type-provider-zod';
+import {
+  serializerCompiler,
+  validatorCompiler,
+  hasZodFastifySchemaValidationErrors,
+  type ZodTypeProvider,
+} from 'fastify-type-provider-zod';
 import type { FastifyError, FastifyBaseLogger } from 'fastify';
 import type { Logger } from 'pino';
 
@@ -67,8 +72,11 @@ export async function createFastifyApp(options: AppOptions) {
 
   // Initialise (and reset) the module-level price cache with the app's config.
   const priceCacheConfig = config?.cache?.price ?? {};
-  const priceCacheTtl = (priceCacheConfig as unknown as Record<string, unknown>).ttlSeconds as number | undefined;
-  const priceCacheCheckPeriod = (priceCacheConfig as unknown as Record<string, unknown>).checkPeriodSeconds as number | undefined;
+  const priceCacheTtl = (priceCacheConfig as unknown as Record<string, unknown>).ttlSeconds as
+    | number
+    | undefined;
+  const priceCacheCheckPeriod = (priceCacheConfig as unknown as Record<string, unknown>)
+    .checkPeriodSeconds as number | undefined;
   configurePriceCache({
     ...(priceCacheTtl !== undefined ? { ttlSeconds: priceCacheTtl } : {}),
     ...(priceCacheCheckPeriod !== undefined ? { checkPeriodSeconds: priceCacheCheckPeriod } : {}),
@@ -92,7 +100,10 @@ export async function createFastifyApp(options: AppOptions) {
         },
         ...(opts.serializers as Record<string, unknown>),
       };
-      return (parentLogger as { child: (b: unknown, o: unknown) => FastifyBaseLogger }).child(bindings, { ...opts, serializers });
+      return (parentLogger as { child: (b: unknown, o: unknown) => FastifyBaseLogger }).child(
+        bindings,
+        { ...opts, serializers }
+      );
     },
   }).withTypeProvider<ZodTypeProvider>();
 
@@ -100,26 +111,35 @@ export async function createFastifyApp(options: AppOptions) {
   // so we can control message names to match the app's log schema).
   app.addHook('onRequest', (request, _reply, done) => {
     const raw = request.raw;
-    request.log.info({
-      req: { method: raw.method, url: raw.url, headers: raw.headers, remoteAddress: request.ip },
-    }, 'request_received');
+    request.log.info(
+      {
+        req: { method: raw.method, url: raw.url, headers: raw.headers, remoteAddress: request.ip },
+      },
+      'request_received'
+    );
     done();
   });
   app.addHook('onResponse', (request, reply, done) => {
     const raw = request.raw;
-    request.log.info({
-      req: { method: raw.method, url: raw.url, headers: raw.headers, remoteAddress: request.ip },
-      res: { statusCode: reply.statusCode },
-      responseTime: reply.elapsedTime,
-    }, 'request_complete');
+    request.log.info(
+      {
+        req: { method: raw.method, url: raw.url, headers: raw.headers, remoteAddress: request.ip },
+        res: { statusCode: reply.statusCode },
+        responseTime: reply.elapsedTime,
+      },
+      'request_complete'
+    );
     done();
   });
   app.addHook('onError', (request, reply, error, done) => {
-    request.log.error({
-      req: { method: request.raw.method, url: request.raw.url, headers: request.raw.headers },
-      res: { statusCode: reply.statusCode },
-      err: error,
-    }, 'request_error');
+    request.log.error(
+      {
+        req: { method: request.raw.method, url: request.raw.url, headers: request.raw.headers },
+        res: { statusCode: reply.statusCode },
+        err: error,
+      },
+      'request_error'
+    );
     done();
   });
 
@@ -166,7 +186,11 @@ export async function createFastifyApp(options: AppOptions) {
       try {
         const body = JSON.parse(payload) as Record<string, unknown>;
         const rawCode = typeof body.code === 'string' ? body.code : '';
-        if (rawCode === 'VALIDATION_ERROR' && typeof body.message === 'string' && body.message.startsWith('VALIDATION_ERROR:')) {
+        if (
+          rawCode === 'VALIDATION_ERROR' &&
+          typeof body.message === 'string' &&
+          body.message.startsWith('VALIDATION_ERROR:')
+        ) {
           const details = JSON.parse(body.message.slice('VALIDATION_ERROR:'.length)) as unknown[];
           return JSON.stringify({
             error: 'VALIDATION_ERROR',
@@ -215,14 +239,14 @@ export async function createFastifyApp(options: AppOptions) {
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   });
 
-  const sessionToken = config.security.auth?.sessionToken ?? process.env['PORTFOLIO_SESSION_TOKEN'] ?? '';
+  const sessionToken =
+    config.security.auth?.sessionToken ?? process.env['PORTFOLIO_SESSION_TOKEN'] ?? '';
   const headerName = config.security.auth?.headerName ?? 'x-session-token';
 
   await app.register(sessionAuthPlugin, {
     sessionToken,
     headerName,
-    devBypass:
-      process.env['NODE_ENV'] === 'development' && sessionToken.length === 0,
+    devBypass: process.env['NODE_ENV'] === 'development' && sessionToken.length === 0,
     logger: {
       warn: (msg: string, meta?: Record<string, unknown>) => {
         logger.warn({ ...meta }, msg);
@@ -277,21 +301,41 @@ export async function createFastifyApp(options: AppOptions) {
       const resolution = result.resolution as { source?: string } | null | undefined;
       if (resolution?.source === 'historical') {
         const prices = Array.isArray(result.prices) ? result.prices : [];
-        const latest = prices[prices.length - 1] as { date?: string; close?: number; adjClose?: number } | undefined;
+        const latest = prices[prices.length - 1] as
+          | { date?: string; close?: number; adjClose?: number }
+          | undefined;
         const date = typeof latest?.date === 'string' ? latest.date.trim() : '';
-        const close = Number.isFinite(latest?.close) ? (latest?.close as number) : Number.isFinite(latest?.adjClose) ? (latest?.adjClose as number) : NaN;
+        const close = Number.isFinite(latest?.close)
+          ? (latest?.close as number)
+          : Number.isFinite(latest?.adjClose)
+            ? (latest?.adjClose as number)
+            : NaN;
         if (date && Number.isFinite(close) && close > 0) {
           try {
             const storage = await getStorage();
-            await (storage as { ensureTable: (t: string, r: unknown[]) => Promise<void>; upsertRow: (t: string, r: unknown, k: string[]) => Promise<void> }).ensureTable('prices', []);
-            await (storage as { upsertRow: (t: string, r: unknown, k: string[]) => Promise<void> }).upsertRow('prices', {
-              ticker: symbol,
-              date,
-              adj_close: close,
-              updated_at: new Date().toISOString(),
-            }, ['ticker', 'date']);
+            await (
+              storage as {
+                ensureTable: (t: string, r: unknown[]) => Promise<void>;
+                upsertRow: (t: string, r: unknown, k: string[]) => Promise<void>;
+              }
+            ).ensureTable('prices', []);
+            await (
+              storage as { upsertRow: (t: string, r: unknown, k: string[]) => Promise<void> }
+            ).upsertRow(
+              'prices',
+              {
+                ticker: symbol,
+                date,
+                adj_close: close,
+                updated_at: new Date().toISOString(),
+              },
+              ['ticker', 'date']
+            );
           } catch (err) {
-            logger.warn({ error: (err as Error).message, symbol }, 'persist_historical_latest_close_failed');
+            logger.warn(
+              { error: (err as Error).message, symbol },
+              'persist_historical_latest_close_failed'
+            );
           }
         }
       }
@@ -308,7 +352,81 @@ export async function createFastifyApp(options: AppOptions) {
     analyticsCache,
   };
 
+  // ── Error handler ─────────────────────────────────────────────────────────
+  // Must be set BEFORE route plugins so encapsulated child contexts inherit it.
+  // Produces the same format the React frontend expects:
+  // { error: "ERROR_CODE", message: "...", details?: [...] }
+  type AppFastifyError = FastifyError & {
+    statusCode?: number;
+    code?: string;
+    details?: unknown;
+    expose?: boolean;
+  };
+
+  app.setErrorHandler((error: AppFastifyError, _request, reply) => {
+    const statusCode = error.statusCode ?? 500;
+    const details = error.details;
+
+    // Map Fastify internal error codes to app-level codes expected by tests / clients
+    const FASTIFY_CODE_MAP: Record<string, string> = {
+      FST_ERR_CTP_INVALID_JSON: 'INVALID_JSON',
+      FST_ERR_CTP_INVALID_JSON_BODY: 'INVALID_JSON',
+      FST_ERR_CTP_BODY_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+    };
+    const rawCode = error.code ?? (statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST');
+    const code = FASTIFY_CODE_MAP[rawCode] ?? rawCode;
+
+    // Fastify/Zod validation errors
+    if (
+      hasZodFastifySchemaValidationErrors(error) ||
+      error.validation ||
+      error.code === 'FST_ERR_VALIDATION'
+    ) {
+      const validationItems: Array<{ instancePath?: string; message?: string }> =
+        error.validation ?? [];
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Validation failed',
+        details: validationItems.map((v) => ({
+          path: v.instancePath?.split('/').filter(Boolean) ?? [],
+          message: v.message ?? 'Invalid value',
+        })),
+      });
+    }
+
+    if (statusCode >= 500) {
+      app.log.error({ err: error }, 'Internal server error');
+    }
+
+    // Handle schema error formatter output (code: 'VALIDATION_ERROR', message encodes details)
+    if (
+      error.code === 'VALIDATION_ERROR' &&
+      typeof error.message === 'string' &&
+      error.message.startsWith('VALIDATION_ERROR:')
+    ) {
+      const details = JSON.parse(error.message.slice('VALIDATION_ERROR:'.length)) as unknown[];
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Validation failed',
+        details,
+      });
+    }
+
+    const expose = statusCode < 500 || error.expose === true;
+    const message = expose
+      ? (error.message ?? 'Request could not be processed')
+      : 'Unexpected server error';
+
+    return reply.code(statusCode).send({
+      error: code,
+      message,
+      ...(details !== undefined ? { details } : {}),
+    });
+  });
+
   // ── Routes ────────────────────────────────────────────────────────────────
+  // Register under both /api and /api/v1 for backward compatibility.
+  // The frontend API client and Electron smoke probe use /api/v1/ paths.
   for (const prefix of ['/api', '/api/v1'] as const) {
     await app.register(benchmarksRoutes, { prefix, ...routeContext });
     await app.register(cacheRoutes, { prefix, ...routeContext });
@@ -333,56 +451,6 @@ export async function createFastifyApp(options: AppOptions) {
     await app.register(spaFallback, { staticDir: options.staticDir });
   }
 
-  // ── Error handler ─────────────────────────────────────────────────────────
-  // Produces the same format the React frontend expects:
-  // { error: "ERROR_CODE", message: "...", details?: [...] }
-  type AppFastifyError = FastifyError & {
-    statusCode?: number;
-    code?: string;
-    details?: unknown;
-    expose?: boolean;
-  };
-
-  app.setErrorHandler((error: AppFastifyError, _request, reply) => {
-    const statusCode = error.statusCode ?? 500;
-    const details = error.details;
-
-    // Map Fastify internal error codes to app-level codes expected by tests / clients
-    const FASTIFY_CODE_MAP: Record<string, string> = {
-      FST_ERR_CTP_INVALID_JSON: 'INVALID_JSON',
-      FST_ERR_CTP_INVALID_JSON_BODY: 'INVALID_JSON',
-      FST_ERR_CTP_BODY_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
-    };
-    const rawCode = error.code ?? (statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST');
-    const code = FASTIFY_CODE_MAP[rawCode] ?? rawCode;
-
-    // Fastify/Zod validation errors
-    if (hasZodFastifySchemaValidationErrors(error) || error.validation || error.code === 'FST_ERR_VALIDATION') {
-      const validationItems: Array<{ instancePath?: string; message?: string }> = error.validation ?? [];
-      return reply.code(400).send({
-        error: 'VALIDATION_ERROR',
-        message: 'Validation failed',
-        details: validationItems.map((v) => ({
-          path: v.instancePath?.split('/').filter(Boolean) ?? [],
-          message: v.message ?? 'Invalid value',
-        })),
-      });
-    }
-
-    if (statusCode >= 500) {
-      app.log.error({ err: error }, 'Internal server error');
-    }
-
-    const expose = statusCode < 500 || error.expose === true;
-    const message = expose ? (error.message ?? 'Request could not be processed') : 'Unexpected server error';
-
-    return reply.code(statusCode).send({
-      error: code,
-      message,
-      ...(details !== undefined ? { details } : {}),
-    });
-  });
-
   return app;
 }
 
@@ -390,7 +458,7 @@ export async function createFastifyApp(options: AppOptions) {
  * Graceful shutdown: drain in-flight requests and close SQLite before exit.
  */
 export async function closeGracefully(
-  app: Awaited<ReturnType<typeof createFastifyApp>>,
+  app: Awaited<ReturnType<typeof createFastifyApp>>
 ): Promise<void> {
   await app.close();
 }

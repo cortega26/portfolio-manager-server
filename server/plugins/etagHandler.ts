@@ -10,7 +10,7 @@ declare module 'fastify' {
       request: FastifyRequest,
       reply: FastifyReply,
       payload: unknown,
-      ttlSeconds?: number,
+      ttlSeconds?: number
     ) => Promise<void>;
   }
 }
@@ -29,9 +29,10 @@ const etagPlugin: FastifyPluginAsync = async (app) => {
       const etag = `"${createHash('sha256').update(body).digest('hex').slice(0, 16)}"`;
 
       reply.header('ETag', etag);
-      const cacheControl = ttlSeconds != null && ttlSeconds > 0
-        ? `private, max-age=${ttlSeconds}`
-        : 'private, no-cache';
+      const cacheControl =
+        ttlSeconds != null && ttlSeconds > 0
+          ? `private, max-age=${ttlSeconds}`
+          : 'private, no-cache';
       reply.header('Cache-Control', cacheControl);
 
       if (request.headers['if-none-match'] === etag) {
@@ -56,7 +57,7 @@ const etagPlugin: FastifyPluginAsync = async (app) => {
       } else {
         reply.code(200).type('application/json').send(body);
       }
-    },
+    }
   );
 };
 

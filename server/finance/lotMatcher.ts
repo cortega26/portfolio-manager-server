@@ -27,8 +27,8 @@ export interface LotTransaction {
 export interface OpenLot {
   ticker: string;
   buyDate: string;
-  buyPrice: string;   // Decimal serialised as string
-  shares: string;     // remaining unmatched shares, Decimal serialised as string
+  buyPrice: string; // Decimal serialised as string
+  shares: string; // remaining unmatched shares, Decimal serialised as string
   uid?: string;
 }
 
@@ -37,12 +37,12 @@ export interface ClosedLot {
   ticker: string;
   buyDate: string;
   sellDate: string;
-  buyPrice: string;    // per share, Decimal serialised as string
-  sellPrice: string;   // per share, Decimal serialised as string
-  shares: string;      // shares consumed in this match
-  costBasis: string;   // shares × buyPrice
-  proceeds: string;    // shares × sellPrice
-  gainLoss: string;    // proceeds − costBasis
+  buyPrice: string; // per share, Decimal serialised as string
+  sellPrice: string; // per share, Decimal serialised as string
+  shares: string; // shares consumed in this match
+  costBasis: string; // shares × buyPrice
+  proceeds: string; // shares × sellPrice
+  gainLoss: string; // proceeds − costBasis
   holdingDays: number;
 }
 
@@ -81,7 +81,10 @@ function serializeDecimal(dec: Decimal): string {
  */
 export function matchLots(transactions: LotTransaction[]): LotMatchResult {
   // Per-ticker queue of open lots (front = oldest = consumed first under FIFO).
-  const queues = new Map<string, Array<{ buyDate: string; buyPrice: Decimal; shares: Decimal; uid?: string }>>();
+  const queues = new Map<
+    string,
+    Array<{ buyDate: string; buyPrice: Decimal; shares: Decimal; uid?: string }>
+  >();
 
   const closedLots: ClosedLot[] = [];
 
@@ -120,7 +123,7 @@ export function matchLots(transactions: LotTransaction[]): LotMatchResult {
       while (remaining.gt(0)) {
         if (queue.length === 0) {
           throw new Error(
-            `LotMatcher: SELL of ${remaining.toFixed()} shares of ${ticker} on ${tx.date} exceeds available open lots.`,
+            `LotMatcher: SELL of ${remaining.toFixed()} shares of ${ticker} on ${tx.date} exceeds available open lots.`
           );
         }
 

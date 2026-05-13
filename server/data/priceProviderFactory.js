@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+import fetch from 'node-fetch';
 
 import {
   AlpacaHistoricalProvider,
@@ -9,14 +9,24 @@ import {
   TwelveDataQuoteProvider,
   YahooPriceProvider,
   StooqPriceProvider,
-} from "./prices.js";
+} from './prices.js';
 
-export const PRICE_PROVIDER_NAMES = Object.freeze(["yahoo", "stooq", "alpaca", "alphavantage", "none"]);
-export const LATEST_QUOTE_PROVIDER_NAMES = Object.freeze(["alpaca", "twelvedata", "finnhub", "none"]);
+export const PRICE_PROVIDER_NAMES = Object.freeze([
+  'yahoo',
+  'stooq',
+  'alpaca',
+  'alphavantage',
+  'none',
+]);
+export const LATEST_QUOTE_PROVIDER_NAMES = Object.freeze([
+  'alpaca',
+  'twelvedata',
+  'finnhub',
+  'none',
+]);
 
-export function normalizePriceProviderName(value, fallback = "none") {
-  const normalized =
-    typeof value === "string" ? value.trim().toLowerCase() : "";
+export function normalizePriceProviderName(value, fallback = 'none') {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (PRICE_PROVIDER_NAMES.includes(normalized)) {
     return normalized;
   }
@@ -29,9 +39,9 @@ class HealthCheckedPriceProvider {
     this.healthMonitor = healthMonitor;
     this.logger = logger;
     this.providerKey =
-      typeof provider?.providerKey === "string"
+      typeof provider?.providerKey === 'string'
         ? provider.providerKey
-        : String(provider?.constructor?.name ?? "provider").toLowerCase();
+        : String(provider?.constructor?.name ?? 'provider').toLowerCase();
   }
 
   async getDailyAdjustedClose(symbol, from, to) {
@@ -40,10 +50,10 @@ class HealthCheckedPriceProvider {
         symbol,
         from,
         to,
-        kind: "historical",
+        kind: 'historical',
       });
       const error = new Error(`Provider ${this.providerKey} is temporarily unhealthy`);
-      error.code = "PRICE_PROVIDER_UNHEALTHY";
+      error.code = 'PRICE_PROVIDER_UNHEALTHY';
       error.status = 503;
       throw error;
     }
@@ -63,19 +73,19 @@ class HealthCheckedLatestQuoteProvider {
     this.provider = provider;
     this.healthMonitor = healthMonitor;
     this.providerKey =
-      typeof provider?.providerKey === "string"
+      typeof provider?.providerKey === 'string'
         ? provider.providerKey
-        : String(provider?.constructor?.name ?? "provider").toLowerCase();
+        : String(provider?.constructor?.name ?? 'provider').toLowerCase();
   }
 
   async getLatestQuote(symbol) {
     if (this.healthMonitor && !this.healthMonitor.isHealthy(this.providerKey)) {
       this.healthMonitor.logSkip(this.providerKey, {
         symbol,
-        kind: "latest",
+        kind: 'latest',
       });
       const error = new Error(`Provider ${this.providerKey} is temporarily unhealthy`);
-      error.code = "PRICE_PROVIDER_UNHEALTHY";
+      error.code = 'PRICE_PROVIDER_UNHEALTHY';
       error.status = 503;
       throw error;
     }
@@ -90,9 +100,8 @@ class HealthCheckedLatestQuoteProvider {
   }
 }
 
-export function normalizeLatestQuoteProviderName(value, fallback = "none") {
-  const normalized =
-    typeof value === "string" ? value.trim().toLowerCase() : "";
+export function normalizeLatestQuoteProviderName(value, fallback = 'none') {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (LATEST_QUOTE_PROVIDER_NAMES.includes(normalized)) {
     return normalized;
   }
@@ -109,15 +118,15 @@ const HISTORICAL_PROVIDER_FACTORIES = {
       fetchImpl,
       timeoutMs,
       logger,
-      apiKey: String(providersConfig.alpacaApiKey ?? ""),
-      apiSecret: String(providersConfig.alpacaApiSecret ?? ""),
+      apiKey: String(providersConfig.alpacaApiKey ?? ''),
+      apiSecret: String(providersConfig.alpacaApiSecret ?? ''),
     }),
   alphavantage: ({ fetchImpl, timeoutMs, logger, providersConfig = {} }) =>
     new AlphaVantageHistoricalProvider({
       fetchImpl,
       timeoutMs,
       logger,
-      apiKey: String(providersConfig.alphavantageApiKey ?? ""),
+      apiKey: String(providersConfig.alphavantageApiKey ?? ''),
     }),
 };
 
@@ -134,16 +143,20 @@ export function createConfiguredPriceProvider({
   healthMonitor = null,
 } = {}) {
   const providersConfig = config?.prices?.providers ?? {};
-  const primaryName = normalizePriceProviderName(
-    providersConfig.primary,
-    "stooq",
-  );
-  const fallbackName = normalizePriceProviderName(
-    providersConfig.fallback,
-    "yahoo",
-  );
-  const primary = createNamedProvider(primaryName, { fetchImpl, timeoutMs, logger, providersConfig });
-  const fallback = createNamedProvider(fallbackName, { fetchImpl, timeoutMs, logger, providersConfig });
+  const primaryName = normalizePriceProviderName(providersConfig.primary, 'stooq');
+  const fallbackName = normalizePriceProviderName(providersConfig.fallback, 'yahoo');
+  const primary = createNamedProvider(primaryName, {
+    fetchImpl,
+    timeoutMs,
+    logger,
+    providersConfig,
+  });
+  const fallback = createNamedProvider(fallbackName, {
+    fetchImpl,
+    timeoutMs,
+    logger,
+    providersConfig,
+  });
 
   if (primary && fallback) {
     return new DualPriceProvider({ primary, fallback, logger, healthMonitor });
@@ -154,16 +167,18 @@ export function createConfiguredPriceProvider({
   if (fallback) {
     return new HealthCheckedPriceProvider({ provider: fallback, healthMonitor, logger });
   }
-  throw new Error("No price providers configured");
+  throw new Error('No price providers configured');
 }
 
 function buildAlpacaLatestProvider({ fetchImpl, timeoutMs, logger, apiKey, apiSecret }) {
   if (!apiKey || !apiSecret) {
     const reason =
-      !apiKey && !apiSecret ? "missing_api_key_and_secret"
-        : !apiKey ? "missing_api_key"
-          : "missing_api_secret";
-    logger?.warn?.("latest_quote_provider_disabled", { provider: "alpaca", reason });
+      !apiKey && !apiSecret
+        ? 'missing_api_key_and_secret'
+        : !apiKey
+          ? 'missing_api_key'
+          : 'missing_api_secret';
+    logger?.warn?.('latest_quote_provider_disabled', { provider: 'alpaca', reason });
     return null;
   }
   return new AlpacaLatestQuoteProvider({ fetchImpl, timeoutMs, logger, apiKey, apiSecret });
@@ -171,7 +186,10 @@ function buildAlpacaLatestProvider({ fetchImpl, timeoutMs, logger, apiKey, apiSe
 
 function buildFinnhubLatestProvider({ fetchImpl, timeoutMs, logger, apiKey }) {
   if (!apiKey) {
-    logger?.warn?.("latest_quote_provider_disabled", { provider: "finnhub", reason: "missing_api_key" });
+    logger?.warn?.('latest_quote_provider_disabled', {
+      provider: 'finnhub',
+      reason: 'missing_api_key',
+    });
     return null;
   }
   return new FinnhubLatestQuoteProvider({ fetchImpl, timeoutMs, logger, apiKey });
@@ -179,7 +197,10 @@ function buildFinnhubLatestProvider({ fetchImpl, timeoutMs, logger, apiKey }) {
 
 function buildTwelveDataProvider({ fetchImpl, timeoutMs, logger, apiKey, prepost }) {
   if (!apiKey) {
-    logger?.warn?.("latest_quote_provider_disabled", { provider: "twelvedata", reason: "missing_api_key" });
+    logger?.warn?.('latest_quote_provider_disabled', {
+      provider: 'twelvedata',
+      reason: 'missing_api_key',
+    });
     return null;
   }
   return new TwelveDataQuoteProvider({ fetchImpl, timeoutMs, logger, apiKey, prepost });
@@ -192,25 +213,20 @@ export function createConfiguredLatestQuoteProvider({
   logger,
   healthMonitor = null,
 } = {}) {
-  const providerName = normalizeLatestQuoteProviderName(
-    config?.prices?.latest?.provider,
-    "none",
-  );
+  const providerName = normalizeLatestQuoteProviderName(config?.prices?.latest?.provider, 'none');
   const apiKey =
-    typeof config?.prices?.latest?.apiKey === "string"
-      ? config.prices.latest.apiKey.trim()
-      : "";
+    typeof config?.prices?.latest?.apiKey === 'string' ? config.prices.latest.apiKey.trim() : '';
   const apiSecret =
-    typeof config?.prices?.latest?.apiSecret === "string"
+    typeof config?.prices?.latest?.apiSecret === 'string'
       ? config.prices.latest.apiSecret.trim()
-      : "";
+      : '';
 
   let innerProvider = null;
-  if (providerName === "alpaca") {
+  if (providerName === 'alpaca') {
     innerProvider = buildAlpacaLatestProvider({ fetchImpl, timeoutMs, logger, apiKey, apiSecret });
-  } else if (providerName === "finnhub") {
+  } else if (providerName === 'finnhub') {
     innerProvider = buildFinnhubLatestProvider({ fetchImpl, timeoutMs, logger, apiKey });
-  } else if (providerName === "twelvedata") {
+  } else if (providerName === 'twelvedata') {
     const prepost = config?.prices?.latest?.prepost !== false;
     innerProvider = buildTwelveDataProvider({ fetchImpl, timeoutMs, logger, apiKey, prepost });
   }

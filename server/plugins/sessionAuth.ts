@@ -30,21 +30,21 @@ const sessionAuthPlugin: FastifyPluginAsync<SessionAuthOptions> = async (app, op
 
     if (!incoming || typeof incoming !== 'string') {
       // Match Express error code for missing token
-      return reply.code(401).send({ error: 'NO_SESSION_TOKEN', message: 'Session token required.' });
+      return reply
+        .code(401)
+        .send({ error: 'NO_SESSION_TOKEN', message: 'Session token required.' });
     }
 
     // Hash both sides with SHA256 to ensure equal-length buffers for timingSafeEqual.
     // This prevents length-based timing side-channels.
-    const expectedBuf = Buffer.from(
-      createHash('sha256').update(opts.sessionToken).digest('hex'),
-    );
-    const incomingBuf = Buffer.from(
-      createHash('sha256').update(incoming).digest('hex'),
-    );
+    const expectedBuf = Buffer.from(createHash('sha256').update(opts.sessionToken).digest('hex'));
+    const incomingBuf = Buffer.from(createHash('sha256').update(incoming).digest('hex'));
 
     if (expectedBuf.length !== incomingBuf.length || !timingSafeEqual(expectedBuf, incomingBuf)) {
       // Match Express error code and status for invalid token
-      return reply.code(403).send({ error: 'INVALID_SESSION_TOKEN', message: 'Invalid session token.' });
+      return reply
+        .code(403)
+        .send({ error: 'INVALID_SESSION_TOKEN', message: 'Invalid session token.' });
     }
   });
 };

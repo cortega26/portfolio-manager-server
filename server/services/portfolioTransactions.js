@@ -90,8 +90,7 @@ export function ensureTransactionUids(transactions, portfolioId, logger) {
       }
     }
 
-    let seq =
-      Number.isInteger(numericSeq) && numericSeq >= 0 ? numericSeq : seqCursor + 1;
+    let seq = Number.isInteger(numericSeq) && numericSeq >= 0 ? numericSeq : seqCursor + 1;
     if (seq <= seqCursor) {
       seq = seqCursor + 1;
     }
@@ -250,8 +249,8 @@ export function enforceOversellPolicy(transactions, { portfolioId, autoClip, log
           ? tx.quantity
           : Number.isFinite(tx.shares)
             ? -Math.abs(tx.shares)
-            : 0,
-      ),
+            : 0
+      )
     );
     if (requestedMicro === 0) continue;
 
@@ -312,8 +311,7 @@ export function enforceOversellPolicy(transactions, { portfolioId, autoClip, log
     tx.shares = clippedShares;
     tx.amount = adjustedAmount;
 
-    const metadata =
-      tx.metadata && typeof tx.metadata === 'object' ? { ...tx.metadata } : {};
+    const metadata = tx.metadata && typeof tx.metadata === 'object' ? { ...tx.metadata } : {};
     const systemMeta =
       metadata.system && typeof metadata.system === 'object' ? { ...metadata.system } : {};
     systemMeta.oversell_clipped = {

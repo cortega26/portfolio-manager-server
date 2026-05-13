@@ -6,6 +6,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import type { FastifyPluginOptions, FastifyRequest, FastifyReply } from 'fastify';
 import type { ServerConfig } from '../types/config.js';
 import type { StorageAdapter } from './portfolio.js';
+import { AppError, NotFoundError } from '../types/errors.js';
 import type { HistoricalPriceLoader } from './prices.js';
 import type { ReturnRow } from '../finance/returns.js';
 
@@ -13,7 +14,13 @@ import createPerformanceHistoryService from '../services/performanceHistory.js';
 import { buildUnknownTrust } from '../../shared/trustUtils.js';
 import { summarizeReturns } from '../finance/returns.js';
 import { computeMaxDrawdown } from '../finance/returns.js';
-import { computeMoneyWeightedReturn, computeMatchedBenchmarkMoneyWeightedReturn } from '../finance/returns.js';
+import {
+  computeMoneyWeightedReturn,
+  computeMatchedBenchmarkMoneyWeightedReturn,
+  computeSharpeRatio,
+  computeCurrentDrawdown,
+  computeRollingWindowReturns,
+} from '../finance/returns.js';
 import { weightsFromState } from '../finance/portfolio.js';
 import { toDateKey } from '../finance/cash.js';
 import { roundDecimal } from '../finance/decimal.js';
@@ -68,8 +75,8 @@ const returnsQuerySchema = z.object({
           value
             .split(',')
             .map((item) => item.trim().toLowerCase())
-            .filter(Boolean),
-        ),
+            .filter(Boolean)
+        )
       );
     }),
   page: z.coerce.number().int().min(1).default(1),
@@ -151,12 +158,9 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
     config,
   } as Parameters<typeof createPerformanceHistoryService>[0]);
 
-  async function ensureCashFeature(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  async function ensureCashFeature(_request: FastifyRequest, _reply: FastifyReply): Promise<void> {
     if (!cashBenchmarksEnabled) {
-      await reply.code(404).send({
-        error: 'CASH_BENCHMARKS_DISABLED',
-        message: 'Cash benchmarks feature is disabled.',
-      });
+      throw new NotFoundError('Cash benchmarks feature is disabled.', 'CASH_BENCHMARKS_DISABLED');
     }
   }
 
@@ -193,20 +197,32 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
 
       const cached = analyticsCache?.get(cacheKey);
       if (cached !== undefined) {
-        return app.sendWithEtag(request, reply, cached, cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined);
+        return app.sendWithEtag(
+          request,
+          reply,
+          cached,
+          cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+        );
       }
 
       let storage = await getStorage();
       let rows = filterRowsByRange(
         filterRowsByPortfolioScope(await storage.readTable('returns_daily'), portfolioId),
         from ?? null,
-        to ?? null,
+        to ?? null
       );
 
       const needsRepair =
         rows.length === 0 ||
-        (typeof from === 'string' && from.trim().length > 0 && (!rows[0]?.['date'] || (rows[0]['date'] as string) > from)) ||
-        (typeof to === 'string' && to.trim().length > 0 && (() => { const last = rows[rows.length - 1]; return !last?.['date'] || (last['date'] as string) < to; })());
+        (typeof from === 'string' &&
+          from.trim().length > 0 &&
+          (!rows[0]?.['date'] || (rows[0]['date'] as string) > from)) ||
+        (typeof to === 'string' &&
+          to.trim().length > 0 &&
+          (() => {
+            const last = rows[rows.length - 1];
+            return !last?.['date'] || (last['date'] as string) < to;
+          })());
 
       if (needsRepair) {
         try {
@@ -215,14 +231,17 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
           rows = filterRowsByRange(
             filterRowsByPortfolioScope(await storage.readTable('returns_daily'), portfolioId),
             from ?? null,
-            to ?? null,
+            to ?? null
           );
         } catch (repairError) {
-          app.log.error({ error: (repairError as Error).message, from, to }, 'historical_performance_repair_failed');
-          return reply.code(503).send({
-            error: 'RETURNS_REPAIR_FAILED',
-            message: 'Historical returns could not be rebuilt from local transactions and prices.',
-          });
+          app.log.error(
+            { error: (repairError as Error).message, from, to },
+            'historical_performance_repair_failed'
+          );
+          throw new AppError(
+            'Historical returns could not be rebuilt from local transactions and prices.',
+            { statusCode: 503, code: 'RETURNS_REPAIR_FAILED' }
+          );
         }
       }
 
@@ -235,7 +254,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       };
 
       const series: Record<string, unknown> = {};
-      for (const view of (views ?? [])) {
+      for (const view of views ?? []) {
         const key = viewMapping[view];
         if (!key) continue;
         series[key] = items.map((row) => ({ date: row['date'], value: row[key] }));
@@ -248,8 +267,13 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
 
       const payload = { series, meta };
       analyticsCache?.set(cacheKey, payload);
-      return app.sendWithEtag(request, reply, payload, cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined);
-    },
+      return app.sendWithEtag(
+        request,
+        reply,
+        payload,
+        cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+      );
+    }
   );
 
   // ── GET /nav/daily ────────────────────────────────────────────────────────
@@ -276,7 +300,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       let rows = filterRowsByRange(
         filterRowsByPortfolioScope(await storage.readTable('nav_snapshots'), portfolioId),
         from ?? null,
-        to ?? null,
+        to ?? null
       );
 
       if (rows.length === 0) {
@@ -285,7 +309,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         rows = filterRowsByRange(
           filterRowsByPortfolioScope(await storage.readTable('nav_snapshots'), portfolioId),
           from ?? null,
-          to ?? null,
+          to ?? null
         );
       }
 
@@ -309,7 +333,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
 
       const payload = { data, meta };
       return app.sendWithEtag(request, reply, payload);
-    },
+    }
   );
 
   // ── GET /roi/daily ────────────────────────────────────────────────────────
@@ -334,12 +358,12 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         return app.sendWithEtag(request, reply, { ...payload, trust: buildUnknownTrust() });
       } catch (repairError) {
         app.log.error({ error: (repairError as Error).message, from, to }, 'roi_rebuild_failed');
-        return reply.code(503).send({
-          error: 'RETURNS_REPAIR_FAILED',
-          message: 'Historical returns could not be rebuilt from local transactions and prices.',
-        });
+        throw new AppError(
+          'Historical returns could not be rebuilt from local transactions and prices.',
+          { statusCode: 503, code: 'RETURNS_REPAIR_FAILED' }
+        );
       }
-    },
+    }
   );
 
   // ── GET /benchmarks/summary ───────────────────────────────────────────────
@@ -371,7 +395,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       let filteredRows = filterRowsByRange(
         filterRowsByPortfolioScope(returnsTable, portfolioId),
         from ?? null,
-        to ?? null,
+        to ?? null
       );
 
       if (filteredRows.length === 0) {
@@ -386,7 +410,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         filteredRows = filterRowsByRange(
           filterRowsByPortfolioScope(returnsTable, portfolioId),
           from ?? null,
-          to ?? null,
+          to ?? null
         );
       }
 
@@ -398,12 +422,13 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       let referenceKey = to ? (toDateKey(to) as string) : todayKey;
       if (referenceKey > todayKey) referenceKey = todayKey;
 
-      const latestDate = rows.length > 0 ? (rows[rows.length - 1]?.['date'] as string | undefined ?? null) : null;
+      const latestDate =
+        rows.length > 0 ? ((rows[rows.length - 1]?.['date'] as string | undefined) ?? null) : null;
       const referenceDate = new Date(`${referenceKey}T00:00:00Z`);
       const tradingDayAge = computeTradingDayAge(latestDate, referenceDate);
 
       if (!latestDate || tradingDayAge > maxStaleTradingDays) {
-        return reply.code(503).send({ error: 'STALE_DATA' });
+        throw new AppError('Stale data', { statusCode: 503, code: 'STALE_DATA', expose: true });
       }
 
       const returnRows = rows as unknown as ReturnRow[];
@@ -424,8 +449,12 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         const scopedNavRows = filterRowsByPortfolioScope(navRows, portfolioId);
 
         const xirr = computeMoneyWeightedReturn({
-          transactions: (scopedTransactions as unknown) as NonNullable<Parameters<typeof computeMoneyWeightedReturn>[0]['transactions']>,
-          navRows: (scopedNavRows as unknown) as Parameters<typeof computeMoneyWeightedReturn>[0]['navRows'],
+          transactions: scopedTransactions as unknown as NonNullable<
+            Parameters<typeof computeMoneyWeightedReturn>[0]['transactions']
+          >,
+          navRows: scopedNavRows as unknown as Parameters<
+            typeof computeMoneyWeightedReturn
+          >[0]['navRows'],
           startDate: startKey,
           endDate: endKey,
         });
@@ -435,7 +464,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         const elapsedDays = Math.round(
           (new Date(`${endKey}T00:00:00Z`).getTime() -
             new Date(`${startKey}T00:00:00Z`).getTime()) /
-            86_400_000,
+            86_400_000
         );
         moneyWeightedPartial = elapsedDays < 365;
 
@@ -446,16 +475,22 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
               to: endKey,
             });
             const benchmarkMwr = computeMatchedBenchmarkMoneyWeightedReturn({
-              benchmarkPrices: (benchmarkPriceMap as unknown) as Parameters<typeof computeMatchedBenchmarkMoneyWeightedReturn>[0]['benchmarkPrices'],
-              transactions: (scopedTransactions as unknown) as NonNullable<Parameters<typeof computeMatchedBenchmarkMoneyWeightedReturn>[0]['transactions']>,
-              navRows: (scopedNavRows as unknown) as Parameters<typeof computeMatchedBenchmarkMoneyWeightedReturn>[0]['navRows'],
+              benchmarkPrices: benchmarkPriceMap as unknown as Parameters<
+                typeof computeMatchedBenchmarkMoneyWeightedReturn
+              >[0]['benchmarkPrices'],
+              transactions: scopedTransactions as unknown as NonNullable<
+                Parameters<typeof computeMatchedBenchmarkMoneyWeightedReturn>[0]['transactions']
+              >,
+              navRows: scopedNavRows as unknown as Parameters<
+                typeof computeMatchedBenchmarkMoneyWeightedReturn
+              >[0]['navRows'],
               startDate: startKey,
               endDate: endKey,
             });
             acc[benchmark.key] = benchmarkMwr ? roundDecimal(benchmarkMwr, 8).toNumber() : null;
             return acc;
           },
-          { spy: null, qqq: null } as Record<string, number | null>,
+          { spy: null, qqq: null } as Record<string, number | null>
         );
       }
 
@@ -471,9 +506,16 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       const dragVsSelf = Number((summary.r_ex_cash - summary.r_port).toFixed(6));
       const allocationDrag = Number((summary.r_spy_100 - summary.r_bench_blended).toFixed(6));
 
+      const sharpeRatio = computeSharpeRatio(returnRows);
+      const currentDrawdown = computeCurrentDrawdown(returnRows);
+      const rollingReturns = computeRollingWindowReturns(returnRows);
+
       const payload = {
         summary,
         max_drawdown: maxDrawdown,
+        sharpe_ratio: sharpeRatio,
+        current_drawdown: currentDrawdown,
+        rolling_returns: rollingReturns,
         drag: { vs_self: dragVsSelf, allocation: allocationDrag },
         money_weighted: {
           portfolio: moneyWeighted,
@@ -486,7 +528,7 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       };
 
       return app.sendWithEtag(request, reply, payload);
-    },
+    }
   );
 
   // ── POST /admin/cash-rate ─────────────────────────────────────────────────
@@ -504,9 +546,11 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
     async (request) => {
       const { effective_date: effectiveDate, apy } = request.body;
       const storage = await getStorage();
-      await storage.upsertRow('cash_rates', { effective_date: effectiveDate, apy }, ['effective_date']);
+      await storage.upsertRow('cash_rates', { effective_date: effectiveDate, apy }, [
+        'effective_date',
+      ]);
       return { status: 'ok' as const };
-    },
+    }
   );
 };
 

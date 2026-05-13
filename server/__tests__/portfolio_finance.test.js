@@ -40,9 +40,7 @@ test('externalFlowsByDate accumulates flows without precision drift', () => {
 
 test('computeDailyStates valuations remain stable across long ledgers', () => {
   const baseDate = new Date('2024-01-01T00:00:00Z');
-  const transactions = [
-    { date: toDateKey(baseDate), type: 'DEPOSIT', amount: 10000 },
-  ];
+  const transactions = [{ date: toDateKey(baseDate), type: 'DEPOSIT', amount: 10000 }];
   const tickers = ['SPY', 'QQQ', 'IWM'];
   for (let i = 1; i <= 120; i += 1) {
     const date = toDateKey(new Date(baseDate.getTime() + i * 86_400_000));
@@ -56,9 +54,7 @@ test('computeDailyStates valuations remain stable across long ledgers', () => {
     });
   }
 
-  const dates = transactions
-    .map((tx) => tx.date)
-    .sort((a, b) => a.localeCompare(b));
+  const dates = transactions.map((tx) => tx.date).sort((a, b) => a.localeCompare(b));
   const uniqueDates = Array.from(new Set(dates));
   const pricesByDate = new Map();
   for (const date of uniqueDates) {

@@ -5,24 +5,33 @@ import fc from 'fast-check';
 
 import { computeDailyReturnRows, summarizeReturns } from '../finance/returns.js';
 import { externalFlowsByDate } from '../finance/portfolio.js';
-import { planArb, buildScenario, computeSpyReturns, scaleScenario } from './returns.property.shared.js';
+import {
+  planArb,
+  buildScenario,
+  computeSpyReturns,
+  scaleScenario,
+} from './returns.property.shared.js';
 
 test('summaries remain invariant when states are scaled', async () => {
   await fc.assert(
-    fc.asyncProperty(planArb, fc.double({ min: 0.25, max: 5, noNaN: true }), async (plan, factor) => {
-      const scenario = buildScenario(plan);
-      const rows = computeDailyReturnRows(scenario);
-      const scaled = scaleScenario(scenario, factor);
-      const scaledRows = computeDailyReturnRows(scaled);
-      assert.equal(rows.length, scaledRows.length);
-      for (let i = 0; i < rows.length; i += 1) {
-        const keys = ['r_port', 'r_ex_cash', 'r_bench_blended', 'r_spy_100', 'r_cash'];
-        for (const key of keys) {
-          const delta = Math.abs(rows[i][key] - scaledRows[i][key]);
-          assert.ok(delta <= 2e-4, `Expected ${key} to remain invariant, delta=${delta}`);
+    fc.asyncProperty(
+      planArb,
+      fc.double({ min: 0.25, max: 5, noNaN: true }),
+      async (plan, factor) => {
+        const scenario = buildScenario(plan);
+        const rows = computeDailyReturnRows(scenario);
+        const scaled = scaleScenario(scenario, factor);
+        const scaledRows = computeDailyReturnRows(scaled);
+        assert.equal(rows.length, scaledRows.length);
+        for (let i = 0; i < rows.length; i += 1) {
+          const keys = ['r_port', 'r_ex_cash', 'r_bench_blended', 'r_spy_100', 'r_cash'];
+          for (const key of keys) {
+            const delta = Math.abs(rows[i][key] - scaledRows[i][key]);
+            assert.ok(delta <= 2e-4, `Expected ${key} to remain invariant, delta=${delta}`);
+          }
         }
       }
-    }),
+    )
   );
 });
 
@@ -54,7 +63,7 @@ test('benchmarked returns align with blended weights under random flows', async 
           assert.ok(Math.abs(computed - implied) < tolerance);
         }
       }
-    }),
+    })
   );
 });
 
@@ -78,15 +87,13 @@ test('summaries multiply daily returns without drift', async () => {
           r_bench_blended: 1,
           r_spy_100: 1,
           r_cash: 1,
-        },
+        }
       );
       assert.ok(Math.abs(summary.r_port - (cumulative.r_port - 1)) < 1e-6);
       assert.ok(Math.abs(summary.r_ex_cash - (cumulative.r_ex_cash - 1)) < 1e-6);
-      assert.ok(
-        Math.abs(summary.r_bench_blended - (cumulative.r_bench_blended - 1)) < 1e-6,
-      );
+      assert.ok(Math.abs(summary.r_bench_blended - (cumulative.r_bench_blended - 1)) < 1e-6);
       assert.ok(Math.abs(summary.r_spy_100 - (cumulative.r_spy_100 - 1)) < 1e-6);
       assert.ok(Math.abs(summary.r_cash - (cumulative.r_cash - 1)) < 1e-6);
-    }),
+    })
   );
 });

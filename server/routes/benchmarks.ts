@@ -46,7 +46,7 @@ const benchmarksRoutes: FastifyPluginAsyncZod<BenchmarksRouteContext> = async (a
         defaults: defaultSelection,
         priceSymbols,
       };
-    },
+    }
   );
 };
 

@@ -18,6 +18,7 @@ import type { FastifyPluginOptions } from 'fastify';
 import { portfolioIdSchema } from './_schemas.js';
 import { readPortfolioState } from '../data/portfolioState.js';
 import { asHistoricalPricePoint, resolveHistoricalClose } from './_helpers.js';
+import { NotFoundError } from '../types/errors.js';
 import type { StorageAdapter } from './portfolio.js';
 import type { HistoricalPriceLoader } from './prices.js';
 import { computeTradingDayAge } from '../utils/calendar.js';
@@ -90,11 +91,11 @@ function deriveTrust(snapshots: Map<string, PriceSnapshot>, openTickerCount: num
 
   const datedSnapshots = entries.filter(
     (s): s is PriceSnapshot & { asOf: string; tradingDayAge: number } =>
-      typeof s.asOf === 'string' && Number.isFinite(s.tradingDayAge),
+      typeof s.asOf === 'string' && Number.isFinite(s.tradingDayAge)
   );
 
   const oldest = datedSnapshots.reduce((worst, current) =>
-    current.tradingDayAge > worst.tradingDayAge ? current : worst,
+    current.tradingDayAge > worst.tradingDayAge ? current : worst
   );
   const freshness_state =
     oldest.tradingDayAge < 1 ? 'fresh' : oldest.tradingDayAge <= 3 ? 'stale' : 'expired';
@@ -132,7 +133,10 @@ function buildHealthPriceSnapshot(value: unknown, referenceDate: Date): PriceSna
 
 // ── Route plugin ─────────────────────────────────────────────────────────────
 
-const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> = async (app, opts) => {
+const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> = async (
+  app,
+  opts
+) => {
   const { getStorage } = opts;
 
   app.get(
@@ -153,13 +157,16 @@ const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> 
       const portfolio = await readPortfolioState(storage, id);
 
       if (!portfolio) {
-        return reply.code(404).send({ error: 'NOT_FOUND', message: 'Portfolio not found.' });
+        throw new NotFoundError('Portfolio not found.');
       }
 
       const transactions = (portfolio.transactions ?? []) as Record<string, unknown>[];
 
       // Derive open tickers from portfolio state.
-      const sorted = sortTransactions(transactions as never[]) as unknown as Record<string, unknown>[];
+      const sorted = sortTransactions(transactions as never[]) as unknown as Record<
+        string,
+        unknown
+      >[];
       const lastDate = sorted.length > 0 ? String(sorted[sorted.length - 1]?.['date'] ?? '') : '';
       const projected = lastDate
         ? projectStateUntil(sorted as never[], lastDate)
@@ -172,15 +179,22 @@ const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> 
       const priceSnapshots = new Map<string, PriceSnapshot>();
       const now = new Date();
       if (opts.historicalPriceLoader && openTickers.length > 0) {
-        await Promise.all(openTickers.map(async (symbol) => {
-          try {
-            const result = await opts.historicalPriceLoader!.fetchSeries(symbol, { range: '1y', latestOnly: true });
-            const latest = Array.isArray(result.prices) ? result.prices[result.prices.length - 1] : null;
-            priceSnapshots.set(symbol, buildHealthPriceSnapshot(latest, now));
-          } catch {
-            priceSnapshots.set(symbol, { price: null, asOf: null, tradingDayAge: null });
-          }
-        }));
+        await Promise.all(
+          openTickers.map(async (symbol) => {
+            try {
+              const result = await opts.historicalPriceLoader!.fetchSeries(symbol, {
+                range: '1y',
+                latestOnly: true,
+              });
+              const latest = Array.isArray(result.prices)
+                ? result.prices[result.prices.length - 1]
+                : null;
+              priceSnapshots.set(symbol, buildHealthPriceSnapshot(latest, now));
+            } catch {
+              priceSnapshots.set(symbol, { price: null, asOf: null, tradingDayAge: null });
+            }
+          })
+        );
       }
 
       const trust = deriveTrust(priceSnapshots, openTickers.length);
@@ -190,9 +204,7 @@ const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> 
       try {
         const signals = (portfolio.signals ?? {}) as Record<string, unknown>;
         const allReviews = await storage.readTable('inbox_reviews');
-        const dismissHistory = allReviews.filter(
-          (r) => r['portfolio_id'] === id,
-        );
+        const dismissHistory = allReviews.filter((r) => r['portfolio_id'] === id);
         const items = computeInbox({
           transactions: transactions as never[],
           signals,
@@ -215,7 +227,7 @@ const portfolioHealthRoutes: FastifyPluginAsyncZod<PortfolioHealthRouteContext> 
         action_count: actionCount,
         as_of: new Date().toISOString(),
       });
-    },
+    }
   );
 };
 

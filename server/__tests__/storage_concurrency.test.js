@@ -76,17 +76,13 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
   }));
 
   const normalizedPayloads = payloads.map((payload) =>
-    JSON.parse(JSON.stringify(portfolioBodySchema.parse(payload))),
+    JSON.parse(JSON.stringify(portfolioBodySchema.parse(payload)))
   );
 
   const responses = await Promise.all(
     payloads.map((payload) =>
-      withSession(
-        request(app)
-          .post(`/api/portfolio/${portfolioId}`)
-          .send(payload),
-      ),
-    ),
+      withSession(request(app).post(`/api/portfolio/${portfolioId}`).send(payload))
+    )
   );
 
   for (const response of responses) {
@@ -122,7 +118,8 @@ test('API writes remain atomic and JSON-parseable under Promise.all load', async
         tx.amount === expectedTx.amount
       );
     });
-    const signalsMatch = JSON.stringify(sanitized.signals ?? {}) === JSON.stringify(expected.signals ?? {});
+    const signalsMatch =
+      JSON.stringify(sanitized.signals ?? {}) === JSON.stringify(expected.signals ?? {});
     const settingsMatch =
       Boolean(sanitized.settings?.autoClip) === Boolean(expected.settings?.autoClip);
     return txMatch && signalsMatch && settingsMatch;
@@ -143,15 +140,12 @@ test('atomicWriteFile preserves previous content when rename fails mid-write', a
   });
 
   try {
-    await assert.rejects(
-      async () => {
-        await atomicWriteFile(
-          filePath,
-          `${JSON.stringify({ transactions: [{ id: 'new' }] }, null, 2)}\n`,
-        );
-      },
-      /simulated crash/,
-    );
+    await assert.rejects(async () => {
+      await atomicWriteFile(
+        filePath,
+        `${JSON.stringify({ transactions: [{ id: 'new' }] }, null, 2)}\n`
+      );
+    }, /simulated crash/);
   } finally {
     renameMock.mock.restore();
   }

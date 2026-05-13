@@ -20,7 +20,7 @@ function StatusBadge({ status, label, tooltip }) {
     if (status === 'error') {
       return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200';
     }
-    return 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300';
+    return 'border-surface-200 bg-surface-50 text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300';
   })();
 
   return (
@@ -75,23 +75,23 @@ export default function PricesTab({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="card-base p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className="font-heading text-lg font-bold text-surface-900 dark:text-surface-100">
               {t('prices.title')}
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400">{t('prices.subtitle')}</p>
-            <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-surface-600 dark:text-surface-400">{t('prices.subtitle')}</p>
+            <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-surface-500 dark:text-surface-400">
               <div>
                 <dt className="inline">{t('prices.meta.tracked')}: </dt>
-                <dd className="inline font-medium text-slate-700 dark:text-slate-200">
+                <dd className="inline font-medium text-surface-700 dark:text-surface-200">
                   {rows.length}
                 </dd>
               </div>
               <div>
                 <dt className="inline">{t('prices.meta.lastUpdated')}: </dt>
-                <dd className="inline font-medium text-slate-700 dark:text-slate-200">
+                <dd className="inline font-medium text-surface-700 dark:text-surface-200">
                   {lastUpdatedAt
                     ? formatDate(lastUpdatedAt, { dateStyle: 'medium', timeStyle: 'short' })
                     : '—'}
@@ -99,13 +99,13 @@ export default function PricesTab({
               </div>
               <div>
                 <dt className="inline">{t('prices.meta.requestId')}: </dt>
-                <dd className="inline font-mono text-slate-700 dark:text-slate-200">
+                <dd className="inline font-mono text-surface-700 dark:text-surface-200">
                   {requestId ?? '—'}
                 </dd>
               </div>
               <div>
                 <dt className="inline">{t('prices.meta.version')}: </dt>
-                <dd className="inline font-medium text-slate-700 dark:text-slate-200">
+                <dd className="inline font-medium text-surface-700 dark:text-surface-200">
                   {version ?? '—'}
                 </dd>
               </div>
@@ -115,7 +115,7 @@ export default function PricesTab({
             type="button"
             onClick={onRefresh}
             disabled={loading}
-            className="inline-flex items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+            className="inline-flex items-center justify-center rounded-lg border border-surface-200 bg-white px-3.5 py-2 text-sm font-semibold text-surface-700 shadow-sm transition-all duration-150 hover:bg-surface-50 hover:shadow-tab disabled:cursor-not-allowed disabled:opacity-60 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200 dark:hover:bg-surface-800"
           >
             {loading ? t('prices.refresh.loading') : t('prices.refresh.action')}
           </button>
@@ -124,12 +124,12 @@ export default function PricesTab({
           {summaryCards.map((card) => (
             <div
               key={card.label}
-              className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/30"
+              className="rounded-xl border border-surface-200 bg-surface-50/60 p-3 dark:border-surface-700 dark:bg-surface-900/40"
             >
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
                 {card.label}
               </p>
-              <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <p className="mt-1 font-heading text-lg font-bold tracking-tight text-surface-900 dark:text-surface-100">
                 {card.value}
               </p>
             </div>
@@ -137,16 +137,18 @@ export default function PricesTab({
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="card-base overflow-hidden">
         {!hasRows ? (
-          <div className="p-5 text-sm text-slate-500 dark:text-slate-400">{t('prices.empty')}</div>
+          <div className="p-5 text-sm text-surface-500 dark:text-surface-400">
+            {t('prices.empty')}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table
               className="min-w-full border-collapse text-sm"
               aria-label={t('prices.table.aria')}
             >
-              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-950/40 dark:text-slate-400">
+              <thead className="bg-surface-50 text-left text-xs font-semibold uppercase tracking-wider text-surface-500 dark:bg-surface-800/60 dark:text-surface-400">
                 <tr>
                   <th className="px-4 py-3">{t('prices.table.symbol')}</th>
                   <th className="px-4 py-3">{t('prices.table.scope')}</th>
@@ -166,56 +168,56 @@ export default function PricesTab({
                 {rows.map((row) => (
                   <tr
                     key={`${row.scope}-${row.symbol}`}
-                    className="border-t border-slate-200 dark:border-slate-800"
+                    className="border-t border-surface-200 dark:border-surface-800"
                   >
                     <td className="px-4 py-3 align-top">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100">
+                      <div className="font-semibold text-surface-900 dark:text-surface-100">
                         {row.symbol}
                       </div>
                       {row.description ? (
-                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="mt-1 text-xs text-surface-500 dark:text-surface-400">
                           {row.description}
                         </div>
                       ) : null}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">
+                    <td className="px-4 py-3 align-top text-surface-600 dark:text-surface-300">
                       {row.scopeLabel}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-3 align-top text-surface-900 dark:text-surface-100">
                       {row.price !== null ? formatCurrency(row.price) : '—'}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">
+                    <td className="px-4 py-3 align-top text-surface-600 dark:text-surface-300">
                       {row.asOf ? formatDate(row.asOf) : '—'}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">
+                    <td className="px-4 py-3 align-top text-surface-600 dark:text-surface-300">
                       {row.shares !== null
                         ? formatNumber(row.shares, { maximumFractionDigits: 9 })
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-3 align-top text-surface-900 dark:text-surface-100">
                       {row.scope === 'holding' && row.avgCost !== null
                         ? formatCurrency(row.avgCost)
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-3 align-top text-surface-900 dark:text-surface-100">
                       {row.scope === 'holding' && row.totalCost !== null
                         ? formatCurrency(row.totalCost)
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-3 align-top text-surface-900 dark:text-surface-100">
                       {row.marketValue !== null ? formatCurrency(row.marketValue) : '—'}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-3 align-top text-surface-900 dark:text-surface-100">
                       {row.scope === 'holding' && row.unrealised !== null
                         ? formatCurrency(row.unrealised)
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-3 align-top text-surface-900 dark:text-surface-100">
                       {row.scope === 'holding' && row.realised !== null
                         ? formatCurrency(row.realised)
                         : '—'}
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-3 align-top text-surface-900 dark:text-surface-100">
                       {row.scope === 'holding' && row.totalReturnPct !== null
                         ? formatSignedPercent(row.totalReturnPct, 2)
                         : '—'}
@@ -228,7 +230,7 @@ export default function PricesTab({
                           tooltip={row.staleTooltip ?? null}
                         />
                         {row.errorMessage ? (
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                          <div className="text-xs text-surface-500 dark:text-surface-400">
                             {row.errorMessage}
                           </div>
                         ) : null}

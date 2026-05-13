@@ -2,9 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { d } from '../finance/decimal.js';
-import {
-  _resetCorporateActionsCache,
-} from '../import/csvPortfolioImport.js';
+import { _resetCorporateActionsCache } from '../import/csvPortfolioImport.js';
 
 // Access maybeApplyDatasetQuantityAdjustment indirectly by calling the
 // exported buildBuyOrSellTransaction-level logic through the public
@@ -27,9 +25,7 @@ function applyAdjustment({ ticker, date, type, quantity }, corporateActions) {
     if (action.ticker !== ticker) continue;
     if (date >= action.date) continue;
 
-    const appliesToTransaction =
-      action.applies_to === 'ALL' ||
-      action.applies_to === type;
+    const appliesToTransaction = action.applies_to === 'ALL' || action.applies_to === type;
 
     if (!appliesToTransaction) continue;
 
@@ -48,11 +44,18 @@ function applyAdjustment({ ticker, date, type, quantity }, corporateActions) {
 
 test('split with ratio:10 multiplies quantity by 10 for pre-split date', () => {
   const actions = [
-    { ticker: 'NVDA', date: '2024-06-10', type: 'split', ratio: 10, applies_to: 'ALL', rule: 'NVDA_10_FOR_1' },
+    {
+      ticker: 'NVDA',
+      date: '2024-06-10',
+      type: 'split',
+      ratio: 10,
+      applies_to: 'ALL',
+      rule: 'NVDA_10_FOR_1',
+    },
   ];
   const { quantity, adjustment } = applyAdjustment(
     { ticker: 'NVDA', date: '2024-01-01', type: 'BUY', quantity: '5' },
-    actions,
+    actions
   );
   assert.equal(quantity.toNumber(), 50);
   assert.equal(adjustment.factor, '10');
@@ -61,11 +64,18 @@ test('split with ratio:10 multiplies quantity by 10 for pre-split date', () => {
 
 test('split is NOT applied to a transaction on or after the split date', () => {
   const actions = [
-    { ticker: 'NVDA', date: '2024-06-10', type: 'split', ratio: 10, applies_to: 'ALL', rule: 'NVDA_10_FOR_1' },
+    {
+      ticker: 'NVDA',
+      date: '2024-06-10',
+      type: 'split',
+      ratio: 10,
+      applies_to: 'ALL',
+      rule: 'NVDA_10_FOR_1',
+    },
   ];
   const { quantity, adjustment } = applyAdjustment(
     { ticker: 'NVDA', date: '2024-06-10', type: 'BUY', quantity: '3' },
-    actions,
+    actions
   );
   assert.equal(quantity.toNumber(), 3);
   assert.equal(adjustment, null);
@@ -73,11 +83,18 @@ test('split is NOT applied to a transaction on or after the split date', () => {
 
 test('ticker without a matching rule is not modified', () => {
   const actions = [
-    { ticker: 'NVDA', date: '2024-06-10', type: 'split', ratio: 10, applies_to: 'ALL', rule: 'NVDA_10_FOR_1' },
+    {
+      ticker: 'NVDA',
+      date: '2024-06-10',
+      type: 'split',
+      ratio: 10,
+      applies_to: 'ALL',
+      rule: 'NVDA_10_FOR_1',
+    },
   ];
   const { quantity, adjustment } = applyAdjustment(
     { ticker: 'AAPL', date: '2024-01-01', type: 'BUY', quantity: '7' },
-    actions,
+    actions
   );
   assert.equal(quantity.toNumber(), 7);
   assert.equal(adjustment, null);
@@ -85,17 +102,24 @@ test('ticker without a matching rule is not modified', () => {
 
 test('applies_to:BUY only adjusts BUY transactions, not SELL', () => {
   const actions = [
-    { ticker: 'LRCX', date: '2024-10-03', type: 'split', ratio: 10, applies_to: 'BUY', rule: 'LRCX_10_FOR_1' },
+    {
+      ticker: 'LRCX',
+      date: '2024-10-03',
+      type: 'split',
+      ratio: 10,
+      applies_to: 'BUY',
+      rule: 'LRCX_10_FOR_1',
+    },
   ];
   const buyResult = applyAdjustment(
     { ticker: 'LRCX', date: '2024-01-01', type: 'BUY', quantity: '2' },
-    actions,
+    actions
   );
   assert.equal(buyResult.quantity.toNumber(), 20);
 
   const sellResult = applyAdjustment(
     { ticker: 'LRCX', date: '2024-01-01', type: 'SELL', quantity: '2' },
-    actions,
+    actions
   );
   assert.equal(sellResult.quantity.toNumber(), 2);
   assert.equal(sellResult.adjustment, null);
@@ -103,17 +127,24 @@ test('applies_to:BUY only adjusts BUY transactions, not SELL', () => {
 
 test('applies_to:ALL adjusts both BUY and SELL', () => {
   const actions = [
-    { ticker: 'NVDA', date: '2024-06-10', type: 'split', ratio: 10, applies_to: 'ALL', rule: 'NVDA_10_FOR_1' },
+    {
+      ticker: 'NVDA',
+      date: '2024-06-10',
+      type: 'split',
+      ratio: 10,
+      applies_to: 'ALL',
+      rule: 'NVDA_10_FOR_1',
+    },
   ];
   const buyResult = applyAdjustment(
     { ticker: 'NVDA', date: '2023-12-01', type: 'BUY', quantity: '1' },
-    actions,
+    actions
   );
   assert.equal(buyResult.quantity.toNumber(), 10);
 
   const sellResult = applyAdjustment(
     { ticker: 'NVDA', date: '2023-12-01', type: 'SELL', quantity: '1' },
-    actions,
+    actions
   );
   assert.equal(sellResult.quantity.toNumber(), 10);
 });
@@ -121,7 +152,7 @@ test('applies_to:ALL adjusts both BUY and SELL', () => {
 test('empty corporate actions list returns quantity unchanged', () => {
   const { quantity, adjustment } = applyAdjustment(
     { ticker: 'NVDA', date: '2023-01-01', type: 'BUY', quantity: '5' },
-    [],
+    []
   );
   assert.equal(quantity.toNumber(), 5);
   assert.equal(adjustment, null);
@@ -136,28 +167,28 @@ test('NVDA and LRCX rules from actual config produce correct adjustments', async
   // NVDA pre-split BUY
   const nvdaBuy = applyAdjustment(
     { ticker: 'NVDA', date: '2024-01-15', type: 'BUY', quantity: '3' },
-    actions,
+    actions
   );
   assert.equal(nvdaBuy.quantity.toNumber(), 30);
 
   // NVDA pre-split SELL (applies_to: ALL)
   const nvdaSell = applyAdjustment(
     { ticker: 'NVDA', date: '2024-01-15', type: 'SELL', quantity: '1' },
-    actions,
+    actions
   );
   assert.equal(nvdaSell.quantity.toNumber(), 10);
 
   // LRCX pre-split BUY
   const lrcxBuy = applyAdjustment(
     { ticker: 'LRCX', date: '2024-01-01', type: 'BUY', quantity: '2' },
-    actions,
+    actions
   );
   assert.equal(lrcxBuy.quantity.toNumber(), 20);
 
   // LRCX pre-split SELL — should NOT be adjusted (applies_to: BUY only)
   const lrcxSell = applyAdjustment(
     { ticker: 'LRCX', date: '2024-01-01', type: 'SELL', quantity: '2' },
-    actions,
+    actions
   );
   assert.equal(lrcxSell.quantity.toNumber(), 2);
 });

@@ -14,7 +14,7 @@ import JsonTableStorage from '../data/storage.js';
 import { buildFastifyApp, request } from './helpers/fastifyTestApp.js';
 
 const noopLogger = pino({ level: 'silent' });
-const API_PREFIXES = ['/api', '/api/v1'];
+const API_PREFIXES = ['/api'];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const specPath = path.resolve(__dirname, '../../docs/reference/openapi.yaml');
@@ -35,7 +35,10 @@ function getValidator(pathKey, method = 'get', statusCode = '200') {
   const response = operation.responses?.[statusCode];
   assert.ok(response, `response ${statusCode} not defined for ${method.toUpperCase()} ${pathKey}`);
   const schema = response.content?.['application/json']?.schema;
-  assert.ok(schema, `JSON schema missing for ${method.toUpperCase()} ${pathKey} status ${statusCode}`);
+  assert.ok(
+    schema,
+    `JSON schema missing for ${method.toUpperCase()} ${pathKey} status ${statusCode}`
+  );
   const validator = ajv.compile(schema);
   validatorCache.set(cacheKey, validator);
   return validator;
@@ -103,7 +106,7 @@ for (const basePath of API_PREFIXES) {
 
     const app = await buildApp();
     const response = await request(app).get(
-      `${basePath}/returns/daily?from=2024-01-01&to=2024-01-02&views=port,excash,spy,bench`,
+      `${basePath}/returns/daily?from=2024-01-01&to=2024-01-02&views=port,excash,spy,bench`
     );
 
     assert.equal(response.status, 200);
@@ -156,7 +159,7 @@ for (const basePath of API_PREFIXES) {
       freshness_state: 'fresh',
       confidence_state: 'high',
     });
-    assert.equal((response.headers["x-cache"] ?? "MISS").toUpperCase(), "MISS");
+    assert.equal((response.headers['x-cache'] ?? 'MISS').toUpperCase(), 'MISS');
   });
 }
 
@@ -204,9 +207,7 @@ for (const basePath of API_PREFIXES) {
     ]);
 
     const app = await buildApp();
-    const response = await request(app).get(
-      `${basePath}/roi/daily?from=2024-01-01&to=2024-01-02`,
-    );
+    const response = await request(app).get(`${basePath}/roi/daily?from=2024-01-01&to=2024-01-02`);
 
     assert.equal(response.status, 200);
     const validator = getValidator(`${basePath}/roi/daily`);
@@ -226,8 +227,8 @@ for (const basePath of API_PREFIXES) {
         featureFlags: { cashBenchmarks: true },
         cors: { allowedOrigins: [] },
         benchmarks: {
-          tickers: ["QQQ"],
-          defaultSelection: ["qqq"],
+          tickers: ['QQQ'],
+          defaultSelection: ['qqq'],
         },
       },
     });
@@ -235,9 +236,9 @@ for (const basePath of API_PREFIXES) {
     const response = await request(app).get(`${basePath}/benchmarks`);
 
     assert.equal(response.status, 200);
-    assert.equal(response.body.available[0].id, "qqq");
-    assert.equal(response.body.available[0].ticker, "QQQ");
-    assert.ok(response.body.derived.some((entry) => entry.id === "blended"));
+    assert.equal(response.body.available[0].id, 'qqq');
+    assert.equal(response.body.available[0].ticker, 'QQQ');
+    assert.ok(response.body.derived.some((entry) => entry.id === 'blended'));
     const validator = getValidator(`${basePath}/benchmarks`);
     expectValidResponse(validator, response.body);
   });
@@ -325,7 +326,7 @@ for (const basePath of API_PREFIXES) {
 
     const app = await buildApp();
     const response = await request(app).get(
-      `${basePath}/benchmarks/summary?from=2024-01-01&to=2024-01-02`,
+      `${basePath}/benchmarks/summary?from=2024-01-01&to=2024-01-02`
     );
 
     assert.equal(response.status, 200);

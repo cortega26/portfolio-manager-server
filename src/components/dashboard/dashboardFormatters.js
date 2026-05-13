@@ -145,6 +145,21 @@ export function formatInvestorMwrDetail({ benchmarkSummary, t, formatSignedPerce
   });
 }
 
+export function formatSharpeRatio(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return value.toFixed(2);
+}
+
+export function formatRollingReturn(value, formatSignedPercent) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return formatSignedPercent(value * 100, 1);
+}
+
+export function formatCurrentDrawdown(value, formatSignedPercent) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return formatSignedPercent(value * 100, 2);
+}
+
 export function resolveInvestorMwrTone(benchmarkSummary) {
   const portfolio = Number(benchmarkSummary?.portfolio);
   const spy = Number(benchmarkSummary?.benchmarks?.spy);

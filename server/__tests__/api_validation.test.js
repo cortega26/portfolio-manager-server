@@ -38,7 +38,7 @@ test('POST /api/portfolio rejects invalid payloads with validation details', asy
     request(app)
       .post('/api/portfolio/test123')
       .send({ transactions: [{ type: 'BUY', amount: 'invalid' }] })
-      .set('Content-Type', 'application/json'),
+      .set('Content-Type', 'application/json')
   );
 
   assert.equal(response.status, 400);
@@ -52,7 +52,7 @@ test('POST /api/portfolio rejects invalid portfolio id', async () => {
     request(app)
       .post('/api/portfolio/bad id')
       .send({ transactions: [] })
-      .set('Content-Type', 'application/json'),
+      .set('Content-Type', 'application/json')
   );
 
   assert.equal(response.status, 400);
@@ -62,9 +62,30 @@ test('POST /api/portfolio rejects invalid portfolio id', async () => {
 
 test('GET /api/returns/daily paginates and emits ETag', async () => {
   const rows = [
-    { date: '2024-01-01', r_port: 0.01, r_ex_cash: 0.009, r_spy_100: 0.012, r_bench_blended: 0.011, r_cash: 0.0001 },
-    { date: '2024-01-02', r_port: 0.02, r_ex_cash: 0.018, r_spy_100: 0.019, r_bench_blended: 0.0185, r_cash: 0.0002 },
-    { date: '2024-01-03', r_port: -0.005, r_ex_cash: -0.006, r_spy_100: -0.004, r_bench_blended: -0.0045, r_cash: 0.0003 },
+    {
+      date: '2024-01-01',
+      r_port: 0.01,
+      r_ex_cash: 0.009,
+      r_spy_100: 0.012,
+      r_bench_blended: 0.011,
+      r_cash: 0.0001,
+    },
+    {
+      date: '2024-01-02',
+      r_port: 0.02,
+      r_ex_cash: 0.018,
+      r_spy_100: 0.019,
+      r_bench_blended: 0.0185,
+      r_cash: 0.0002,
+    },
+    {
+      date: '2024-01-03',
+      r_port: -0.005,
+      r_ex_cash: -0.006,
+      r_spy_100: -0.004,
+      r_bench_blended: -0.0045,
+      r_cash: 0.0003,
+    },
   ];
   await storage.writeTable('returns_daily', rows);
 
@@ -151,7 +172,7 @@ test('POST /api/portfolio handles many sequential writes without throttling (des
       request(app)
         .post('/api/portfolio/no-ratelimit')
         .send(payload)
-        .set('Content-Type', 'application/json'),
+        .set('Content-Type', 'application/json')
     );
     assert.equal(response.status, 200, `request ${index} should succeed`);
   }

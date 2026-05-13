@@ -37,7 +37,7 @@ describe('holdings utilities', () => {
         ...transactions,
         { ticker: 'AAPL', type: 'BUY', shares: 1, amount: -120, price: 120, date: '2024-01-04' },
       ],
-      'AAPL',
+      'AAPL'
     );
 
     assert.equal(stats.value, 910);
@@ -104,12 +104,11 @@ describe('holdings utilities', () => {
       { ticker: 'NVDA', type: 'BUY', shares: 1, amount: -100, price: 100, date: '2024-01-01' },
     ]);
 
-    const row = deriveSignalRow(
-      holdings[0],
-      140,
-      5,
-      { price: 100, date: '2024-01-01', type: 'BUY' },
-    );
+    const row = deriveSignalRow(holdings[0], 140, 5, {
+      price: 100,
+      date: '2024-01-01',
+      type: 'BUY',
+    });
 
     assert.equal(row.signal, 'NO DATA');
     assert.equal(row.sanityRejected, true);

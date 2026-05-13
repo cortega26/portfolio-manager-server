@@ -6,7 +6,17 @@ import { tmpdir } from 'node:os';
 
 import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestApp.js';
 
-const noopLogger = { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {}, child() { return this; } };
+const noopLogger = {
+  info() {},
+  warn() {},
+  error() {},
+  debug() {},
+  trace() {},
+  fatal() {},
+  child() {
+    return this;
+  },
+};
 
 class LargePriceProvider {
   constructor(rowCount) {
@@ -84,4 +94,3 @@ test('small responses remain uncompressed', async () => {
   assert.equal(response.headers['content-encoding'], undefined);
   await closeApp(app);
 });
-
