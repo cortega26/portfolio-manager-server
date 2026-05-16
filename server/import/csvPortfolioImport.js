@@ -36,20 +36,18 @@ export function _resetCorporateActionsCache() {
 }
 
 export const CSV_IMPORT_FILE_NAMES = {
-  buys: '32996_asset_market_buys.csv',
-  sells: '32996_asset_market_sells.csv',
-  forex: '32996_forex_buys.csv',
-  dividends: 'tailormade-broker-dividends-2026-03-18.csv',
+  buys: 'server/__tests__/fixtures/sample-asset-market-buys.csv',
+  sells: 'server/__tests__/fixtures/sample-asset-market-sells.csv',
+  forex: 'server/__tests__/fixtures/sample-forex-buys.csv',
+  dividends: 'server/__tests__/fixtures/sample-dividends.csv',
 };
 
 export const CSV_IMPORT_EXPECTED_RECONCILIATION = {
-  cash: '196.71',
+  cash: '7.36',
   holdings: {
-    AMD: '0.305562260',
-    DELL: '0.454749913',
-    GLD: '0.001016562',
-    NVDA: '0.815097910',
-    TSLA: '0.783956628',
+    AMD: '0.050000000',
+    LRCX: '0.100000000',
+    TSLA: '0.010000000',
   },
 };
 
@@ -224,6 +222,138 @@ function withBaseTransactionFields({ id, date, lineNumber, seq, note, metadata }
     createdAt: createDeterministicCreatedAt(date, lineNumber, seq % 10),
     seq,
   };
+}
+
+// ── Generic CSV import profile ────────────────────────────────────────────────
+// The generic profile accepts raw CSV content with configurable column mapping.
+// Column mapping: { date, type, ticker, shares, price, amount }
+// Each field is the 0-based column index in the CSV row.
+
+const GENERIC_REQUIRED_COLUMNS = ['date', 'type', 'ticker', 'shares', 'price', 'amount'];
+
+function detectGenericCsvHeader(headerRow) {
+  const columns = parseDelimitedLine(headerRow, ',');
+  const mapping = {};
+  for (const [index, col] of columns.entries()) {
+    const normalized = col.trim().toLowerCase();
+    if (GENERIC_REQUIRED_COLUMNS.includes(normalized)) {
+      mapping[normalized] = index;
+    }
+  }
+  return mapping;
+}
+
+function validateGenericColumnMapping(mapping) {
+  const missing = GENERIC_REQUIRED_COLUMNS.filter((col) => !(col in mapping));
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required columns in CSV mapping: ${missing.join(', ')}. ` +
+        `Provide a mapping or include a header row with columns: ${GENERIC_REQUIRED_COLUMNS.join(', ')}`
+    );
+  }
+}
+
+function parseGenericCsvRow(row, mapping, lineNumber) {
+  const get = (field) => (row[field] ?? '').trim();
+
+  const rawDate = get(mapping.date);
+  const rawType = get(mapping.type).toUpperCase();
+  const rawTicker = get(mapping.ticker).toUpperCase();
+  const rawShares = normalizeImportedNumericInput(get(mapping.shares));
+  const rawPrice = normalizeImportedNumericInput(get(mapping.price));
+  const rawAmount = normalizeImportedNumericInput(get(mapping.amount));
+
+  const date = parseIsoDate(rawDate);
+  const shares = d(rawShares).abs();
+  const price = d(rawPrice);
+  const amount = d(rawAmount).abs();
+
+  // Map CSV type to system transaction type
+  const typeMap = {
+    BUY: 'BUY',
+    SELL: 'SELL',
+    DIVIDEND: 'DIVIDEND',
+    DEPOSIT: 'DEPOSIT',
+    WITHDRAWAL: 'WITHDRAWAL',
+    INTEREST: 'INTEREST',
+    FEE: 'FEE',
+    SPLIT: 'SPLIT',
+    WITHDRAW: 'WITHDRAWAL',
+  };
+  const txType = typeMap[rawType];
+  if (!txType) {
+    throw new Error(`Unknown transaction type "${rawType}" on row ${lineNumber}`);
+  }
+
+  const signedAmount =
+    txType === 'BUY' || txType === 'FEE' || txType === 'WITHDRAWAL' ? amount.neg() : amount;
+  return {
+    id: `csv:generic:${lineNumber}`,
+    uid: `csv:generic:${lineNumber}`,
+    date,
+    type: txType,
+    ticker: rawTicker,
+    shares: toFiniteNumber(shares, 9),
+    quantity: toFiniteNumber(shares, 9),
+    price: toFiniteNumber(price, 8),
+    amount: toFiniteNumber(signedAmount, 2),
+    currency: 'USD',
+    createdAt: createDeterministicCreatedAt(date, lineNumber, 0),
+    seq: 0,
+    metadata: {
+      system: {
+        import: { source: 'csv-generic', line: lineNumber },
+      },
+    },
+  };
+}
+
+export function parseGenericCsvImport(csvContent, mapping) {
+  const normalized = normalizeLineEndings(csvContent).trim();
+  if (!normalized) {
+    return { transactions: [], errors: [] };
+  }
+
+  const lines = normalized.split('\n');
+  if (lines.length < 2) {
+    return { transactions: [], errors: [] };
+  }
+
+  // Resolve column mapping: auto-detect from header or use provided mapping
+  let resolvedMapping = mapping;
+  if (!resolvedMapping) {
+    resolvedMapping = detectGenericCsvHeader(lines[0]);
+    lines.shift(); // remove header
+  }
+  validateGenericColumnMapping(resolvedMapping);
+
+  const transactions = [];
+  const errors = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const lineNumber = i + 2; // 1-based, accounting for header if present
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const columns = parseDelimitedLine(line, ',');
+    if (columns.length <= Math.max(...Object.values(resolvedMapping))) {
+      errors.push({
+        row: lineNumber,
+        message: `Row has ${columns.length} columns, expected at least ${Math.max(...Object.values(resolvedMapping)) + 1}`,
+      });
+      continue;
+    }
+
+    try {
+      const tx = parseGenericCsvRow(columns, resolvedMapping, lineNumber);
+      tx.seq = transactions.length;
+      transactions.push(tx);
+    } catch (err) {
+      errors.push({ row: lineNumber, message: err.message });
+    }
+  }
+
+  return { transactions, errors };
 }
 
 /**

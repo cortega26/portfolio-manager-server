@@ -36,8 +36,8 @@ test('migration 005 backfills legacy NVDA pre-split csv sells in persisted portf
   const storage = new JsonTableStorage({ dataDir, logger: noopLogger });
   await storage.writeTable('transactions', [
     {
-      id: 'csv:32996_asset_market_buys.csv:3',
-      uid: 'csv:32996_asset_market_buys.csv:3',
+      id: 'csv:sample-asset-market-buys.csv:2',
+      uid: 'csv:sample-asset-market-buys.csv:2',
       portfolio_id: 'desktop',
       date: '2024-01-23',
       ticker: 'NVDA',
@@ -62,8 +62,8 @@ test('migration 005 backfills legacy NVDA pre-split csv sells in persisted portf
       },
     },
     {
-      id: 'csv:32996_asset_market_sells.csv:3',
-      uid: 'csv:32996_asset_market_sells.csv:3',
+      id: 'csv:sample-asset-market-sells.csv:2',
+      uid: 'csv:sample-asset-market-sells.csv:2',
       portfolio_id: 'desktop',
       date: '2024-01-24',
       ticker: 'NVDA',

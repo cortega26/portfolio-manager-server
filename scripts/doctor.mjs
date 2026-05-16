@@ -97,9 +97,9 @@ const checks = [
   {
     label: 'canonical CSV import seeds present',
     ok:
-      exists('32996_asset_market_buys.csv') &&
-      exists('32996_asset_market_sells.csv') &&
-      exists('32996_forex_buys.csv'),
+      exists('server/__tests__/fixtures/sample-asset-market-buys.csv') &&
+      exists('server/__tests__/fixtures/sample-asset-market-sells.csv') &&
+      exists('server/__tests__/fixtures/sample-forex-buys.csv'),
   },
   {
     label: 'ADR index present',

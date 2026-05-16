@@ -34,18 +34,16 @@ Registrar únicamente hechos confirmados y estables que sería costoso olvidar.
 ### Importación histórica
 
 - La carga inicial del portafolio parte de estos CSV locales:
-  - `32996_asset_market_buys.csv`
-  - `32996_asset_market_sells.csv`
-  - `32996_forex_buys.csv`
-  - `tailormade-broker-dividends-2026-03-18.csv`
+  - `server/__tests__/fixtures/sample-asset-market-buys.csv`
+  - `server/__tests__/fixtures/sample-asset-market-sells.csv`
+  - `server/__tests__/fixtures/sample-forex-buys.csv`
+  - `server/__tests__/fixtures/sample-dividends.csv`
 - `NVDA` se ajusta por split `10:1` para operaciones anteriores a `2024-06-10`, incluyendo compras y ventas.
 - `LRCX` requiere reconciliación histórica explícita para dejar posición final en `0`.
 - Las posiciones finales solo se consideran reconciliadas si coinciden exactamente con:
-  - `AMD 0.305562260`
-  - `DELL 0.454749913`
-  - `GLD 0.001016562`
-  - `NVDA 0.815097910`
-  - `TSLA 0.783956628`
+  - `AMD 0.050000000`
+  - `LRCX 0.100000000`
+  - `TSLA 0.010000000`
 
 ### Calidad operativa
 

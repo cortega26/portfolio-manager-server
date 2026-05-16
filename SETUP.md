@@ -73,13 +73,13 @@ node scripts/import-csv-portfolio.mjs
 
 Expected source files:
 
-- `32996_asset_market_buys.csv`
-- `32996_asset_market_sells.csv`
-- `32996_forex_buys.csv`
-- `tailormade-broker-dividends-*.csv`
+- `server/__tests__/fixtures/sample-asset-market-buys.csv`
+- `server/__tests__/fixtures/sample-asset-market-sells.csv`
+- `server/__tests__/fixtures/sample-forex-buys.csv`
+- `server/__tests__/fixtures/sample-dividends.csv`
 
 After a successful import, reconciled positions must exactly match the values in
-`context/KNOWN_INVARIANTS.md` (AMD, DELL, GLD, NVDA, TSLA targets).
+`context/KNOWN_INVARIANTS.md` (AMD, LRCX, TSLA targets).
 
 ## Validation
 
