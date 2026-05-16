@@ -15,18 +15,7 @@ export default function DashboardZone2({ items = [], onSeeAll }) {
   const { t } = useI18n();
 
   if (!Array.isArray(items) || items.length === 0) {
-    return (
-      <div
-        className="rounded-xl border border-surface-200 bg-surface-50/60 px-4 py-3 dark:border-surface-800 dark:bg-surface-900/40"
-        aria-label={t('dashboard.zone2.emptyAria', { defaultValue: 'Action inbox' })}
-      >
-        <p className="text-sm text-surface-500 dark:text-surface-400">
-          {t('dashboard.zone2.empty', {
-            defaultValue: 'No alerts or action items. Portfolio is up to date.',
-          })}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (
