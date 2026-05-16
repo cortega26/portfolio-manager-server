@@ -5,6 +5,7 @@ import { usePortfolioMetrics } from '../hooks/usePortfolioMetrics.js';
 import DashboardZone1 from './dashboard/DashboardZone1.jsx';
 import DashboardZone2 from './dashboard/DashboardZone2.jsx';
 import DashboardZone3 from './dashboard/DashboardZone3.jsx';
+import DividendIncomeCard from './dashboard/DividendIncomeCard.jsx';
 import DashboardChartsPanel from './dashboard/DashboardChartsPanel.jsx';
 import { formatShortDate } from './dashboard/dashboardFormatters.js';
 
@@ -89,6 +90,7 @@ export default function DashboardTab({
         onRefresh={onRefreshRoi}
       />
       <DashboardZone2 items={top3High} onSeeAll={onNavigateToInbox} />
+      <DividendIncomeCard portfolioId={portfolioId} />
       <DashboardZone3
         portfolioMetrics={portfolioMetrics}
         benchmarkSummary={benchmarkSummary}

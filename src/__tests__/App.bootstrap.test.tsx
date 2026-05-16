@@ -40,6 +40,7 @@ const {
   setupPinMock,
   unlockSessionMock,
   listPortfoliosMock,
+  fetchPortfolioListMock,
 } = vi.hoisted(() => ({
   evaluateSignalsMock: vi.fn(),
   fetchDailyRoiMock: vi.fn(),
@@ -50,6 +51,7 @@ const {
   setupPinMock: vi.fn(),
   unlockSessionMock: vi.fn(),
   listPortfoliosMock: vi.fn(),
+  fetchPortfolioListMock: vi.fn(),
 }));
 
 vi.mock('../utils/api.js', async (importOriginal) => {
@@ -60,6 +62,7 @@ vi.mock('../utils/api.js', async (importOriginal) => {
     fetchBenchmarkCatalog: fetchBenchmarkCatalogMock,
     fetchBulkPrices: fetchBulkPricesMock,
     fetchDailyRoi: fetchDailyRoiMock,
+    fetchPortfolioList: fetchPortfolioListMock,
     fetchPrices: fetchPricesMock,
     persistPortfolio: vi.fn(async () => ({ requestId: 'persist-001' })),
     retrievePortfolio: retrievePortfolioMock,
@@ -137,6 +140,9 @@ describe('App desktop bootstrap', () => {
     listPortfoliosMock.mockResolvedValue({
       portfolios: [{ id: 'desktop', hasPin: false }],
       defaultPortfolioId: 'desktop',
+    });
+    fetchPortfolioListMock.mockResolvedValue({
+      portfolios: [{ id: 'desktop', transactionCount: 0, displayName: 'desktop' }],
     });
     setupPinMock.mockResolvedValue({
       portfolioId: 'desktop',
@@ -378,6 +384,8 @@ describe('App desktop bootstrap', () => {
         message: 'Session token required.',
       })
     );
+
+    fetchPortfolioListMock.mockResolvedValue({ portfolios: [] });
 
     renderWithProviders(<App />);
 

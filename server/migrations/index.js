@@ -154,6 +154,13 @@ const MIGRATIONS = [
       await storage.ensureTable('inbox_reviews', []);
     },
   },
+  {
+    id: '010_portfolio_display_name',
+    description: 'Ensure portfolio_states table exists for displayName field support',
+    async up({ storage }) {
+      await storage.ensureTable('portfolio_states', []);
+    },
+  },
 ];
 
 async function readStateFile(filePath) {

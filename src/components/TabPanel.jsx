@@ -11,6 +11,7 @@ import MetricsTab from './MetricsTab.jsx';
 import RealizedGainsView from './RealizedGainsView.jsx';
 import ReportsTab from './ReportsTab.jsx';
 import SettingsTab from './SettingsTab.jsx';
+import ComparisonView from './ComparisonView.jsx';
 
 export default function TabPanel(props) {
   const {
@@ -49,6 +50,9 @@ export default function TabPanel(props) {
     handleExportTransactions,
     handleExportHoldings,
     handleExportPerformance,
+    handleExportJson,
+    handleImportJson,
+    handleImportCsv,
     settings,
     schedulerStatus,
     handleSettingChange,
@@ -61,10 +65,38 @@ export default function TabPanel(props) {
         <TodayTab
           portfolioId={portfolioId}
           inboxItems={[]}
-          recentChanges={[]}
+          recentChanges={
+            transactions && transactions.length > 0
+              ? (() => {
+                  const sevenDaysAgo = new Date();
+                  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                  const cutoff = sevenDaysAgo.toISOString().slice(0, 10);
+                  return transactions
+                    .filter((tx) => typeof tx.date === 'string' && tx.date >= cutoff)
+                    .slice(0, 20)
+                    .map((tx) => ({
+                      date: tx.date,
+                      type: tx.type,
+                      ticker: tx.ticker ?? '',
+                      amount: tx.amount ?? 0,
+                      shares: tx.shares ?? 0,
+                    }));
+                })()
+              : []
+          }
           navDaily={navDaily}
-          degradedReasons={[]}
-          staleTickers={[]}
+          degradedReasons={
+            pricesTabState?.errors && Object.keys(pricesTabState.errors).length > 0
+              ? ['Some prices are unavailable or stale']
+              : []
+          }
+          staleTickers={
+            pricesTabState?.errors
+              ? Object.entries(pricesTabState.errors)
+                  .filter(([, err]) => err?.status === 'stale' || err?.status === 'error')
+                  .map(([ticker]) => ticker)
+              : []
+          }
         />
       )}
       {activeTab === 'Dashboard' && (
@@ -212,6 +244,17 @@ export default function TabPanel(props) {
         </section>
       )}
 
+      {activeTab === 'Compare' && (
+        <section
+          role="tabpanel"
+          id="panel-compare"
+          aria-labelledby="tab-compare"
+          data-testid="panel-compare"
+        >
+          <ComparisonView />
+        </section>
+      )}
+
       {activeTab === 'Reports' && (
         <section
           role="tabpanel"
@@ -224,6 +267,9 @@ export default function TabPanel(props) {
             onExportTransactions={handleExportTransactions}
             onExportHoldings={handleExportHoldings}
             onExportPerformance={handleExportPerformance}
+            onExportJson={handleExportJson}
+            onImportJson={handleImportJson}
+            onImportCsv={handleImportCsv}
           />
         </section>
       )}

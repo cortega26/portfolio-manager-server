@@ -135,6 +135,36 @@ const BenchmarksSummaryResponseSchema = z.object({
   }),
 });
 
+const compareBodySchema = z.object({
+  portfolioIds: z.array(portfolioIdSchema).min(2).max(10),
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional(),
+});
+
+const CompareMetricsSchema = z.object({
+  summary: z.record(z.string(), z.number()),
+  sharpe_ratio: z.number().nullable(),
+  max_drawdown: z
+    .object({
+      value: z.number(),
+      peak_date: z.string(),
+      trough_date: z.string(),
+    })
+    .nullable(),
+  current_drawdown: z
+    .object({
+      currentDrawdown: z.number(),
+      peakDate: z.string().nullable(),
+      currentDate: z.string().nullable(),
+    })
+    .nullable(),
+  nav_series: z.array(z.object({ date: z.string(), nav: z.number() })),
+});
+
+const CompareResponseSchema = z.object({
+  results: z.record(z.string(), CompareMetricsSchema),
+});
+
 // ── Route plugin ──────────────────────────────────────────────────────────────
 
 const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app, opts) => {
@@ -528,6 +558,89 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       };
 
       return app.sendWithEtag(request, reply, payload);
+    }
+  );
+
+  // ── POST /analytics/compare ──────────────────────────────────────────────
+  app.post(
+    '/analytics/compare',
+    {
+      schema: {
+        body: compareBodySchema,
+        response: { 200: CompareResponseSchema, 503: ServiceErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const { portfolioIds } = request.body;
+      const storage = await getStorage();
+
+      const [returnsTable, navRows] = await Promise.all([
+        storage.readTable('returns_daily'),
+        storage.readTable('nav_snapshots'),
+      ]);
+
+      const results: Record<string, unknown> = {};
+
+      for (const pid of portfolioIds) {
+        const scopedReturns = filterRowsByPortfolioScope(returnsTable, pid)
+          .slice()
+          .sort((a, b) => {
+            const aDate = (a as Record<string, string>).date ?? '';
+            const bDate = (b as Record<string, string>).date ?? '';
+            return aDate.localeCompare(bDate);
+          });
+
+        const scopedNav = filterRowsByPortfolioScope(navRows, pid)
+          .slice()
+          .sort((a, b) => {
+            const aDate = (a as Record<string, string>).date ?? '';
+            const bDate = (b as Record<string, string>).date ?? '';
+            return aDate.localeCompare(bDate);
+          });
+
+        let summary: Record<string, number> = {};
+        let sharpeRatio: number | null = null;
+        let maxDrawdownResult: { value: number; peak_date: string; trough_date: string } | null =
+          null;
+        let currentDrawdownResult: {
+          currentDrawdown: number;
+          peakDate: string | null;
+          currentDate: string | null;
+        } | null = null;
+
+        if (scopedReturns.length > 0) {
+          const returnRows = scopedReturns as unknown as ReturnRow[];
+          const s = summarizeReturns(returnRows);
+          summary = Object.fromEntries(
+            Object.entries(s).filter(([_, v]) => typeof v === 'number')
+          ) as Record<string, number>;
+
+          sharpeRatio = computeSharpeRatio(returnRows);
+          currentDrawdownResult = computeCurrentDrawdown(returnRows);
+
+          const dd = computeMaxDrawdown(returnRows);
+          maxDrawdownResult = dd
+            ? { value: dd.maxDrawdown, peak_date: dd.peakDate, trough_date: dd.troughDate }
+            : null;
+        }
+
+        const navSeries = scopedNav
+          .filter((row) => typeof (row as Record<string, unknown>).nav === 'number')
+          .map((row) => ({
+            date: (row as Record<string, unknown>).date as string,
+            nav: (row as Record<string, unknown>).nav as number,
+          }));
+
+        results[pid] = {
+          summary,
+          sharpe_ratio: sharpeRatio,
+          max_drawdown: maxDrawdownResult,
+          current_drawdown: currentDrawdownResult,
+          nav_series: navSeries,
+        };
+      }
+
+      return app.sendWithEtag(request, reply, { results });
     }
   );
 

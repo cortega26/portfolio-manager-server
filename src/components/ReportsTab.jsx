@@ -50,6 +50,9 @@ export default function ReportsTab({
   onExportTransactions,
   onExportHoldings,
   onExportPerformance,
+  onImportCsv,
+  onExportJson,
+  onImportJson,
 }) {
   const { t } = useI18n();
   const disabled = summaryCards.length === 0;
@@ -102,6 +105,93 @@ export default function ReportsTab({
             disabled={disabled}
           />
         ))}
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="card-base p-5">
+          <h3 className="font-heading text-base font-bold text-surface-800 dark:text-surface-100">
+            {t('reports.export.json.title') || 'Export Portfolio (JSON)'}
+          </h3>
+          <p className="mt-2 text-sm text-surface-500 dark:text-surface-400">
+            {t('reports.export.json.description') ||
+              'Download the full portfolio as JSON for backup or migration.'}
+          </p>
+          <button
+            type="button"
+            onClick={onExportJson}
+            className="mt-4 inline-flex items-center justify-center rounded-lg bg-surface-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-surface-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-500"
+          >
+            <svg
+              className="-ml-1 mr-2 h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            {t('reports.export.json.action') || 'Export JSON'}
+          </button>
+        </div>
+        <div className="card-base p-5">
+          <h3 className="font-heading text-base font-bold text-surface-800 dark:text-surface-100">
+            {t('reports.import.json.title') || 'Import Portfolio (JSON)'}
+          </h3>
+          <p className="mt-2 text-sm text-surface-500 dark:text-surface-400">
+            {t('reports.import.json.description') ||
+              'Restore a portfolio from a previously exported JSON file.'}
+          </p>
+          <button
+            type="button"
+            onClick={onImportJson}
+            className="mt-4 inline-flex items-center justify-center rounded-lg bg-surface-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-surface-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-surface-500"
+          >
+            <svg
+              className="-ml-1 mr-2 h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+            {t('reports.import.json.action') || 'Import JSON'}
+          </button>
+        </div>
+      </section>
+
+      <section className="card-base p-5">
+        <header>
+          <h2 className="font-heading text-lg font-bold text-surface-800 dark:text-surface-100">
+            {t('import.title')}
+          </h2>
+          <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
+            {t('import.dropzone.hint')}
+          </p>
+        </header>
+        <button
+          type="button"
+          onClick={onImportCsv}
+          className="mt-4 inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-brand-700 hover:shadow-tab focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+        >
+          <svg className="-ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+            />
+          </svg>
+          {t('import.import')}
+        </button>
       </section>
 
       <section className="card-base p-5">

@@ -3,7 +3,7 @@
 // Fetches from GET /api/portfolio/:id/realized-gains and renders a year accordion.
 // CSV export reuses the toCsv / triggerCsvDownload pattern from src/utils/reports.js.
 import { useState, useEffect, useCallback } from 'react';
-import { getRealizedGains } from '../lib/apiClient.js';
+import { getRealizedGains, getTradeStats } from '../lib/apiClient.js';
 import { triggerCsvDownload } from '../utils/reports.js';
 import { useI18n } from '../i18n/I18nProvider.jsx';
 
@@ -278,11 +278,73 @@ function YearSection({ yearData, defaultOpen }) {
   );
 }
 
+function StatCard({ label, value, detail }) {
+  return (
+    <div className="card-base p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-surface-400">
+        {label}
+      </p>
+      <p className="mt-1 font-heading text-xl font-bold tracking-tight text-surface-900 dark:text-surface-50">
+        {value}
+      </p>
+      {detail && <p className="mt-0.5 text-xs text-surface-500 dark:text-surface-400">{detail}</p>}
+    </div>
+  );
+}
+
+function TradeStatsPanel({ tradeStats }) {
+  const { t } = useI18n();
+  if (!tradeStats || tradeStats.totalLots === 0) return null;
+
+  const wr = parseFloat(tradeStats.winRate);
+  const winRateDisplay = Number.isFinite(wr) ? `${wr.toFixed(1)}%` : '—';
+
+  const pf = tradeStats.profitFactor;
+  const pfDisplay = pf === '∞' ? '∞' : Number(pf).toFixed(2);
+
+  return (
+    <div className="card-base p-5" data-testid="trade-stats-panel">
+      <h3 className="font-heading text-sm font-bold text-surface-700 dark:text-surface-200">
+        {t('realizedGains.tradeStats.title')}
+      </h3>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard
+          label={t('realizedGains.tradeStats.totalLots')}
+          value={tradeStats.totalLots}
+          detail={`${tradeStats.winCount}W / ${tradeStats.lossCount}L`}
+        />
+        <StatCard label={t('realizedGains.tradeStats.winRate')} value={winRateDisplay} />
+        <StatCard label={t('realizedGains.tradeStats.profitFactor')} value={pfDisplay} />
+        <StatCard
+          label={t('realizedGains.tradeStats.avgWin')}
+          value={`$${formatUsd(tradeStats.avgWinDollars)}`}
+          detail={`${Number(tradeStats.avgWinPct).toFixed(1)}%`}
+        />
+        <StatCard
+          label={t('realizedGains.tradeStats.avgLoss')}
+          value={`$${formatUsd(tradeStats.avgLossDollars)}`}
+          detail={`${Number(tradeStats.avgLossPct).toFixed(1)}%`}
+        />
+        <StatCard
+          label={t('realizedGains.tradeStats.expectancy')}
+          value={`$${formatUsd(tradeStats.expectancy)}`}
+          detail={
+            tradeStats.bestTicker
+              ? `${tradeStats.bestTicker} · ${tradeStats.avgHoldingDaysWinners}d avg`
+              : `${tradeStats.avgHoldingDaysWinners}d avg win hold`
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function RealizedGainsView({ portfolioId }) {
   const { t } = useI18n();
   const [data, setData] = useState(null);
+  const [tradeStats, setTradeStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -293,9 +355,12 @@ export default function RealizedGainsView({ portfolioId }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getRealizedGains(portfolioId)
-      .then(({ data: result }) => {
-        if (!cancelled) setData(result);
+    Promise.all([getRealizedGains(portfolioId), getTradeStats(portfolioId)])
+      .then(([gainsResult, statsResult]) => {
+        if (!cancelled) {
+          setData(gainsResult.data);
+          setTradeStats(statsResult.data);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err?.message ?? 'Failed to load realized gains.');
@@ -356,6 +421,7 @@ export default function RealizedGainsView({ portfolioId }) {
       {/* Year accordion */}
       {!loading && !error && data && (
         <>
+          <TradeStatsPanel tradeStats={tradeStats} />
           {data.years?.length > 0 ? (
             <div className="space-y-3">
               {[...data.years].reverse().map((yearData) => (

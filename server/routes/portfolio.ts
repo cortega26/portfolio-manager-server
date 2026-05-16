@@ -13,7 +13,12 @@ import {
   portfolioBodySchema,
 } from './_schemas.js';
 import { withLock } from '../utils/locks.js';
-import { readPortfolioState, writePortfolioState } from '../data/portfolioState.js';
+import {
+  readPortfolioState,
+  writePortfolioState,
+  listPortfolioSummaries,
+  deletePortfolioState,
+} from '../data/portfolioState.js';
 import {
   ensureTransactionUids,
   enforceNonNegativeCash,
@@ -86,6 +91,199 @@ const CashRatesResponseSchema = z.object({
 
 const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app, opts) => {
   const { getStorage, analyticsCache } = opts;
+
+  // ── GET /portfolios ──────────────────────────────────────────────────────
+  // List all portfolios with metadata.
+  app.get(
+    '/portfolios',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        response: {
+          200: z.object({
+            portfolios: z.array(
+              z.object({
+                id: z.string(),
+                displayName: z.string(),
+                currency: z.string(),
+                transactionCount: z.number(),
+                updatedAt: z.string().nullable(),
+              })
+            ),
+          }),
+        },
+      },
+    },
+    async () => {
+      const storage = await getStorage();
+      const summaries = await listPortfolioSummaries(storage);
+      return { portfolios: summaries };
+    }
+  );
+
+  // ── POST /portfolios ─────────────────────────────────────────────────────
+  // Create a new empty portfolio.
+  const CreatePortfolioSchema = z.object({
+    id: portfolioIdSchema.optional(),
+    displayName: z.string().min(1).max(128).optional(),
+  });
+
+  app.post(
+    '/portfolios',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        body: CreatePortfolioSchema,
+        response: {
+          200: z.object({ id: z.string(), status: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id: providedId, displayName } = request.body;
+      const id = providedId ?? `portfolio-${Date.now()}`;
+
+      const storage = await getStorage();
+      const existing = await readPortfolioState(storage, id);
+      if (existing) {
+        return reply
+          .code(409)
+          .send({ error: 'DUPLICATE_ID', message: `Portfolio "${id}" already exists.` });
+      }
+
+      const { runMigrations } = await import('../migrations/index.js');
+      const migrateStorage = await runMigrations({
+        dataDir: (opts as Record<string, unknown>).dataDir as string,
+        logger: app.log,
+      });
+      await writePortfolioState(migrateStorage, id, {
+        transactions: [],
+        signals: {},
+        settings: { displayName },
+        cash: { currency: 'USD', apyTimeline: [] },
+      });
+
+      return reply.code(200).send({ id, status: 'created' });
+    }
+  );
+
+  // ── PUT /portfolio/:id ───────────────────────────────────────────────────
+  // Rename a portfolio (update displayName).
+  app.put(
+    '/portfolio/:id',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        body: z.object({ displayName: z.string().min(1).max(128) }),
+        response: {
+          200: z.object({ status: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { displayName } = request.body;
+
+      const storage = await getStorage();
+      const existing = await readPortfolioState(storage, id);
+      if (!existing) {
+        return reply
+          .code(404)
+          .send({ error: 'NOT_FOUND', message: `Portfolio "${id}" not found.` });
+      }
+
+      await writePortfolioState(storage, id, {
+        ...(existing as Record<string, unknown>),
+        settings: {
+          ...(((existing as Record<string, unknown>).settings as Record<string, unknown>) ?? {}),
+          displayName,
+        },
+      });
+
+      return reply.code(200).send({ status: 'updated' });
+    }
+  );
+
+  // ── DELETE /portfolio/:id ────────────────────────────────────────────────
+  // Delete a portfolio and all its transactions.
+  app.delete(
+    '/portfolio/:id',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        response: {
+          200: z.object({ status: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const storage = await getStorage();
+
+      const existing = await readPortfolioState(storage, id);
+      if (!existing) {
+        return reply
+          .code(404)
+          .send({ error: 'NOT_FOUND', message: `Portfolio "${id}" not found.` });
+      }
+
+      await deletePortfolioState(storage, id);
+      return reply.code(200).send({ status: 'deleted' });
+    }
+  );
+
+  // ── POST /portfolio/:id/duplicate ────────────────────────────────────────
+  // Deep-copy a portfolio to a new ID.
+  app.post(
+    '/portfolio/:id/duplicate',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        body: z.object({ newId: portfolioIdSchema }),
+        response: {
+          200: z.object({ status: z.string(), transactionCount: z.number() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { newId } = request.body;
+
+      const storage = await getStorage();
+      const source = await readPortfolioState(storage, id);
+      if (!source) {
+        return reply
+          .code(404)
+          .send({ error: 'NOT_FOUND', message: `Source portfolio "${id}" not found.` });
+      }
+
+      const existing = await readPortfolioState(storage, newId);
+      if (existing) {
+        return reply
+          .code(409)
+          .send({ error: 'DUPLICATE_ID', message: `Target portfolio "${newId}" already exists.` });
+      }
+
+      const { sortTransactions } = await import('../finance/portfolio.js');
+      const transactions = Array.isArray((source as Record<string, unknown>).transactions)
+        ? sortTransactions(
+            JSON.parse(JSON.stringify((source as Record<string, unknown>).transactions)) as never[]
+          )
+        : [];
+
+      await writePortfolioState(storage, newId, {
+        transactions: transactions as never[],
+        signals: (source as Record<string, unknown>).signals,
+        settings: (source as Record<string, unknown>).settings,
+        cash: (source as Record<string, unknown>).cash,
+      });
+
+      return reply.code(200).send({ status: 'duplicated', transactionCount: transactions.length });
+    }
+  );
 
   // ── GET /portfolio/:id ───────────────────────────────────────────────────
   app.get(
@@ -284,6 +482,114 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
           signals: existing?.signals ?? {},
           settings: existing?.settings,
           cash: existing?.cash ?? { currency: 'USD', apyTimeline: [] },
+        });
+      });
+
+      return reply.code(200).send({ status: 'ok' });
+    }
+  );
+
+  // ── GET /portfolio/:id/export ─────────────────────────────────────────────
+  // Full portfolio export as downloadable JSON.
+  app.get(
+    '/portfolio/:id/export',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        response: {
+          200: z.record(z.string(), z.unknown()),
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const storage = await getStorage();
+      const portfolio = await readPortfolioState(storage, id);
+
+      if (!portfolio) {
+        throw Object.assign(new Error('Portfolio not found.'), {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+        });
+      }
+
+      reply.header('Content-Disposition', `attachment; filename="portfolio-${id}.json"`);
+      return reply.send(portfolio);
+    }
+  );
+
+  // ── POST /portfolio/:id/import ─────────────────────────────────────────────
+  // Full portfolio restore from JSON payload.
+  app.post(
+    '/portfolio/:id/import',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        body: portfolioBodySchema,
+        response: {
+          200: SaveResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const payload = request.body;
+      const logger = {
+        info: (msg: string, meta?: object) =>
+          app.log.info({ ...(meta as Record<string, unknown>) }, msg),
+        warn: (msg: string, meta?: object) =>
+          app.log.warn({ ...(meta as Record<string, unknown>) }, msg),
+      };
+
+      let normalizedTransactions: object[];
+      try {
+        normalizedTransactions = ensureTransactionUids(payload.transactions ?? [], id, logger);
+      } catch (error) {
+        const err = error as {
+          statusCode?: number;
+          code?: string;
+          message?: string;
+          details?: unknown;
+        };
+        (reply as unknown as { code(n: number): { send(v: unknown): void } })
+          .code(err.statusCode ?? 400)
+          .send({
+            error: err.code ?? 'VALIDATION_ERROR',
+            message: err.message ?? 'Validation failed',
+            ...(err.details !== undefined ? { details: err.details } : {}),
+          });
+        return reply;
+      }
+
+      await withLock(`portfolio:${id}`, async () => {
+        const storage = await getStorage();
+        await writePortfolioState(storage, id, {
+          transactions: normalizedTransactions,
+          signals: (payload.signals as Record<string, unknown>) ?? {},
+          settings: payload.settings as Record<string, unknown> | undefined,
+          cash: {
+            currency:
+              typeof (payload.cash as Record<string, unknown> | undefined)?.['currency'] ===
+              'string'
+                ? ((payload.cash as Record<string, unknown>)['currency'] as string)
+                : 'USD',
+            apyTimeline: Array.isArray(
+              (payload.cash as Record<string, unknown> | undefined)?.['apyTimeline']
+            )
+              ? (
+                  (payload.cash as Record<string, unknown>)['apyTimeline'] as Record<
+                    string,
+                    unknown
+                  >[]
+                ).map((entry) => ({
+                  from: entry['from'],
+                  to: entry['to'] ?? null,
+                  apy: Number(entry['apy']),
+                }))
+              : [],
+          },
         });
       });
 
@@ -603,6 +909,92 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
     }
   );
 
+  // ── GET /portfolio/:id/trade-stats ──────────────────────────────────────
+  const TickerStatsSchema = z.object({
+    ticker: z.string(),
+    lots: z.number(),
+    wins: z.number(),
+    losses: z.number(),
+    winRate: z.string(),
+    totalGain: z.string(),
+    avgWin: z.string(),
+    avgLoss: z.string(),
+    profitFactor: z.string(),
+  });
+
+  const YearStatsSchema = z.object({
+    year: z.string(),
+    lots: z.number(),
+    wins: z.number(),
+    losses: z.number(),
+    winRate: z.string(),
+    totalGain: z.string(),
+    bestTicker: z.string(),
+    worstTicker: z.string(),
+  });
+
+  const TradeStatsResponseSchema = z.object({
+    totalLots: z.number(),
+    winCount: z.number(),
+    lossCount: z.number(),
+    winRate: z.string(),
+    avgWinDollars: z.string(),
+    avgLossDollars: z.string(),
+    avgWinPct: z.string(),
+    avgLossPct: z.string(),
+    profitFactor: z.string(),
+    expectancy: z.string(),
+    largestWin: z.string(),
+    largestLoss: z.string(),
+    bestTicker: z.string(),
+    worstTicker: z.string(),
+    avgHoldingDaysWinners: z.number(),
+    avgHoldingDaysLosers: z.number(),
+    byYear: z.array(YearStatsSchema),
+    byTicker: z.array(TickerStatsSchema),
+  });
+
+  app.get(
+    '/portfolio/:id/trade-stats',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        response: { 200: TradeStatsResponseSchema },
+      },
+    },
+    async (request) => {
+      const { id } = request.params;
+      const storage = await getStorage();
+      const portfolio = await readPortfolioState(storage, id);
+
+      if (!portfolio) {
+        throw Object.assign(new Error('Portfolio not found.'), {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+        });
+      }
+
+      const { matchLots } = await import('../finance/lotMatcher.js');
+      const { computeTradeStats } = await import('../finance/tradeStats.js');
+      const txs: LotTransaction[] = (
+        (portfolio.transactions ?? []) as Record<string, unknown>[]
+      ).map((tx) => ({
+        date: String(tx['date'] ?? ''),
+        type: String(tx['type'] ?? ''),
+        ...(typeof tx['ticker'] === 'string' ? { ticker: tx['ticker'] } : {}),
+        ...(tx['shares'] != null ? { shares: String(tx['shares']) } : {}),
+        ...(tx['price'] != null ? { price: String(tx['price']) } : {}),
+        ...(typeof tx['uid'] === 'string' ? { uid: tx['uid'] } : {}),
+      }));
+
+      const { sortTransactions } = await import('../finance/portfolio.js');
+      const sorted = sortTransactions(txs as never[]) as unknown as LotTransaction[];
+      const { closedLots } = matchLots(sorted);
+      return computeTradeStats(closedLots);
+    }
+  );
+
   // ── GET /portfolio/:id/inbox ──────────────────────────────────────────────
   // Returns computed Action Inbox feed items for the portfolio.
   const InboxItemSchema = z.object({
@@ -758,6 +1150,62 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       });
 
       return reply.code(200).send({ ok: true });
+    }
+  );
+
+  // ── GET /portfolio/:id/dividends ─────────────────────────────────────────
+  const DividendTickerSchema = z.object({
+    ticker: z.string(),
+    gross: z.string(),
+    tax: z.string(),
+    net: z.string(),
+    count: z.number(),
+  });
+
+  const DividendPeriodSchema = z.object({
+    period: z.string(),
+    gross: z.string(),
+    net: z.string(),
+    count: z.number(),
+    topTicker: z.string(),
+  });
+
+  const DividendsResponseSchema = z.object({
+    ytdGross: z.string(),
+    ytdNet: z.string(),
+    ytdTax: z.string(),
+    trailing12mGross: z.string(),
+    trailing12mNet: z.string(),
+    trailing12mTax: z.string(),
+    byTicker: z.array(DividendTickerSchema),
+    byYear: z.array(DividendPeriodSchema),
+    byMonth: z.array(DividendPeriodSchema),
+    totalCount: z.number(),
+  });
+
+  app.get(
+    '/portfolio/:id/dividends',
+    {
+      preHandler: app.requireAuth,
+      schema: {
+        params: z.object({ id: portfolioIdSchema }),
+        response: { 200: DividendsResponseSchema },
+      },
+    },
+    async (request) => {
+      const { id } = request.params;
+      const storage = await getStorage();
+      const portfolio = await readPortfolioState(storage, id);
+
+      if (!portfolio) {
+        throw Object.assign(new Error('Portfolio not found.'), {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+        });
+      }
+
+      const { computeDividendMetrics } = await import('../finance/dividends.js');
+      return computeDividendMetrics((portfolio.transactions ?? []) as never[], new Date());
     }
   );
 };

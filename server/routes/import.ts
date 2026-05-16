@@ -1,5 +1,5 @@
 // server/routes/import.ts
-// POST /api/import/csv — import portfolio transactions from the data directory CSV files
+// POST /api/import/csv — import portfolio transactions
 // DB Write policy: importCsvPortfolio() manages withLock() internally — satisfies 2.31b.
 import { z } from 'zod';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -21,6 +21,15 @@ const ImportResponseSchema = z.object({
   ),
 });
 
+const ColumnMappingSchema = z.object({
+  date: z.number().int().min(0),
+  type: z.number().int().min(0),
+  ticker: z.number().int().min(0),
+  shares: z.number().int().min(0),
+  price: z.number().int().min(0),
+  amount: z.number().int().min(0),
+});
+
 const importRoutes: FastifyPluginAsyncZod<ImportRouteContext> = async (app, opts) => {
   const { dataDir } = opts;
 
@@ -32,6 +41,9 @@ const importRoutes: FastifyPluginAsyncZod<ImportRouteContext> = async (app, opts
         body: z.object({
           portfolioId: portfolioIdSchema,
           dryRun: z.boolean().optional().default(false),
+          profile: z.enum(['fintual', 'generic']).optional().default('fintual'),
+          fileContents: z.string().optional(),
+          mapping: ColumnMappingSchema.optional(),
         }),
         response: {
           200: ImportResponseSchema,
@@ -39,8 +51,42 @@ const importRoutes: FastifyPluginAsyncZod<ImportRouteContext> = async (app, opts
       },
     },
     async (request) => {
-      const { portfolioId, dryRun } = request.body;
+      const { portfolioId, dryRun, profile, fileContents, mapping } = request.body;
 
+      if (profile === 'generic') {
+        if (!fileContents) {
+          return {
+            imported: 0,
+            skipped: 0,
+            errors: [{ row: 0, message: 'fileContents is required for generic profile' }],
+          };
+        }
+
+        const { parseGenericCsvImport, createPortfolioSnapshot } =
+          await import('../import/csvPortfolioImport.js');
+
+        const { transactions, errors } = parseGenericCsvImport(fileContents, mapping ?? undefined);
+
+        if (errors.length > 0) {
+          return { imported: 0, skipped: 0, errors };
+        }
+
+        const snapshot = createPortfolioSnapshot(transactions);
+
+        if (!dryRun) {
+          const { writePortfolioState } = await import('../data/portfolioState.js');
+          const { runMigrations } = await import('../migrations/index.js');
+          const { withLock } = await import('../utils/locks.js');
+          const storage = await runMigrations({ dataDir, logger: app.log });
+          await withLock(`csv-import:${portfolioId}`, async () => {
+            await writePortfolioState(storage, portfolioId, snapshot);
+          });
+        }
+
+        return { imported: transactions.length, skipped: 0, errors };
+      }
+
+      // Legacy fintual profile
       const { importCsvPortfolio } = await import('../import/csvPortfolioImport.js');
       type ImportFn = (opts: {
         dataDir?: string;

@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import AllocationChart from '../AllocationChart.jsx';
+import SectorAllocationChart from './SectorAllocationChart.jsx';
 import ContributionTable from '../ContributionTable.jsx';
 import { ROI_PRIMARY_PERCENT_DIGITS } from '../../../shared/precision.js';
 import { useI18n } from '../../i18n/I18nProvider.jsx';
@@ -432,11 +433,18 @@ export default function DashboardZone3({
         benchmarkSummary={benchmarkSummary}
         returnsSummary={returnsSummary}
       />
-      <AllocationChart
-        openHoldings={openHoldings}
-        currentPrices={currentPrices}
-        cashBalance={cashBalance ?? 0}
-      />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AllocationChart
+          openHoldings={openHoldings}
+          currentPrices={currentPrices}
+          cashBalance={cashBalance ?? 0}
+        />
+        <SectorAllocationChart
+          openHoldings={openHoldings}
+          currentPrices={currentPrices}
+          cashBalance={cashBalance ?? 0}
+        />
+      </div>
       <ContributionTable
         openHoldings={openHoldings}
         currentPrices={currentPrices}

@@ -18,25 +18,34 @@ const ALL_FLAGS = Object.keys(FLAG_DEFAULTS);
 // Default state
 // ---------------------------------------------------------------------------
 
-test('FLAG_DEFAULTS: all flags default to false', () => {
+const FLAGS_TRUE_BY_DEFAULT = new Set(['redesign.todayShell']);
+
+test('FLAG_DEFAULTS: all flags default to false except explicitly activated flags', () => {
   for (const flag of ALL_FLAGS) {
-    assert.strictEqual(FLAG_DEFAULTS[flag], false, `Flag "${flag}" should default to false`);
+    const expected = FLAGS_TRUE_BY_DEFAULT.has(flag);
+    assert.strictEqual(
+      FLAG_DEFAULTS[flag],
+      expected,
+      `Flag "${flag}" should default to ${expected}`
+    );
   }
 });
 
 test('resolveFlags: with no overrides returns all defaults', () => {
   const flags = resolveFlags({});
   for (const flag of ALL_FLAGS) {
-    assert.strictEqual(flags[flag], false, `Expected flag "${flag}" to be false`);
+    const expected = FLAGS_TRUE_BY_DEFAULT.has(flag);
+    assert.strictEqual(flags[flag], expected, `Expected flag "${flag}" to be ${expected}`);
   }
 });
 
 test('resolveFlags: override turns a flag on', () => {
   const flags = resolveFlags({ 'redesign.todayShell': true });
   assert.strictEqual(flags['redesign.todayShell'], true);
-  // Other flags remain false
+  // Other flags remain at their defaults
   assert.strictEqual(flags['redesign.trustBadges'], false);
   assert.strictEqual(flags['redesign.ledgerOpsCenter'], false);
+  assert.strictEqual(flags['redesign.policyGuidance'], false);
 });
 
 test('resolveFlags: unknown override keys are ignored', () => {

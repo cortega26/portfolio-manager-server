@@ -337,6 +337,46 @@ export async function fetchInbox(portfolioId, options = {}) {
   });
 }
 
+export async function exportPortfolioJson(portfolioId, options = {}) {
+  const normalizedId = normalizePortfolioId(portfolioId);
+  return requestJson(`/portfolio/${normalizedId}/export`, {
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function importPortfolioJson(portfolioId, data, options = {}) {
+  const normalizedId = normalizePortfolioId(portfolioId);
+  return requestJson(`/portfolio/${normalizedId}/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function importCsv(
+  portfolioId,
+  { fileContents, profile = 'generic', mapping, dryRun = false } = {},
+  options = {}
+) {
+  const normalizedId = normalizePortfolioId(portfolioId);
+  return requestJson(`/import/csv`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      portfolioId: normalizedId,
+      profile,
+      fileContents,
+      mapping,
+      dryRun,
+    }),
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
 export async function dismissInboxItem(portfolioId, { ticker, eventType, eventKey }, options = {}) {
   const normalizedId = normalizePortfolioId(portfolioId);
   return requestJson(`/portfolio/${normalizedId}/inbox/dismiss`, {
@@ -344,6 +384,65 @@ export async function dismissInboxItem(portfolioId, { ticker, eventType, eventKe
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ticker, eventType, eventKey }),
     allowEmptyObject: true,
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function fetchPortfolioList(options = {}) {
+  return requestJson('/portfolios', {
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function createPortfolio({ id, displayName } = {}, options = {}) {
+  return requestJson('/portfolios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, displayName }),
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function renamePortfolio(portfolioId, displayName, options = {}) {
+  const normalizedId = normalizePortfolioId(portfolioId);
+  return requestJson(`/portfolio/${normalizedId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName }),
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function deletePortfolio(portfolioId, options = {}) {
+  const normalizedId = normalizePortfolioId(portfolioId);
+  return requestJson(`/portfolio/${normalizedId}`, {
+    method: 'DELETE',
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function duplicatePortfolio(portfolioId, newId, options = {}) {
+  const normalizedId = normalizePortfolioId(portfolioId);
+  const normalizedNewId = normalizePortfolioId(newId);
+  return requestJson(`/portfolio/${normalizedId}/duplicate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newId: normalizedNewId }),
+    signal: options.signal,
+    onRequestMetadata: options.onRequestMetadata,
+  });
+}
+
+export async function comparePortfolios(portfolioIds, options = {}) {
+  return requestJson('/analytics/compare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ portfolioIds }),
     signal: options.signal,
     onRequestMetadata: options.onRequestMetadata,
   });

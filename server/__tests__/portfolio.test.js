@@ -317,6 +317,134 @@ test('rejects non-object portfolio payloads', async () => {
   await closeApp(app);
 });
 
+// ── Portfolio CRUD — list, create, delete, rename, duplicate ──────────────
+
+test('GET /api/portfolios returns an empty list when no portfolios exist', async () => {
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
+  const response = await withSession(request(app).get('/api/portfolios'));
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, { portfolios: [] });
+  await closeApp(app);
+});
+
+test('GET /api/portfolios lists created portfolios with transaction counts', async () => {
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
+  await withSession(
+    request(app)
+      .post('/api/portfolio/crud_test_a')
+      .send({
+        transactions: [{ date: '2024-01-01', type: 'DEPOSIT', amount: 1000 }],
+      })
+  );
+  await withSession(
+    request(app)
+      .post('/api/portfolio/crud_test_b')
+      .send({
+        transactions: [{ date: '2024-01-02', type: 'DEPOSIT', amount: 2000 }],
+      })
+  );
+  const response = await withSession(request(app).get('/api/portfolios'));
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(response.body.portfolios));
+  const ids = response.body.portfolios.map((p) => p.id).sort();
+  assert.deepEqual(ids, ['crud_test_a', 'crud_test_b']);
+  const portfolioA = response.body.portfolios.find((p) => p.id === 'crud_test_a');
+  assert.ok(portfolioA);
+  assert.equal(typeof portfolioA.transactionCount, 'number');
+  await closeApp(app);
+});
+
+test('POST /api/portfolios creates a new empty portfolio', async () => {
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
+  const response = await withSession(
+    request(app).post('/api/portfolios').send({ id: 'new_portfolio', displayName: 'New Portfolio' })
+  );
+  assert.equal(response.status, 200);
+
+  const saved = await readPersistedPortfolio('new_portfolio');
+  assert.ok(saved);
+  assert.deepEqual(saved.transactions, []);
+  await closeApp(app);
+});
+
+test('POST /api/portfolios requires a session token', async () => {
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
+  const response = await request(app).post('/api/portfolios').send({ id: 'no_auth_portfolio' });
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error, 'NO_SESSION_TOKEN');
+  await closeApp(app);
+});
+
+test('PUT /api/portfolio/:id updates the display name', async () => {
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
+  await withSession(request(app).post('/api/portfolio/rename_me').send({ transactions: [] }));
+  const response = await withSession(
+    request(app).put('/api/portfolio/rename_me').send({ displayName: 'Renamed Portfolio' })
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.body.status, 'updated');
+  await closeApp(app);
+});
+
+test('DELETE /api/portfolio/:id removes a portfolio', async () => {
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
+  await withSession(
+    request(app)
+      .post('/api/portfolio/to_delete')
+      .send({
+        transactions: [{ date: '2024-01-01', type: 'DEPOSIT', amount: 500 }],
+      })
+  );
+  const deleteResponse = await withSession(request(app).delete('/api/portfolio/to_delete'));
+  assert.equal(deleteResponse.status, 200);
+
+  const saved = await readPersistedPortfolio('to_delete');
+  assert.equal(saved, null);
+  await closeApp(app);
+});
+
+test('POST /api/portfolio/:id/duplicate deep-copies a portfolio', async () => {
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
+  const createResponse = await withSession(
+    request(app)
+      .post('/api/portfolio/original')
+      .send({
+        transactions: [
+          { date: '2024-01-01', type: 'DEPOSIT', amount: 5000 },
+          { date: '2024-01-02', ticker: 'AAPL', type: 'BUY', amount: -500, shares: 5, price: 100 },
+        ],
+      })
+  );
+  assert.equal(
+    createResponse.status,
+    200,
+    `original portfolio must be created first: ${JSON.stringify(createResponse.body)}`
+  );
+
+  const dupResponse = await withSession(
+    request(app).post('/api/portfolio/original/duplicate').send({ newId: 'the_copy' })
+  );
+  assert.equal(dupResponse.status, 200);
+
+  const copy = await readPersistedPortfolio('the_copy');
+  assert.ok(copy, 'duplicated portfolio must exist');
+  assert.equal(copy.transactions.length, 2, 'duplicated portfolio must have DEPOSIT + BUY');
+  const buyTx = copy.transactions.find((tx) => tx.ticker === 'AAPL');
+  assert.ok(buyTx, 'BUY transaction must exist in copy');
+  assert.equal(buyTx.amount, -500);
+  assert.deepEqual(copy.signals, {});
+  await closeApp(app);
+});
+
+test('POST /api/portfolio/:id/duplicate requires auth', async () => {
+  const app = await createSessionTestApp({ dataDir, logger: silentLogger });
+  const response = await request(app)
+    .post('/api/portfolio/original/duplicate')
+    .send({ newId: 'no_auth_copy' });
+  assert.equal(response.status, 401);
+  await closeApp(app);
+});
+
 test('GET /api/prices/:symbol returns parsed historical data', async () => {
   const today = new Date().toISOString().slice(0, 10);
   const csv = `Date,Open,High,Low,Close,Adj Close,Volume\n${today},1,1,1,123.45,123.45,1000`;

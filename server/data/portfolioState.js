@@ -34,6 +34,10 @@ function normalizeCashPolicy(cash) {
 function normalizePortfolioRecord(record, portfolioId) {
   return {
     id: portfolioId,
+    displayName:
+      typeof record?.displayName === 'string' && record.displayName.trim().length > 0
+        ? record.displayName.trim()
+        : portfolioId,
     schemaVersion:
       Number.isFinite(record?.schemaVersion) && record.schemaVersion > 0
         ? record.schemaVersion
@@ -112,6 +116,48 @@ export async function listPortfolioStates(storage) {
     id: row?.id,
     cash: normalizeCashPolicy(row?.cash),
   }));
+}
+
+export async function listPortfolioSummaries(storage) {
+  const [states, transactions] = await Promise.all([
+    storage.readTable(PORTFOLIO_STATE_TABLE),
+    storage.readTable(TRANSACTIONS_TABLE),
+  ]);
+  const txnCounts = new Map();
+  let latestTxnDate = null;
+  for (const t of transactions) {
+    const pid = t?.portfolio_id;
+    if (pid) txnCounts.set(pid, (txnCounts.get(pid) ?? 0) + 1);
+    if (t?.date && (!latestTxnDate || t.date > latestTxnDate)) latestTxnDate = t.date;
+  }
+  return states.map((row) => {
+    const id = row?.id ?? '';
+    return {
+      id,
+      displayName:
+        typeof row?.displayName === 'string' && row.displayName.trim().length > 0
+          ? row.displayName.trim()
+          : id,
+      currency: row?.cash?.currency ?? 'USD',
+      transactionCount: txnCounts.get(id) ?? 0,
+      updatedAt: row?.updated_at ?? null,
+    };
+  });
+}
+
+export async function deletePortfolioState(storage, portfolioId) {
+  const [existingStates, existingTransactions] = await Promise.all([
+    storage.readTable(PORTFOLIO_STATE_TABLE),
+    storage.readTable(TRANSACTIONS_TABLE),
+  ]);
+
+  const nextStates = existingStates.filter((row) => row?.id !== portfolioId);
+  const nextTransactions = existingTransactions.filter((row) => row?.portfolio_id !== portfolioId);
+
+  await storage.atomicBatchWrite([
+    { table: PORTFOLIO_STATE_TABLE, rows: nextStates },
+    { table: TRANSACTIONS_TABLE, rows: nextTransactions },
+  ]);
 }
 
 export const PORTFOLIO_STATE_TABLE_NAME = PORTFOLIO_STATE_TABLE;

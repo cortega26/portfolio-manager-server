@@ -5,10 +5,13 @@ import TabPanel from './components/TabPanel.jsx';
 import DesktopSessionGate from './components/DesktopSessionGate.jsx';
 import PortfolioControls from './components/PortfolioControls.jsx';
 import ToastStack from './components/ToastStack.jsx';
+import ImportModal from './components/ImportModal.jsx';
 import TabBar from './components/TabBar.jsx';
 import {
+  exportPortfolioJson,
   fetchBenchmarkCatalog,
   fetchBulkPrices,
+  importPortfolioJson,
   persistPortfolio,
   retrievePortfolio,
 } from './utils/api.js';
@@ -613,6 +616,81 @@ export default function PortfolioManagerApp() {
     setSettings((prev) => updateSetting(prev, path, value));
   }, []);
 
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const handleExportJson = useCallback(async () => {
+    if (!portfolioId?.trim()) return;
+    try {
+      const data = await exportPortfolioJson(portfolioId);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `portfolio-${portfolioId.trim()}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail
+    }
+  }, [portfolioId]);
+
+  const handleImportJson = useCallback(() => {
+    // Trigger a hidden file input to select a JSON file
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target?.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        await importPortfolioJson(portfolioId, data);
+        pushToastRef.current?.({
+          id: `import-json-${Date.now()}`,
+          type: 'success',
+          title: 'Portfolio Restored',
+          message: 'Portfolio has been restored from JSON.',
+          duration: 5000,
+        });
+        handleLoadPortfolio().catch(() => {});
+      } catch {
+        pushToastRef.current?.({
+          id: `import-json-err-${Date.now()}`,
+          type: 'error',
+          title: 'Import Failed',
+          message: 'Could not restore portfolio from JSON. Check the file format.',
+          duration: 5000,
+        });
+      }
+    };
+    input.click();
+  }, [portfolioId, handleLoadPortfolio]);
+
+  const handleImportCsv = useCallback(() => {
+    setShowImportModal(true);
+  }, []);
+
+  const handleImportModalClose = useCallback(() => {
+    setShowImportModal(false);
+  }, []);
+
+  const handleImportComplete = useCallback(
+    (count) => {
+      setShowImportModal(false);
+      pushToastRef.current?.({
+        id: `import-${Date.now()}`,
+        type: 'success',
+        title: 'Import Complete',
+        message: `${count} transactions imported. Refreshing data…`,
+        duration: 5000,
+      });
+      // Trigger a portfolio reload to reflect imported data
+      handleLoadPortfolio().catch(() => {});
+    },
+    [handleLoadPortfolio]
+  );
+
   const handleResetSettings = useCallback(() => {
     setSettings(createDefaultSettings());
   }, []);
@@ -710,6 +788,9 @@ export default function PortfolioManagerApp() {
               handleExportTransactions={handleExportTransactions}
               handleExportHoldings={handleExportHoldings}
               handleExportPerformance={handleExportPerformance}
+              handleExportJson={handleExportJson}
+              handleImportJson={handleImportJson}
+              handleImportCsv={handleImportCsv}
               settings={settings}
               schedulerStatus={schedulerStatus}
               handleSettingChange={handleSettingChange}
@@ -717,6 +798,13 @@ export default function PortfolioManagerApp() {
             />
           </div>
         </main>
+        {showImportModal && (
+          <ImportModal
+            portfolioId={portfolioId}
+            onClose={handleImportModalClose}
+            onImportComplete={handleImportComplete}
+          />
+        )}
       </div>
     </div>
   );

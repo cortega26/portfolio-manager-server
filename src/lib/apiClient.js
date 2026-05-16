@@ -415,3 +415,11 @@ export async function requestJson(path, options = {}) {
 export async function getRealizedGains(portfolioId, options = {}) {
   return requestJson(`/portfolio/${encodeURIComponent(portfolioId)}/realized-gains`, options);
 }
+
+export async function getDividends(portfolioId, options = {}) {
+  return requestJson(`/portfolio/${encodeURIComponent(portfolioId)}/dividends`, options);
+}
+
+export async function getTradeStats(portfolioId, options = {}) {
+  return requestJson(`/portfolio/${encodeURIComponent(portfolioId)}/trade-stats`, options);
+}

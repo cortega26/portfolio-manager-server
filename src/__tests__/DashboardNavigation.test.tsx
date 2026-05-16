@@ -16,10 +16,6 @@ vi.mock('../components/PricesTab.jsx', () => ({
   __esModule: true,
   default: () => <div data-testid="stub-prices" />,
 }));
-vi.mock('../components/SignalsTab.jsx', () => ({
-  __esModule: true,
-  default: () => <div data-testid="stub-signals" />,
-}));
 vi.mock('../components/TransactionsTab.jsx', () => ({
   __esModule: true,
   default: () => <div data-testid="stub-transactions" />,

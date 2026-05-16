@@ -12,6 +12,7 @@ const defaultTabs = [
   { id: 'History', labelKey: 'nav.history' },
   { id: 'Metrics', labelKey: 'nav.metrics' },
   { id: 'RealizedGains', labelKey: 'nav.realizedGains' },
+  { id: 'Compare', labelKey: 'nav.compare' },
   { id: 'Reports', labelKey: 'nav.reports' },
   { id: 'Settings', labelKey: 'nav.settings' },
 ];

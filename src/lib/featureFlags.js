@@ -14,7 +14,7 @@
 
 /** @type {Record<string, boolean>} */
 export const FLAG_DEFAULTS = {
-  'redesign.todayShell': false,
+  'redesign.todayShell': true,
   'redesign.trustBadges': false,
   'redesign.ledgerOpsCenter': false,
   'redesign.policyGuidance': false,
