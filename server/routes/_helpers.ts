@@ -102,7 +102,7 @@ export function resolveHistoricalClose(point: HistoricalPricePoint | null): numb
   }
   const candidates = [point.close, point.adjClose, point.adj_close, point.price];
   for (const candidate of candidates) {
-    if (Number.isFinite(candidate) && candidate > 0) {
+    if (candidate != null && Number.isFinite(candidate) && candidate > 0) {
       return Number(candidate);
     }
   }
@@ -125,6 +125,7 @@ export function buildAdjustedPriceMap(
       !point?.date ||
       (from && point.date < from) ||
       (to && point.date > to) ||
+      price == null ||
       !Number.isFinite(price) ||
       price <= 0
     ) {

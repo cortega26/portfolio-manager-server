@@ -546,10 +546,10 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       const txs: LotTransaction[] = (portfolio.transactions ?? []).map((tx) => ({
         date: String(tx['date'] ?? ''),
         type: String(tx['type'] ?? ''),
-        ticker: typeof tx['ticker'] === 'string' ? tx['ticker'] : undefined,
-        shares: tx['shares'] != null ? String(tx['shares']) : undefined,
-        price: tx['price'] != null ? String(tx['price']) : undefined,
-        uid: typeof tx['uid'] === 'string' ? tx['uid'] : undefined,
+        ...(typeof tx['ticker'] === 'string' ? { ticker: tx['ticker'] } : {}),
+        ...(tx['shares'] != null ? { shares: String(tx['shares']) } : {}),
+        ...(tx['price'] != null ? { price: String(tx['price']) } : {}),
+        ...(typeof tx['uid'] === 'string' ? { uid: tx['uid'] } : {}),
       }));
 
       // Sort ascending by date (lot matcher requires chronological order).

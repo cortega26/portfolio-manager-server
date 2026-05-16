@@ -113,7 +113,7 @@ export function matchLots(transactions: LotTransaction[]): LotMatchResult {
         buyDate: tx.date,
         buyPrice: txPrice,
         shares: txShares,
-        uid: tx.uid,
+        ...(tx.uid !== undefined ? { uid: tx.uid } : {}),
       });
     } else {
       // SELL
@@ -187,7 +187,7 @@ export function matchLots(transactions: LotTransaction[]): LotMatchResult {
         buyDate: lot.buyDate,
         buyPrice: serializeDecimal(lot.buyPrice),
         shares: serializeDecimal(lot.shares),
-        uid: lot.uid,
+        ...(lot.uid !== undefined ? { uid: lot.uid } : {}),
       });
     }
   }

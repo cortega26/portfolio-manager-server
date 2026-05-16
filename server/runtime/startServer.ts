@@ -175,7 +175,7 @@ export async function startServer({
   // ── Build price loader ────────────────────────────────────────────────────
   const fetchTimeoutMs = resolvedConfig.fetchTimeoutMs ?? 5000;
 
-  const healthMonitor = createProviderHealthMonitor({ logger: appLogger });
+  const healthMonitor = createProviderHealthMonitor({ logger: appLogger as never });
 
   const priceProvider = (
     createConfiguredPriceProvider as (opts: Record<string, unknown>) => unknown

@@ -1123,7 +1123,10 @@ export function computeRollingWindowReturns(rows: ReturnRow[]): {
   threeMonth: { cumulative: number | null; annualized: number | null };
   oneYear: { cumulative: number | null; annualized: number | null };
 } {
-  const empty = { cumulative: null, annualized: null };
+  const empty: { cumulative: number | null; annualized: number | null } = {
+    cumulative: null,
+    annualized: null,
+  };
   const result = { oneMonth: empty, threeMonth: empty, oneYear: empty };
   if (!Array.isArray(rows) || rows.length < 2) return result;
 
