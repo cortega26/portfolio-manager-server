@@ -55,16 +55,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24 }
       - run: npm ci
       - name: Lint
         run: npm run lint
       - name: Test with coverage
         run: node --test --experimental-test-coverage
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with: { name: coverage, path: coverage }
       - name: Enforce coverage
         run: NODE_OPTIONS="--trace-warnings --trace-deprecation --throw-deprecation" npm run test:coverage

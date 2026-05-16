@@ -145,9 +145,9 @@ Also add this **prelude** you can paste into future prompts:
 Open `.github/workflows/*.yml` and ensure **tests+coverage** happen in **one** step only. Example (Node 20 + npm cache):
 
 ```yaml
-- uses: actions/setup-node@v4
+- uses: actions/setup-node@v5
   with:
-    node-version: '20'
+    node-version: '24'
     cache: 'npm'
 
 - run: npm ci

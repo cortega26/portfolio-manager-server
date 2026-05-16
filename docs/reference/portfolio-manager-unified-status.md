@@ -26,14 +26,14 @@ Hechos verificados:
 ## Runtime reproducible
 
 ```bash
-env PATH="/home/carlos/VS_Code_Projects/portafolio-unificado/.tools/node-v20.19.0-linux-x64/bin:$PATH" node -v
-env PATH="/home/carlos/VS_Code_Projects/portafolio-unificado/.tools/node-v20.19.0-linux-x64/bin:$PATH" npm ci --no-fund --no-audit
-env PATH="/home/carlos/VS_Code_Projects/portafolio-unificado/.tools/node-v20.19.0-linux-x64/bin:$PATH" npm test
+env PATH="/home/carlos/VS_Code_Projects/portafolio-unificado/.tools/node-v24.15.0-linux-x64/bin:$PATH" node -v
+env PATH="/home/carlos/VS_Code_Projects/portafolio-unificado/.tools/node-v24.15.0-linux-x64/bin:$PATH" npm ci --no-fund --no-audit
+env PATH="/home/carlos/VS_Code_Projects/portafolio-unificado/.tools/node-v24.15.0-linux-x64/bin:$PATH" npm test
 ```
 
 Resultado vigente:
 
-- `node -v` → `v20.19.0`
+- `node -v` → `v24.15.0`
 - `npm ci` → OK
 - `npm test` → OK (`node:test` 325 pass, 0 fail, 1 skipped; Vitest 79 pass, 0 fail; coverage 56.19%)
 

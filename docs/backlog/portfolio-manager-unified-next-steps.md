@@ -172,7 +172,7 @@ Tareas:
 
 Si se retoma en una conversación nueva, el agente debe:
 
-1. Usar Node `20.19.0` real desde `.tools/node-v20.19.0-linux-x64`.
+1. Usar Node `24.15.0` real desde `.tools/node-v24.15.0-linux-x64`.
 2. Correr `npm test` antes de editar.
 3. Leer primero:
    - `AGENTS.md`
