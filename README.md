@@ -8,16 +8,36 @@
 
 ## Features
 
-- **Desktop-first**: runs as a self-contained Electron app — no cloud, no public API
-- **Session-secured**: process-scoped token generated per launch, enforced via middleware
-- **PIN-locked portfolios**: local PIN hashing with bcrypt per portfolio
-- **SQLite storage**: all data in a single portable `.sqlite` file
-- **Real-time signal engine**: BUY/SELL threshold alerts with configurable per-ticker percentages
-- **Multi-provider pricing**: Stooq → Yahoo fallback for historical closes, Alpaca/TwelveData for intraday
-- **Benchmark tracking**: SPY, QQQ, and blended benchmarks with ROI comparison charts
+- **Desktop-first**: self-contained Electron app — no cloud, no public API, data stays local
+- **Multi-portfolio**: create, rename, duplicate, delete portfolios with individual PIN locks (bcrypt)
+- **Session-secured**: process-scoped token generated per launch, enforced via Fastify middleware
+- **SQLite storage**: all portfolios in a single portable `.sqlite` file
+- **Signal engine**: BUY/TRIM/HOLD zone evaluation per ticker with configurable thresholds
+- **Trust metadata**: per-datapoint freshness, source, and confidence tracking with visual badges
+- **Price provider health**: circuit-breaker monitor that tracks provider failures and cooldowns
+- **Multi-provider pricing**: Yahoo, Alpaca, Stooq, Alpha Vantage, Twelve Data with fallback chains
+- **Benchmark comparison**: SPY, QQQ, and cash-matched blended benchmarks with ROI comparison
+- **Review cadence**: daily portfolio health bar, needs-attention alerts, recent changes, and data blockers
+- **i18n**: English and Spanish translations throughout the UI
 - **Deterministic finances**: all math via `decimal.js` — no floating-point drift
 - **Nightly scheduler**: automated price refresh, benchmark backfill, and NAV recomputation
-- **Comprehensive testing**: 325+ node:test assertions, 79+ Vitest tests, property-based tests with fast-check
+- **Comprehensive testing**: 1,470+ node:test assertions, 90+ Vitest tests, property-based tests with fast-check, mutation testing
+
+## Tabs
+
+| Tab            | Description                                                           |
+| -------------- | --------------------------------------------------------------------- |
+| Dashboard      | Portfolio overview with charts, zone cards, and performance snapshots |
+| Holdings       | Current positions with signal indicators and pricing status           |
+| Prices         | Live price board with refresh controls and provider status            |
+| Inbox          | Signal alerts, action items, and review prompts                       |
+| Transactions   | CRUD operations for buy/sell/dividend transactions                    |
+| History        | Monthly breakdown and NAV timeline                                    |
+| Metrics        | KPI cards, allocations, rolling returns, Sharpe ratio, drawdown       |
+| Realized Gains | Closed lot P&L with holding periods                                   |
+| Compare        | Side-by-side portfolio comparison                                     |
+| Reports        | Export/import transactions and holdings (CSV, JSON)                   |
+| Settings       | App configuration, scheduler status, data management                  |
 
 ## Architecture
 
@@ -25,32 +45,34 @@
 flowchart LR
   user((User)) --> electron[Electron Shell]
   electron --> renderer[React Renderer]
-  electron --> express[Fastify API<br/>127.0.0.1:random]
-  express --> session["Session Auth<br/>(per-process token)"]
-  express --> cache["Price Cache<br/>(TTL + metrics)"]
-  cache --> providers["Price Providers<br/>(Stooq / Yahoo / Alpaca)"]
-  express --> engine["Portfolio Engine<br/>(decimal.js)"]
+  electron --> fastify[Fastify API<br/>127.0.0.1:random]
+  fastify --> session["Session Auth<br/>(per-process token)"]
+  fastify --> cache["Price Cache<br/>(TTL + market-hours-aware)"]
+  cache --> providers["Price Providers<br/>(Yahoo / Alpaca / Stooq / …)"]
+  providers --> health["Provider Health<br/>(circuit breaker)"]
+  fastify --> engine["Portfolio Engine<br/>(decimal.js)"]
   engine --> sqlite[(SQLite)]
-  express --> scheduler["Nightly Scheduler<br/>(daily close + backfill)"]
+  fastify --> scheduler["Nightly Scheduler<br/>(daily close + backfill)"]
 ```
 
 ### Process Boundary
 
 | Layer               | Runs in          | Access                                              |
 | ------------------- | ---------------- | --------------------------------------------------- |
-| React UI (renderer) | Chromium process | Cannot access SQLite directly                       |
-| Fastify API         | Node.js (main)   | Session token required for every request            |
+| React UI (renderer) | Chromium process | No direct SQLite access                             |
+| Fastify API         | Node.js (main)   | SQLite via storage layer, session token required    |
 | Electron shell      | Node.js (main)   | Generates session token, starts Fastify on loopback |
-| SQLite              | Filesystem       | Only accessed via the backend storage layer         |
+| SQLite              | Filesystem       | Only accessed through backend storage               |
 
 ## Tech Stack
 
 - **Shell**: Electron (contextIsolation, no nodeIntegration)
-- **Frontend**: React 18, Vite 7, TailwindCSS, Recharts, react-window
-- **Backend**: Fastify 5, Pino logging, Zod validation, in-memory caching
-- **Storage**: SQLite persisted through the repo's `JsonTableStorage` layer (`server/data/storage.js`)
-- **Testing**: Vitest, @testing-library, fast-check, node:test
-- **CI**: GitHub Actions (`verify:docs` → `verify:smoke` → `test:coverage` → gitleaks → npm audit)
+- **Frontend**: React 18, Vite 7, TailwindCSS, Recharts, react-window, Zustand
+- **Backend**: Fastify 5, Pino, Zod validation, in-memory caching with market-hours-aware TTLs
+- **Storage**: SQLite via `JsonTableStorage` layer (`server/data/storage.js`)
+- **i18n**: Custom provider with English and Spanish translations
+- **Testing**: node:test, Vitest + @testing-library/react, Playwright, fast-check, Stryker (mutation)
+- **CI**: GitHub Actions (13-step pipeline: bootstrap → lint → typecheck → quality → smoke → coverage → gitleaks → audit)
 
 ## Quick Start
 
@@ -85,12 +107,6 @@ npm run dev      # Vite on :5173
 # Full test suite (matches CI)
 npm test
 
-# Check active docs against package scripts and known contracts
-npm run docs:check
-
-# Check that quality-gate docs, scripts, and CI stay aligned
-npm run quality:gates
-
 # Backend only (node:test)
 npm run test:node
 
@@ -99,13 +115,38 @@ npx vitest run
 
 # With coverage
 npm run test:coverage
+
+# Mutation testing (focused on ROI utilities)
+npm run mutate
+
+# E2E (requires build first)
+npm run test:e2e
+```
+
+### Quality Gates
+
+```bash
+# Verify doc contracts and paths
+npm run docs:check
+
+# Full quality suite: lint → typecheck → format → build → tests
+npm run verify:quality
+
+# Smoke gate: deps → lint → typecheck → build → smoke tests
+npm run verify:smoke
+
+# Check quality-gate alignment across docs, scripts, and CI
+npm run quality:gates
+
+# Single-command quality check
+npm run doctor
 ```
 
 ## Configuration
 
-All configuration lives in `.env`. Copy `.env.example` for defaults.
+Copy `.env.example` to `.env`. All configuration is read from environment variables.
 
-### Core Settings
+### Core
 
 | Variable    | Default  | Description                      |
 | ----------- | -------- | -------------------------------- |
@@ -113,16 +154,30 @@ All configuration lives in `.env`. Copy `.env.example` for defaults.
 | `DATA_DIR`  | `./data` | SQLite database directory        |
 | `LOG_LEVEL` | `info`   | Pino log level                   |
 
-### Pricing & Benchmarks
+### Pricing
 
-| Variable                  | Default   | Description                                              |
-| ------------------------- | --------- | -------------------------------------------------------- |
-| `PRICE_PROVIDER_PRIMARY`  | `stooq`   | Historical price provider (`stooq`, `yahoo`, `none`)     |
-| `PRICE_PROVIDER_FALLBACK` | `none`    | Fallback provider if primary fails                       |
-| `PRICE_PROVIDER_LATEST`   | `alpaca`  | Intraday quote provider (`alpaca`, `twelvedata`, `none`) |
-| `ALPACA_API_KEY`          | —         | Alpaca Market Data API key                               |
-| `ALPACA_API_SECRET`       | —         | Alpaca Market Data API secret                            |
-| `BENCHMARK_TICKERS`       | `SPY,QQQ` | Market benchmarks for ROI comparison                     |
+| Variable                  | Default  | Description                                                                    |
+| ------------------------- | -------- | ------------------------------------------------------------------------------ |
+| `PRICE_PROVIDER_PRIMARY`  | `yahoo`  | Historical price provider (`yahoo`, `stooq`, `alpaca`, `alphavantage`, `none`) |
+| `PRICE_PROVIDER_FALLBACK` | `none`   | Fallback if primary fails                                                      |
+| `PRICE_PROVIDER_LATEST`   | `alpaca` | Intraday quote provider (`alpaca`, `twelvedata`, `finnhub`, `none`)            |
+| `ALPACA_API_KEY`          | —        | Alpaca Market Data API key                                                     |
+| `ALPACA_API_SECRET`       | —        | Alpaca Market Data API secret                                                  |
+| `STOOQ_API_KEY`           | —        | Stooq API key (required for Stooq)                                             |
+
+### Cache
+
+| Variable                              | Default | Description                    |
+| ------------------------------------- | ------- | ------------------------------ |
+| `PRICE_CACHE_TTL_SECONDS`             | `600`   | TTL for historical price cache |
+| `PRICE_CACHE_LIVE_OPEN_TTL_SECONDS`   | `60`    | TTL during market hours        |
+| `PRICE_CACHE_LIVE_CLOSED_TTL_SECONDS` | `900`   | TTL outside market hours       |
+
+### Benchmarks
+
+| Variable            | Default   | Description                          |
+| ------------------- | --------- | ------------------------------------ |
+| `BENCHMARK_TICKERS` | `SPY,QQQ` | Market benchmarks for ROI comparison |
 
 ### Scheduler
 
@@ -130,14 +185,6 @@ All configuration lives in `.env`. Copy `.env.example` for defaults.
 | --------------------- | ------- | ---------------------------------- |
 | `JOB_NIGHTLY_ENABLED` | `true`  | Enable nightly close scheduler     |
 | `JOB_NIGHTLY_HOUR`    | `4`     | UTC hour for nightly recomputation |
-
-### Cache & Performance
-
-| Variable                              | Default | Description                                 |
-| ------------------------------------- | ------- | ------------------------------------------- |
-| `PRICE_CACHE_TTL_SECONDS`             | `600`   | TTL for historical price cache              |
-| `PRICE_CACHE_LIVE_OPEN_TTL_SECONDS`   | `60`    | TTL for intraday prices during market hours |
-| `PRICE_CACHE_LIVE_CLOSED_TTL_SECONDS` | `900`   | TTL for prices outside market hours         |
 
 ## Project Structure
 
@@ -147,20 +194,55 @@ All configuration lives in `.env`. Copy `.env.example` for defaults.
 │   ├── preload.cjs     # Secure renderer bridge
 │   └── runtimeConfig.js
 ├── server/             # Fastify backend
-│   ├── app.fastify.ts  # Fastify composition
-│   ├── data/           # SQLite storage, price providers
-│   ├── finance/        # Portfolio engine, ROI, cash
+│   ├── app.fastify.ts  # App factory (Zod validation, DI)
+│   ├── data/           # SQLite storage, price providers, health monitor
+│   ├── finance/        # Portfolio engine, returns, cash, lot matcher (decimal.js)
+│   ├── routes/         # REST handlers (portfolio, prices, signals, health, etc.)
+│   ├── plugins/        # Session auth, request context, ETag, SPA fallback
 │   ├── jobs/           # Nightly scheduler, daily close
-│   ├── plugins/        # Session auth, request context, ETag
-│   └── migrations/     # SQLite schema migrations
+│   ├── migrations/     # SQLite schema migrations
+│   ├── import/         # CSV portfolio import
+│   ├── services/       # Historical price loader
+│   └── __tests__/      # Backend tests (node:test)
 ├── src/                # React frontend
 │   ├── App.jsx         # Router root
 │   ├── PortfolioManagerApp.jsx  # Main app shell
-│   ├── components/     # Tab UIs (Dashboard, Holdings, etc.)
-│   └── lib/            # API client, runtime config
-├── shared/             # Shared constants, settings, benchmarks
-└── context/            # Project documentation
+│   ├── components/     # Tab components (Dashboard, Holdings, Inbox, etc.)
+│   ├── hooks/          # Custom hooks (usePortfolioData, usePerformanceData, etc.)
+│   ├── i18n/           # Translations (English, Spanish)
+│   ├── state/          # Zustand store (portfolioStore.js)
+│   ├── lib/            # API client, runtime config
+│   └── __tests__/      # Frontend tests (Vitest)
+├── shared/             # Isomorphic modules (server + client)
+│   ├── benchmarks.js   # SPY, QQQ, blended benchmark definitions
+│   ├── constants.js    # Cache TTLs, rate limits, schema versions
+│   ├── precision.js    # decimal.js precision settings
+│   ├── signals.js      # Signal evaluation engine (buy/trim/hold zones)
+│   ├── trust.ts        # Trust metadata schema (freshness, source, confidence)
+│   └── policy.js       # Portfolio policy schema and evaluator
+├── tests/
+│   ├── e2e/            # Playwright E2E tests
+│   ├── prices/         # Price-specific node:test tests
+│   └── redesign/       # Redesign node:test + vitest tests
+├── docs/
+│   ├── adr/            # Architecture Decision Records (11 records)
+│   ├── audits/         # Security and code quality audits
+│   └── ...             # Guides, backlog, reference, operations
+├── scripts/            # Dev/CI tool scripts
+└── tools/              # Test runner, perf suite
 ```
+
+## Key Libraries
+
+| Library      | Use                                                |
+| ------------ | -------------------------------------------------- |
+| `decimal.js` | All monetary and share arithmetic — no float drift |
+| `zod`        | Runtime schema validation on API boundaries        |
+| `zustand`    | Frontend state management                          |
+| `pino`       | Structured logging (backend)                       |
+| `bcrypt`     | Portfolio PIN hashing                              |
+| `recharts`   | Performance and allocation charts                  |
+| `fast-check` | Property-based testing for finance engine          |
 
 ## Contributing / License
 
