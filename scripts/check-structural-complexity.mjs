@@ -9,8 +9,10 @@ import {
   PROJECT_ROOT,
   QUALITY_REPORT_DIR,
   collectTouchedFiles,
+  ensureQualityReportDir,
   isProductionCodePath,
   readJson,
+  runCommand,
   writeJsonReport,
 } from './lib/qualityGuardUtils.mjs';
 
@@ -18,6 +20,7 @@ const ALLOWLIST_PATH = '.codacy/allowlist.json';
 const BASELINE_PATH = '.quality/codacy-baseline.json';
 const COMPLEXITY_CONFIG_PATH = '.quality/structural-complexity.json';
 const SARIF_PATH = path.join(QUALITY_REPORT_DIR, 'codacy.sarif');
+const LOG_PATH = path.join(QUALITY_REPORT_DIR, 'codacy.log');
 
 function buildResultKey(result) {
   return [result.tool, result.path, result.ruleId, result.level].join('::');
@@ -83,15 +86,30 @@ async function readSarifReport() {
   try {
     return await fs.readFile(SARIF_PATH, 'utf8');
   } catch (error) {
-    if (error?.code === 'ENOENT') {
-      process.stderr.write('Structural complexity guard could not find Codacy SARIF output.\n');
-      process.stderr.write(
-        `Expected ${path.relative(PROJECT_ROOT, SARIF_PATH)}. Run npm run codacy:analyze before npm run check:complexity.\n`
-      );
-      process.exitCode = 1;
+    if (error?.code !== 'ENOENT') {
+      throw error;
+    }
+
+    await ensureQualityReportDir();
+    process.stdout.write(
+      'Codacy SARIF not found; generating fresh analysis for complexity guard.\n'
+    );
+
+    const codacyRun = await runCommand(
+      'bash',
+      ['.codacy/cli.sh', 'analyze', '.', '--format', 'sarif', '-o', SARIF_PATH],
+      { allowFailure: true }
+    );
+    await fs.writeFile(LOG_PATH, `${codacyRun.stdout ?? ''}${codacyRun.stderr ?? ''}`, 'utf8');
+
+    if (codacyRun.code && codacyRun.code !== 0) {
+      process.stderr.write('Structural complexity guard could not generate Codacy SARIF output.\n');
+      process.stderr.write(`See ${path.relative(PROJECT_ROOT, LOG_PATH)} for details.\n`);
+      process.exitCode = codacyRun.code;
       return null;
     }
-    throw error;
+
+    return fs.readFile(SARIF_PATH, 'utf8');
   }
 }
 
