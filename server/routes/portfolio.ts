@@ -82,6 +82,11 @@ const PortfolioStateResponseSchema = z.record(z.string(), z.unknown());
 
 const SaveResponseSchema = z.object({ status: z.string() });
 
+const ErrorResponseSchema = z.object({
+  error: z.string(),
+  message: z.string(),
+});
+
 const CashRatesResponseSchema = z.object({
   currency: z.string(),
   apyTimeline: z.array(cashRateSchema),
@@ -136,6 +141,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         body: CreatePortfolioSchema,
         response: {
           200: z.object({ id: z.string(), status: z.string() }),
+          409: ErrorResponseSchema,
         },
       },
     },
@@ -178,6 +184,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         body: z.object({ displayName: z.string().min(1).max(128) }),
         response: {
           200: z.object({ status: z.string() }),
+          404: ErrorResponseSchema,
         },
       },
     },
@@ -215,6 +222,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         params: z.object({ id: portfolioIdSchema }),
         response: {
           200: z.object({ status: z.string() }),
+          404: ErrorResponseSchema,
         },
       },
     },
@@ -245,6 +253,8 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         body: z.object({ newId: portfolioIdSchema }),
         response: {
           200: z.object({ status: z.string(), transactionCount: z.number() }),
+          404: ErrorResponseSchema,
+          409: ErrorResponseSchema,
         },
       },
     },

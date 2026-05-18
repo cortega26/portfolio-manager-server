@@ -644,7 +644,7 @@ function resolveSourceFiles({ sourceDir, sourceFiles = {} }) {
   };
 }
 
-function createPortfolioSnapshot(transactions) {
+export function createPortfolioSnapshot(transactions) {
   const parsed = portfolioBodySchema.parse({
     transactions: sortTransactions(transactions),
     signals: {},
