@@ -79,6 +79,22 @@ function computeDuplicateWindowCount(sourceText, windowSize) {
   return duplicates;
 }
 
+async function readSarifReport() {
+  try {
+    return await fs.readFile(SARIF_PATH, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      process.stderr.write('Structural complexity guard could not find Codacy SARIF output.\n');
+      process.stderr.write(
+        `Expected ${path.relative(PROJECT_ROOT, SARIF_PATH)}. Run npm run codacy:analyze before npm run check:complexity.\n`
+      );
+      process.exitCode = 1;
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function main() {
   const [allowlist, baseline, config, touchedFiles, sarifRaw] = await Promise.all([
     readJson(ALLOWLIST_PATH, { results: [] }),
@@ -88,8 +104,12 @@ async function main() {
       duplicationOverrides: {},
     }),
     collectTouchedFiles(),
-    fs.readFile(SARIF_PATH, 'utf8'),
+    readSarifReport(),
   ]);
+
+  if (!sarifRaw) {
+    return;
+  }
 
   const touchedProductionFiles = touchedFiles.filter(isProductionCodePath);
   const lizardFindings = collectLizardFindings(JSON.parse(sarifRaw));
