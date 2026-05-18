@@ -16,6 +16,10 @@ Portfolio Manager Unified is a private, desktop-first investing workspace built 
 - **Actionable monitoring**: prices carry freshness and confidence metadata instead of pretending every quote is equally trustworthy
 - **Operational discipline**: linting, typechecks, contract validation, structural complexity checks, and strong automated tests are part of the repo itself
 
+## Support
+
+If Portfolio Manager Unified is useful to you, you can support ongoing independent development through [GitHub Sponsors](https://github.com/sponsors/cortega26) or [Buy Me a Coffee](https://www.buymeacoffee.com/cortega26).
+
 ## Core Capabilities
 
 - Multi-portfolio workspace with create, rename, duplicate, delete, and per-portfolio PIN support
