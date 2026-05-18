@@ -77,6 +77,14 @@ jobs:
       - name: Check structural complexity
         run: npm run check:complexity
 
+      - name: Contract full quality gate (main push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm run verify:quality
+
+      - name: Contract smoke gate (main push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm run verify:smoke
+
       - name: Upload quality reports
         if: always()
         uses: actions/upload-artifact@v7
