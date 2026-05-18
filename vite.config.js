@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 
@@ -8,42 +8,64 @@ import { visualizer } from 'rollup-plugin-visualizer';
 const base = process.env.VITE_BASE || '/';
 const analyzeFlag = (process.env.ANALYZE ?? '').toString().toLowerCase();
 const shouldAnalyze = ['1', 'true', 'yes', 'on'].includes(analyzeFlag);
+const DEFAULT_APP_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
 
-export default defineConfig({
-  base,
-  plugins: [
-    react(),
-    shouldAnalyze &&
-      visualizer({
-        open: true,
-        filename: 'dist/stats.html',
-        gzipSize: true,
-        brotliSize: true,
-      }),
-  ].filter(Boolean),
-  server: {
-    proxy: {
-      // Proxy API requests during development to the backend server
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const appCsp = env.VITE_APP_CSP || process.env.VITE_APP_CSP || DEFAULT_APP_CSP;
+
+  return {
+    base,
+    plugins: [
+      {
+        name: 'inject-default-app-csp',
+        transformIndexHtml(html) {
+          return html.replace(/%VITE_APP_CSP%/gu, appCsp);
+        },
       },
-    },
-  },
-  build: {
-    sourcemap: true,
-    chunkSizeWarningLimit: 500,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-charts': ['recharts'],
-          'vendor-utils': ['decimal.js', 'clsx'],
+      react(),
+      shouldAnalyze &&
+        visualizer({
+          open: true,
+          filename: 'dist/stats.html',
+          gzipSize: true,
+          brotliSize: true,
+        }),
+    ].filter(Boolean),
+    server: {
+      proxy: {
+        // Proxy API requests during development to the backend server
+        '/api': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
         },
       },
     },
-  },
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'recharts'],
-  },
+    build: {
+      sourcemap: true,
+      chunkSizeWarningLimit: 500,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-charts': ['recharts'],
+            'vendor-utils': ['decimal.js', 'clsx'],
+          },
+        },
+      },
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'recharts'],
+    },
+  };
 });
