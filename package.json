@@ -1,7 +1,7 @@
 {
   "name": "portfolio-manager-unified",
   "version": "1.0.0",
-  "description": "Desktop portfolio tracker with server-side storage, signal alerts, and ROI analytics",
+  "description": "Desktop-first portfolio manager with a local Fastify API, SQLite storage, signal workflows, and benchmark-aware analytics",
   "main": "server/index.js",
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
