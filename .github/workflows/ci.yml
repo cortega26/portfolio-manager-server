@@ -8,9 +8,25 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'build-history-logs/**'
+      - 'playwright-report/**'
+      - 'coverage/**'
+      - 'reports/**'
+      - 'test-results/**'
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'build-history-logs/**'
+      - 'playwright-report/**'
+      - 'coverage/**'
+      - 'reports/**'
+      - 'test-results/**'
   workflow_call:
 
 env:
@@ -19,12 +35,20 @@ env:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  ci:
+  quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -44,22 +68,76 @@ jobs:
       - name: Capture typecheck summary
         run: mkdir -p reports/quality && npm run verify:typecheck 2>&1 | tee reports/quality/typecheck-summary.txt
 
-      - name: Run repo quality guard
-        run: npm run verify:quality
+      - name: Verify server typecheck
+        run: npm run verify:typecheck:server
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Check structural complexity
+        run: npm run check:complexity
+
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: quality-reports
+          path: reports/quality/
+          if-no-files-found: ignore
+
+  build-and-smoke:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-fund --no-audit
+
+      - name: Build
+        run: npm run verify:build
 
       - name: Run stabilization smoke gate
-        run: npm run verify:smoke
+        run: npm run smoke:test
+
+  test:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-fund --no-audit
+
+      - name: Run tests
+        run: npm test
 
       - name: Run tests with coverage (single pass)
         env:
           NODE_OPTIONS: --trace-warnings --trace-deprecation --throw-deprecation
         run: npm run test:coverage
-
-      - name: Scan for secrets with gitleaks
-        run: npx --yes gitleaks detect --no-banner
-
-      - name: Audit npm dependencies
-        run: npm audit --audit-level=moderate
 
       - name: Upload coverage artifacts
         if: always()
@@ -69,10 +147,28 @@ jobs:
           path: coverage/
           if-no-files-found: ignore
 
-      - name: Upload quality reports
-        if: always()
-        uses: actions/upload-artifact@v5
+  security:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
         with:
-          name: quality-reports
-          path: reports/quality/
-          if-no-files-found: ignore
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-fund --no-audit
+
+      - name: Scan for secrets with gitleaks
+        run: npx --yes gitleaks detect --no-banner
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=moderate
