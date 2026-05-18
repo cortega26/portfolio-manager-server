@@ -1,0 +1,4 @@
+
+> portfolio-manager-unified@1.0.0 verify:typecheck
+> tsc --pretty false --project tsconfig.typecheck.json
+

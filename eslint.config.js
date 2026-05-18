@@ -9,7 +9,14 @@ const jsxA11yRecommendedRules = jsxA11yPlugin.configs.recommended?.rules ?? {};
 
 export default tseslint.config(
   {
-    ignores: ['node_modules/**', 'dist/**', 'tools/gitleaks/**', 'coverage/**'],
+    ignores: [
+      'node_modules/**',
+      'dist/**',
+      'tools/gitleaks/**',
+      'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
