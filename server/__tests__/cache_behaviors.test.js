@@ -288,3 +288,256 @@ test('POST /api/portfolio/:id flushes cached analytics responses', async () => {
   );
   await closeApp(app);
 });
+
+async function seedNavTable(rows) {
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
+  await storage.writeTable('nav_snapshots', rows);
+}
+
+async function seedRoiTable(rows) {
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
+  await storage.writeTable('roi_daily', rows);
+}
+
+async function seedPortfolio(id, data) {
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
+  const { writePortfolioState } = await import('../data/portfolioState.js');
+  await writePortfolioState(storage, id, data);
+}
+
+test('caching and invalidation for all daily analytics endpoints', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const baseReturns = [
+    {
+      date: today,
+      portfolio_id: 'test-port',
+      r_port: 0.05,
+      r_ex_cash: 0.055,
+      r_spy_100: 0.06,
+      r_bench_blended: 0.065,
+      r_cash: 0.0005,
+    },
+  ];
+  const baseNav = [
+    {
+      date: today,
+      portfolio_id: 'test-port',
+      portfolio_nav: 10000,
+      ex_cash_nav: 9000,
+      cash_balance: 1000,
+      risk_assets_value: 9000,
+      stale_price: 0,
+    },
+  ];
+  const baseRoi = [
+    {
+      date: today,
+      portfolio_id: 'test-port',
+      portfolio_nav: 10000,
+      net_contributions: 9500,
+      roi_portfolio_pct: 5.26,
+      roi_sp500_pct: 6.0,
+      roi_ndx_pct: 7.0,
+      source: 'reconstructed',
+      updated_at: new Date().toISOString(),
+    },
+  ];
+
+  await seedReturnsTable(baseReturns);
+  await seedNavTable(baseNav);
+  await seedRoiTable(baseRoi);
+  await seedPortfolio('test-port', {
+    transactions: [],
+    signals: {},
+    settings: { displayName: 'Test Portfolio' },
+    cash: { currency: 'USD', apyTimeline: [] },
+  });
+  await seedPortfolio('other-port', {
+    transactions: [],
+    signals: {},
+    settings: { displayName: 'Other Portfolio' },
+    cash: { currency: 'USD', apyTimeline: [] },
+  });
+
+  const app = await createSessionTestApp({
+    dataDir,
+    logger: silentLogger,
+    config: { cache: { ttlSeconds: CACHE_TTL_SECONDS } },
+  });
+
+  // Query and assert initial cached responses
+  const resNav1 = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(resNav1.status, 200);
+  assert.equal(resNav1.body.data[0].portfolio_nav, 10000);
+
+  const resRoi1 = await request(app).get('/api/roi/daily?portfolioId=test-port');
+  assert.equal(resRoi1.status, 200);
+  assert.ok(Array.isArray(resRoi1.body.series.portfolio));
+
+  const resBench1 = await request(app).get('/api/benchmarks/summary?portfolioId=test-port');
+  assert.equal(resBench1.status, 200);
+
+  const resCompare1 = await withSession(
+    request(app)
+      .post('/api/analytics/compare')
+      .send({
+        portfolioIds: ['test-port', 'other-port'],
+      })
+  );
+  assert.equal(resCompare1.status, 200);
+
+  // 1. Mutate data in storage (verify cache serves stale data)
+  const updatedNav = [
+    {
+      ...baseNav[0],
+      portfolio_nav: 20000,
+    },
+  ];
+  await seedNavTable(updatedNav);
+
+  const resNavCached = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(resNavCached.status, 200);
+  assert.equal(resNavCached.body.data[0].portfolio_nav, 10000, 'should return cached stale value');
+
+  // 2. Test PUT /api/portfolio/:id (Rename portfolio)
+  const renameRes = await withSession(
+    request(app).put('/api/portfolio/test-port').send({ displayName: 'Renamed Portfolio' })
+  );
+  assert.equal(renameRes.status, 200);
+
+  const resNavAfterRename = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(resNavAfterRename.status, 200);
+  assert.equal(
+    resNavAfterRename.body.data[0].portfolio_nav,
+    20000,
+    'cache should be flushed by PUT'
+  );
+
+  // 3. Test POST /api/portfolio/:id/transactions
+  const updatedNav2 = [
+    {
+      ...baseNav[0],
+      portfolio_nav: 30000,
+    },
+  ];
+  await seedNavTable(updatedNav2);
+
+  const resNavCached2 = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(resNavCached2.body.data[0].portfolio_nav, 20000, 'should return cached stale value');
+
+  const appendRes = await withSession(
+    request(app).post('/api/portfolio/test-port/transactions').send({ transactions: [] })
+  );
+  assert.equal(appendRes.status, 200);
+
+  const resNavAfterAppend = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(
+    resNavAfterAppend.body.data[0].portfolio_nav,
+    30000,
+    'cache should be flushed by transactions append'
+  );
+
+  // 4. Test POST /api/portfolio/:id/cashRates
+  const updatedNav3 = [
+    {
+      ...baseNav[0],
+      portfolio_nav: 40000,
+    },
+  ];
+  await seedNavTable(updatedNav3);
+
+  const resNavCached3 = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(resNavCached3.body.data[0].portfolio_nav, 30000, 'should return cached stale value');
+
+  const cashRatesRes = await withSession(
+    request(app).post('/api/portfolio/test-port/cashRates').send({ cashRates: [] })
+  );
+  assert.equal(cashRatesRes.status, 200);
+
+  const resNavAfterCashRates = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(
+    resNavAfterCashRates.body.data[0].portfolio_nav,
+    40000,
+    'cache should be flushed by cashRates'
+  );
+
+  // 5. Test POST /api/portfolio/:id/duplicate
+  const updatedNav4 = [
+    {
+      ...baseNav[0],
+      portfolio_nav: 50000,
+    },
+  ];
+  await seedNavTable(updatedNav4);
+
+  const resNavCached4 = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(resNavCached4.body.data[0].portfolio_nav, 40000, 'should return cached stale value');
+
+  const duplicateRes = await withSession(
+    request(app).post('/api/portfolio/test-port/duplicate').send({ newId: 'duplicated-port' })
+  );
+  assert.equal(duplicateRes.status, 200);
+
+  const resNavAfterDuplicate = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(
+    resNavAfterDuplicate.body.data[0].portfolio_nav,
+    50000,
+    'cache should be flushed by duplicate'
+  );
+
+  // 6. Test POST /api/import/csv
+  const updatedNav5 = [
+    {
+      ...baseNav[0],
+      portfolio_nav: 60000,
+    },
+  ];
+  await seedNavTable(updatedNav5);
+
+  const resNavCached5 = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(resNavCached5.body.data[0].portfolio_nav, 50000, 'should return cached stale value');
+
+  const csvImportRes = await withSession(
+    request(app).post('/api/import/csv').send({
+      portfolioId: 'test-port',
+      dryRun: false,
+      profile: 'generic',
+      fileContents: 'date,type,ticker,shares,price,amount\n2024-01-01,BUY,AAPL,10,150,1500',
+    })
+  );
+  if (csvImportRes.status !== 200) {
+    console.error('CSV IMPORT FAILURE:', csvImportRes.text, csvImportRes.body);
+  }
+  assert.equal(csvImportRes.status, 200);
+
+  const resNavAfterCsvImport = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(
+    resNavAfterCsvImport.body.data[0].portfolio_nav,
+    60000,
+    'cache should be flushed by CSV import'
+  );
+
+  // 7. Test DELETE /api/portfolio/:id
+  const updatedNav6 = [
+    {
+      ...baseNav[0],
+      portfolio_nav: 70000,
+    },
+  ];
+  await seedNavTable(updatedNav6);
+
+  const resNavCached6 = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(resNavCached6.body.data[0].portfolio_nav, 60000, 'should return cached stale value');
+
+  const deleteRes = await withSession(request(app).delete('/api/portfolio/other-port'));
+  assert.equal(deleteRes.status, 200);
+
+  const resNavAfterDelete = await request(app).get('/api/nav/daily?portfolioId=test-port');
+  assert.equal(
+    resNavAfterDelete.body.data[0].portfolio_nav,
+    70000,
+    'cache should be flushed by DELETE'
+  );
+
+  await closeApp(app);
+});

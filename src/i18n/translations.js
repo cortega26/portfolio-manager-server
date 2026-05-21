@@ -575,9 +575,9 @@ export const translations = {
       'Tailor alerts for trades, rebalancing opportunities, and market changes.',
     'settings.notifications.email.label': 'Email alerts',
     'settings.notifications.email.description':
-      'Store your preference for future email digests (feature in development).',
+      'Receive email alerts for key portfolio signal changes and updates.',
     'settings.notifications.email.helper':
-      'Email summaries will be delivered once background notifications launch. For now the app records your preference only.',
+      'Email summaries will be delivered to your inbox when signal notifications are triggered.',
     'settings.notifications.push.label': 'Push notifications',
     'settings.notifications.push.description':
       'Show in-app toast alerts for portfolio events and warnings.',
@@ -1351,9 +1351,9 @@ export const translations = {
       'Personaliza alertas para operaciones, oportunidades de rebalanceo y cambios de mercado.',
     'settings.notifications.email.label': 'Alertas por correo',
     'settings.notifications.email.description':
-      'Guarda tu preferencia para futuros resúmenes por correo (función en desarrollo).',
+      'Recibe alertas por correo electrónico ante cambios clave en las señales y actualizaciones.',
     'settings.notifications.email.helper':
-      'Los resúmenes por correo estarán disponibles cuando lancemos las notificaciones automáticas. Por ahora solo guardamos tu preferencia.',
+      'Los resúmenes por correo se enviarán a tu bandeja de entrada cuando se activen notificaciones de señales.',
     'settings.notifications.push.label': 'Notificaciones push',
     'settings.notifications.push.description':
       'Mostrar avisos emergentes en la aplicación para eventos y advertencias del portafolio.',

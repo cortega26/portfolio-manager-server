@@ -179,9 +179,8 @@ export default function SettingsTab({ settings, schedulerStatus, onSettingChange
             id="setting-email-alerts"
             label={t('settings.notifications.email.label')}
             description={t('settings.notifications.email.description')}
-            checked={Boolean(settings.notifications.email)}
+            checked={Boolean(settings?.notifications?.email)}
             onChange={(value) => onSettingChange('notifications.email', value)}
-            disabled
             helperText={t('settings.notifications.email.helper')}
           />
           <ToggleField

@@ -46,8 +46,8 @@ export async function fetchBulkPrices(
   { range = '1y', latestOnly = false, signal, onRequestMetadata } = {}
 ) {
   const candidateSymbols = normalizeBulkSymbols(symbols)
-    .map((symbol) => (typeof symbol === 'string' ? symbol.trim() : ''))
-    .filter((symbol) => symbol.length > 0);
+    .map((symbol) => (typeof symbol === 'string' ? symbol.trim().toUpperCase() : ''))
+    .filter((symbol) => symbol.length > 0 && symbol !== 'UNDEFINED' && symbol !== 'CASH');
   const uniqueSymbols = Array.from(new Set(candidateSymbols));
   if (uniqueSymbols.length === 0) {
     return {

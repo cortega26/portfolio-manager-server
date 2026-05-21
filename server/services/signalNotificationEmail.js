@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 
 import { SIGNAL_NOTIFICATION_EVENT_TABLE } from './signalNotifications.js';
 import { withLock } from '../utils/locks.js';
+import { readPortfolioState } from '../data/portfolioState.js';
 
 const EMAIL_DELIVERY_STATUS = Object.freeze({
   PENDING: 'pending',
@@ -345,6 +346,66 @@ export function createSignalNotificationMailer({ config, logger, transport } = {
   };
 }
 
+export async function alignPortfolioSignalMailPref(storage, portfolioId, emailEnabled) {
+  if (!storage) {
+    throw new Error('alignPortfolioSignalMailPref requires a storage instance.');
+  }
+  const normalizedPortfolioId = normalizeOptionalString(portfolioId, null);
+  const targetEmailEnabled = Boolean(emailEnabled);
+
+  return withLock(buildDeliveryLockKey(storage), async () => {
+    const notifications = await storage.readTable(SIGNAL_NOTIFICATION_EVENT_TABLE);
+    let modifiedCount = 0;
+
+    for (const row of notifications) {
+      if (normalizeOptionalString(row?.portfolio_id, null) === normalizedPortfolioId) {
+        let changed = false;
+        const currentChannelsEmail = Boolean(row?.channels?.email);
+        const currentStatus = row?.delivery?.email?.status;
+        let newStatus = currentStatus;
+
+        if (targetEmailEnabled) {
+          if (currentStatus === EMAIL_DELIVERY_STATUS.DISABLED) {
+            newStatus = EMAIL_DELIVERY_STATUS.PENDING;
+            changed = true;
+          }
+          if (currentChannelsEmail !== true) {
+            changed = true;
+          }
+        } else {
+          if (currentStatus === EMAIL_DELIVERY_STATUS.PENDING) {
+            newStatus = EMAIL_DELIVERY_STATUS.DISABLED;
+            changed = true;
+          }
+          if (currentChannelsEmail !== false) {
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          const updatedNotification = {
+            ...row,
+            channels: {
+              ...(row?.channels ?? {}),
+              email: targetEmailEnabled,
+            },
+            delivery: {
+              ...(row?.delivery ?? {}),
+              email: {
+                ...(row?.delivery?.email ?? {}),
+                status: newStatus,
+              },
+            },
+          };
+          await storage.upsertRow(SIGNAL_NOTIFICATION_EVENT_TABLE, updatedNotification, ['id']);
+          modifiedCount++;
+        }
+      }
+    }
+    return modifiedCount;
+  });
+}
+
 export async function requeueSignalNotificationEmailDelivery({
   storage,
   portfolioId,
@@ -370,7 +431,11 @@ export async function requeueSignalNotificationEmailDelivery({
     if (!target) {
       return null;
     }
-    if (target?.channels?.email !== true) {
+
+    const portfolioState = await readPortfolioState(storage, portfolioId);
+    const emailEnabled = Boolean(portfolioState?.settings?.notifications?.email);
+
+    if (!emailEnabled) {
       return {
         changed: false,
         reason: 'channel_disabled',
@@ -392,14 +457,20 @@ export async function requeueSignalNotificationEmailDelivery({
       };
     }
 
-    const updatedNotification = buildUpdatedNotificationRow(target, {
-      status: EMAIL_DELIVERY_STATUS.PENDING,
-      nextRetryAt: null,
-      exhaustedAt: null,
-      requeuedAt: now,
-      deliveredAt: null,
-      messageId: null,
-    });
+    const updatedNotification = {
+      ...buildUpdatedNotificationRow(target, {
+        status: EMAIL_DELIVERY_STATUS.PENDING,
+        nextRetryAt: null,
+        exhaustedAt: null,
+        requeuedAt: now,
+        deliveredAt: null,
+        messageId: null,
+      }),
+      channels: {
+        ...(target?.channels ?? {}),
+        email: true,
+      },
+    };
     await storage.upsertRow(SIGNAL_NOTIFICATION_EVENT_TABLE, updatedNotification, ['id']);
     return {
       changed: true,

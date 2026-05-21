@@ -326,6 +326,18 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       };
       const { from, to, page, per_page: perPage, portfolioId } = query;
 
+      const cacheKey = ['nav', portfolioId ?? '', from ?? '', to ?? '', page, perPage].join(':');
+
+      const cached = analyticsCache?.get(cacheKey);
+      if (cached !== undefined) {
+        return app.sendWithEtag(
+          request,
+          reply,
+          cached,
+          cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+        );
+      }
+
       let storage = await getStorage();
       let rows = filterRowsByRange(
         filterRowsByPortfolioScope(await storage.readTable('nav_snapshots'), portfolioId),
@@ -362,7 +374,13 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       });
 
       const payload = { data, meta };
-      return app.sendWithEtag(request, reply, payload);
+      analyticsCache?.set(cacheKey, payload);
+      return app.sendWithEtag(
+        request,
+        reply,
+        payload,
+        cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+      );
     }
   );
 
@@ -383,9 +401,29 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         portfolioId?: string | null;
       };
       const { from, to, portfolioId } = query;
+
+      const cacheKey = ['roi', portfolioId ?? '', from ?? '', to ?? ''].join(':');
+
+      const cached = analyticsCache?.get(cacheKey);
+      if (cached !== undefined) {
+        return app.sendWithEtag(
+          request,
+          reply,
+          cached,
+          cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+        );
+      }
+
       try {
         const payload = await performanceHistory.getRoiPayload({ from, to, portfolioId });
-        return app.sendWithEtag(request, reply, { ...payload, trust: buildUnknownTrust() });
+        const resPayload = { ...payload, trust: buildUnknownTrust() };
+        analyticsCache?.set(cacheKey, resPayload);
+        return app.sendWithEtag(
+          request,
+          reply,
+          resPayload,
+          cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+        );
       } catch (repairError) {
         app.log.error({ error: (repairError as Error).message, from, to }, 'roi_rebuild_failed');
         throw new AppError(
@@ -413,6 +451,18 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         portfolioId?: string | null;
       };
       const { from, to, portfolioId } = query;
+
+      const cacheKey = ['benchmarks', portfolioId ?? '', from ?? '', to ?? ''].join(':');
+
+      const cached = analyticsCache?.get(cacheKey);
+      if (cached !== undefined) {
+        return app.sendWithEtag(
+          request,
+          reply,
+          cached,
+          cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+        );
+      }
 
       let storage = await getStorage();
       let [returnsTable, navRows, transactions, priceRows] = await Promise.all([
@@ -557,7 +607,13 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         },
       };
 
-      return app.sendWithEtag(request, reply, payload);
+      analyticsCache?.set(cacheKey, payload);
+      return app.sendWithEtag(
+        request,
+        reply,
+        payload,
+        cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+      );
     }
   );
 
@@ -571,7 +627,25 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
       },
     },
     async (request, reply) => {
-      const { portfolioIds } = request.body;
+      const { portfolioIds, from, to } = request.body;
+
+      const cacheKey = [
+        'compare',
+        (portfolioIds ?? []).slice().sort().join(','),
+        from ?? '',
+        to ?? '',
+      ].join(':');
+
+      const cached = analyticsCache?.get(cacheKey);
+      if (cached !== undefined) {
+        return app.sendWithEtag(
+          request,
+          reply,
+          cached,
+          cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+        );
+      }
+
       const storage = await getStorage();
 
       const [returnsTable, navRows] = await Promise.all([
@@ -640,7 +714,14 @@ const analyticsRoutes: FastifyPluginAsyncZod<AnalyticsRouteContext> = async (app
         };
       }
 
-      return app.sendWithEtag(request, reply, { results });
+      const payload = { results };
+      analyticsCache?.set(cacheKey, payload);
+      return app.sendWithEtag(
+        request,
+        reply,
+        payload,
+        cacheTtlSeconds > 0 ? cacheTtlSeconds : undefined
+      );
     }
   );
 

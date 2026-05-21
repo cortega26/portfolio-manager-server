@@ -37,6 +37,16 @@ export default function usePerformanceData({
       return null;
     };
 
+    const resolveErrorDetail = (error) => {
+      if (error?.body && typeof error.body === 'object' && typeof error.body.message === 'string') {
+        return error.body.message.trim();
+      }
+      if (typeof error?.message === 'string' && error.message.trim().length > 0) {
+        return error.message.trim();
+      }
+      return null;
+    };
+
     async function loadRoi() {
       if (transactions.length === 0) {
         setRoiData([]);
@@ -114,6 +124,7 @@ export default function usePerformanceData({
         if (cancelled) {
           return;
         }
+        const errorDetail = resolveErrorDetail(error);
         if (lastGoodRoiDataRef.current.length > 0) {
           setRoiData(lastGoodRoiDataRef.current);
           setRoiSource('stale');
@@ -123,6 +134,7 @@ export default function usePerformanceData({
                   id: 'roi-stale',
                   type: 'warning',
                   message: t('alerts.roi.stale'),
+                  detail: errorDetail,
                   requestId: resolveRequestId(error),
                 }
               : null
@@ -136,6 +148,7 @@ export default function usePerformanceData({
           id: 'roi-unavailable',
           type: 'error',
           message: t('alerts.roi.unavailable'),
+          detail: errorDetail,
           requestId: resolveRequestId(error),
         });
       } finally {

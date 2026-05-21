@@ -25,7 +25,11 @@ import {
   enforceOversellPolicy,
 } from '../services/portfolioTransactions.js';
 import { listPortfolioSignalNotifications } from '../services/signalNotifications.js';
-import { requeueSignalNotificationEmailDelivery } from '../services/signalNotificationEmail.js';
+import {
+  requeueSignalNotificationEmailDelivery,
+  alignPortfolioSignalMailPref,
+  processPendingSignalNotificationEmails,
+} from '../services/signalNotificationEmail.js';
 import { matchLots } from '../finance/lotMatcher.js';
 import type { LotTransaction, ClosedLot } from '../finance/lotMatcher.js';
 import { d } from '../finance/decimal.js';
@@ -34,6 +38,7 @@ import type { InboxReviewRecord } from '../types/inbox.js';
 import type { HistoricalPriceLoader } from './prices.js';
 import { buildFreshPriceSnapshot, paginateRows } from './_helpers.js';
 import { NotFoundError } from '../types/errors.js';
+import type { ServerConfig } from '../types/config.js';
 
 // Minimal storage interface used by this route
 export interface StorageAdapter {
@@ -45,13 +50,15 @@ export interface StorageAdapter {
 
 export interface PortfolioRouteContext extends FastifyPluginOptions {
   getStorage: () => Promise<StorageAdapter>;
-  config: {
-    featureFlags: { cashBenchmarks: boolean };
-    cache: { ttlSeconds: number };
-    freshness?: { maxStaleTradingDays: number };
-  };
+  config: ServerConfig;
   analyticsCache?: { flush(): void };
   historicalPriceLoader?: HistoricalPriceLoader;
+}
+
+interface SettingsPayload {
+  notifications?: {
+    email?: boolean;
+  };
 }
 
 // ── Response schemas ─────────────────────────────────────────────────────────
@@ -169,6 +176,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         cash: { currency: 'USD', apyTimeline: [] },
       });
 
+      analyticsCache?.flush();
       return reply.code(200).send({ id, status: 'created' });
     }
   );
@@ -208,6 +216,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         },
       });
 
+      analyticsCache?.flush();
       return reply.code(200).send({ status: 'updated' });
     }
   );
@@ -238,6 +247,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
       }
 
       await deletePortfolioState(storage, id);
+      analyticsCache?.flush();
       return reply.code(200).send({ status: 'deleted' });
     }
   );
@@ -291,6 +301,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         cash: (source as Record<string, unknown>).cash,
       });
 
+      analyticsCache?.flush();
       return reply.code(200).send({ status: 'duplicated', transactionCount: transactions.length });
     }
   );
@@ -409,6 +420,28 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
           settings: payload.settings as Record<string, unknown> | undefined,
           cash: { currency: cashCurrency, apyTimeline: cashTimeline },
         });
+
+        const emailEnabled = Boolean(
+          (payload.settings as SettingsPayload | undefined)?.notifications?.email
+        );
+        await alignPortfolioSignalMailPref(storage, id, emailEnabled);
+
+        (
+          processPendingSignalNotificationEmails as (opts: {
+            storage: unknown;
+            config: unknown;
+            logger: unknown;
+          }) => Promise<unknown>
+        )({
+          storage,
+          config: opts.config,
+          logger: app.log,
+        }).catch((err: Error) => {
+          app.log.error(
+            { err },
+            'Failed to process pending signal notification emails in background'
+          );
+        });
       });
 
       analyticsCache?.flush();
@@ -495,6 +528,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         });
       });
 
+      analyticsCache?.flush();
       return reply.code(200).send({ status: 'ok' });
     }
   );
@@ -601,8 +635,31 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
               : [],
           },
         });
+
+        const emailEnabled = Boolean(
+          (payload.settings as SettingsPayload | undefined)?.notifications?.email
+        );
+        await alignPortfolioSignalMailPref(storage, id, emailEnabled);
+
+        (
+          processPendingSignalNotificationEmails as (opts: {
+            storage: unknown;
+            config: unknown;
+            logger: unknown;
+          }) => Promise<unknown>
+        )({
+          storage,
+          config: opts.config,
+          logger: app.log,
+        }).catch((err: Error) => {
+          app.log.error(
+            { err },
+            'Failed to process pending signal notification emails in background'
+          );
+        });
       });
 
+      analyticsCache?.flush();
       return reply.code(200).send({ status: 'ok' });
     }
   );
@@ -774,6 +831,7 @@ const portfolioRoutes: FastifyPluginAsyncZod<PortfolioRouteContext> = async (app
         });
       });
 
+      analyticsCache?.flush();
       return reply.code(200).send({ status: 'ok' });
     }
   );

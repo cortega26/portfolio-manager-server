@@ -5,11 +5,13 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 
 import JsonTableStorage from '../data/storage.js';
+import { writePortfolioState } from '../data/portfolioState.js';
 import {
   getSignalNotificationEmailDeliveryEligibility,
   createSignalNotificationMailer,
   processPendingSignalNotificationEmails,
   requeueSignalNotificationEmailDelivery,
+  alignPortfolioSignalMailPref,
 } from '../services/signalNotificationEmail.js';
 
 const noopLogger = { info() {}, warn() {}, error() {} };
@@ -67,6 +69,8 @@ beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'signal-email-test-'));
   storage = new JsonTableStorage({ dataDir, logger: noopLogger });
   await storage.ensureTable('signal_notifications', []);
+  await storage.ensureTable('portfolio_states', []);
+  await storage.ensureTable('transactions', []);
 });
 
 afterEach(() => {
@@ -393,6 +397,14 @@ test('requeueSignalNotificationEmailDelivery moves exhausted rows back to pendin
     ['id']
   );
 
+  await writePortfolioState(storage, 'portfolio-2', {
+    settings: {
+      notifications: {
+        email: true,
+      },
+    },
+  });
+
   const result = await requeueSignalNotificationEmailDelivery({
     storage,
     portfolioId: 'portfolio-2',
@@ -448,4 +460,72 @@ test('processPendingSignalNotificationEmails is a no-op when delivery_status is 
   const notifications = await storage.readTable('signal_notifications');
   // delivery_status remains disabled — the row is untouched
   assert.equal(notifications[0].delivery.email.status, 'disabled');
+});
+
+test('alignPortfolioSignalMailPref transitions status from disabled to pending when emailEnabled is true', async () => {
+  await storage.upsertRow(
+    'signal_notifications',
+    buildNotification({
+      id: 'notif-disabled',
+      portfolioId: 'portfolio-1',
+      deliveryStatus: 'disabled',
+    }),
+    ['id']
+  );
+
+  const modified = await alignPortfolioSignalMailPref(storage, 'portfolio-1', true);
+  assert.equal(modified, 1);
+
+  const notifications = await storage.readTable('signal_notifications');
+  assert.equal(notifications[0].channels.email, true);
+  assert.equal(notifications[0].delivery.email.status, 'pending');
+});
+
+test('alignPortfolioSignalMailPref transitions status from pending to disabled when emailEnabled is false', async () => {
+  await storage.upsertRow(
+    'signal_notifications',
+    buildNotification({
+      id: 'notif-pending',
+      portfolioId: 'portfolio-1',
+      deliveryStatus: 'pending',
+    }),
+    ['id']
+  );
+
+  const modified = await alignPortfolioSignalMailPref(storage, 'portfolio-1', false);
+  assert.equal(modified, 1);
+
+  const notifications = await storage.readTable('signal_notifications');
+  assert.equal(notifications[0].channels.email, false);
+  assert.equal(notifications[0].delivery.email.status, 'disabled');
+});
+
+test('requeueSignalNotificationEmailDelivery returns changed false when email notifications are disabled in portfolio state', async () => {
+  await storage.upsertRow(
+    'signal_notifications',
+    buildNotification({
+      id: 'exhausted-2',
+      portfolioId: 'portfolio-3',
+      deliveryStatus: 'exhausted',
+    }),
+    ['id']
+  );
+
+  // Write portfolio state with email notifications disabled
+  await writePortfolioState(storage, 'portfolio-3', {
+    settings: {
+      notifications: {
+        email: false,
+      },
+    },
+  });
+
+  const result = await requeueSignalNotificationEmailDelivery({
+    storage,
+    portfolioId: 'portfolio-3',
+    notificationId: 'exhausted-2',
+  });
+
+  assert.equal(result.changed, false);
+  assert.equal(result.reason, 'channel_disabled');
 });

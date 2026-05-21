@@ -169,6 +169,8 @@ describe('ROI availability alerts', () => {
       )
     ).toBeInTheDocument();
 
+    expect(screen.getByText('ROI service unavailable')).toBeInTheDocument();
+
     await waitFor(() => {
       expect(fetchDailyRoiMock.mock.calls.length).toBeGreaterThan(0);
     });

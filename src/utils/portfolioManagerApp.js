@@ -5,8 +5,11 @@ export function normalizeTickerSymbol(symbol) {
   if (typeof symbol !== 'string') {
     return '';
   }
-  const trimmed = symbol.trim();
-  return trimmed.length > 0 ? trimmed.toUpperCase() : '';
+  const trimmed = symbol.trim().toUpperCase();
+  if (trimmed === 'UNDEFINED' || trimmed === 'CASH') {
+    return '';
+  }
+  return trimmed;
 }
 
 export function normalizePricingResolutionStatus(status) {

@@ -8,6 +8,7 @@ import { portfolioIdSchema } from './_schemas.js';
 
 export interface ImportRouteContext extends FastifyPluginOptions {
   dataDir: string;
+  analyticsCache?: { flush(): void };
 }
 
 const ImportResponseSchema = z.object({
@@ -31,7 +32,7 @@ const ColumnMappingSchema = z.object({
 });
 
 const importRoutes: FastifyPluginAsyncZod<ImportRouteContext> = async (app, opts) => {
-  const { dataDir } = opts;
+  const { dataDir, analyticsCache } = opts;
 
   app.post(
     '/import/csv',
@@ -81,6 +82,7 @@ const importRoutes: FastifyPluginAsyncZod<ImportRouteContext> = async (app, opts
           await withLock(`csv-import:${portfolioId}`, async () => {
             await writePortfolioState(storage, portfolioId, snapshot);
           });
+          analyticsCache?.flush();
         }
 
         return { imported: transactions.length, skipped: 0, errors };
@@ -97,6 +99,10 @@ const importRoutes: FastifyPluginAsyncZod<ImportRouteContext> = async (app, opts
         transactionCount?: number;
         reconciliation?: { summary?: { totalTransactions?: number } };
       };
+
+      if (!dryRun) {
+        analyticsCache?.flush();
+      }
 
       return {
         imported:
