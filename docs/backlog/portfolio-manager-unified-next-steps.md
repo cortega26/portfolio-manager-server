@@ -13,7 +13,7 @@ Fecha de actualización: 2026-04-10
 | Limpieza código muerto (Phase A)                         | ✅ PASS — 16 archivos, 13 ediciones, express-rate-limit removido |
 | Importador CSV (4 archivos)                              | ✅ PASS — 990 tx, reconciliación exacta                          |
 | Auth multi-portafolio con PIN                            | ✅ PASS — PIN local por portafolio integrado en Electron         |
-| Señales y notificaciones UI                              | 🔶 PARTIAL — motor + tabs OK, canal persistente pendiente        |
+| Señales y notificaciones UI                              | ✅ PASS — motor, UI y persistencia backend completadas           |
 | Precios en tiempo real + scheduler                       | ✅ PASS — configuración externa y scheduler unificados           |
 | Benchmarks históricos                                    | ✅ PASS — catálogo `/api/benchmarks` y ROI conectado             |
 | UI: tab Prices                                           | ✅ PASS — vista dedicada conectada a latest-only pricing         |
@@ -22,7 +22,7 @@ Fecha de actualización: 2026-04-10
 | AdminTab (R1 público)                                    | ✅ REMOVIDO — componente + rutas + tests eliminados              |
 | README + .env.example                                    | ✅ ACTUALIZADO para desktop                                      |
 | CI pipeline                                              | ✅ SIMPLIFICADO — sin Playwright admin, sin deploy.yml           |
-| Email notifications                                      | ⏳ PENDIENTE                                                     |
+| Email notifications                                      | ✅ PASS — servicio nodemailer e integración en scheduler         |
 | Packaging electron-builder                               | ⏳ PENDIENTE                                                     |
 
 ---
@@ -104,9 +104,7 @@ Cerrado 2026-04-10:
 
 ### 4. Fase 5C — Completar señales
 
-Estado: `PARTIAL`
-
-Tareas:
+Estado: `PASS`
 
 Ya implementado en código real:
 
@@ -115,19 +113,16 @@ Ya implementado en código real:
 - Holdings consume el preview backend y dispara toasts según transición de estado.
 - La configuración de señales persiste dentro del payload del portafolio.
 - Nueva tab `Signals` dedicada conectada al mismo preview backend y reutilizando la matriz de señales compartida.
+- Cola persistente en base de datos SQLite para las alertas transitorias (`signal_notifications` y `signal_notification_states`).
+- Integración de la evaluación de señales en el scheduler diario (`daily_close.js`).
 
-Pendiente:
+### 4. Fase 6 — Dividendos y benchmarks (Email completado)
 
-- Revisar si las notificaciones de señales deben moverse al scheduler (backend) o a otro canal persistente.
-- Definir el canal persistente final para alertas recurrentes ahora que las preferencias de usuario ya quedan guardadas en el payload real del portafolio.
-
-### 4. Fase 6 — Dividendos, benchmarks y email
-
-Estado: `PENDIENTE`
+Estado: `PARTIAL`
 
 Tareas:
 
-- Email notifications via `nodemailer`.
+- Email notifications via `nodemailer` (Completado: implementado en `server/services/signalNotificationEmail.js` con reintentos y backoff, integrado en scheduler).
 - Revisar si faltan alertas o resúmenes asociados a dividendos neto/bruto para reporting desktop.
 - Definir alcance final de notificaciones por email sin degradar el modelo desktop-first.
 

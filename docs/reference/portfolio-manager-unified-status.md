@@ -159,13 +159,13 @@ Nota operativa:
 
 ### Fase 5 — Señales y notificaciones
 
-Estado: `PARTIAL`
+Estado: `PASS`
 
 Ya implementado:
 
 - Motor compartido de señales en `shared/signals.js`.
 - Endpoint `POST /api/signals` en Express para preview backend sobre transacciones + precios.
-- Señales calculadas desde última operación BUY/SELL.
+- Señales calculadas desde última operation BUY/SELL.
 - Sanity check +/-25% en renderer.
 - Holdings consume el preview backend y muestra las señales calculadas.
 - Nueva pestaña `Signals` dedicada reutiliza la misma matriz de señales y permite editar ventanas por ticker desde una superficie separada.
@@ -173,11 +173,8 @@ Ya implementado:
 - La configuración de señales ya viaja dentro del payload persistido del portafolio.
 - `Settings` ya controla toasts de transición de señales, banners de mercado y banners de fallback ROI.
 - `Settings` también muestra el estado runtime del scheduler nocturno expuesto por Electron (`JOB_NIGHTLY_ACTIVE`, `JOB_NIGHTLY_HOUR_UTC`).
-
-Pendiente:
-
-- Definir si las notificaciones/alertas de señales deben moverse al scheduler o a un canal persistente.
-- Implementar el canal persistente final para email/notificaciones fuera del renderer.
+- Las transiciones de señales y alertas persistentes se han integrado en el scheduler (`daily_close.js`).
+- El canal de correo electrónico persistente se ha implementado mediante `nodemailer` en `server/services/signalNotificationEmail.js` con soporte para reintentos y control de estado de entrega.
 
 ### Fase 5A — Limpieza SQLite-only
 
