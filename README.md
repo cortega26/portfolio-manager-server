@@ -232,3 +232,7 @@ Copy `.env.example` to `.env`. The defaults are tuned for local development.
 ## License
 
 License not yet published. Treat the repository as all rights reserved unless explicit permission is granted.
+
+---
+
+Built and maintained by **Carlos Ortega** — automation, data systems, and web technical hygiene consulting. Portfolio and services: **[tooltician.com](https://tooltician.com/)**.
