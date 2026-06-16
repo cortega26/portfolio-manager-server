@@ -140,6 +140,20 @@ function buildPriceFetchWindows(rows, from, to) {
     }
   }
 
+  // Detect gaps between existing dates (middle segments).
+  for (let i = 0; i < dates.length - 1; i++) {
+    const current = dates[i];
+    const next = dates[i + 1];
+    const expectedNext = nextDateKey(current);
+    if (next !== expectedNext) {
+      const gapStart = nextDateKey(current);
+      const gapEnd = previousDateKey(next);
+      if (gapStart <= gapEnd && gapStart >= requestedFrom && gapEnd <= requestedTo) {
+        windows.push({ from: gapStart, to: gapEnd });
+      }
+    }
+  }
+
   return windows;
 }
 
@@ -1260,4 +1274,5 @@ export function createPerformanceHistoryService({
   };
 }
 
+export { buildPriceFetchWindows };
 export default createPerformanceHistoryService;

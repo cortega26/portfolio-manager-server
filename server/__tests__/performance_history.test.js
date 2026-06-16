@@ -211,3 +211,61 @@ test('buildRoiSeriesPayload keeps canonical ROI precision near display rounding 
   assert.equal(payload.series.portfolio[1]?.value ?? null, 77.94444);
   assert.equal(payload.merged[1]?.portfolio ?? null, 77.94444);
 });
+
+import { buildPriceFetchWindows } from '../services/performanceHistory.js';
+
+test('buildPriceFetchWindows: returns single window for empty rows', () => {
+  const windows = buildPriceFetchWindows([], '2024-01-01', '2024-01-10');
+  assert.deepStrictEqual(windows, [{ from: '2024-01-01', to: '2024-01-10' }]);
+});
+
+test('buildPriceFetchWindows: returns empty for fully covered range', () => {
+  const rows = [
+    { date: '2024-01-01' },
+    { date: '2024-01-02' },
+    { date: '2024-01-03' },
+    { date: '2024-01-04' },
+    { date: '2024-01-05' },
+  ];
+  const windows = buildPriceFetchWindows(rows, '2024-01-01', '2024-01-05');
+  assert.deepStrictEqual(windows, []);
+});
+
+test('buildPriceFetchWindows: detects prefix gap', () => {
+  const rows = [{ date: '2024-01-05' }, { date: '2024-01-06' }];
+  const windows = buildPriceFetchWindows(rows, '2024-01-01', '2024-01-06');
+  assert.deepStrictEqual(windows, [{ from: '2024-01-01', to: '2024-01-04' }]);
+});
+
+test('buildPriceFetchWindows: detects suffix gap', () => {
+  const rows = [{ date: '2024-01-01' }, { date: '2024-01-02' }];
+  const windows = buildPriceFetchWindows(rows, '2024-01-01', '2024-01-06');
+  assert.deepStrictEqual(windows, [{ from: '2024-01-03', to: '2024-01-06' }]);
+});
+
+test('buildPriceFetchWindows: detects mid-range gap', () => {
+  const rows = [
+    { date: '2024-01-01' },
+    { date: '2024-01-02' },
+    // gap: Jan 3–Jan 8
+    { date: '2024-01-09' },
+    { date: '2024-01-10' },
+  ];
+  const windows = buildPriceFetchWindows(rows, '2024-01-01', '2024-01-10');
+  assert.deepStrictEqual(windows, [{ from: '2024-01-03', to: '2024-01-08' }]);
+});
+
+test('buildPriceFetchWindows: detects multiple mid-range gaps', () => {
+  const rows = [
+    { date: '2024-01-01' },
+    // gap 1: Jan 2–3
+    { date: '2024-01-04' },
+    // gap 2: Jan 5–7
+    { date: '2024-01-08' },
+  ];
+  const windows = buildPriceFetchWindows(rows, '2024-01-01', '2024-01-08');
+  assert.deepStrictEqual(windows, [
+    { from: '2024-01-02', to: '2024-01-03' },
+    { from: '2024-01-05', to: '2024-01-07' },
+  ]);
+});
