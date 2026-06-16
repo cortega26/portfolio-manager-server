@@ -1,6 +1,6 @@
 /**
  * src/components/review/TodayTab.jsx
- * SR-021 — Today shell: health bar + four sections behind redesign.todayShell flag.
+ * SR-021 — Today shell: health bar + four sections (always visible since redesign.todayShell flag was removed).
  */
 
 import { useCallback, useMemo, useState } from 'react';

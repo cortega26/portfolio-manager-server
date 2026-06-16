@@ -3,46 +3,22 @@ import { expect, test } from '@playwright/test';
 /**
  * SR-021/022/023/024 — Today shell e2e smoke tests
  *
- * Tests that the Today tab is accessible behind the redesign.todayShell feature flag
- * and renders all expected sections without errors.
+ * Tests that the Today tab is always visible (redesign.todayShell flag was
+ * removed in Phase A cleanup) and renders all expected sections without errors.
  *
  * These tests run against the Vite dev server with a mocked API backend.
  */
 
-async function enableTodayShell(page: { addInitScript: (fn: () => void) => Promise<void> }) {
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'portfolio-manager-feature-flags',
-      JSON.stringify({ 'redesign.todayShell': true })
-    );
-  });
-}
-
 // ---------------------------------------------------------------------------
-// Flag off: existing navigation unchanged
+// Always visible (flag was removed)
 // ---------------------------------------------------------------------------
 
-test('flag off: Today tab is not visible', async ({ page }) => {
-  // No flag set
+test('Today tab is visible by default', async ({ page }) => {
+  // No flag needed — Today tab is always shown
   await page.goto('/');
   // Wait for the app to load (session gate or main app)
   await page.waitForLoadState('domcontentloaded');
 
-  const todayTab = page.getByRole('tab', { name: /today/i });
-  await expect(todayTab).not.toBeVisible();
-});
-
-// ---------------------------------------------------------------------------
-// Flag on: Today tab appears
-// ---------------------------------------------------------------------------
-
-test('flag on: Today tab appears as first navigation item', async ({ page }) => {
-  await enableTodayShell(page);
-  await page.goto('/');
-  await page.waitForLoadState('domcontentloaded');
-
-  // Wait for the session gate to either unlock or for the Today tab to appear
-  // In test environment the app may load in a "demo" or "dev" mode
   const todayTab = page.getByRole('tab', { name: /today/i });
   await expect(todayTab).toBeVisible({ timeout: 10000 });
 });
@@ -69,8 +45,7 @@ test('no raw i18n translation keys visible on dashboard', async ({ page }) => {
 // Today shell sections render (SR-022/023/024)
 // ---------------------------------------------------------------------------
 
-test('flag on: Today tab renders all required sections', async ({ page }) => {
-  await enableTodayShell(page);
+test('Today tab renders all required sections', async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
 
@@ -99,8 +74,7 @@ test('flag on: Today tab renders all required sections', async ({ page }) => {
   await expect(dataBlockersSection).toBeVisible({ timeout: 5000 });
 });
 
-test('flag on: NeedsAttention shows descriptive empty state when no alerts', async ({ page }) => {
-  await enableTodayShell(page);
+test('NeedsAttention shows descriptive empty state when no alerts', async ({ page }) => {
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
 

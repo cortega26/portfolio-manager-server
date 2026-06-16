@@ -58,7 +58,6 @@ import { useI18n } from './i18n/I18nProvider.jsx';
 import { setActivePortfolioId } from './utils/activePortfolioStorage.js';
 import { getRuntimeConfigSync } from './lib/runtimeConfig.js';
 import { getMarketClock } from './utils/marketHours.js';
-import { resolveFlags, getFlag } from './lib/featureFlags.js';
 
 const DEFAULT_TAB = 'Dashboard';
 
@@ -749,11 +748,7 @@ export default function PortfolioManagerApp() {
           onNotify={pushToast}
         />
 
-        <TabBar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          showTodayTab={getFlag(resolveFlags(), 'redesign.todayShell')}
-        />
+        <TabBar activeTab={activeTab} onTabChange={setActiveTab} showTodayTab={true} />
 
         <main className="pb-12">
           <SystemAlerts alerts={activeAlerts} />

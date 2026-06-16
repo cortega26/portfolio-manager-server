@@ -5,10 +5,6 @@ import {
   DEFAULT_MAX_STALE_TRADING_DAYS,
   DEFAULT_PRICE_CACHE_CHECK_PERIOD_SECONDS,
   DEFAULT_PRICE_CACHE_TTL_SECONDS,
-  RATE_LIMIT_DEFAULTS,
-  SECURITY_AUDIT_DEFAULT_MAX_EVENTS,
-  SECURITY_AUDIT_MAX_EVENTS,
-  SECURITY_AUDIT_MIN_EVENTS,
 } from '../shared/constants.js';
 import { normalizeBenchmarkConfig } from '../shared/benchmarks.js';
 import {
@@ -87,6 +83,9 @@ function parseOptionalString(value, defaultValue = '') {
   return normalized.length > 0 ? normalized : defaultValue;
 }
 
+/**
+ * @returns {import('./types/config.js').ServerConfig}
+ */
 export function loadConfig(env = process.env) {
   const dataDir = path.resolve(env.DATA_DIR ?? './data');
   const fetchTimeoutMs = parseNumber(env.PRICE_FETCH_TIMEOUT_MS, 5000);
@@ -129,43 +128,6 @@ export function loadConfig(env = process.env) {
     env.PRICE_CACHE_CHECK_PERIOD,
     DEFAULT_PRICE_CACHE_CHECK_PERIOD_SECONDS
   );
-  const bruteForceMaxAttempts = parseNumber(env.BRUTE_FORCE_MAX_ATTEMPTS, 5);
-  const bruteForceAttemptWindowSeconds = parseNumber(
-    env.BRUTE_FORCE_ATTEMPT_WINDOW_SECONDS,
-    15 * 60
-  );
-  const bruteForceLockoutSeconds = parseNumber(env.BRUTE_FORCE_LOCKOUT_SECONDS, 15 * 60);
-  const bruteForceMaxLockoutSeconds = parseNumber(env.BRUTE_FORCE_MAX_LOCKOUT_SECONDS, 60 * 60);
-  const bruteForceMultiplier = parseNumber(env.BRUTE_FORCE_LOCKOUT_MULTIPLIER, 2);
-  const bruteForceCheckPeriodSeconds = parseNumber(env.BRUTE_FORCE_CHECK_PERIOD, 60);
-  const auditLogMaxEvents = (() => {
-    const parsed = parseNumber(env.SECURITY_AUDIT_MAX_EVENTS, SECURITY_AUDIT_DEFAULT_MAX_EVENTS);
-    return Math.min(
-      SECURITY_AUDIT_MAX_EVENTS,
-      Math.max(SECURITY_AUDIT_MIN_EVENTS, Math.round(parsed ?? SECURITY_AUDIT_DEFAULT_MAX_EVENTS))
-    );
-  })();
-  const generalRateLimitWindowMs = parseNumber(
-    env.RATE_LIMIT_GENERAL_WINDOW_MS,
-    RATE_LIMIT_DEFAULTS.general.windowMs
-  );
-  const generalRateLimitMax = parseNumber(
-    env.RATE_LIMIT_GENERAL_MAX,
-    RATE_LIMIT_DEFAULTS.general.max
-  );
-  const portfolioRateLimitWindowMs = parseNumber(
-    env.RATE_LIMIT_PORTFOLIO_WINDOW_MS,
-    RATE_LIMIT_DEFAULTS.portfolio.windowMs
-  );
-  const portfolioRateLimitMax = parseNumber(
-    env.RATE_LIMIT_PORTFOLIO_MAX,
-    RATE_LIMIT_DEFAULTS.portfolio.max
-  );
-  const pricesRateLimitWindowMs = parseNumber(
-    env.RATE_LIMIT_PRICES_WINDOW_MS,
-    RATE_LIMIT_DEFAULTS.prices.windowMs
-  );
-  const pricesRateLimitMax = parseNumber(env.RATE_LIMIT_PRICES_MAX, RATE_LIMIT_DEFAULTS.prices.max);
   const emailDeliveryEnabled = parseBoolean(env.EMAIL_DELIVERY_ENABLED, false);
   const emailDeliveryConnectionUrl = parseOptionalString(env.EMAIL_DELIVERY_CONNECTION_URL);
   const emailDeliveryHost = parseOptionalString(env.EMAIL_DELIVERY_HOST);
@@ -278,31 +240,6 @@ export function loadConfig(env = process.env) {
       auth: {
         sessionToken: sessionAuthToken,
         headerName: sessionAuthHeaderName,
-      },
-      bruteForce: {
-        maxAttempts: bruteForceMaxAttempts,
-        attemptWindowSeconds: bruteForceAttemptWindowSeconds,
-        baseLockoutSeconds: bruteForceLockoutSeconds,
-        maxLockoutSeconds: bruteForceMaxLockoutSeconds,
-        progressiveMultiplier: bruteForceMultiplier,
-        checkPeriodSeconds: bruteForceCheckPeriodSeconds,
-      },
-      auditLog: {
-        maxEvents: auditLogMaxEvents,
-      },
-    },
-    rateLimit: {
-      general: {
-        windowMs: generalRateLimitWindowMs,
-        max: generalRateLimitMax,
-      },
-      portfolio: {
-        windowMs: portfolioRateLimitWindowMs,
-        max: portfolioRateLimitMax,
-      },
-      prices: {
-        windowMs: pricesRateLimitWindowMs,
-        max: pricesRateLimitMax,
       },
     },
   };
