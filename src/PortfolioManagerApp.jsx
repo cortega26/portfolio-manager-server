@@ -630,7 +630,13 @@ export default function PortfolioManagerApp() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      // silently fail
+      pushToastRef.current?.({
+        id: `export-json-err-${Date.now()}`,
+        type: 'error',
+        title: 'Export Failed',
+        message: 'Could not export portfolio to JSON. Please try again.',
+        duration: 5000,
+      });
     }
   }, [portfolioId]);
 
