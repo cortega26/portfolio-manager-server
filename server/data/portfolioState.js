@@ -87,27 +87,22 @@ export async function writePortfolioState(storage, portfolioId, state) {
       }))
     : [];
 
-  // Build the full transactions table: keep rows belonging to OTHER portfolios,
-  // then append the new rows for this portfolio — all written atomically.
-  const existingTransactions = await storage.readTable(TRANSACTIONS_TABLE);
-  const otherPortfolioTransactions = existingTransactions.filter(
-    (row) => row?.portfolio_id !== portfolioId
-  );
-  const nextTransactions = [...otherPortfolioTransactions, ...transactions];
+  // Both reads and writes now happen inside a single lock — no race window.
+  await storage.withAtomicLock(async ({ readTable, writeTable }) => {
+    const existingTransactions = await readTable(TRANSACTIONS_TABLE);
+    const otherPortfolioTransactions = existingTransactions.filter(
+      (row) => row?.portfolio_id !== portfolioId
+    );
+    const nextTransactions = [...otherPortfolioTransactions, ...transactions];
 
-  // Read existing portfolio_states so we can upsert without clobbering others.
-  const existingStates = await storage.readTable(PORTFOLIO_STATE_TABLE);
-  const nextRecord = { ...record, updated_at: new Date().toISOString() };
-  const otherStates = existingStates.filter((row) => row?.id !== portfolioId);
-  const nextStates = [...otherStates, nextRecord];
+    const existingStates = await readTable(PORTFOLIO_STATE_TABLE);
+    const nextRecord = { ...record, updated_at: new Date().toISOString() };
+    const otherStates = existingStates.filter((row) => row?.id !== portfolioId);
+    const nextStates = [...otherStates, nextRecord];
 
-  // Single atomic write: one lock, one SQLite transaction, one persist.
-  // If the process crashes after this call starts but before it completes,
-  // SQLite rolls back — no partial state is ever written to disk.
-  await storage.atomicBatchWrite([
-    { table: TRANSACTIONS_TABLE, rows: nextTransactions },
-    { table: PORTFOLIO_STATE_TABLE, rows: nextStates },
-  ]);
+    writeTable(TRANSACTIONS_TABLE, nextTransactions);
+    writeTable(PORTFOLIO_STATE_TABLE, nextStates);
+  });
 }
 
 export async function listPortfolioStates(storage) {

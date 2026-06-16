@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import pino from 'pino';
 
 import { JsonTableStorage } from '../data/storage.js';
-import { readPortfolioState } from '../data/portfolioState.js';
+import { readPortfolioState, writePortfolioState } from '../data/portfolioState.js';
 import { atomicWriteFile } from '../utils/atomicStore.js';
 import { portfolioBodySchema } from '../routes/_schemas.js';
 import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
@@ -153,4 +153,43 @@ test('atomicWriteFile preserves previous content when rename fails mid-write', a
   const raw = readFileSync(filePath, 'utf8');
   const persisted = JSON.parse(raw);
   assert.deepEqual(persisted, { transactions: [{ id: 'baseline' }] });
+});
+
+test('writePortfolioState: concurrent writes for different portfolios do not lose data', async () => {
+  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
+
+  // Write initial state for portfolio A with 1 transaction.
+  await writePortfolioState(storage, 'portfolio-a', {
+    transactions: [{ id: 'tx-a-1', ticker: 'AAPL', type: 'BUY', shares: 10, date: '2024-01-01' }],
+  });
+
+  // Write initial state for portfolio B with 1 transaction.
+  await writePortfolioState(storage, 'portfolio-b', {
+    transactions: [{ id: 'tx-b-1', ticker: 'MSFT', type: 'BUY', shares: 5, date: '2024-01-01' }],
+  });
+
+  // Simulate concurrent writes: both portfolios add a transaction at the same time.
+  await Promise.all([
+    writePortfolioState(storage, 'portfolio-a', {
+      transactions: [
+        { id: 'tx-a-1', ticker: 'AAPL', type: 'BUY', shares: 10, date: '2024-01-01' },
+        { id: 'tx-a-2', ticker: 'GOOG', type: 'BUY', shares: 3, date: '2024-01-02' },
+      ],
+    }),
+    writePortfolioState(storage, 'portfolio-b', {
+      transactions: [
+        { id: 'tx-b-1', ticker: 'MSFT', type: 'BUY', shares: 5, date: '2024-01-01' },
+        { id: 'tx-b-2', ticker: 'TSLA', type: 'BUY', shares: 2, date: '2024-01-02' },
+      ],
+    }),
+  ]);
+
+  // Both portfolios should have exactly 2 transactions each.
+  const allTransactions = await storage.readTable('transactions');
+  const aTx = allTransactions.filter((r) => r.portfolio_id === 'portfolio-a');
+  const bTx = allTransactions.filter((r) => r.portfolio_id === 'portfolio-b');
+
+  assert.equal(aTx.length, 2, 'portfolio A should have 2 transactions');
+  assert.equal(bTx.length, 2, 'portfolio B should have 2 transactions');
+  assert.equal(allTransactions.length, 4, 'total should be 4 transactions');
 });

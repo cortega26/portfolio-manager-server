@@ -342,6 +342,28 @@ export class JsonTableStorage {
       await this.persistDatabase(db);
     });
   }
+
+  /**
+   * Run a callback inside the application-level lock, giving it scoped
+   * readTable and writeTable functions that are safe for atomic read-then-write
+   * operations. The database is persisted once after the callback completes.
+   *
+   * This is the canonical approach for any operation that must read, merge, and
+   * write without a race window between the reads and the writes.
+   *
+   * @param {function} scope - Async callback receiving { readTable, writeTable }
+   */
+  async withAtomicLock(scope) {
+    await withLock(this.storageLockKey(), async () => {
+      const db = await this.getDatabase();
+      await scope({
+        readTable: (name) =>
+          this.ensureBootstrap(name, { createIfMissing: true, defaultValue: [] }),
+        writeTable: (name, rows) => this.writeTableToDatabase(db, name, rows),
+      });
+      await this.persistDatabase(db);
+    });
+  }
 }
 
 export default JsonTableStorage;
