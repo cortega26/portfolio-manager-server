@@ -57,19 +57,18 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --no-fund --no-audit
+        run: npm ci --no-fund --no-audit --prefer-offline
 
       - name: Run bootstrap and quality-gate contract checks
         run: npm run verify:docs
 
-      - name: Capture lint summary
-        run: mkdir -p reports/quality && npm run verify:lint 2>&1 | tee reports/quality/lint-summary.txt
-
-      - name: Capture typecheck summary
-        run: mkdir -p reports/quality && npm run verify:typecheck 2>&1 | tee reports/quality/typecheck-summary.txt
-
-      - name: Verify server typecheck
-        run: npm run verify:typecheck:server
+      - name: Lint, typecheck & server typecheck (parallel)
+        run: |
+          mkdir -p reports/quality
+          npm run verify:lint 2>&1 | tee reports/quality/lint-summary.txt &
+          npm run verify:typecheck 2>&1 | tee reports/quality/typecheck-summary.txt &
+          npm run verify:typecheck:server 2>&1 | tee reports/quality/typecheck-server-summary.txt &
+          wait
 
       - name: Check formatting
         run: npm run format:check
@@ -109,7 +108,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --no-fund --no-audit
+        run: npm ci --no-fund --no-audit --prefer-offline
 
       - name: Build
         run: npm run verify:build
@@ -135,7 +134,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --no-fund --no-audit
+        run: npm ci --no-fund --no-audit --prefer-offline
 
       - name: Run backend tests (node:test)
         run: npm run test:node
