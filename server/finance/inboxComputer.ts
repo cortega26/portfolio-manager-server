@@ -120,12 +120,11 @@ function latestDismiss(
  * Returns the weighted average purchase price for a ticker, derived from
  * all BUY transactions in chronological order.
  */
-function deriveAverageCost(transactions: Transaction[], ticker: string): number | null {
-  const sorted = sortTransactions(transactions as never[]) as unknown as Transaction[];
+function deriveAverageCost(sortedTransactions: Transaction[], ticker: string): number | null {
   let totalShares = d(0);
   let totalCost = d(0);
 
-  for (const tx of sorted) {
+  for (const tx of sortedTransactions) {
     if (typeof tx.ticker !== 'string' || tx.ticker.toUpperCase() !== ticker.toUpperCase()) continue;
 
     if (tx.type?.toUpperCase() === 'BUY') {
@@ -153,9 +152,8 @@ function deriveAverageCost(transactions: Transaction[], ticker: string): number 
 
 // ── First buy date helper ─────────────────────────────────────────────────────
 
-function firstTransactionDate(transactions: Transaction[], ticker: string): string | null {
-  const sorted = sortTransactions(transactions as never[]) as unknown as Transaction[];
-  for (const tx of sorted) {
+function firstTransactionDate(sortedTransactions: Transaction[], ticker: string): string | null {
+  for (const tx of sortedTransactions) {
     if (
       typeof tx.ticker === 'string' &&
       tx.ticker.toUpperCase() === ticker.toUpperCase() &&
@@ -269,10 +267,10 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
         const parts = lastDismiss.event_key.split(':');
         periodStartDate = parts.length >= 4 ? (parts[3] ?? null) : null;
         // For reference price after dismiss, fall back to avg cost.
-        refPrice = deriveAverageCost(transactions, ticker);
+        refPrice = deriveAverageCost(sorted, ticker);
       } else {
-        refPrice = deriveAverageCost(transactions, ticker);
-        periodStartDate = firstTransactionDate(transactions, ticker);
+        refPrice = deriveAverageCost(sorted, ticker);
+        periodStartDate = firstTransactionDate(sorted, ticker);
       }
 
       if (currentPrice != null && refPrice != null && refPrice > 0) {
@@ -305,7 +303,7 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
     if (currentValueNum != null && currentValueNum >= MIN_POSITION_VALUE_USD) {
       const lastDismiss = latestDismiss(ticker, 'LONG_UNREVIEWED', dismissHistory);
       const referenceDate2 =
-        lastDismiss?.dismissed_at.slice(0, 10) ?? firstTransactionDate(transactions, ticker);
+        lastDismiss?.dismissed_at.slice(0, 10) ?? firstTransactionDate(sorted, ticker);
 
       if (referenceDate2) {
         const tradingDays = computeTradingDayAge(referenceDate2, referenceDate);
@@ -339,7 +337,7 @@ export function computeInbox(input: InboxComputerInput): InboxItem[] {
         signals[ticker.toLowerCase()] != null;
 
       if (!signalConfigured) {
-        const periodDate = firstTransactionDate(transactions, ticker) ?? todayKey;
+        const periodDate = firstTransactionDate(sorted, ticker) ?? todayKey;
         const eventKey = buildNoThresholdEventKey(ticker, periodDate);
         if (!isDismissed(ticker, 'NO_THRESHOLD_CONFIGURED', eventKey, dismissHistory)) {
           const description = `No threshold configured for a $${currentValue} position`;
