@@ -13,7 +13,7 @@ honor its STOP conditions, and update your row when done.
 | 003  | Fix mid-range price gap detection in performance history rebuild             | P1       | M      | —          | DONE   |
 | 004  | Fix race condition in writePortfolioState                                    | P1       | M      | —          | DONE   |
 | 005  | Dead code cleanup: config files, feature flags, security middleware remnants | P2       | S      | —          | DONE   |
-| 006  | Eliminate repeated transaction sorts in inboxComputer                        | P2       | S      | —          | TODO   |
+| 006  | Eliminate repeated transaction sorts in inboxComputer                        | P2       | S      | —          | DONE   |
 | 007  | Add code splitting for heavy tabs (recharts lazy load)                       | P2       | S      | —          | TODO   |
 | 008  | Dependency hygiene: update nodemailer, remove node-fetch                     | P2       | S      | —          | TODO   |
 | 009  | Test infrastructure hardening: mock timers, remove over-broad network skip   | P2       | S      | —          | TODO   |
