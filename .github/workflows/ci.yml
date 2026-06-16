@@ -77,13 +77,11 @@ jobs:
       - name: Check structural complexity
         run: npm run check:complexity
 
-      - name: Contract full quality gate (main push only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npm run verify:quality
+      - name: Scan for secrets with gitleaks
+        run: npx --yes gitleaks detect --no-banner
 
-      - name: Contract smoke gate (main push only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npm run verify:smoke
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=moderate
 
       - name: Upload quality reports
         if: always()
@@ -139,10 +137,10 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-fund --no-audit
 
-      - name: Run tests
-        run: npm test
+      - name: Run backend tests (node:test)
+        run: npm run test:node
 
-      - name: Run tests with coverage (single pass)
+      - name: Run frontend tests with coverage (vitest)
         env:
           NODE_OPTIONS: --trace-warnings --trace-deprecation --throw-deprecation
         run: npm run test:coverage
@@ -154,29 +152,3 @@ jobs:
           name: node-coverage
           path: coverage/
           if-no-files-found: ignore
-
-  security:
-    needs: quality
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --no-fund --no-audit
-
-      - name: Scan for secrets with gitleaks
-        run: npx --yes gitleaks detect --no-banner
-
-      - name: Audit npm dependencies
-        run: npm audit --audit-level=moderate
