@@ -11,7 +11,7 @@ honor its STOP conditions, and update your row when done.
 | 001  | Security hardening: tighten CSP for production + disable source maps         | P1       | S      | —          | DONE   |
 | 002  | Fix silent JSON export failure                                               | P1       | S      | —          | DONE   |
 | 003  | Fix mid-range price gap detection in performance history rebuild             | P1       | M      | —          | DONE   |
-| 004  | Fix race condition in writePortfolioState                                    | P1       | M      | —          | TODO   |
+| 004  | Fix race condition in writePortfolioState                                    | P1       | M      | —          | DONE   |
 | 005  | Dead code cleanup: config files, feature flags, security middleware remnants | P2       | S      | —          | TODO   |
 | 006  | Eliminate repeated transaction sorts in inboxComputer                        | P2       | S      | —          | TODO   |
 | 007  | Add code splitting for heavy tabs (recharts lazy load)                       | P2       | S      | —          | TODO   |
