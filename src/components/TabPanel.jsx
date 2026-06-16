@@ -1,7 +1,7 @@
-import { Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import LoadingFallback from './LoadingFallback.jsx';
 import TodayTab from './review/TodayTab.jsx';
-import DashboardTab from './DashboardTab.jsx';
+const DashboardTab = lazy(() => import('./DashboardTab.jsx'));
 import HoldingsTab from './HoldingsTab.jsx';
 import PricesTab from './PricesTab.jsx';
 import InboxTab from './InboxTab.jsx';
