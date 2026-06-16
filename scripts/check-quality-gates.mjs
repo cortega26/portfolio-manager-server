@@ -26,8 +26,14 @@ const REQUIRED_SCRIPTS = [
 ];
 const REQUIRED_CI_COMMANDS = [
   'npm run verify:docs',
-  'npm run verify:quality',
-  'npm run verify:smoke',
+  'npm run verify:lint',
+  'npm run verify:typecheck',
+  'npm run verify:typecheck:server',
+  'npm run format:check',
+  'npm run check:complexity',
+  'npm run verify:build',
+  'npm run smoke:test',
+  'npm run test:node',
   'npm run test:coverage',
 ];
 

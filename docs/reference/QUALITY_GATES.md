@@ -10,18 +10,21 @@ Use this file to answer two questions quickly:
 
 ## Enforced Today
 
-| Gate                    | Command                    | Enforced in CI                       | Purpose                                                                                               |
-| ----------------------- | -------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Bootstrap assumptions   | `npm run doctor`           | Yes, via `npm run verify:docs`       | Verifies required files, runtime assumptions, and canonical entrypoints exist.                        |
-| Documentation contracts | `npm run docs:check`       | Yes, via `npm run verify:docs`       | Fails when active docs reference missing scripts, missing repo paths, or stale implementation claims. |
-| Quality-gate contract   | `npm run quality:gates`    | Yes, via `npm run verify:docs`       | Verifies that this contract, package scripts, and CI workflow stay aligned.                           |
-| Repo quality guard      | `npm run verify:quality`   | Yes                                  | Runs the canonical anti-drift gate: docs, lint, typecheck, format, Codacy, complexity, build, tests.  |
-| Lint                    | `npm run verify:lint`      | Yes, via `npm run verify:smoke`      | Runs ESLint with zero warnings allowed.                                                               |
-| Type compatibility      | `npm run verify:typecheck` | Yes, via `npm run verify:smoke`      | Runs the repo TypeScript compatibility pass.                                                          |
-| Buildability            | `npm run verify:build`     | Yes, via `npm run verify:smoke`      | Confirms the renderer build still completes.                                                          |
-| Smoke boot              | `npm run smoke:test`       | Yes, via `npm run verify:smoke`      | Confirms the app shell still mounts.                                                                  |
-| Baseline tests          | `npm test`                 | Indirectly, split across CI commands | Runs the default local baseline: shuffled `node:test` plus Vitest.                                    |
-| Frontend coverage run   | `npm run test:coverage`    | Yes                                  | Produces the current Vitest coverage artifact.                                                        |
+| Gate                    | Command                           | Enforced in CI                       | Purpose                                                                                               |
+| ----------------------- | --------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Bootstrap assumptions   | `npm run doctor`                  | Yes, via `npm run verify:docs`       | Verifies required files, runtime assumptions, and canonical entrypoints exist.                        |
+| Documentation contracts | `npm run docs:check`              | Yes, via `npm run verify:docs`       | Fails when active docs reference missing scripts, missing repo paths, or stale implementation claims. |
+| Quality-gate contract   | `npm run quality:gates`           | Yes, via `npm run verify:docs`       | Verifies that this contract, package scripts, and CI workflow stay aligned.                           |
+| Lint                    | `npm run verify:lint`             | Yes                                  | Runs ESLint with zero warnings allowed.                                                               |
+| Frontend typecheck      | `npm run verify:typecheck`        | Yes                                  | Runs the repo TypeScript compatibility pass.                                                          |
+| Server typecheck        | `npm run verify:typecheck:server` | Yes                                  | Runs the server strict TypeScript check.                                                              |
+| Formatting              | `npm run format:check`            | Yes                                  | Runs Prettier in check mode.                                                                          |
+| Structural complexity   | `npm run check:complexity`        | Yes                                  | Checks for complexity violations against the ratcheting allowlist.                                    |
+| Buildability            | `npm run verify:build`            | Yes                                  | Confirms the renderer build still completes.                                                          |
+| Smoke boot              | `npm run smoke:test`              | Yes                                  | Confirms the app shell still mounts.                                                                  |
+| Backend tests           | `npm run test:node`               | Yes                                  | Runs the full backend test suite (node:test).                                                         |
+| Baseline tests          | `npm test`                        | Indirectly, split across CI commands | Runs the default local baseline: shuffled `node:test` plus Vitest.                                    |
+| Frontend coverage run   | `npm run test:coverage`           | Yes                                  | Produces the current Vitest coverage artifact.                                                        |
 
 ## Observed Baseline
 
@@ -56,8 +59,14 @@ without causing noisy false failures.
 The canonical CI workflow at `.github/workflows/ci.yml` must include these commands:
 
 - `npm run verify:docs`
-- `npm run verify:quality`
-- `npm run verify:smoke`
+- `npm run verify:lint`
+- `npm run verify:typecheck`
+- `npm run verify:typecheck:server`
+- `npm run format:check`
+- `npm run check:complexity`
+- `npm run verify:build`
+- `npm run smoke:test`
+- `npm run test:node`
 - `npm run test:coverage`
 
 If CI changes, update this file and `scripts/check-quality-gates.mjs` in the same
