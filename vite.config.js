@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      sourcemap: true,
+      sourcemap: mode === 'development',
       chunkSizeWarningLimit: 500,
       rollupOptions: {
         output: {
