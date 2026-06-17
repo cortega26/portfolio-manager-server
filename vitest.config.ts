@@ -8,11 +8,7 @@ export default defineConfig({
     fileParallelism: false,
     maxWorkers: '50%',
     minWorkers: 1,
-    poolOptions: {
-      threads: {
-        execArgv: ['--max-old-space-size=4096'],
-      },
-    },
+    execArgv: ['--max-old-space-size=4096'],
     include: [
       'src/__tests__/**/*.{test,spec}.{ts,tsx}',
       'src/__smoke__/**/*.test.tsx',

@@ -16,7 +16,7 @@ honor its STOP conditions, and update your row when done.
 | 006  | Eliminate repeated transaction sorts in inboxComputer                        | P2       | S      | —          | DONE   |
 | 007  | Add code splitting for heavy tabs (recharts lazy load)                       | P2       | S      | —          | DONE   |
 | 008  | Dependency hygiene: update nodemailer, remove node-fetch                     | P2       | S      | —          | DONE   |
-| 009  | Test infrastructure hardening: mock timers, remove over-broad network skip   | P2       | S      | —          | TODO   |
+| 009  | Test infrastructure hardening: mock timers, remove over-broad network skip   | P2       | S      | —          | DONE   |
 | 010  | Electron app packaging for distribution                                      | P3       | M      | —          | TODO   |
 | 011  | Trust layer backend metadata for prices and analytics                        | P3       | M      | —          | TODO   |
 | 012  | Review-first shell: connect review components as default app entry           | P3       | M      | 011        | TODO   |

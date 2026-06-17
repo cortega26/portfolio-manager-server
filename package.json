@@ -20,7 +20,7 @@
     "electron:build": "npm run build && npm run electron",
     "electron:smoke": "npm run build && cross-env ELECTRON_SMOKE_TEST=1 xvfb-run -a node scripts/run-electron.mjs electron",
     "import:csv": "node scripts/import-csv-portfolio.mjs",
-    "server": "node server/index.js",
+    "server": "node --import tsx/esm server/index.js",
     "lint": "eslint . --max-warnings=0",
     "test": "npm run test:node && vitest run --coverage=false",
     "test:node": "node --enable-source-maps tools/run-tests.mjs --no-coverage",
