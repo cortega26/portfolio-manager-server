@@ -81,8 +81,7 @@ class PrimaryStub {
 
 class FallbackStub extends PrimaryStub {}
 
-const skipNetwork = process.env.NO_NETWORK_TESTS === '1';
-const test = skipNetwork ? baseTest.skip : baseTest;
+const test = baseTest;
 
 test('YahooPriceProvider parses adjusted close values and logs latency', async () => {
   const fetchImpl = async () => ({ ok: true, json: async () => yahooV8Json });

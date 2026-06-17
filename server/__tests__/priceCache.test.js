@@ -46,25 +46,31 @@ test('generates consistent ETags for equal payloads', () => {
   assert.equal(etag1, etag2);
 });
 
-test('expires cached entries after TTL', async () => {
+test('expires cached entries after TTL', async (t) => {
+  t.mock.timers.enable();
   configurePriceCache({ ttlSeconds: 1, checkPeriodSeconds: 1 });
   flushPriceCache();
 
   setCachedPrice('GOOG', '1y', [{ date: '2024-01-01', close: 120 }]);
   assert.ok(getCachedPrice('GOOG', '1y'));
 
-  await new Promise((resolve) => setTimeout(resolve, 1_200));
+  // Advance time past the 1-second TTL plus check period.
+  t.mock.timers.tick(1_500);
 
   assert.equal(getCachedPrice('GOOG', '1y'), undefined);
+  t.mock.timers.reset();
 });
 
-test('honours maxAge guards for live cache reads', async () => {
+test('honours maxAge guards for live cache reads', async (t) => {
+  t.mock.timers.enable();
   setCachedPrice('SPY', 'latest:open', [{ date: '2024-01-01', close: 120 }], {
     ttlSeconds: 60,
   });
   assert.ok(getCachedPrice('SPY', 'latest:open', { maxAgeMs: 50 }));
 
-  await new Promise((resolve) => setTimeout(resolve, 75));
+  // Advance time past the 50ms maxAge.
+  t.mock.timers.tick(60);
 
   assert.equal(getCachedPrice('SPY', 'latest:open', { maxAgeMs: 50 }), undefined);
+  t.mock.timers.reset();
 });
