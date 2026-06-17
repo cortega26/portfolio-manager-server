@@ -16,8 +16,12 @@ const env = {
   ...process.env,
 };
 // Register tsx/esm so Electron's main process can load .ts server modules.
+// electron-tsx-fix.mjs must come FIRST (innermost) to patch a
+// Node.js 24 / Electron 41 null-source incompatibility in tsx.
 const priorNodeOptions = process.env.NODE_OPTIONS ?? '';
-env.NODE_OPTIONS = `--import tsx/esm${priorNodeOptions ? ` ${priorNodeOptions}` : ''}`;
+const fixLoader = '--import ./scripts/electron-tsx-fix.mjs';
+const tsxLoader = '--import tsx/esm';
+env.NODE_OPTIONS = `${fixLoader} ${tsxLoader}${priorNodeOptions ? ` ${priorNodeOptions}` : ''}`;
 delete env.ELECTRON_RUN_AS_NODE;
 
 const child = spawn(process.execPath, [electronCli, ...process.argv.slice(2)], {

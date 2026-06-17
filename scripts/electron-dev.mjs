@@ -59,7 +59,9 @@ async function main() {
       baseCsp: process.env.VITE_APP_CSP,
     }),
     // Register tsx/esm so Electron's main process can load .ts server modules.
-    NODE_OPTIONS: `--import tsx/esm${process.env.NODE_OPTIONS ? ` ${process.env.NODE_OPTIONS}` : ''}`,
+    // electron-tsx-fix.mjs must come FIRST (innermost) to patch a
+    // Node.js 24 / Electron 41 null-source incompatibility in tsx.
+    NODE_OPTIONS: `--import ./scripts/electron-tsx-fix.mjs --import tsx/esm${process.env.NODE_OPTIONS ? ` ${process.env.NODE_OPTIONS}` : ''}`,
   };
   delete sharedEnv.ELECTRON_RUN_AS_NODE;
 
