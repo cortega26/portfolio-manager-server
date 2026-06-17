@@ -15,7 +15,7 @@ honor its STOP conditions, and update your row when done.
 | 005  | Dead code cleanup: config files, feature flags, security middleware remnants | P2       | S      | —          | DONE   |
 | 006  | Eliminate repeated transaction sorts in inboxComputer                        | P2       | S      | —          | DONE   |
 | 007  | Add code splitting for heavy tabs (recharts lazy load)                       | P2       | S      | —          | DONE   |
-| 008  | Dependency hygiene: update nodemailer, remove node-fetch                     | P2       | S      | —          | TODO   |
+| 008  | Dependency hygiene: update nodemailer, remove node-fetch                     | P2       | S      | —          | DONE   |
 | 009  | Test infrastructure hardening: mock timers, remove over-broad network skip   | P2       | S      | —          | TODO   |
 | 010  | Electron app packaging for distribution                                      | P3       | M      | —          | TODO   |
 | 011  | Trust layer backend metadata for prices and analytics                        | P3       | M      | —          | TODO   |
