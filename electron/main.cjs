@@ -127,14 +127,20 @@ function createSplashWindow() {
   return win;
 }
 
+function serverModulePrefix() {
+  // In packaged mode, server .ts files are pre-compiled to server-dist/server/
+  return app.isPackaged ? '../server-dist/server' : '../server';
+}
+
 async function loadDesktopModules() {
   if (!desktopModulesPromise) {
+    const prefix = serverModulePrefix();
     desktopModulesPromise = Promise.all([
       import('./runtimeConfig.js'),
-      import('../server/runtime/startServer.js'),
-      import('../server/migrations/index.js'),
-      import('../server/data/portfolioState.js'),
-      import('../server/auth/localPinAuth.js'),
+      import(`${prefix}/runtime/startServer.js`),
+      import(`${prefix}/migrations/index.js`),
+      import(`${prefix}/data/portfolioState.js`),
+      import(`${prefix}/auth/localPinAuth.js`),
     ]).then(
       ([
         runtimeConfigModule,

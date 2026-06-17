@@ -1,0 +1,33 @@
+appId: com.portfolio-manager-unified.app
+productName: Portfolio Manager
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - server/**/*
+  - server-dist/**/*
+  - shared/**/*
+  - node_modules/**/*
+  - package.json
+  - package-lock.json
+  - .env.example
+
+# Don't include dev files
+asar: true
+
+# Exact Electron version (must match devDependency, electron-builder cannot resolve ranges)
+electronVersion: "41.0.3"
+
+linux:
+  target:
+    - AppImage
+  category: Finance
+  synopsis: Desktop Portfolio Manager
+  description: Local-first desktop portfolio tracker with SQLite storage, price tracking, benchmarks, and signal notifications.
+  maintainer: Carlos Ortega
+

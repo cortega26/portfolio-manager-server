@@ -1,6 +1,8 @@
 # Build artifacts
 node_modules/
 dist/
+server-dist/
+release/
 .playwright-cli/
 .agents/
 .claude/
