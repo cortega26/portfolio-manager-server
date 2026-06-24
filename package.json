@@ -61,7 +61,7 @@
     "fastify-type-provider-zod": "^6.1.0",
     "node-cache": "^5.1.2",
     "node-fetch": "^3.3.1",
-    "nodemailer": "^8.0.7",
+    "nodemailer": "^9.0.1",
     "pino": "^10.0.0",
     "pino-http": "^11.0.0",
     "react": "^18.2.0",
