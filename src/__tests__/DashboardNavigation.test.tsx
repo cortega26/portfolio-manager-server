@@ -70,6 +70,8 @@ vi.mock('../utils/roi.js', async (original) => {
 test('switches tabs and shows expected panels', async () => {
   renderWithProviders(<App />);
 
+  // Today is now the default; switch to Dashboard to test navigation.
+  await userEvent.click(screen.getAllByRole('tab', { name: 'Dashboard' })[0]);
   const dashboardPanel = await screen.findByTestId('panel-dashboard');
   expect(dashboardPanel).toBeVisible();
 

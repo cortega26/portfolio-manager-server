@@ -62,42 +62,44 @@ export default function TabPanel(props) {
   return (
     <Suspense fallback={<LoadingFallback />}>
       {activeTab === 'Today' && (
-        <TodayTab
-          portfolioId={portfolioId}
-          inboxItems={[]}
-          recentChanges={
-            transactions && transactions.length > 0
-              ? (() => {
-                  const sevenDaysAgo = new Date();
-                  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                  const cutoff = sevenDaysAgo.toISOString().slice(0, 10);
-                  return transactions
-                    .filter((tx) => typeof tx.date === 'string' && tx.date >= cutoff)
-                    .slice(0, 20)
-                    .map((tx) => ({
-                      date: tx.date,
-                      type: tx.type,
-                      ticker: tx.ticker ?? '',
-                      amount: tx.amount ?? 0,
-                      shares: tx.shares ?? 0,
-                    }));
-                })()
-              : []
-          }
-          navDaily={navDaily}
-          degradedReasons={
-            pricesTabState?.errors && Object.keys(pricesTabState.errors).length > 0
-              ? ['Some prices are unavailable or stale']
-              : []
-          }
-          staleTickers={
-            pricesTabState?.errors
-              ? Object.entries(pricesTabState.errors)
-                  .filter(([, err]) => err?.status === 'stale' || err?.status === 'error')
-                  .map(([ticker]) => ticker)
-              : []
-          }
-        />
+        <div key="today" data-testid="panel-today">
+          <TodayTab
+            portfolioId={portfolioId}
+            inboxItems={[]}
+            recentChanges={
+              transactions && transactions.length > 0
+                ? (() => {
+                    const sevenDaysAgo = new Date();
+                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                    const cutoff = sevenDaysAgo.toISOString().slice(0, 10);
+                    return transactions
+                      .filter((tx) => typeof tx.date === 'string' && tx.date >= cutoff)
+                      .slice(0, 20)
+                      .map((tx) => ({
+                        date: tx.date,
+                        type: tx.type,
+                        ticker: tx.ticker ?? '',
+                        amount: tx.amount ?? 0,
+                        shares: tx.shares ?? 0,
+                      }));
+                  })()
+                : []
+            }
+            navDaily={navDaily}
+            degradedReasons={
+              pricesTabState?.errors && Object.keys(pricesTabState.errors).length > 0
+                ? ['Some prices are unavailable or stale']
+                : []
+            }
+            staleTickers={
+              pricesTabState?.errors
+                ? Object.entries(pricesTabState.errors)
+                    .filter(([, err]) => err?.status === 'stale' || err?.status === 'error')
+                    .map(([ticker]) => ticker)
+                : []
+            }
+          />
+        </div>
       )}
       {activeTab === 'Dashboard' && (
         <section

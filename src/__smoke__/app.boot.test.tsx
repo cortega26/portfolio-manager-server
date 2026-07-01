@@ -40,10 +40,10 @@ afterEach(() => {
 });
 
 describe('app smoke', () => {
-  it('renders the dashboard route by default', async () => {
+  it('renders the Today tab by default', async () => {
     renderWithProviders(['/']);
 
     expect(await screen.findByText(/Portfolio Manager/i)).toBeInTheDocument();
-    expect(await screen.findByTestId('panel-dashboard')).toBeVisible();
+    expect(await screen.findByTestId('panel-today')).toBeVisible();
   });
 });

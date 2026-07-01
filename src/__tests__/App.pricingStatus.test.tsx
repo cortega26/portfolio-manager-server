@@ -1,5 +1,6 @@
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import App from '../App.jsx';
@@ -281,6 +282,9 @@ describe('App pricing status UX', () => {
       },
       { timeout: 5000 }
     );
+
+    // TodayTab is now the default; switch to Dashboard to check its valuation.
+    await userEvent.click(screen.getAllByRole('tab', { name: 'Dashboard' })[0]);
 
     expect(screen.queryByText(/Price refresh failed/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Awaiting market prices for open holdings/i)).not.toBeInTheDocument();

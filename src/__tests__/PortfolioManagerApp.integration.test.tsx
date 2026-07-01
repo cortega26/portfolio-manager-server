@@ -156,10 +156,10 @@ describe('PortfolioManagerApp shell', () => {
 
   // ── Default tab ─────────────────────────────────────────────────────────────
 
-  test('Dashboard tab is active by default', async () => {
+  test('Today tab is active by default', async () => {
     renderWithProviders(<App />);
 
-    expect(await screen.findByTestId('panel-dashboard')).toBeVisible();
+    expect(await screen.findByTestId('panel-today')).toBeVisible();
   });
 
   // ── Tab switching ───────────────────────────────────────────────────────────
@@ -225,7 +225,9 @@ describe('PortfolioManagerApp shell', () => {
   test('each tab panel has correct aria attributes', async () => {
     renderWithProviders(<App />);
 
-    const dashboardPanel = screen.getByTestId('panel-dashboard');
+    // Today tab is now the default; switch to Dashboard to check its panel.
+    await userEvent.click(screen.getByRole('tab', { name: 'Dashboard' }));
+    const dashboardPanel = await screen.findByTestId('panel-dashboard');
     expect(dashboardPanel).toHaveAttribute('role', 'tabpanel');
     expect(dashboardPanel).toHaveAttribute('aria-labelledby', 'tab-dashboard');
     expect(dashboardPanel).toHaveAttribute('id', 'panel-dashboard');

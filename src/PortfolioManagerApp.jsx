@@ -59,7 +59,7 @@ import { setActivePortfolioId } from './utils/activePortfolioStorage.js';
 import { getRuntimeConfigSync } from './lib/runtimeConfig.js';
 import { getMarketClock } from './utils/marketHours.js';
 
-const DEFAULT_TAB = 'Dashboard';
+const DEFAULT_TAB = 'Today';
 
 export default function PortfolioManagerApp() {
   const {
