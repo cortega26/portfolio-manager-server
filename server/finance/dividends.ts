@@ -3,6 +3,7 @@
 // All arithmetic via decimal.js — no native JS math on monetary values.
 
 import { d, ZERO } from './decimal.js';
+import { yearNumberFromDate } from './dateHelpers.js';
 import type { Decimal } from 'decimal.js';
 
 // ── Public types ──────────────────────────────────────────────────────────
@@ -78,10 +79,6 @@ function serializeDec(value: Decimal): string {
   return value.toFixed(8).replace(/\.?0+$/, '');
 }
 
-function yearFromDate(d: string): number {
-  return Number.parseInt(d.slice(0, 4), 10) || 0;
-}
-
 // ── Core computation ─────────────────────────────────────────────────────
 
 export function computeDividendMetrics(
@@ -137,7 +134,7 @@ export function computeDividendMetrics(
     tickerMap.set(ticker, tickerEntry);
 
     // YTD
-    const txYear = yearFromDate(date);
+    const txYear = yearNumberFromDate(date);
     if (txYear === currentYear) {
       ytdGross = ytdGross.plus(gross);
       ytdTax = ytdTax.plus(tax);

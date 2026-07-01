@@ -5,6 +5,8 @@
 import { d, ZERO } from './decimal.js';
 import type { Decimal } from 'decimal.js';
 
+import { yearLabelFromDate } from './dateHelpers.js';
+
 // ── Public types ────────────────────────────────────────────────────────
 
 export interface ClosedLot {
@@ -75,11 +77,6 @@ function serializeDec(value: Decimal): string {
 function gainLossPercent(gainLoss: Decimal, costBasis: Decimal): Decimal {
   if (costBasis.isZero()) return ZERO;
   return gainLoss.div(costBasis).times(100);
-}
-
-function yearFromDate(date: string): string {
-  if (date.length >= 4) return date.slice(0, 4);
-  return 'Unknown';
 }
 
 // ── Core computation ────────────────────────────────────────────────────
@@ -209,7 +206,7 @@ export function computeTradeStats(closedLots: ClosedLot[]): TradeStats {
     tickerMap.set(lot.ticker, tickerEntry);
 
     // Per-year
-    const yearKey = yearFromDate(lot.sellDate);
+    const yearKey = yearLabelFromDate(lot.sellDate);
     const yearEntry = yearMap.get(yearKey) ?? {
       lots: 0,
       wins: 0,
