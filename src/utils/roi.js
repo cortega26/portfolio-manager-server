@@ -6,6 +6,11 @@ import {
   toComparableSeq,
 } from '../../shared/transactionSort.js';
 
+// Reusable immutable Decimal constants — decimal.js instances are immutable,
+// so sharing these avoids per-iteration allocations in the benchmark loops.
+const DECIMAL_ZERO = new Decimal(0);
+const DECIMAL_ONE = new Decimal(1);
+
 const SERIES_META_FALLBACK = Object.freeze([
   {
     id: 'spy',
@@ -393,7 +398,7 @@ function buildDailyReturnLookupFromCumulativeSeries(roiData = [], dataKey) {
     }
 
     if (previousGrowth === null || previousGrowth.lte(0)) {
-      dailyReturns.set(row.date, new Decimal(0));
+      dailyReturns.set(row.date, DECIMAL_ZERO);
       previousGrowth = currentGrowth;
       continue;
     }
@@ -427,7 +432,7 @@ export function buildFlowMatchedBenchmarkSeries(roiData = [], transactions = [],
 
   for (const row of sortedRows) {
     const date = row.date;
-    const netContributions = cumulativeFlows.get(date) ?? new Decimal(0);
+    const netContributions = cumulativeFlows.get(date) ?? DECIMAL_ZERO;
 
     if (syntheticNav === null) {
       previousContributions = netContributions;
@@ -441,8 +446,8 @@ export function buildFlowMatchedBenchmarkSeries(roiData = [], transactions = [],
     }
 
     const flow = netContributions.minus(previousContributions);
-    const dailyReturn = dailyReturnLookup.get(date) ?? new Decimal(0);
-    syntheticNav = syntheticNav.times(new Decimal(1).plus(dailyReturn)).plus(flow);
+    const dailyReturn = dailyReturnLookup.get(date) ?? DECIMAL_ZERO;
+    syntheticNav = syntheticNav.times(DECIMAL_ONE.plus(dailyReturn)).plus(flow);
     previousContributions = netContributions;
 
     if (netContributions.lte(0)) {
