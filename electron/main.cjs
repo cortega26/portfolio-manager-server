@@ -85,7 +85,7 @@ function createWindow({ rendererUrl }) {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       additionalArguments:
         typeof process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG === 'string' &&
         process.env.PORTFOLIO_DESKTOP_RUNTIME_CONFIG_ARG.trim().length > 0
