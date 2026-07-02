@@ -222,16 +222,23 @@ export async function createFastifyApp(options: AppOptions) {
     credentials: true,
   });
 
+  // CSP is configured here as an HTTP header — the single source of truth for
+  // production (Fastify serves index.html). No <meta> tag CSP in index.html, so
+  // there is no build-time env dependency. Dev (Vite HMR) loopback origins are
+  // handled by the Electron shell, not here.
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'"],
-        fontSrc: ["'self'"],
+        connectSrc: ["'self'", 'https://www.tooltician.com', 'https://api.tooltician.com'],
+        fontSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
         upgradeInsecureRequests: [],
       },
     },

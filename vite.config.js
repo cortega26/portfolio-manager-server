@@ -10,11 +10,11 @@ const analyzeFlag = (process.env.ANALYZE ?? '').toString().toLowerCase();
 const shouldAnalyze = ['1', 'true', 'yes', 'on'].includes(analyzeFlag);
 const DEFAULT_APP_CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data:",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self'",
+  "connect-src 'self' https://www.tooltician.com https://api.tooltician.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -28,9 +28,33 @@ export default defineConfig(({ mode }) => {
     base,
     plugins: [
       {
-        name: 'inject-default-app-csp',
+        name: 'inject-csp-meta',
         transformIndexHtml(html) {
-          return html.replace(/%VITE_APP_CSP%/gu, appCsp);
+          // In dev mode Vite serves HTML directly (no Fastify), so we inject
+          // the CSP as a <meta> tag.  In production builds Fastify sets the
+          // CSP via HTTP header — skip injection to keep the built HTML clean
+          // and avoid the VITE_APP_CSP env-var build warning.
+          if (mode !== 'development') {
+            // If an explicit CSP was provided (e.g. CI with a custom env),
+            // still inject it.  Otherwise let the server handle it.
+            const explicitCsp = env.VITE_APP_CSP || process.env.VITE_APP_CSP;
+            if (!explicitCsp) {
+              return html;
+            }
+          }
+          return {
+            html,
+            tags: [
+              {
+                tag: 'meta',
+                attrs: {
+                  'http-equiv': 'Content-Security-Policy',
+                  content: appCsp,
+                },
+                injectTo: 'head',
+              },
+            ],
+          };
         },
       },
       react(),
