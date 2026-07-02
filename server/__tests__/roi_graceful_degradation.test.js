@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 
 import pino from 'pino';
 
-import JsonTableStorage from '../data/storage.js';
+import HybridStorage from '../data/hybridStorage.js';
 import { flushPriceCache } from '../cache/priceCache.js';
 import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
 
@@ -35,7 +35,7 @@ let storage;
 
 beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'roi-degradation-'));
-  storage = new JsonTableStorage({ dataDir, logger: silentLogger });
+  storage = new HybridStorage({ dataDir, logger: silentLogger });
   await storage.ensureTable('transactions', []);
   await storage.ensureTable('roi_daily', []);
   await storage.ensureTable('returns_daily', []);

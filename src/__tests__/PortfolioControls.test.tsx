@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { QueryClientProvider } from '@tanstack/react-query';
 
 import PortfolioControls from '../components/PortfolioControls.jsx';
 import { I18nProvider } from '../i18n/I18nProvider.jsx';
+import { createTestQueryClient } from './test-utils';
 
 function Wrapper({
   initialPortfolioId = 'demo',
@@ -12,16 +14,19 @@ function Wrapper({
   onLoad = async () => {},
 }) {
   const [portfolioId, setPortfolioId] = useState(initialPortfolioId);
+  const [queryClient] = useState(() => createTestQueryClient());
 
   return (
-    <I18nProvider>
-      <PortfolioControls
-        portfolioId={portfolioId}
-        onPortfolioIdChange={setPortfolioId}
-        onSave={onSave}
-        onLoad={onLoad}
-      />
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <PortfolioControls
+          portfolioId={portfolioId}
+          onPortfolioIdChange={setPortfolioId}
+          onSave={onSave}
+          onLoad={onLoad}
+        />
+      </I18nProvider>
+    </QueryClientProvider>
   );
 }
 

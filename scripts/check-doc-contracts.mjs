@@ -24,10 +24,6 @@ const ACTIVE_DOCS = [
 
 const FORBIDDEN_PHRASES = [
   {
-    phrase: 'better-sqlite3',
-    reason: 'storage is implemented through sql.js-backed JsonTableStorage in the current repo.',
-  },
-  {
     phrase: 'tools/node-v24.15.0-linux-x64',
     reason: 'the repo no longer ships a bundled local Node runtime at that path.',
   },

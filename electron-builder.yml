@@ -19,6 +19,8 @@ files:
 
 # Don't include dev files
 asar: true
+asarUnpack:
+  - "node_modules/better-sqlite3/**"
 
 # Exact Electron version (must match devDependency, electron-builder cannot resolve ranges)
 electronVersion: "41.0.3"

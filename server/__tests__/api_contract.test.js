@@ -10,7 +10,7 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import pino from 'pino';
 
-import JsonTableStorage from '../data/storage.js';
+import HybridStorage from '../data/hybridStorage.js';
 import { buildFastifyApp, request } from './helpers/fastifyTestApp.js';
 
 const noopLogger = pino({ level: 'silent' });
@@ -62,7 +62,7 @@ before(async () => {
 
 beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'api-contract-'));
-  storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  storage = new HybridStorage({ dataDir, logger: noopLogger });
   await storage.ensureTable('transactions', []);
   await storage.ensureTable('cash_rates', []);
   await storage.ensureTable('returns_daily', []);

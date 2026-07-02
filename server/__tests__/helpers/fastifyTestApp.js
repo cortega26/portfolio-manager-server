@@ -35,6 +35,7 @@ import {
   createConfiguredLatestQuoteProvider,
 } from '../../data/priceProviderFactory.js';
 import createHistoricalPriceLoader from '../../services/historicalPriceLoader.js';
+import NativePriceStore from '../../data/nativePriceStore.js';
 import JsonTableStorage from '../../data/storage.js';
 import { normalizeBenchmarkConfig } from '../../../shared/benchmarks.js';
 
@@ -54,26 +55,36 @@ const noopHistoricalPriceLoader = {
 // ── Adapter: Express priceProvider → Fastify historicalPriceLoader ────────────
 
 /**
- * Creates a persistedLatestCloseLookup function backed by the test's SQLite storage.
- * Reads the 'prices' table and returns the latest row for the given symbol.
+ * Creates a persistedLatestCloseLookup that tries the native
+ * better-sqlite3 price store first, then falls back to the sql.js
+ * JsonTableStorage for backward compatibility with tests that populate
+ * the `prices` table via the legacy storage layer.
  */
 function makePersistedLatestCloseLookup(testDataDir, logger) {
-  const storage = new JsonTableStorage({
+  const priceStore = new NativePriceStore({
+    dataDir: testDataDir,
+    logger: logger ?? pino({ level: 'silent' }),
+  });
+  const jsonStore = new JsonTableStorage({
     dataDir: testDataDir,
     logger: logger ?? pino({ level: 'silent' }),
   });
   return async (symbol) => {
     try {
-      const rows = await storage.readTable('prices');
+      // Try native store first — single indexed query
+      const row = priceStore.readLatestByTicker(symbol);
+      if (row) return row;
+
+      // Fall back to legacy sql.js storage for tests that write prices
+      // directly via JsonTableStorage
+      const rows = await jsonStore.readTable('prices');
       if (!Array.isArray(rows)) return null;
       const matching = rows
         .filter(
-          (row) =>
-            typeof row?.ticker === 'string' && row.ticker.toUpperCase() === symbol.toUpperCase()
+          (r) => typeof r?.ticker === 'string' && r.ticker.toUpperCase() === symbol.toUpperCase()
         )
         .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-      const latest = matching[matching.length - 1];
-      return latest ?? null;
+      return matching[matching.length - 1] ?? null;
     } catch {
       return null;
     }

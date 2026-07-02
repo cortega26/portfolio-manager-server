@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import {
   fetchPortfolioList,
   createPortfolio,
@@ -6,62 +8,74 @@ import {
   renamePortfolio,
   duplicatePortfolio,
 } from '../utils/api.js';
+import { queryKeys } from '../lib/queryKeys.js';
 
 export function usePortfolioList() {
-  const [portfolios, setPortfolios] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const listQuery = useQuery({
+    queryKey: queryKeys.portfolios,
+    queryFn: async () => {
       const result = await fetchPortfolioList();
-      setPortfolios(result?.portfolios ?? []);
-    } catch (err) {
-      setError(err.message || 'Failed to load portfolios');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return result?.portfolios ?? [];
+    },
+    staleTime: 30 * 60 * 1000, // 30 min — portfolio list changes infrequently
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: queryKeys.portfolios }),
+    [queryClient]
+  );
+
+  const refresh = useCallback(() => {
+    return queryClient.refetchQueries({ queryKey: queryKeys.portfolios });
+  }, [queryClient]);
+
+  const createMutation = useMutation({
+    mutationFn: ({ id, displayName } = {}) => createPortfolio({ id, displayName }),
+    onSuccess: invalidate,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => deletePortfolio(id),
+    onSuccess: invalidate,
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, displayName }) => renamePortfolio(id, displayName),
+    onSuccess: invalidate,
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: ({ id, newId }) => duplicatePortfolio(id, newId),
+    onSuccess: invalidate,
+  });
 
   const create = useCallback(
-    async ({ id, displayName } = {}) => {
-      const result = await createPortfolio({ id, displayName });
-      await refresh();
-      return result;
-    },
-    [refresh]
+    async (params) => createMutation.mutateAsync(params),
+    [createMutation]
   );
 
-  const remove = useCallback(
-    async (id) => {
-      await deletePortfolio(id);
-      await refresh();
-    },
-    [refresh]
-  );
+  const remove = useCallback(async (id) => deleteMutation.mutateAsync(id), [deleteMutation]);
 
   const rename = useCallback(
-    async (id, displayName) => {
-      await renamePortfolio(id, displayName);
-      await refresh();
-    },
-    [refresh]
+    async (id, displayName) => renameMutation.mutateAsync({ id, displayName }),
+    [renameMutation]
   );
 
   const duplicate = useCallback(
-    async (id, newId) => {
-      const result = await duplicatePortfolio(id, newId);
-      await refresh();
-      return result;
-    },
-    [refresh]
+    async (id, newId) => duplicateMutation.mutateAsync({ id, newId }),
+    [duplicateMutation]
   );
 
-  return { portfolios, loading, error, refresh, create, remove, rename, duplicate };
+  return {
+    portfolios: listQuery.data ?? [],
+    loading: listQuery.isLoading,
+    error: listQuery.error?.message ?? null,
+    refresh,
+    create,
+    remove,
+    rename,
+    duplicate,
+  };
 }

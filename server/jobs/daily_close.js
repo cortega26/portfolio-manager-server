@@ -132,15 +132,31 @@ function buildPriceMaps(records, tickers, dates) {
 
 async function ensurePrices({ storage, provider, tickers, from, to, logger }) {
   const dates = listDates(from, to);
-  const prices = await storage.readTable('prices');
+
+  // Use native relational query when available — reads only tracked
+  // tickers within the date window instead of loading the full table.
+  const priceStore = storage?.getPriceStore?.();
+  const prices = priceStore
+    ? priceStore.readByTickersAndRange(
+        tickers.filter((t) => t !== 'CASH'),
+        from,
+        to
+      )
+    : await storage.readTable('prices');
   const existing = new Set(prices.map((row) => `${row.ticker}_${row.date}`));
+
+  // Batch accumulators for native store optimization
+  const cashRows = [];
+  const fetchedRows = [];
+
   for (const ticker of tickers) {
     if (ticker === 'CASH') {
       for (const date of dates) {
-        await storage.upsertRow('prices', { ticker: 'CASH', date, adj_close: 1 }, [
-          'ticker',
-          'date',
-        ]);
+        const key = `CASH_${date}`;
+        if (!existing.has(key)) {
+          cashRows.push({ ticker: 'CASH', date, adj_close: 1 });
+          existing.add(key);
+        }
       }
       continue;
     }
@@ -168,11 +184,27 @@ async function ensurePrices({ storage, provider, tickers, from, to, logger }) {
       });
     }
     for (const item of fetched) {
-      await storage.upsertRow(
-        'prices',
-        { ticker, date: item.date, adj_close: Number(item.adjClose) },
-        ['ticker', 'date']
-      );
+      fetchedRows.push({
+        ticker,
+        date: item.date,
+        adj_close: Number(item.adjClose),
+      });
+    }
+  }
+
+  // Write in batch via native store when available — single transaction
+  // instead of per-row upserts.
+  if (priceStore) {
+    const allRows = [...cashRows, ...fetchedRows];
+    if (allRows.length > 0) {
+      priceStore.upsertBatch(allRows);
+    }
+  } else {
+    for (const row of cashRows) {
+      await storage.upsertRow('prices', row, ['ticker', 'date']);
+    }
+    for (const row of fetchedRows) {
+      await storage.upsertRow('prices', row, ['ticker', 'date']);
     }
   }
 }
@@ -245,6 +277,7 @@ export async function runDailyClose({
   priceProvider,
   config,
   notificationMailer,
+  storage: externalStorage = null,
 } = {}) {
   const targetDate = new Date(`${toDateKey(date)}T00:00:00Z`);
   if (!isTradingDay(targetDate)) {
@@ -253,7 +286,7 @@ export async function runDailyClose({
     });
     return { skipped: true };
   }
-  const storage = await runMigrations({ dataDir, logger });
+  const storage = externalStorage ?? (await runMigrations({ dataDir, logger }));
   const targetDateKey = toDateKey(targetDate);
   const previousDate = toDateKey(
     new Date(new Date(`${targetDateKey}T00:00:00Z`).getTime() - MS_PER_DAY)
@@ -340,7 +373,16 @@ export async function runDailyClose({
     logger,
   });
 
-  const priceRecords = await storage.readTable('prices');
+  // Use native relational query when available — reads only tracked
+  // tickers within the 2-day window instead of loading the full table.
+  const priceStore = storage?.getPriceStore?.();
+  const priceRecords = priceStore
+    ? priceStore.readByTickersAndRange(
+        Array.from(tickers).filter((t) => t !== 'CASH'),
+        previousDate,
+        targetDateKey
+      )
+    : await storage.readTable('prices');
   const pricesByDate = buildPriceMaps(priceRecords, Array.from(tickers), [
     previousDate,
     targetDateKey,

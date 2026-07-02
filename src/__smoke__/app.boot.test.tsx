@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
 
 import App from '../App.jsx';
 import { I18nProvider } from '../i18n/I18nProvider.jsx';
+import { createTestQueryClient } from '../__tests__/test-utils';
 
 vi.mock('../utils/api.js', () => ({
   fetchBulkPrices: vi.fn(async () => ({ series: new Map(), errors: {} })),
@@ -23,15 +25,18 @@ vi.mock('../components/DashboardTab.jsx', () => ({
 }));
 
 function renderWithProviders(initialEntries: string[]) {
+  const queryClient = createTestQueryClient();
   return render(
-    <I18nProvider>
-      <MemoryRouter
-        initialEntries={initialEntries}
-        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-      >
-        <App />
-      </MemoryRouter>
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <MemoryRouter
+          initialEntries={initialEntries}
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
+          <App />
+        </MemoryRouter>
+      </I18nProvider>
+    </QueryClientProvider>
   );
 }
 

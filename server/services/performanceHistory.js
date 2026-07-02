@@ -818,7 +818,14 @@ export function createPerformanceHistoryService({
           .toUpperCase()
       )
       .filter((ticker) => ticker.length > 0 && ticker !== 'CASH');
-    const existingRows = await storage.readTable('prices');
+
+    // Use native relational query when available — reads only the needed
+    // tickers and date range instead of loading the entire prices table.
+    const priceStore = storage?.getPriceStore?.();
+    const existingRows = priceStore
+      ? priceStore.readByTickersAndRange(normalizedTickers, from, to)
+      : (await storage.readTable('prices')).filter((row) => row?.date >= from && row?.date <= to);
+
     const rowsByTicker = new Map();
     for (const row of existingRows) {
       const ticker = String(row?.ticker ?? '')
@@ -869,9 +876,16 @@ export function createPerformanceHistoryService({
       })
     );
 
-    for (const rows of fetchedRows) {
-      for (const row of rows) {
-        await storage.upsertRow('prices', row, ['ticker', 'date']);
+    // Batch upsert via native store when available — single transaction
+    // instead of per-row upserts.
+    const allFetchedRows = fetchedRows.flat();
+    if (priceStore && allFetchedRows.length > 0) {
+      priceStore.upsertBatch(allFetchedRows);
+    } else {
+      for (const rows of fetchedRows) {
+        for (const row of rows) {
+          await storage.upsertRow('prices', row, ['ticker', 'date']);
+        }
       }
     }
 
@@ -900,9 +914,14 @@ export function createPerformanceHistoryService({
 
     await ensurePriceCoverage(storage, Array.from(trackedTickers), from, to);
 
-    const priceRecords = (await storage.readTable('prices')).filter(
-      (row) => typeof row?.date === 'string' && row.date >= from && row.date <= to
-    );
+    // Use native relational query when available — reads only the tracked
+    // tickers within the date window instead of loading the full table.
+    const priceStore = storage?.getPriceStore?.();
+    const priceRecords = priceStore
+      ? priceStore.readByTickersAndRange(Array.from(trackedTickers), from, to)
+      : (await storage.readTable('prices')).filter(
+          (row) => typeof row?.date === 'string' && row.date >= from && row.date <= to
+        );
     const dates = normalizePriceRecords(priceRecords)
       .filter((row) => trackedTickers.has(row.ticker) && row.date >= from && row.date <= to)
       .map((row) => row.date);
@@ -1187,7 +1206,12 @@ export function createPerformanceHistoryService({
     let returnRows = allReturnRows
       .filter((row) => row.date >= effectiveFrom && row.date <= effectiveTo)
       .sort((left, right) => left.date.localeCompare(right.date));
-    const allPriceRows = await storage.readTable('prices');
+    // Use native relational query to read only QQQ prices in the window
+    // instead of loading the entire prices table.
+    const priceStore = storage?.getPriceStore?.();
+    const allPriceRows = priceStore
+      ? priceStore.readByTickersAndRange(['QQQ'], effectiveFrom, effectiveTo)
+      : await storage.readTable('prices');
     const needsQqqRepair =
       hasFlatZeroBenchmarkSeries(returnRows, 'r_qqq_100') &&
       benchmarkPriceHistoryMoved(allPriceRows, 'QQQ', effectiveFrom, effectiveTo);

@@ -6,7 +6,6 @@ import type { AddressInfo } from 'net';
 
 import pino from 'pino';
 import type { Logger } from 'pino';
-import fetch from 'node-fetch';
 
 import { createFastifyApp } from '../app.fastify.js';
 import type { HistoricalPriceLoader } from '../routes/prices.js';
@@ -19,7 +18,7 @@ import {
 } from '../data/priceProviderFactory.js';
 import { createProviderHealthMonitor } from '../data/providerHealth.js';
 import { createHistoricalPriceLoader } from '../services/historicalPriceLoader.js';
-import JsonTableStorage from '../data/storage.js';
+import NativePriceStore from '../data/nativePriceStore.js';
 import { getMarketClock } from '../../src/utils/marketHours.js';
 
 export const DEFAULT_SESSION_AUTH_HEADER = 'x-session-token';
@@ -196,29 +195,20 @@ export async function startServer({
     logger: appLogger,
   });
 
-  // Lazy persisted-close lookup — reads the 'prices' table as a last-resort
-  // fallback when live providers are unavailable (mirrors app.js behavior).
-  let storageInstance: InstanceType<typeof JsonTableStorage> | null = null;
+  // Lazy persisted-close lookup — reads the `prices` table via the native
+  // better-sqlite3 store as a last-resort fallback when live providers are
+  // unavailable.  Uses `readLatestByTicker` (single indexed query) instead of
+  // loading all rows and filtering in JS.
+  let priceStoreInstance: NativePriceStore | null = null;
   const persistedLatestCloseLookup = async (
     symbol: string
   ): Promise<Record<string, unknown> | null> => {
-    if (!storageInstance) {
-      storageInstance = new JsonTableStorage({ dataDir, logger: appLogger });
+    if (!priceStoreInstance) {
+      priceStoreInstance = new NativePriceStore({ dataDir, logger: appLogger });
     }
     try {
-      const rows = (await (
-        storageInstance as unknown as { readTable(t: string): Promise<unknown[]> }
-      ).readTable('prices')) as Array<Record<string, unknown>>;
-      if (!Array.isArray(rows)) return null;
-      const normalizedSymbol = typeof symbol === 'string' ? symbol.trim().toUpperCase() : '';
-      const matching = rows
-        .filter(
-          (row) =>
-            typeof row['ticker'] === 'string' &&
-            (row['ticker'] as string).toUpperCase() === normalizedSymbol
-        )
-        .sort((a, b) => String(a['date']).localeCompare(String(b['date'])));
-      return (matching[matching.length - 1] as Record<string, unknown>) ?? null;
+      const row = priceStoreInstance.readLatestByTicker(symbol);
+      return (row as Record<string, unknown>) ?? null;
     } catch {
       return null;
     }

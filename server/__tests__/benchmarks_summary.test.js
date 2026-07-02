@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { createSessionTestApp, request, closeApp } from './helpers/fastifyTestApp.js';
-import JsonTableStorage from '../data/storage.js';
+import HybridStorage from '../data/hybridStorage.js';
 
 const noopLogger = {
   info() {},
@@ -24,7 +24,7 @@ let storage;
 
 beforeEach(async () => {
   dataDir = mkdtempSync(path.join(tmpdir(), 'benchmarks-summary-'));
-  storage = new JsonTableStorage({ dataDir, logger: noopLogger });
+  storage = new HybridStorage({ dataDir, logger: noopLogger });
   await storage.ensureTable('returns_daily', []);
   await storage.ensureTable('nav_snapshots', []);
   await storage.ensureTable('transactions', []);

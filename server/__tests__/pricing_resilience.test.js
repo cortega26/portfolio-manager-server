@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 
 import pino from 'pino';
 
-import JsonTableStorage from '../data/storage.js';
+import NativePriceStore from '../data/nativePriceStore.js';
 import { createProviderHealthMonitor } from '../data/providerHealth.js';
 import { createConfiguredPriceProvider } from '../data/priceProviderFactory.js';
 import { createSessionTestApp, withSession, closeApp, request } from './helpers/fastifyTestApp.js';
@@ -24,9 +24,9 @@ afterEach(() => {
 });
 
 async function seedLatestClose(rows) {
-  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
-  await storage.ensureTable('prices', []);
-  await storage.writeTable('prices', rows);
+  const storage = new NativePriceStore({ dataDir, logger: silentLogger });
+  storage.open();
+  storage.upsertBatch(rows);
 }
 
 test('signals preview degrades to fresh EOD prices when alpaca live quotes fail auth', async () => {
@@ -245,12 +245,8 @@ test('signals preview prefers a fresh historical close over an older persisted c
   assert.equal(response.body.pricing.symbols.MSFT.latestQuoteAttempted, false);
   assert.equal(historicalCalls, 1);
 
-  const storage = new JsonTableStorage({ dataDir, logger: silentLogger });
-  const prices = await storage.readTable('prices');
-  const latestPersisted = prices
-    .filter((row) => row?.ticker === 'MSFT')
-    .sort((left, right) => String(left.date).localeCompare(String(right.date)))
-    .at(-1);
+  const priceStore = new NativePriceStore({ dataDir, logger: silentLogger });
+  const latestPersisted = priceStore.readLatestByTicker('MSFT');
   assert.equal(latestPersisted?.date, today);
   assert.equal(latestPersisted?.adj_close, 315.25);
   await closeApp(app);

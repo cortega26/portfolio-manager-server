@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+
 import { fetchBenchmarkSummary, fetchDailyRoi, fetchNavDaily } from '../utils/api.js';
 import { deriveBenchmarkSummaryWindow } from '../utils/portfolioManagerApp.js';
 import { mergeDailyRoiSeries } from '../utils/roi.js';
+import { queryKeys } from '../lib/queryKeys.js';
+import { DEFAULT_API_CACHE_TTL_SECONDS } from '../../shared/constants.js';
+
+const STALE_TIME_MS = DEFAULT_API_CACHE_TTL_SECONDS * 1000;
 
 export default function usePerformanceData({
   portfolioId,
@@ -9,262 +15,270 @@ export default function usePerformanceData({
   roiFallbackAlertsEnabled,
   t,
 }) {
-  const [roiData, setRoiData] = useState([]);
-  const [roiMeta, setRoiMeta] = useState(null);
-  const [roiSource, setRoiSource] = useState('api');
-  const [roiAlert, setRoiAlert] = useState(null);
-  const [loadingRoi, setLoadingRoi] = useState(false);
-  const [benchmarkSummary, setBenchmarkSummary] = useState(null);
-  const [returnsSummary, setReturnsSummary] = useState(null);
-  const [navDaily, setNavDaily] = useState([]);
-  const [roiRefreshKey, setRoiRefreshKey] = useState(0);
+  const queryClient = useQueryClient();
   const lastGoodRoiDataRef = useRef([]);
   const lastGoodBenchmarkSummaryRef = useRef(null);
 
-  const benchmarkSummaryWindow = useMemo(() => deriveBenchmarkSummaryWindow(roiData), [roiData]);
-
-  const refreshRoi = useCallback(() => {
-    setRoiRefreshKey((prev) => prev + 1);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const resolveRequestId = (error) => {
-      if (typeof error?.requestId === 'string' && error.requestId.trim().length > 0) {
-        return error.requestId;
-      }
-      return null;
-    };
-
-    const resolveErrorDetail = (error) => {
-      if (error?.body && typeof error.body === 'object' && typeof error.body.message === 'string') {
-        return error.body.message.trim();
-      }
-      if (typeof error?.message === 'string' && error.message.trim().length > 0) {
-        return error.message.trim();
-      }
-      return null;
-    };
-
-    async function loadRoi() {
-      if (transactions.length === 0) {
-        setRoiData([]);
-        lastGoodRoiDataRef.current = [];
-        setRoiMeta(null);
-        setRoiAlert(null);
-        setRoiSource('api');
-        return;
-      }
-
-      const orderedDates = transactions
+  // ── Derived pre-conditions ──────────────────────────────────────────────
+  const orderedDates = useMemo(
+    () =>
+      transactions
         .map((tx) => tx.date)
         .filter((date) => typeof date === 'string' && date.trim().length > 0)
-        .sort((a, b) => a.localeCompare(b));
-      if (orderedDates.length === 0) {
-        setRoiData([]);
-        lastGoodRoiDataRef.current = [];
-        setRoiMeta(null);
-        setRoiAlert(null);
-        setRoiSource('api');
-        return;
-      }
+        .sort((a, b) => a.localeCompare(b)),
+    [transactions]
+  );
 
-      const hasSecurityTransactions = transactions.some(
-        (tx) => typeof tx?.ticker === 'string' && tx.ticker.trim().length > 0
-      );
-      if (!hasSecurityTransactions) {
-        setRoiData([]);
-        lastGoodRoiDataRef.current = [];
-        setRoiMeta(null);
-        setRoiAlert(null);
-        setRoiSource('cash-only');
-        return;
-      }
+  const hasSecurityTransactions = useMemo(
+    () => transactions.some((tx) => typeof tx?.ticker === 'string' && tx.ticker.trim().length > 0),
+    [transactions]
+  );
 
-      setLoadingRoi(true);
-      try {
-        const { data, requestId } = await fetchDailyRoi({
-          portfolioId,
-          from: orderedDates[0],
-          to: new Date(),
-        });
-        const mergedSeries = mergeDailyRoiSeries(data?.series);
-        const nextRoiMeta = data?.meta ?? null;
-        if (!cancelled) {
-          setRoiData(mergedSeries);
-          setRoiMeta(nextRoiMeta);
-          lastGoodRoiDataRef.current = mergedSeries;
-          setRoiSource('api');
-          const unavailableBenchmarks = Array.isArray(nextRoiMeta?.benchmarkHealth?.unavailable)
-            ? nextRoiMeta.benchmarkHealth.unavailable
-            : [];
-          setRoiAlert(
-            unavailableBenchmarks.length > 0
-              ? {
-                  id: 'roi-benchmark-health',
-                  type: 'warning',
-                  message: t('alerts.roi.benchmarkUnavailable.title'),
-                  detail: t('alerts.roi.benchmarkUnavailable.detail', {
-                    benchmarks: unavailableBenchmarks.join(', '),
-                  }),
-                }
-              : null
-          );
-          if (requestId) {
-            setRoiAlert((current) =>
-              current && current.id === 'roi-fallback'
-                ? { ...current, resolvedRequestId: requestId }
-                : current
-            );
-          }
-        }
-      } catch (error) {
-        console.error(error);
-        if (cancelled) {
-          return;
-        }
-        const errorDetail = resolveErrorDetail(error);
-        if (lastGoodRoiDataRef.current.length > 0) {
-          setRoiData(lastGoodRoiDataRef.current);
-          setRoiSource('stale');
-          setRoiAlert(
-            roiFallbackAlertsEnabled
-              ? {
-                  id: 'roi-stale',
-                  type: 'warning',
-                  message: t('alerts.roi.stale'),
-                  detail: errorDetail,
-                  requestId: resolveRequestId(error),
-                }
-              : null
-          );
-          return;
-        }
-        setRoiData([]);
-        setRoiMeta(null);
-        setRoiSource('error');
-        setRoiAlert({
-          id: 'roi-unavailable',
-          type: 'error',
-          message: t('alerts.roi.unavailable'),
+  const roiEnabled = hasSecurityTransactions && transactions.length > 0;
+
+  // ── Helpers ─────────────────────────────────────────────────────────────
+  const resolveRequestId = (error) => {
+    if (typeof error?.requestId === 'string' && error.requestId.trim().length > 0) {
+      return error.requestId;
+    }
+    return null;
+  };
+
+  const resolveErrorDetail = (error) => {
+    if (error?.body && typeof error.body === 'object' && typeof error.body.message === 'string') {
+      return error.body.message.trim();
+    }
+    if (typeof error?.message === 'string' && error.message.trim().length > 0) {
+      return error.message.trim();
+    }
+    return null;
+  };
+
+  // ── ROI query ───────────────────────────────────────────────────────────
+  const roiQuery = useQuery({
+    queryKey: queryKeys.performance(portfolioId, orderedDates[0] ?? '', transactions.length),
+    queryFn: async ({ signal }) => {
+      const { data, requestId } = await fetchDailyRoi({
+        portfolioId,
+        from: orderedDates[0],
+        to: new Date(),
+        signal,
+      });
+      return { ...data, _requestId: requestId };
+    },
+    enabled: roiEnabled,
+    staleTime: STALE_TIME_MS,
+    placeholderData: keepPreviousData,
+  });
+
+  const mergedSeries = useMemo(() => mergeDailyRoiSeries(roiQuery.data?.series), [roiQuery.data]);
+
+  // Update last-good ref when query succeeds with non-empty data
+  if (roiQuery.isSuccess && mergedSeries.length > 0) {
+    lastGoodRoiDataRef.current = mergedSeries;
+  }
+
+  // ── Benchmark summary window (depends on merged ROI series) ─────────────
+  const benchmarkSummaryWindow = useMemo(
+    () => deriveBenchmarkSummaryWindow(mergedSeries),
+    [mergedSeries]
+  );
+
+  const benchEnabled = !!benchmarkSummaryWindow?.from && !!benchmarkSummaryWindow?.to;
+
+  // ── Benchmark summary query ─────────────────────────────────────────────
+  const benchmarkQuery = useQuery({
+    queryKey: queryKeys.benchmarkSummary(
+      portfolioId,
+      benchmarkSummaryWindow?.from ?? '',
+      benchmarkSummaryWindow?.to ?? ''
+    ),
+    queryFn: async ({ signal }) => {
+      const { data } = await fetchBenchmarkSummary({
+        portfolioId,
+        from: benchmarkSummaryWindow.from,
+        to: benchmarkSummaryWindow.to,
+        signal,
+      });
+      return data;
+    },
+    enabled: benchEnabled,
+    staleTime: STALE_TIME_MS,
+    placeholderData: keepPreviousData,
+  });
+
+  if (benchmarkQuery.isSuccess && benchmarkQuery.data) {
+    const moneyWeighted =
+      benchmarkQuery.data?.money_weighted && typeof benchmarkQuery.data.money_weighted === 'object'
+        ? benchmarkQuery.data.money_weighted
+        : null;
+    if (moneyWeighted) {
+      lastGoodBenchmarkSummaryRef.current = moneyWeighted;
+    }
+  }
+
+  // ── NAV daily query ─────────────────────────────────────────────────────
+  const navFrom =
+    mergedSeries.length > 0 && mergedSeries[0]?.date
+      ? mergedSeries[0].date
+      : benchmarkSummaryWindow?.from;
+
+  const navQuery = useQuery({
+    queryKey: queryKeys.navDaily(
+      portfolioId,
+      benchmarkSummaryWindow?.from ?? '',
+      benchmarkSummaryWindow?.to ?? ''
+    ),
+    queryFn: async ({ signal }) => {
+      const { data } = await fetchNavDaily({
+        portfolioId,
+        from: navFrom,
+        to: benchmarkSummaryWindow.to,
+        signal,
+      });
+      return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    },
+    enabled: benchEnabled && !!navFrom,
+    staleTime: STALE_TIME_MS,
+    placeholderData: keepPreviousData,
+  });
+
+  // ── Derived state (matches pre-TanStack return shape) ───────────────────
+
+  const roiData = useMemo(() => {
+    if (!roiEnabled) return [];
+    if (roiQuery.isSuccess) return mergedSeries;
+    if (roiQuery.isError && lastGoodRoiDataRef.current.length > 0) {
+      return lastGoodRoiDataRef.current;
+    }
+    if (roiQuery.data) return mergedSeries;
+    return [];
+  }, [roiEnabled, roiQuery.isSuccess, roiQuery.isError, roiQuery.data, mergedSeries]);
+
+  const roiMeta = useMemo(() => roiQuery.data?.meta ?? null, [roiQuery.data]);
+
+  const roiSource = useMemo(() => {
+    if (!hasSecurityTransactions && transactions.length === 0) return 'api';
+    if (!hasSecurityTransactions) return 'cash-only';
+    if (roiQuery.isSuccess) return 'api';
+    if (roiQuery.isError) {
+      return lastGoodRoiDataRef.current.length > 0 ? 'stale' : 'error';
+    }
+    if (roiQuery.data) return 'api';
+    return 'api';
+  }, [
+    hasSecurityTransactions,
+    transactions.length,
+    roiQuery.isSuccess,
+    roiQuery.isError,
+    roiQuery.data,
+  ]);
+
+  const roiAlert = useMemo(() => {
+    if (!roiEnabled) return null;
+
+    // Error state
+    if (roiQuery.isError) {
+      const errorDetail = resolveErrorDetail(roiQuery.error);
+      if (lastGoodRoiDataRef.current.length > 0 && roiFallbackAlertsEnabled) {
+        return {
+          id: 'roi-stale',
+          type: 'warning',
+          message: t('alerts.roi.stale'),
           detail: errorDetail,
-          requestId: resolveRequestId(error),
-        });
-      } finally {
-        if (!cancelled) {
-          setLoadingRoi(false);
-        }
+          requestId: resolveRequestId(roiQuery.error),
+        };
+      }
+      return {
+        id: 'roi-unavailable',
+        type: 'error',
+        message: t('alerts.roi.unavailable'),
+        detail: errorDetail,
+        requestId: resolveRequestId(roiQuery.error),
+      };
+    }
+
+    // Success — check benchmark health
+    if (roiQuery.isSuccess && roiMeta) {
+      const unavailableBenchmarks = Array.isArray(roiMeta?.benchmarkHealth?.unavailable)
+        ? roiMeta.benchmarkHealth.unavailable
+        : [];
+      if (unavailableBenchmarks.length > 0) {
+        return {
+          id: 'roi-benchmark-health',
+          type: 'warning',
+          message: t('alerts.roi.benchmarkUnavailable.title'),
+          detail: t('alerts.roi.benchmarkUnavailable.detail', {
+            benchmarks: unavailableBenchmarks.join(', '),
+          }),
+        };
       }
     }
 
-    loadRoi();
+    return null;
+  }, [
+    roiEnabled,
+    roiQuery.isSuccess,
+    roiQuery.isError,
+    roiQuery.error,
+    roiMeta,
+    roiFallbackAlertsEnabled,
+    t,
+  ]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [portfolioId, roiFallbackAlertsEnabled, roiRefreshKey, t, transactions]);
+  // ── Benchmark & returns summary ────────────────────────────────────────
 
-  useEffect(() => {
-    if (!benchmarkSummaryWindow?.from || !benchmarkSummaryWindow?.to) {
-      lastGoodBenchmarkSummaryRef.current = null;
-      setBenchmarkSummary(null);
-      setReturnsSummary(null);
-      setNavDaily([]);
-      return undefined;
+  const benchmarkSummary = useMemo(() => {
+    if (benchmarkQuery.isSuccess && benchmarkQuery.data) {
+      const moneyWeighted =
+        benchmarkQuery.data?.money_weighted &&
+        typeof benchmarkQuery.data.money_weighted === 'object'
+          ? benchmarkQuery.data.money_weighted
+          : null;
+      return moneyWeighted;
     }
-
-    let cancelled = false;
-    const controller = new AbortController();
-
-    async function loadBenchmarkSummary() {
-      try {
-        const response = await fetchBenchmarkSummary({
-          portfolioId,
-          from: benchmarkSummaryWindow.from,
-          to: benchmarkSummaryWindow.to,
-          signal: controller.signal,
-        });
-        const data = response?.data ?? null;
-        if (cancelled) {
-          return;
-        }
-        const moneyWeightedSummary =
-          data?.money_weighted && typeof data.money_weighted === 'object'
-            ? data.money_weighted
-            : null;
-        setBenchmarkSummary(moneyWeightedSummary);
-        const summary = data?.summary && typeof data.summary === 'object' ? data.summary : null;
-        const maxDrawdown =
-          data?.max_drawdown && typeof data.max_drawdown === 'object' ? data.max_drawdown : null;
-        const sharpeRatio = data?.sharpe_ratio;
-        const currentDrawdown = data?.current_drawdown;
-        const rollingReturns = data?.rolling_returns;
-        setReturnsSummary(
-          summary
-            ? {
-                ...summary,
-                max_drawdown: maxDrawdown,
-                sharpe_ratio: sharpeRatio,
-                current_drawdown: currentDrawdown,
-                rolling_returns: rollingReturns,
-              }
-            : null
-        );
-        lastGoodBenchmarkSummaryRef.current = moneyWeightedSummary;
-      } catch (error) {
-        if (controller.signal.aborted || cancelled) {
-          return;
-        }
-        console.warn('Failed to load benchmark summary', error);
-        if (!lastGoodBenchmarkSummaryRef.current) {
-          setBenchmarkSummary(null);
-          setReturnsSummary(null);
-        }
-      }
+    if (benchmarkQuery.isError && lastGoodBenchmarkSummaryRef.current) {
+      return lastGoodBenchmarkSummaryRef.current;
     }
+    return null;
+  }, [benchmarkQuery.isSuccess, benchmarkQuery.isError, benchmarkQuery.data]);
 
-    async function loadNavDaily() {
-      try {
-        const navFrom =
-          Array.isArray(roiData) && roiData.length > 0 && roiData[0]?.date
-            ? roiData[0].date
-            : benchmarkSummaryWindow.from;
-        const { data } = await fetchNavDaily({
-          portfolioId,
-          from: navFrom,
-          to: benchmarkSummaryWindow.to,
-          signal: controller.signal,
-        });
-        const navRows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
-        if (!cancelled && navRows.length > 0) {
-          setNavDaily(navRows);
+  const returnsSummary = useMemo(() => {
+    if (!benchmarkQuery.isSuccess || !benchmarkQuery.data) return null;
+    const d = benchmarkQuery.data;
+    const summary = d?.summary && typeof d.summary === 'object' ? d.summary : null;
+    const maxDrawdown =
+      d?.max_drawdown && typeof d.max_drawdown === 'object' ? d.max_drawdown : null;
+    const sharpeRatio = d?.sharpe_ratio;
+    const currentDrawdown = d?.current_drawdown;
+    const rollingReturns = d?.rolling_returns;
+    return summary
+      ? {
+          ...summary,
+          max_drawdown: maxDrawdown,
+          sharpe_ratio: sharpeRatio,
+          current_drawdown: currentDrawdown,
+          rolling_returns: rollingReturns,
         }
-      } catch {
-        if (!cancelled) {
-          setNavDaily([]);
-        }
-      }
-    }
+      : null;
+  }, [benchmarkQuery.isSuccess, benchmarkQuery.data]);
 
-    void loadBenchmarkSummary();
-    void loadNavDaily();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [benchmarkSummaryWindow, portfolioId, roiData]);
+  // ── refreshRoi — invalidate all performance queries for this portfolio ──
+  const refreshRoi = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.portfolio(portfolioId),
+    });
+  }, [portfolioId, queryClient]);
 
   return {
     roiData,
     roiMeta,
     roiSource,
     roiAlert,
-    loadingRoi,
+    loadingRoi: roiQuery.isLoading,
     benchmarkSummary,
     returnsSummary,
-    navDaily,
+    navDaily: navQuery.data ?? [],
     refreshRoi,
   };
 }

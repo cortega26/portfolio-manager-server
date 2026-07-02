@@ -1,4 +1,4 @@
-import JsonTableStorage from '../data/storage.js';
+import HybridStorage from '../data/hybridStorage.js';
 import { atomicWriteFile } from '../utils/atomicStore.js';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -180,8 +180,8 @@ async function writeStateFile(filePath, state) {
   await atomicWriteFile(filePath, serialized);
 }
 
-export async function runMigrations({ dataDir, logger }) {
-  const storage = new JsonTableStorage({ dataDir, logger });
+export async function runMigrations({ dataDir, logger, storage: externalStorage = null }) {
+  const storage = externalStorage ?? new HybridStorage({ dataDir, logger });
   const statePath = path.join(dataDir, '_migrations_state.json');
   const state = await readStateFile(statePath);
   const appliedSet = new Set(state.applied ?? []);

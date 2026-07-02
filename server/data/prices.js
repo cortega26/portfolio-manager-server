@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 import { toDateKey } from '../finance/cash.js';
 
 const STOOQ_SYMBOL_ALIASES = Object.freeze({

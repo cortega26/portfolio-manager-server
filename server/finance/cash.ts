@@ -1,5 +1,5 @@
 // server/finance/cash.ts
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 
 import { ZERO, d, fromCents, roundDecimal, toCents } from './decimal.js';
 import type { Decimal } from 'decimal.js';
@@ -659,5 +659,5 @@ export function transactionIsExternal(tx: { type?: string }): boolean {
 }
 
 export function generateTransactionId(): string {
-  return uuidv4();
+  return randomUUID();
 }
