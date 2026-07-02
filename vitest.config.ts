@@ -7,7 +7,6 @@ export default defineConfig({
     css: true,
     fileParallelism: false,
     maxWorkers: '50%',
-    minWorkers: 1,
     execArgv: ['--max-old-space-size=4096'],
     include: [
       'src/__tests__/**/*.{test,spec}.{ts,tsx}',
