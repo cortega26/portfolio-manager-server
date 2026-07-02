@@ -228,6 +228,7 @@ export function loadConfig(env = process.env) {
         alpacaApiKey: trimEnv(env.ALPACA_API_KEY),
         alpacaApiSecret: trimEnv(env.ALPACA_API_SECRET),
         alphavantageApiKey: trimEnv(env.ALPHAVANTAGE_API_KEY),
+        alpacaDataFeed: trimEnv(env.ALPACA_DATA_FEED) || 'iex',
       },
       latest: {
         provider: latestProvider,

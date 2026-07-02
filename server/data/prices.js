@@ -570,18 +570,32 @@ function resolveAlpacaSnapshotDate(payload) {
  * configuration is needed; set PRICE_PROVIDER_PRIMARY=alpaca.
  */
 export class AlpacaHistoricalProvider {
-  constructor({ fetchImpl = fetch, timeoutMs = 10000, logger, apiKey = '', apiSecret = '' } = {}) {
+  constructor({
+    fetchImpl = fetch,
+    timeoutMs = 10000,
+    logger,
+    apiKey = '',
+    apiSecret = '',
+    feed = 'iex',
+  } = {}) {
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.logger = normalizeLogger(logger, { provider: 'alpaca_hist' });
     this.apiKey = typeof apiKey === 'string' ? apiKey.trim() : '';
     this.apiSecret = typeof apiSecret === 'string' ? apiSecret.trim() : '';
     this.providerKey = 'alpaca';
+    // 'iex' (Investors Exchange) is the default feed.  Free-tier Alpaca
+    // accounts may only have access to 'sip'.  Override via the
+    // ALPACA_DATA_FEED environment variable if you need SIP.
+    this.feed = typeof feed === 'string' && feed.trim().length > 0 ? feed.trim() : 'iex';
   }
 
   async getDailyAdjustedClose(symbol, from, to) {
     if (!this.apiKey || !this.apiSecret) {
-      const error = new Error('Alpaca API credentials are required for historical prices');
+      const error = new Error(
+        'Alpaca API credentials are required for historical prices. ' +
+          'Set ALPACA_API_KEY and ALPACA_API_SECRET in your .env file.'
+      );
       error.code = 'PRICE_PROVIDER_MISCONFIGURED';
       throw error;
     }
@@ -591,7 +605,7 @@ export class AlpacaHistoricalProvider {
     url.searchParams.set('timeframe', '1Day');
     url.searchParams.set('start', toDateKey(from));
     url.searchParams.set('end', toDateKey(to));
-    url.searchParams.set('feed', 'iex');
+    url.searchParams.set('feed', this.feed);
     url.searchParams.set('adjustment', 'split');
     url.searchParams.set('limit', '10000');
 
@@ -611,11 +625,16 @@ export class AlpacaHistoricalProvider {
           throw createNoDataError(symbol);
         }
         const body = await response.text().catch(() => '');
+        const isAuthError = response.status === 401 || response.status === 403;
         const error = new Error(
-          `Failed to fetch historical prices for ${symbol}: ${body.slice(0, 120)}`
+          isAuthError
+            ? `Alpaca authentication failed (HTTP ${response.status}). ` +
+                'Verify ALPACA_API_KEY and ALPACA_API_SECRET in your .env file. ' +
+                'Free Alpaca accounts also need a funded brokerage account for data access.'
+            : `Failed to fetch historical prices for ${symbol}: ${body.slice(0, 120)}`
         );
         error.status = response.status;
-        if (response.status === 401 || response.status === 403) {
+        if (isAuthError) {
           error.code = 'PRICE_PROVIDER_AUTH_FAILED';
         }
         throw error;

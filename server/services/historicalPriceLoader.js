@@ -298,6 +298,38 @@ export function createHistoricalPriceLoader({
         };
       }
 
+      // When the market is closed and we only need the latest close, try the
+      // persisted database first.  The daily-close job stores every tracked
+      // ticker's last close in the `prices` table, which is the most reliable
+      // source when exchanges are not trading.  Only fall through to the
+      // external provider when the persisted data is missing or the date
+      // doesn't match the last trading day.
+      const marketClosed = latestOnly && !liveMarketOpen && !extendedHoursActive;
+      if (marketClosed) {
+        const persistedResolution = await resolvePersistedLatestClose({
+          warnings: resolutionWarnings,
+          latestQuoteAttempted: false,
+        });
+        if (persistedResolution) {
+          // A match against the last trading day means the persisted close is
+          // from the most recent session — exactly what we need when the
+          // exchange is closed.  We still run the standard freshness check
+          // (against today, not just the last trading day) so that ancient
+          // test fixtures don't masquerade as fresh data.
+          const persistedDate =
+            persistedResolution.prices[persistedResolution.prices.length - 1]?.date ?? null;
+          if (
+            persistedDate &&
+            typeof market?.lastTradingDate === 'string' &&
+            persistedDate === market.lastTradingDate &&
+            computeTradingDayAge(persistedDate) <=
+              Math.max(0, Number.isFinite(maxStaleTradingDays) ? maxStaleTradingDays : 3)
+          ) {
+            return persistedResolution;
+          }
+        }
+      }
+
       let historicalFetchError = null;
       try {
         const fetched = await priceProvider.getDailyAdjustedClose(
@@ -342,6 +374,9 @@ export function createHistoricalPriceLoader({
         });
       }
 
+      // Second-chance persisted fallback: if the external provider failed (or
+      // we skipped the market-closed pre-check because the data was stale), try
+      // the persisted lookup now, accepting any data regardless of freshness.
       const persistedResolution = await resolvePersistedLatestClose({
         warnings: resolutionWarnings,
         latestQuoteAttempted: latestQuoteEligible,
@@ -374,12 +409,13 @@ export function createHistoricalPriceLoader({
         };
       }
 
-      // When the market is closed and all live/cache/persisted fallbacks are
-      // exhausted for a latestOnly request, return a graceful "market_closed"
-      // resolution instead of throwing.  This lets the frontend display a
-      // meaningful status ("market closed, no cached data yet") rather than a
-      // hard error.  For full historical series requests (latestOnly=false)
-      // we always throw so the caller receives a proper 502 on provider failure.
+      // When the market is closed and every fallback (persisted lookup,
+      // external provider, cache) has been exhausted for a latestOnly request,
+      // return a graceful "market_closed" resolution instead of throwing.
+      // This lets the frontend display a meaningful status ("market closed,
+      // no cached data yet") rather than a hard error.  For full historical
+      // series requests (latestOnly=false) we always throw so the caller
+      // receives a proper 502 on provider failure.
       if (latestOnly && !liveMarketOpen && !extendedHoursActive) {
         return {
           prices: [],

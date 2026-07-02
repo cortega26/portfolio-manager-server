@@ -83,6 +83,8 @@ export interface PriceProvidersConfig {
   alpacaApiKey: string;
   alpacaApiSecret: string;
   alphavantageApiKey: string;
+  /** Alpaca market data feed: 'iex' (Investors Exchange, default) or 'sip' (free tier). */
+  alpacaDataFeed: string;
 }
 
 export interface LatestPriceConfig {

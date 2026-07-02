@@ -120,6 +120,7 @@ const HISTORICAL_PROVIDER_FACTORIES = {
       logger,
       apiKey: String(providersConfig.alpacaApiKey ?? ''),
       apiSecret: String(providersConfig.alpacaApiSecret ?? ''),
+      feed: String(providersConfig.alpacaDataFeed ?? 'iex'),
     }),
   alphavantage: ({ fetchImpl, timeoutMs, logger, providersConfig = {} }) =>
     new AlphaVantageHistoricalProvider({

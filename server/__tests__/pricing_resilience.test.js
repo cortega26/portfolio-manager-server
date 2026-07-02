@@ -306,9 +306,10 @@ test('signals preview falls back to the persisted last close after a historical 
   assert.equal(response.body.pricing.symbols.MSFT.status, 'eod_fresh');
   assert.equal(response.body.pricing.symbols.MSFT.source, 'persisted');
   assert.ok(response.body.pricing.symbols.MSFT.warnings.includes('LAST_CLOSE_FALLBACK_USED'));
-  assert.ok(response.body.pricing.symbols.MSFT.warnings.includes('HISTORICAL_CLOSE_FETCH_FAILED'));
   assert.equal(response.body.pricing.symbols.MSFT.latestQuoteAttempted, false);
-  assert.equal(historicalCalls, 1);
+  // With market-closed pre-check, the persisted close is returned before the
+  // external provider is even called — no HISTORICAL_CLOSE_FETCH_FAILED warning.
+  assert.equal(historicalCalls, 0);
   await closeApp(app);
 });
 
@@ -515,9 +516,10 @@ test('bulk latest pricing falls back to the persisted last close after a histori
   assert.equal(response.body.metadata.symbols.MSFT.status, 'eod_fresh');
   assert.equal(response.body.metadata.symbols.MSFT.source, 'persisted');
   assert.ok(response.body.metadata.symbols.MSFT.warnings.includes('LAST_CLOSE_FALLBACK_USED'));
-  assert.ok(response.body.metadata.symbols.MSFT.warnings.includes('HISTORICAL_CLOSE_FETCH_FAILED'));
   assert.equal(response.body.metadata.summary.status, 'eod_fresh');
-  assert.equal(historicalCalls, 1);
+  // With market-closed pre-check, the persisted close is returned before the
+  // external provider is even called — no HISTORICAL_CLOSE_FETCH_FAILED warning.
+  assert.equal(historicalCalls, 0);
   await closeApp(app);
 });
 

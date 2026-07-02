@@ -12,6 +12,7 @@ test('loadConfig provides default pricing, benchmarks, and scheduler settings', 
     alpacaApiKey: '',
     alpacaApiSecret: '',
     alphavantageApiKey: '',
+    alpacaDataFeed: 'iex',
   });
   assert.deepEqual(config.prices.latest, {
     provider: 'none',
@@ -48,6 +49,7 @@ test('loadConfig sanitizes provider names and benchmark selections', () => {
     alpacaApiKey: 'test-key',
     alpacaApiSecret: 'test-secret',
     alphavantageApiKey: '',
+    alpacaDataFeed: 'iex',
   });
   assert.deepEqual(config.prices.latest, {
     provider: 'alpaca',
