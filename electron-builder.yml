@@ -20,10 +20,10 @@ files:
 # Don't include dev files
 asar: true
 asarUnpack:
-  - "node_modules/better-sqlite3/**"
+  - 'node_modules/better-sqlite3/**'
 
 # Exact Electron version (must match devDependency, electron-builder cannot resolve ranges)
-electronVersion: "41.0.3"
+electronVersion: '41.0.3'
 
 linux:
   target:
@@ -32,4 +32,3 @@ linux:
   synopsis: Desktop Portfolio Manager
   description: Local-first desktop portfolio tracker with SQLite storage, price tracking, benchmarks, and signal notifications.
   maintainer: Carlos Ortega
-
