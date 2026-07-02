@@ -35,3 +35,6 @@ npm-debug.log*
 # Personal portfolio data
 /*.csv
 
+# CodeGraph daemon PID (changes on every daemon restart)
+.codegraph/daemon.pid
+
